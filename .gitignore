@@ -1,0 +1,10 @@
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.secret.auto.tfvars
+.env
+.provider-build/
+.tofu-provider-mirror/
+crash.log
+# Commit .terraform.lock.hcl after you add external providers.

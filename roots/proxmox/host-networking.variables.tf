@@ -1,0 +1,1 @@
+../../inventory/schema/host-networking.tf
