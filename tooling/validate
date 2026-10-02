@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+##?????
+set -euo pipefail
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+command -v tofu >/dev/null || { printf 'Install OpenTofu first.\n' >&2; exit 1; }
+for root in proxmox fabric-vms fabric-leaves fabric-spines network-services workloads; do
+  printf '\nChecking %s\n' "$root"
+  tofu -chdir="$repo_dir/roots/$root" init -backend=false -input=false
+  tofu -chdir="$repo_dir/roots/$root" validate
+ done
