@@ -1,0 +1,9 @@
+provider_installation {
+  dev_overrides {
+    "local/mechanic/proxmox"  = "@PROXMOX@"
+    "local/mechanic/vyoscmd"  = "@VYOSCMD@"
+    "local/mechanic/routeros" = "@ROUTEROS@"
+  }
+
+  direct {}
+}

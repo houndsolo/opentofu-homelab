@@ -1,0 +1,10 @@
+provider_installation {
+  filesystem_mirror {
+    path    = "@MIRROR@"
+    include = ["local/mechanic/*"]
+  }
+
+  direct {
+    exclude = ["local/mechanic/*"]
+  }
+}

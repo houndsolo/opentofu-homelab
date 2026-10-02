@@ -1,6 +1,16 @@
 variable "fabric" {
   description = "Example overlay settings and fabric members."
   type = object({
+    settings = object({
+      bgp_system_as                     = number
+      spine_as                          = number
+      loopback_ipv4_prefix              = string
+      loopback_ipv6_prefix              = string
+      loopback_interface                = string
+      vyos_mgmt_prefix                  = string
+      vyos_mgmt_cidr                    = number
+      l2_vni_base                       = number
+    })
     overlay_as = number
     leaves = map(object({
       management_ip = string

@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Build local providers without changing their submodule worktrees."""
+import argparse
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+repo = Path(__file__).resolve().parents[1]
+manifest = json.loads((repo / "tooling/provider-manifest.json").read_text())
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("providers", nargs="*", metavar="PROVIDER", help="proxmox, vyoscmd, routeros; omit to build all")
+args = parser.parse_args()
+unknown = set(args.providers) - manifest.keys()
+if unknown:
+    parser.error(f"Unknown providers: {', '.join(sorted(unknown))}")
+go = shutil.which("go")
+if not go:
+    parser.error("Go >= 1.26.0 is required; run nix-shell --run 'tooling/build-providers'")
+platform = subprocess.check_output([go, "env", "GOOS", "GOARCH"], text=True).split()
+target = "_".join(platform)
+out = repo / ".provider-build" / target
+out.mkdir(parents=True, exist_ok=True)
+for name in args.providers or manifest:
+    source = repo / "providers" / f"terraform-provider-{name}"
+    if not (source / "go.mod").is_file():
+        parser.error(f"{source} is not initialized; run git submodule update --init --recursive")
+    status = subprocess.check_output(["git", "-C", str(source), "status", "--porcelain"], text=True)
+    if status:
+        print(f"WARNING: building {name} with preserved local changes; not reproducible from the gitlink alone", flush=True)
+    # A source copy allows Go to generate missing go.sum without editing dependencies.
+    with tempfile.TemporaryDirectory(prefix=f"tofu-{name}-") as tmp:
+        build = Path(tmp) / "src"
+        shutil.copytree(source, build, ignore=shutil.ignore_patterns(".git", ".terraform", "terraform-provider-*"))
+        binary = out / f"terraform-provider-{name}_v{manifest[name]['version']}"
+        try:
+            subprocess.run([go, "build", "-mod=mod", "-trimpath", "-o", str(binary), "."], cwd=build, check=True)
+        except subprocess.CalledProcessError as error:
+            parser.exit(error.returncode, f"Build failed for {name}; no installation was performed.\n")
+        metadata = {
+            "commit": subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip(),
+            "dirty": bool(status), "platform": target, **manifest[name],
+        }
+        binary.with_suffix(".build.json").write_text(json.dumps(metadata, indent=2) + "\n")
+        print(binary, flush=True)

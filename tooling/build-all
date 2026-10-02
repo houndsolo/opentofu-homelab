@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Build and install selected providers, or all providers when no names are given."""
+import argparse
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+repo = Path(__file__).resolve().parents[1]
+manifest = json.loads((repo / "tooling/provider-manifest.json").read_text())
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("providers", nargs="*", metavar="PROVIDER", help="proxmox, vyoscmd, routeros; default: all")
+args = parser.parse_args()
+unknown = set(args.providers) - manifest.keys()
+if unknown:
+    parser.error(f"Unknown providers: {', '.join(sorted(unknown))}")
+go = shutil.which("go")
+if not go:
+    parser.error("Go >= 1.26.0 is required; run nix-shell --run 'tooling/build-all'")
+try:
+    # Match the builder's GOOS/GOARCH rather than assuming the host architecture.
+    target = "_".join(subprocess.check_output([go, "env", "GOOS", "GOARCH"], text=True).split())
+    subprocess.run([sys.executable, str(repo / "tooling/build-providers"), *args.providers], check=True)
+    subprocess.run([sys.executable, str(repo / "tooling/install-providers"), "--platform", target, *args.providers], check=True)
+except subprocess.CalledProcessError as error:
+    sys.exit(error.returncode)

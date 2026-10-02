@@ -1,0 +1,9 @@
+provider_installation {
+  dev_overrides {
+    "local/mechanic/proxmox"  = "/home/mechanic/network_automation/tofu/opentofu-homelab/.tofu-provider-mirror/local/mechanic/proxmox/0.111.0/linux_amd64"
+    "local/mechanic/vyoscmd"  = "/home/mechanic/network_automation/tofu/opentofu-homelab/.tofu-provider-mirror/local/mechanic/vyoscmd/0.1.0/linux_amd64"
+    "local/mechanic/routeros" = "/home/mechanic/network_automation/tofu/opentofu-homelab/.tofu-provider-mirror/local/mechanic/routeros/1.99.1/linux_amd64"
+  }
+
+  direct {}
+}
