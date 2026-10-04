@@ -1,7 +1,4 @@
-# Host-side networking intent for the hypervisor fleet, organized as reusable
-# profiles. Which profile a host uses is assigned per host in nodes.auto.tfvars
-# (nodes.proxmox.<name>.network_profile); per-host addresses are derived from
-# node IDs against the bridge/VLAN prefixes below.
+# Host-side networking intent for the hypervisor fleet
 pve_network = {
   eths = {
     0 = {

@@ -1,9 +1,7 @@
-# Add a host networking module here when you are ready.
-locals {
-  node_networking = {
-    for name, node in var.nodes : name => {
-      management_ip = node.management_ip
-      profile = var.host_networking[node.network_profile]
-    }
-  }
+module "pve_settings" {
+  source   = "../../modules/proxmox/settings"
+  for_each = var.nodes.proxmox
+
+  node_name   = each.key
+  node_id     = each.value.id
 }

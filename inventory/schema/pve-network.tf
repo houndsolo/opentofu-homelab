@@ -1,5 +1,5 @@
 variable "pve_network" {
-  description = "Reusable host-side networking profiles; hosts select one via nodes.proxmox.<name>.network_profile."
+  description = "Proxmox cluster network profiles"
   type = object({
     eths = map(object({
       mtu         = number
