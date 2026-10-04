@@ -1,0 +1,14 @@
+{
+  "proxmox": {
+    "source": "local/mechanic/proxmox",
+    "version": "0.111.0"
+  },
+  "vyoscmd": {
+    "source": "local/mechanic/vyoscmd",
+    "version": "0.1.0"
+  },
+  "routeros": {
+    "source": "local/mechanic/routeros",
+    "version": "1.99.1"
+  }
+}

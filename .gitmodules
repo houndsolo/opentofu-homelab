@@ -1,0 +1,9 @@
+[submodule "providers/terraform-provider-proxmox"]
+	path = providers/terraform-provider-proxmox
+	url = git@github.com:houndsolo/terraform-provider-proxmox.git
+[submodule "providers/terraform-provider-vyoscmd"]
+	path = providers/terraform-provider-vyoscmd
+	url = git@github.com:houndsolo/vibecoded-opentofu-vyos-provider.git
+[submodule "providers/terraform-provider-routeros"]
+	path = providers/terraform-provider-routeros
+	url = git@github.com:houndsolo/terraform-provider-routeros.git

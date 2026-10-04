@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Install built binaries into the separate mirror and render portable CLI configs."""
+import argparse
+import json
+from pathlib import Path
+import platform
+import shutil
+
+repo = Path(__file__).resolve().parents[1]
+manifest = json.loads((repo / "tooling/provider-manifest.json").read_text())
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("providers", nargs="*", metavar="PROVIDER", help="proxmox, vyoscmd, routeros; omit to install all")
+parser.add_argument("--platform", default=f"{platform.system().lower()}_{ {'x86_64': 'amd64', 'aarch64': 'arm64'}.get(platform.machine(), platform.machine()) }")
+args = parser.parse_args()
+unknown = set(args.providers) - manifest.keys()
+if unknown:
+    parser.error(f"Unknown providers: {', '.join(sorted(unknown))}")
+selected = args.providers or list(manifest)
+# Check the whole selection before installing anything; a missing build must not
+# leave a partially updated mirror merely because it was last in the manifest.
+for name in selected:
+    binary = repo / ".provider-build" / args.platform / f"terraform-provider-{name}_v{manifest[name]['version']}"
+    if not binary.is_file() or not binary.with_suffix(".build.json").is_file():
+        parser.error(f"Missing binary or metadata for {name}; run tooling/build-providers {name} first")
+mirror = repo / ".tofu-provider-mirror"
+replacements = {"@MIRROR@": str(mirror)}
+for name, item in manifest.items():
+    binary = repo / ".provider-build" / args.platform / f"terraform-provider-{name}_v{item['version']}"
+    # OpenTofu's unpacked mirror layout uses provider identity, not the Git URL.
+    # A fork can therefore keep the upstream provider address without a state rewrite.
+    destination = mirror / item["source"] / item["version"] / args.platform
+    # Render every identity, but do not require/build unselected providers.
+    # Other roots need their own provider installed before they can initialize.
+    replacements[f"@{name.upper()}@"] = str(destination)
+    if name not in selected:
+        continue
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(binary, destination / binary.name)
+    # Package hashes include this metadata too: rebuilding from a newly committed
+    # checkout can require a lock-hash refresh even when Go source is unchanged.
+    shutil.copy2(binary.with_suffix(".build.json"), destination / "build.json")
+for name in ("dev", "local-provider"):
+    text = (repo / "tooling" / f"{name}.tfrc").read_text()
+    for old, new in replacements.items():
+        # Escape paths for HCL quoted strings.
+        text = text.replace(old, json.dumps(new)[1:-1])
+    output = repo / "tooling" / f"{name}.generated.tfrc"
+    output.write_text(text)
+    print(output)

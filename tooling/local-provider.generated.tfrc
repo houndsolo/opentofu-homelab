@@ -1,0 +1,10 @@
+provider_installation {
+  filesystem_mirror {
+    path    = "/home/mechanic/network_automation/tofu/opentofu-homelab/.tofu-provider-mirror"
+    include = ["local/mechanic/*"]
+  }
+
+  direct {
+    exclude = ["local/mechanic/*"]
+  }
+}
