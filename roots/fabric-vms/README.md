@@ -14,7 +14,7 @@ The root loads these files through relative symlinks; preserve those links.
 shared naming, addressing, networking and resource settings. There is no separate
 leaf instance inventory.
 
-The module call loops directly over `nodes.proxmox`. Each node's map key supplies
+The VM module call loops directly over `nodes.proxmox`. Each node's map key supplies
 the Proxmox host name; its ID supplies the VM ID, management IP and stable MACs.
 For `fichina` with ID `11`, the example shared settings produce:
 
@@ -33,6 +33,11 @@ are inventory metadata; VM CPU counts come from `vm_config.cpu_cores`.
 Node IDs must be unique. Derived VM IDs must also be unique across other roots
 using the same cluster. Adding or removing a Proxmox node adds or removes its leaf
 VM in this root's plan.
+
+Ordered NICs and MACs come from `inventory/proxmox-interfaces`, also used by
+`fabric-leaves` to configure VyOS `hw-id`. The MAC formula exists only in that
+shared inventory module; separate roots calculate the same map from the same
+inventory files without reading one another's state.
 
 ## Run
 

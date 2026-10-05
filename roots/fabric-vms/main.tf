@@ -1,3 +1,10 @@
+module "proxmox_interfaces" {
+  source                 = "../../inventory/proxmox-interfaces"
+  nodes                  = var.nodes.proxmox
+  underlay_bridges       = var.pve_leaf.vm_config.default_underlay_bridges
+  underlay_local_as_base = var.pve_leaf.vm_config.underlay_local_as_base
+}
+
 module "vm" {
   source   = "../../modules/proxmox/vm"
   for_each = var.nodes.proxmox
@@ -6,17 +13,7 @@ module "vm" {
     node               = each.key
     vm_id              = each.value.id + var.pve_leaf.vm_config.vm_id_offset
     management_address = "${cidrhost(var.pve_leaf.vm_config.management_prefix, each.value.id)}/${var.pve_leaf.vm_config.management_cidr}"
-    network_devices = [
-      for index, bridge in var.pve_leaf.vm_config.default_underlay_bridges : {
-        bridge = bridge
-        mac_address = join(":", regexall("..", format(
-          "02%04d%04d%02d",
-          var.pve_leaf.vm_config.underlay_local_as_base + each.value.id,
-          each.value.id,
-          index + 1,
-        )))
-      }
-    ]
+    network_devices    = module.proxmox_interfaces.network_devices[each.key]
   }
   vm_config = var.pve_leaf.vm_config
 }
