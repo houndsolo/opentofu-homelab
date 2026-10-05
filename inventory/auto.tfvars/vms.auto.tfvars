@@ -1,12 +1,4 @@
 vms = {
-  leaf01 = {
-    owner = "fabric-vms"
-    node = "pve01"
-    vm_id = 201
-    cores = 2
-    memory_mb = 2048
-    bridge = "vmbr0"
-  }
   dns01 = {
     owner = "network-services"
     node = "pve01"

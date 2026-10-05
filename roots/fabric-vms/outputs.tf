@@ -1,7 +1,16 @@
-output "vm_specifications" {
-  value = { for name, vm in module.vm : name => vm.specification }
+output "leaf_vms" {
+  description = "One leaf VM per Proxmox node, with its identity and ordered extra NICs."
+  value = {
+    for name, vm in module.vm : name => {
+      name               = vm.name
+      vm_id              = vm.vm_id
+      node_name          = vm.node_name
+      management_address = vm.management_address
+      network_devices    = vm.network_devices
+    }
+  }
   precondition {
-    condition = alltrue([for vm in values(local.selected_vms) : contains(keys(var.nodes), vm.node)])
-    error_message = "Each selected VM must use a node from nodes.auto.tfvars."
+    condition     = length(distinct([for node in values(var.nodes.proxmox) : node.id])) == length(var.nodes.proxmox)
+    error_message = "Proxmox node IDs must be unique to derive unique leaf VM IDs."
   }
 }
