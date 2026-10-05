@@ -33,8 +33,8 @@ cannot be set through a variable.
 
 ## Shared module, separate inputs
 
-The fabric root calls the module with `var.pve_leaf.vm_config` and instances
-derived from `var.pve_leaf.leaves`. See
+The fabric root calls the module with `var.pve_leaf.vm_config` and one instance per
+`var.nodes.proxmox` entry. See
 [the fabric root](../../../roots/fabric-vms/README.md) for the complete inventory.
 A different root can use its own variables with the same module:
 

@@ -21,52 +21,50 @@ run "reference_leaf_layout" {
   }
 }
 
-run "leaf_overrides_and_physical_filter" {
+run "shared_settings_and_node_inventory" {
   command = plan
   variables {
-    pve_leaf = merge(var.pve_leaf, {
-      leaves = {
-        custom = {
-          hypervisor_node    = "venom"
-          id                 = 42
-          hostname           = "custom-leaf"
-          vm_id              = 942
-          management_address = "10.20.10.142"
-          underlay_bridges   = ["vmbr100"]
-          fabric_macs        = { eth1 = "02:aa:bb:cc:dd:01" }
-        }
-        explicit = {
-          hypervisor_node = "titania"
-          id              = 43
-          network_devices = [{ bridge = "vmbr200", vlan_id = 22, mac_address = "02:aa:bb:cc:dd:02", mtu = 9000 }]
-        }
-        physical = { hypervisor_node = "fortuna", id = 44, is_vm = false }
+    nodes = {
+      proxmox = {
+        first  = { id = 21, cpu_cores = 8 }
+        second = { id = 22, cpu_cores = 12 }
       }
+      proxmox_cluster = { pve = { endpoint_node = "first" } }
+    }
+    pve_leaf = merge(var.pve_leaf, {
+      vm_config = merge(var.pve_leaf.vm_config, {
+        hostname_prefix          = "leaf-"
+        vm_id_offset             = 900
+        management_prefix        = "10.30.0.0/24"
+        management_cidr          = 24
+        default_underlay_bridges = ["vmbr100"]
+      })
     })
   }
   assert {
-    condition     = length(output.leaf_vms) == 2 && !contains(keys(output.leaf_vms), "physical")
-    error_message = "Physical leaves must never get VM resources."
+    condition     = length(output.leaf_vms) == 2 && output.leaf_vms.first.vm_id == 921 && output.leaf_vms.second.vm_id == 922
+    error_message = "Each Proxmox node must get exactly one VM with the shared ID offset."
   }
   assert {
-    condition     = output.leaf_vms.custom.name == "custom-leaf" && output.leaf_vms.custom.vm_id == 942 && output.leaf_vms.custom.management_address == "10.20.10.142/16"
-    error_message = "Explicit identity and address overrides must take precedence over defaults."
+    condition     = output.leaf_vms.first.name == "leaf-first" && output.leaf_vms.first.node_name == "first" && output.leaf_vms.first.management_address == "10.30.0.21/24"
+    error_message = "Shared naming and addressing settings must combine with the node identity."
   }
   assert {
-    condition     = output.leaf_vms.custom.network_devices[0].bridge == "vmbr100" && output.leaf_vms.custom.network_devices[0].mac_address == "02:aa:bb:cc:dd:01" && output.leaf_vms.explicit.network_devices[0].vlan_id == 22 && output.leaf_vms.explicit.network_devices[0].mtu == 9000
-    error_message = "Per-leaf bridges, MACs and explicit NIC definitions must override the generated layout."
+    condition     = length(output.leaf_vms.first.network_devices) == 1 && output.leaf_vms.first.network_devices[0].bridge == "vmbr100"
+    error_message = "All nodes must use the configured shared underlay bridges."
   }
 }
 
-run "reject_duplicate_vm_ids" {
+run "reject_duplicate_node_ids" {
   command = plan
   variables {
-    pve_leaf = merge(var.pve_leaf, {
-      leaves = {
-        first  = { hypervisor_node = "venom", id = 11 }
-        second = { hypervisor_node = "titania", id = 12, vm_id = 711 }
+    nodes = {
+      proxmox = {
+        first  = { id = 11, cpu_cores = 8 }
+        second = { id = 11, cpu_cores = 12 }
       }
-    })
+      proxmox_cluster = { pve = { endpoint_node = "first" } }
+    }
   }
-  expect_failures = [var.pve_leaf]
+  expect_failures = [output.leaf_vms]
 }
