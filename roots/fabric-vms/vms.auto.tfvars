@@ -1,1 +1,0 @@
-../../inventory/auto.tfvars/vms.auto.tfvars

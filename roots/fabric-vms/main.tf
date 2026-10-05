@@ -1,13 +1,6 @@
-locals {
-  selected_vms = {
-    for name, vm in var.vms : name => vm
-    if vm.owner == "fabric-vms"
-  }
-}
-
 module "vm" {
   source = "../../modules/proxmox/vm"
-  for_each = local.selected_vms
+  for_each = var.nodes.proxmox
   name = each.key
-  vm = each.value
+  node = each.value
 }
