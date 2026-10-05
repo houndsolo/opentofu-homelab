@@ -1,3 +1,10 @@
-# Add required_providers to versions.tf, then configure providers here.
-# The starter has no external providers or infrastructure resources.
-# Use environment variables or ignored *.secret.auto.tfvars for secrets.
+variable "vyos_api_key" {
+  description = "VyOS API key; alternatively use VYOS_API_KEY."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+provider "vyoscmd" {
+  api_key = var.vyos_api_key
+}
