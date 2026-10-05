@@ -1,7 +1,7 @@
 pve_leaf = {
   proxmox = {
     endpoint     = "https://10.20.7.17:8006"
-    insecure     = false
+    insecure     = true
     ssh_username = "root"
     ssh_agent    = true
   }
