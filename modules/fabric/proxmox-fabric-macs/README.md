@@ -1,6 +1,7 @@
-# Shared Proxmox interface inventory
+# Dynamic Proxmox fabric MACs
 
-This pure OpenTofu module owns the existing stable MAC calculation. Both
+This pure OpenTofu module computes the mapping dynamically on every plan. There
+is no per-node MAC inventory file or external refresh script. It owns the existing stable MAC calculation. Both
 `roots/fabric-vms` and `roots/fabric-leaves` call it with the same shared node IDs,
 underlay bridge list and AS base from the inventory. It creates no resources and
 requires no remote-state dependency between the roots.

@@ -4,7 +4,7 @@ This root loads shared fabric, node and Proxmox leaf inventory through relative
 symlinks. Preserve those links.
 
 For leaves with `role = "proxmox"`, it obtains `fabric_macs` from the same
-`inventory/proxmox-interfaces` module used by `fabric-vms`. The fabric leaf's key
+`modules/fabric/proxmox-fabric-macs` module used by `fabric-vms`. The fabric leaf's key
 identifies the Proxmox node by default; set `proxmox_node` when the leaf has a
 different inventory name:
 

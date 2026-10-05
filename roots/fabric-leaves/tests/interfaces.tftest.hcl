@@ -7,7 +7,7 @@ run "shared_vm_interface_bindings" {
       output.leaf_specifications.fichina.fabric_macs.eth1 == "02:07:11:00:11:01" &&
       output.leaf_specifications.fichina.fabric_macs.eth3 == "02:07:11:00:11:03" &&
       output.interface_binding_commands.fichina == toset([
-        for interface, mac in module.proxmox_interfaces.fabric_macs.fichina : "set interfaces ethernet ${interface} hw-id ${mac}"
+        for interface, mac in module.proxmox_fabric_macs.fabric_macs.fichina : "set interfaces ethernet ${interface} hw-id ${mac}"
       ])
     )
     error_message = "VyOS hw-id commands must use the shared MACs for the VM's ordered extra NICs."

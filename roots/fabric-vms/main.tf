@@ -1,5 +1,5 @@
-module "proxmox_interfaces" {
-  source                 = "../../inventory/proxmox-interfaces"
+module "proxmox_fabric_macs" {
+  source                 = "../../modules/fabric/proxmox-fabric-macs"
   nodes                  = var.nodes.proxmox
   underlay_bridges       = var.pve_leaf.vm_config.default_underlay_bridges
   underlay_local_as_base = var.pve_leaf.vm_config.underlay_local_as_base
@@ -13,7 +13,7 @@ module "vm" {
     node               = each.key
     vm_id              = each.value.id + var.pve_leaf.vm_config.vm_id_offset
     management_address = "${cidrhost(var.pve_leaf.vm_config.management_prefix, each.value.id)}/${var.pve_leaf.vm_config.management_cidr}"
-    network_devices    = module.proxmox_interfaces.network_devices[each.key]
+    network_devices    = module.proxmox_fabric_macs.network_devices[each.key]
   }
   vm_config = var.pve_leaf.vm_config
 }
