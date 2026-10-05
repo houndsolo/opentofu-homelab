@@ -1,41 +1,80 @@
 variable "name" {
-  description = "VM name, usually the caller's for_each key."
+  description = "VM hostname, derived by the caller."
   type        = string
 }
 
 variable "vm" {
-  description = "Placement and per-VM overrides. Addresses include their CIDR prefix."
+  description = "Placement, management addressing and ordered NICs for one VM."
   type = object({
     node               = string
     vm_id              = number
     cores              = optional(number)
     memory_mb          = optional(number)
     bridge             = optional(string)
-    started            = optional(bool, true)
-    tags               = optional(list(string), ["opentofu"])
+    started            = optional(bool)
+    tags               = optional(list(string))
     management_address = optional(string, "dhcp")
     gateway            = optional(string)
     network_devices = optional(list(object({
-      bridge      = string
-      vlan_id     = optional(number)
-      mac_address = optional(string)
+      bridge       = string
+      vlan_id      = optional(number)
+      mac_address  = optional(string)
+      model        = optional(string)
+      mtu          = optional(number)
+      disconnected = optional(bool)
     })), [])
   })
 }
 
 variable "vm_config" {
-  description = "Shared image and hardware defaults; use separate values for leaves and other VMs."
+  description = "Shared resource settings; callers can supply separate settings for each VM group."
   type = object({
     datastore_id            = string
     import_image            = string
+    description             = optional(string, "managed by opentofu")
+    tags                    = optional(list(string), ["opentofu", "debian", "vyos", "vxlan"])
+    started                 = optional(bool, false)
+    keyboard_layout         = optional(string, "en-us")
+    migrate                 = optional(bool, false)
+    on_boot                 = optional(bool, true)
+    reboot                  = optional(bool, false)
+    stop_on_destroy         = optional(bool, true)
+    agent_enabled           = optional(bool, true)
+    boot_order              = optional(list(string), ["virtio0"])
+    disk_interface          = optional(string, "virtio0")
+    disk_iothread           = optional(bool, true)
     disk_size_gb            = optional(number, 10)
-    cpu_cores               = optional(number, 2)
-    cpu_type                = optional(string, "x86-64-v2-AES")
-    memory_mb               = optional(number, 2048)
-    management_bridge       = optional(string, "vmbr0")
+    cloud_init              = optional(bool, true)
+    cloud_init_interface    = optional(string, "scsi0")
     cloud_init_datastore_id = optional(string)
     user_data_file_id       = optional(string)
-    cloud_init              = optional(bool, true)
-    agent_enabled           = optional(bool, true)
+    management_bridge       = optional(string, "vmbr0")
+    network_model           = optional(string, "virtio")
+    network_disconnected    = optional(bool, false)
+    management_mtu          = optional(number, 0)
+    underlay_mtu            = optional(number, 1)
+    serial_device           = optional(bool, true)
+    cpu_cores               = optional(number, 4)
+    cpu_type                = optional(string, "x86-64-v2-AES")
+    cpu_flags               = optional(list(string), [])
+    cpu_hotplugged          = optional(number, 0)
+    cpu_limit               = optional(number, 0)
+    cpu_numa                = optional(bool, false)
+    cpu_sockets             = optional(number, 1)
+    cpu_units               = optional(number, 1024)
+    memory_mb               = optional(number, 4096)
+    memory_floating_mb      = optional(number, 0)
+    memory_keep_hugepages   = optional(bool, false)
+    memory_shared_mb        = optional(number, 0)
+    operating_system_type   = optional(string, "l26")
+    vga_memory              = optional(number, 16)
+    vga_type                = optional(string, "std")
+    timeout_clone           = optional(number, 1800)
+    timeout_create          = optional(number, 1800)
+    timeout_migrate         = optional(number, 1800)
+    timeout_reboot          = optional(number, 1800)
+    timeout_shutdown_vm     = optional(number, 1800)
+    timeout_start_vm        = optional(number, 1800)
+    timeout_stop_vm         = optional(number, 300)
   })
 }
