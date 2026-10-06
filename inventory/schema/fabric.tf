@@ -14,7 +14,6 @@ variable "fabric" {
     overlay_as = number
     leaves = map(object({
       role          = string
-      management_ip = string
       id            = number
     }))
     spines = map(object({
