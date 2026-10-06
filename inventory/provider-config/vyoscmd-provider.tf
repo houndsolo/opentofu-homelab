@@ -7,5 +7,5 @@ variable "vyos_api_key" {
 
 provider "vyoscmd" {
   api_key  = var.vyos_api_key
-  insecure = false
+  insecure = true
 }
