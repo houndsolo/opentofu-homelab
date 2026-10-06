@@ -1,31 +1,31 @@
 nodes = {
   proxmox = {
     fichina = {
-      id = 11
+      id        = 11
       cpu_cores = 8
     }
     macbeth = {
-      id = 12
+      id        = 12
       cpu_cores = 12
     }
     titania = {
-      id = 13
+      id        = 13
       cpu_cores = 8
     }
     zoness = {
-      id = 14
+      id        = 14
       cpu_cores = 12
     }
     fortuna = {
-      id = 15
+      id        = 15
       cpu_cores = 8
     }
     eldarad = {
-      id = 16
+      id        = 16
       cpu_cores = 16
     }
     venom = {
-      id = 17
+      id        = 17
       cpu_cores = 16
     }
   }

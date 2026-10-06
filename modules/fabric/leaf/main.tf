@@ -1,16 +1,21 @@
 locals {
-  specification = merge(var.leaf, {
-    name        = var.name
-    overlay_as  = var.overlay_as
-    fabric_macs = var.fabric_macs
-  })
+  management_ip = cidrhost(
+    var.fabric.settings.vyos_mgmt_prefix,
+    var.leaf.id,
+  )
 }
 
-resource "vyoscmd_commands" "interface_bindings" {
-  count    = length(var.fabric_macs) > 0 ? 1 : 0
-  name     = "${var.name}-interface-bindings"
-  endpoint = "https://${var.leaf.management_ip}"
-  commands = toset([
-    for interface, mac in var.fabric_macs : "set interfaces ethernet ${interface} hw-id ${mac}"
+resource "vyoscmd_commands" "this" {
+  name     = "${var.name}-system"
+  endpoint = "https://${local.management_ip}"
+  save     = false
+
+  commands = flatten([
+    #local.bgp_commands,
+    #local.vxlan_commands,
+    #local.vrf_commands,
+    #local.interface_commands,
+    #local.policy_commands,
+    local.system_commands,
   ])
 }

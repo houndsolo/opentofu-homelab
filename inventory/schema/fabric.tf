@@ -13,16 +13,12 @@ variable "fabric" {
     })
     overlay_as = number
     leaves = map(object({
-      role          = optional(string, "generic")
-      proxmox_node  = optional(string)
-      management_ip = string
-      router_id     = string
-      vtep_ipv6     = string
+      role          = string
+      id            = number
     }))
     spines = map(object({
       management_ip = string
-      router_id     = string
-      loopback_ipv6 = string
+      id            = number
     }))
   })
   validation {

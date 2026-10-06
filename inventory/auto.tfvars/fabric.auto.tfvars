@@ -12,18 +12,23 @@ fabric = {
   }
   overlay_as = 700
   leaves = {
-    fichina = {
-      role          = "proxmox"
-      management_ip = "10.20.10.11"
-      router_id     = "10.255.240.11"
-      vtep_ipv6     = "fd69:255:240::11"
+    external_l2_01 = {
+      role = "external_l2"
+      id   = 42
+    }
+    external_l3_01 = {
+      role = "external_l3"
+      id   = 18
+    }
+    external_l3_02 = {
+      role = "external_l3"
+      id   = 19
     }
   }
   spines = {
     spine01 = {
       management_ip = "192.0.2.1"
-      router_id     = "10.255.241.1"
-      loopback_ipv6 = "fd69:255:240::1"
+      id     = 1
     }
   }
 }
