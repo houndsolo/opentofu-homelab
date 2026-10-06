@@ -10,15 +10,20 @@ variable "fabric" {
       vyos_mgmt_prefix     = string
       vyos_mgmt_cidr       = number
       l2_vni_base          = number
+      vxlan_mtu            = optional(number, 9119)
+      outer_mtu            = optional(number, 9189)
     })
     overlay_as = number
     leaves = map(object({
-      role          = string
-      id            = number
+      role             = string
+      id               = number
+      proxmox_node     = optional(string)
+      access_interface = string
     }))
     spines = map(object({
       management_ip = string
       id            = number
+      uplink_if     = optional(string)
     }))
   })
   validation {

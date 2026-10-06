@@ -30,31 +30,3 @@ those shared rules. The remaining `vm_config` settings template the VM resource'
 disk, CPU, memory, cloud-init, agent, console, startup and timeouts. Host CPU counts
 are inventory metadata; VM CPU counts come from `vm_config.cpu_cores`.
 
-Node IDs must be unique. Derived VM IDs must also be unique across other roots
-using the same cluster. Adding or removing a Proxmox node adds or removes its leaf
-VM in this root's plan.
-
-Ordered NICs and MACs come from `modules/fabric/macs`, also used by
-`fabric-leaves` to configure VyOS `hw-id`. The MAC formula exists only in that
-shared inventory module; separate roots calculate the same map from the same
-inventory files without reading one another's state.
-
-## Run
-
-Configure `PROXMOX_VE_API_TOKEN` or the sensitive `TF_VAR_pve_api_token` securely.
-For image-import SSH, use an agent or set `TF_VAR_ssh_private_key_path` to an
-existing key. Credentials are not stored in the inventory. The endpoint must be
-reachable and its TLS certificate trusted. The imported image and cloud-init
-snippet must already exist in Proxmox storage.
-
-After building/installing the local provider and configuring the CLI mirror:
-
-```sh
-tofu -chdir=roots/fabric-vms init
-tofu -chdir=roots/fabric-vms validate
-tofu -chdir=roots/fabric-vms plan
-```
-
-`leaf_vms` outputs each VM's identity and ordered extra NICs. Mocked, plan-only
-tests cover the reference layout, shared-setting changes with a different node
-inventory, and duplicate-node-ID rejection. They do not establish live API access.
