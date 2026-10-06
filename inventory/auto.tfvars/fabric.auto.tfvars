@@ -12,11 +12,10 @@ fabric = {
   }
   overlay_as = 700
   leaves = {
-    fichina = {
-      role          = "proxmox"
-      management_ip = "10.20.10.11"
-      router_id     = "10.255.240.11"
-      vtep_ipv6     = "fd69:255:240::11"
+    ## pve leaves
+    external_l2 = {
+    }
+    external_l3 = {
     }
   }
   spines = {
