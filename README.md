@@ -1,37 +1,21 @@
-# OpenTofu homelab starter
+# OpenTofu homelab
 
+Proxmox infrastructure and a VyOS EVPN/VXLAN fabric.
 
-| Directory | Purpose |
-| --- | --- |
-| inventory/auto.tfvars/ | Shared example values; edit these files |
-| inventory/schema/ | HCL variable types and validation |
-| inventory/versions/ | Tofu provider versions |
-| examples/auto.tfvars/ | Links to the example inventory values |
-| roots/proxmox-network/ | Proxmox networking |
-| roots/proxmox-settings/ | Proxmox settings |
-| roots/proxmox-virtual-hosts/ | Proxmox VMs/LXCs |
-| roots/fabric-vms/ | Fabric VM lifecycle |
-| roots/fabric-leaves/ | VyOS leaf configuration |
-| roots/fabric-spines/ | RouterOS spine configuration |
-| roots/network-services/ | Service VM lifecycle |
-| roots/workloads/ | Other VM lifecycle |
-| modules/proxmox/network/ | Proxmox networking module - bridges, bonds, subinterfaces |
-| modules/proxmox/vm/ | VM |
-| modules/proxmox/lxc/ | LXC |
-| modules/fabric/leaf/ | leaves |
-| modules/fabric/spine/ | spines |
-| providers/ | Provider source submodules |
-| tooling/ | provider build scripts |
-| docs/ | Suggested implementation steps |
+- `inventory/auto.tfvars/`: shared configuration values.
+- `inventory/schema/`: variable types and validation.
+- `roots/`: separate OpenTofu configurations and state.
+- `modules/`: reusable configuration.
+- `providers/` and `tooling/`: local provider sources and build scripts.
 
-```bash
-tofu -chdir=roots/proxmox-network init
-tofu -chdir=roots/proxmox-network validate
-tofu -chdir=roots/proxmox-network plan
+Start with [provider setup](providers/README.md), then choose a
+[root](roots/README.md). Run commands from the repository directory:
+
+```sh
+tofu -chdir=roots/fabric-vms init
+tofu -chdir=roots/fabric-vms validate
+tofu -chdir=roots/fabric-vms plan
 ```
 
-Run each root separately. Each has independent local state in its directory.
-The top level is not a deployment root. Relative symlinks load only the data
-and declarations that each root uses. Do not replace those links with copies.
-Required OpenTofu version is a compatibility floor, not a release pin.
-Use your installed current stable OpenTofu release.
+Edit the shared inventory and keep its relative symlinks.
+Each root has its own local state. The repository directory is not a deployment root.

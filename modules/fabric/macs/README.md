@@ -1,29 +1,17 @@
-# Dynamic Proxmox fabric MACs
+# Shared fabric MACs
 
-This pure OpenTofu module computes the mapping dynamically on every plan. There
-is no per-node MAC inventory file or external refresh script. It owns the existing stable MAC calculation. Both
-`roots/fabric-vms` and `roots/fabric-leaves` call it with the same shared node IDs,
-underlay bridge list and AS base from the inventory. It creates no resources and
-requires no remote-state dependency between the roots.
+Computes MACs for both `fabric-vms` and `fabric-leaves`. It creates no resources
+and needs no remote-state connection.
 
-Outputs:
+Inputs are `nodes`, `underlay_bridges` and `underlay_local_as_base`.
+Outputs are:
 
-- `network_devices[node]`: ordered bridge/MAC objects for VM creation.
-- `fabric_macs[node]["ethN"]`: the corresponding VyOS interface MACs.
+- `network_devices[node]`: ordered bridge/MAC objects for VM NICs.
+- `fabric_macs[node]["ethN"]`: matching VyOS interface bindings.
 
-The management NIC is created first by the VM module. Additional NICs therefore
-map to `eth1`, `eth2`, etc. The list order is preserved, including when there are
-more than nine NICs; it is not reconstructed by sorting interface names.
+The management NIC is first. Extra NICs map to `eth1`, `eth2`, and so on
+in bridge-list order. Decimal digits remain visible in the MAC formula.
 
-For node `fichina`, ID `11`, AS base `700`, and the three default bridges:
-
-| Guest interface | VM bridge | MAC |
-| --- | --- | --- |
-| eth1 | vmbr4001 | 02:07:11:00:11:01 |
-| eth2 | vmbr4002 | 02:07:11:00:11:02 |
-| eth3 | vmbr4000 | 02:07:11:00:11:03 |
-
-The decimal zero-padded reference formula is preserved, so existing VM MACs do
-not change. Keep IDs/AS values within the four-digit format and interface indexes
-within two digits. Changing node IDs, AS base or bridge order changes the shared
-mapping; review both VM creation and VyOS configuration plans together.
+Changing node IDs, the AS base or bridge order changes the mapping.
+Review both [VM](../../../roots/fabric-vms/README.md) and
+[leaf](../../../roots/fabric-leaves/README.md) plans together.

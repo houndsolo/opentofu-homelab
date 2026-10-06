@@ -1,32 +1,24 @@
-# Fabric leaf VMs
+# Fabric VMs
 
-Creates exactly one Proxmox leaf VM per entry in `var.nodes.proxmox`, using the
-shared `modules/proxmox/vm` module. This root has its own local state.
+Creates one VyOS VM per entry in `nodes.proxmox`, using the shared
+[VM module](../../modules/proxmox/vm/README.md).
 
-Edit the shared inventory files:
+Edit `inventory/auto.tfvars/nodes.auto.tfvars` for node IDs and
+`pve-leaf.auto.tfvars` for provider, image, storage and VM settings.
+The image and any cloud-init snippet must already exist in Proxmox storage.
 
-- `inventory/auto.tfvars/nodes.auto.tfvars`: Proxmox host names and stable IDs.
-- `inventory/auto.tfvars/pve-leaf.auto.tfvars`: provider configuration and shared
-  leaf VM settings.
+Names use `hostname_prefix + node name`; VM IDs use `vm_id_offset + node ID`.
+Management addresses use `management_prefix` and `management_cidr`.
+The management NIC comes first, followed by `default_underlay_bridges` in list order.
+[Shared MAC generation](../../modules/fabric/macs/README.md) keeps VM NICs and VyOS bindings consistent.
 
-The root loads these files through relative symlinks; preserve those links.
-`pve_leaf.proxmox` configures the provider. `pve_leaf.vm_config` contains all
-shared naming, addressing, networking and resource settings. There is no separate
-leaf instance inventory.
+Set `PROXMOX_VE_API_TOKEN` or `TF_VAR_pve_api_token`. SSH uses the configured
+agent unless `TF_VAR_ssh_private_key_path` supplies a key file.
 
-The VM module call loops directly over `nodes.proxmox`. Each node's map key supplies
-the Proxmox host name; its ID supplies the VM ID, management IP and stable MACs.
-For `fichina` with ID `11`, the example shared settings produce:
+After [provider setup](../../providers/README.md), run from the repository directory:
 
-- Hostname `vtep-fichina`.
-- VM ID `711` (`id + vm_id_offset`).
-- Management address `10.20.10.11/16`.
-- Management NIC on `vmbr0`, followed by `vmbr4001`, `vmbr4002`, `vmbr4000`.
-- eth1 MAC `02:07:11:00:11:01`, using the reference repository's MAC formula.
-
-Change `hostname_prefix`, `vm_id_offset`, `management_prefix`, `management_cidr`,
-`underlay_local_as_base` and `default_underlay_bridges` inside `vm_config` to change
-those shared rules. The remaining `vm_config` settings template the VM resource's
-disk, CPU, memory, cloud-init, agent, console, startup and timeouts. Host CPU counts
-are inventory metadata; VM CPU counts come from `vm_config.cpu_cores`.
-
+```sh
+tofu -chdir=roots/fabric-vms init
+tofu -chdir=roots/fabric-vms validate
+tofu -chdir=roots/fabric-vms plan
+```
