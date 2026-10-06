@@ -1,1 +1,0 @@
-../../../inventory/schema/fabric.tf
