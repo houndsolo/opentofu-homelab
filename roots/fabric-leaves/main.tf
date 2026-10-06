@@ -7,7 +7,7 @@ module "proxmox_fabric_macs" {
 
 module "leaf" {
   source     = "../../modules/fabric/leaf"
-  for_each   = var.fabric.leaves
+  for_each   = local.leaves
   name       = each.key
   leaf       = each.value
   fabric    = var.fabric
