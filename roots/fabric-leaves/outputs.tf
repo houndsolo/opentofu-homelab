@@ -13,3 +13,11 @@ output "interface_binding_commands" {
   description = "VyOS hw-id commands using the same MACs as VM creation."
   value       = { for name, leaf in module.leaf : name => leaf.interface_binding_commands }
 }
+
+output "vni_specifications" {
+  value = { for name, leaf in module.leaf : name => leaf.vni_specification }
+}
+
+output "commands" {
+  value = { for name, leaf in module.leaf : name => leaf.commands }
+}

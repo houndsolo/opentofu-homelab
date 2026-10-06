@@ -20,16 +20,13 @@ run "node_alias_and_generic_role" {
     fabric = merge(var.fabric, {
       leaves = {
         guest = {
-          role          = "proxmox"
-          proxmox_node  = "venom"
-          management_ip = "10.20.10.17"
-          router_id     = "10.255.240.17"
-          vtep_ipv6     = "fd69:255:240::17"
+          role         = "proxmox"
+          proxmox_node = "venom"
+          id           = 17
         }
         other = {
-          management_ip = "192.0.2.1"
-          router_id     = "10.255.240.1"
-          vtep_ipv6     = "fd69:255:240::1"
+          role = "generic"
+          id   = 1
         }
       }
     })
@@ -50,10 +47,8 @@ run "reject_unknown_proxmox_node" {
     fabric = merge(var.fabric, {
       leaves = {
         missing = {
-          role          = "proxmox"
-          management_ip = "192.0.2.99"
-          router_id     = "10.255.240.99"
-          vtep_ipv6     = "fd69:255:240::99"
+          role = "proxmox"
+          id   = 99
         }
       }
     })

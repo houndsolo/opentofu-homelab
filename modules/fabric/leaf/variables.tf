@@ -3,9 +3,10 @@ variable "name" {
 }
 variable "leaf" {
   type = object({
-    role          = string
-    proxmox_node  = optional(string, null)
-    id = number
+    role             = string
+    proxmox_node     = optional(string, null)
+    id               = number
+    access_interface = optional(string, "eth3")
   })
 }
 
