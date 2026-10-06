@@ -6,11 +6,9 @@ variable "overlay_as" {
 }
 variable "leaf" {
   type = object({
-    role          = optional(string, "generic")
-    proxmox_node  = optional(string)
-    management_ip = string
-    router_id     = string
-    vtep_ipv6     = string
+    role          = string
+    proxmox_node  = optional(string, null)
+    id = number
   })
 }
 
