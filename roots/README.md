@@ -24,5 +24,4 @@ tofu -chdir=roots/proxmox-network plan
 tofu -chdir=roots/proxmox-network apply
 ```
 
-For new fabric VMs, create the guests with `fabric-vms`, make their VyOS APIs
-reachable, then configure them with `fabric-leaves`.
+For new fabric VMs, create the guests with `fabric-vms`, then configure them with `fabric-leaves`.
