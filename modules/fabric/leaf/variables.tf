@@ -6,7 +6,7 @@ variable "leaf" {
     role             = string
     proxmox_node     = optional(string, null)
     id               = number
-    access_interface = optional(string, "eth3")
+    access_interface = string
   })
 }
 

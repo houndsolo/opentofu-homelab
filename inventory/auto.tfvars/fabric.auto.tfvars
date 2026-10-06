@@ -11,6 +11,7 @@ fabric = {
     l2_vni_base          = 9000
   }
   overlay_as = 700
+  #physical leaves. Virtual leaves are generated per var.nodes.proxmox
   leaves = {
     external_l2_01 = {
       role = "external_l2"
@@ -26,9 +27,13 @@ fabric = {
     }
   }
   spines = {
-    spine01 = {
-      management_ip = "192.0.2.1"
+    m326-1 = {
+      management_ip = "10.20.0.5"
       id     = 1
+    }
+    m326-2 = {
+      management_ip = "10.20.0.6"
+      id     = 2
     }
   }
 }

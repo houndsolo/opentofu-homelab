@@ -18,7 +18,7 @@ variable "fabric" {
       role             = string
       id               = number
       proxmox_node     = optional(string)
-      access_interface = optional(string, "eth3")
+      access_interface = string
     }))
     spines = map(object({
       management_ip = string

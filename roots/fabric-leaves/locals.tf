@@ -5,7 +5,7 @@ locals {
       role             = "proxmox"
       proxmox_node     = node_name
       id               = node.id
-      access_interface = "eth3"
+      access_interface = "eth${length(var.fabric.spines) + 1}"
     }
   }
 
