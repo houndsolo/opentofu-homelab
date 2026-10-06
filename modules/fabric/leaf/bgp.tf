@@ -28,14 +28,14 @@ locals {
   ])
 
   bgp_spine_overlay_commands = [
-    #    "set protocols bgp peer-group spine_overlay address-family l2vpn-evpn route-map export 'RM-EVPN-SPINE-EXPORT'",
+    "set protocols bgp peer-group spine_overlay address-family l2vpn-evpn route-map export 'RM-EVPN-SPINE-EXPORT'",
     "set protocols bgp peer-group spine_overlay address-family l2vpn-evpn soft-reconfiguration inbound",
     "set protocols bgp peer-group spine_overlay bfd",
     "set protocols bgp peer-group spine_overlay remote-as 'internal'",
     "set protocols bgp peer-group spine_overlay update-source '${var.fabric.settings.loopback_interface}'",
   ]
   bgp_spine_underlay_commands = [
-    #"set protocols bgp peer-group spine_underlay address-family ipv6-unicast route-map export 'local_as_rm'",
+    "set protocols bgp peer-group spine_underlay address-family ipv6-unicast route-map export 'local_as_rm'",
     "set protocols bgp peer-group spine_underlay address-family ipv6-unicast soft-reconfiguration inbound",
     "set protocols bgp peer-group spine_underlay bfd",
     "set protocols bgp peer-group spine_underlay capability extended-nexthop",
