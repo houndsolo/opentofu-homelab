@@ -12,10 +12,17 @@ fabric = {
   }
   overlay_as = 700
   leaves = {
-    ## pve leaves
-    external_l2 = {
+    external_l2_01 = {
+      role = "external_l2"
+      id   = 42
     }
-    external_l3 = {
+    external_l3_01 = {
+      role = "external_l3"
+      id   = 18
+    }
+    external_l3_02 = {
+      role = "external_l3"
+      id   = 19
     }
   }
   spines = {

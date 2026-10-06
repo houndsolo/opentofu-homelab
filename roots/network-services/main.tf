@@ -6,8 +6,8 @@ locals {
 }
 
 module "vm" {
-  source = "../../modules/proxmox/vm"
+  source   = "../../modules/proxmox/vm"
   for_each = local.selected_vms
-  name = each.key
-  vm = each.value
+  name     = each.key
+  vm       = each.value
 }
