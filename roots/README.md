@@ -20,7 +20,6 @@ Typical workflow for an implemented root:
 tofu -chdir=roots/proxmox-network init
 tofu -chdir=roots/proxmox-network validate
 tofu -chdir=roots/proxmox-network plan
-# After reviewing the plan:
 tofu -chdir=roots/proxmox-network apply
 ```
 
