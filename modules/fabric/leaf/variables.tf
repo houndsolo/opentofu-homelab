@@ -1,3 +1,6 @@
+variable "name" {
+  type = string
+}
 variable "leaf" {
   type = object({
     role          = string
