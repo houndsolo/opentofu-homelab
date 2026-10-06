@@ -1,9 +1,3 @@
-variable "name" {
-  type = string
-}
-variable "overlay_as" {
-  type = number
-}
 variable "leaf" {
   type = object({
     role          = string

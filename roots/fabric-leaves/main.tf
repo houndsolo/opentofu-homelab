@@ -10,7 +10,7 @@ module "leaf" {
   for_each   = var.fabric.leaves
   name       = each.key
   leaf       = each.value
-  overlay_as = var.fabric.overlay_as
+  fabric    = var.fabric
   fabric_macs = each.value.role == "proxmox" ? lookup(
     module.proxmox_fabric_macs.fabric_macs,
     coalesce(each.value.proxmox_node, each.key),
