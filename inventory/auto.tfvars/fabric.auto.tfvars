@@ -16,14 +16,17 @@ fabric = {
     external_l2_01 = {
       role = "external_l2"
       id   = 42
+      access_interface = "eth3"
     }
     external_l3_01 = {
       role = "external_l3"
       id   = 18
+      access_interface = "eth3"
     }
     external_l3_02 = {
       role = "external_l3"
       id   = 19
+      access_interface = "eth3"
     }
   }
   spines = {
