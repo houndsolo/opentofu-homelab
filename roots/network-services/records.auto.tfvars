@@ -1,0 +1,1 @@
+../../inventory/auto.tfvars/records.auto.tfvars

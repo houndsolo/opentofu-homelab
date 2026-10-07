@@ -190,3 +190,72 @@ run "provider_managed_records" {
     error_message = "dns1 must accept signed updates, and dns2 must transfer the zone using the shared key."
   }
 }
+
+run "custom_records_and_proxmox_hosts" {
+  command = plan
+  variables {
+    records = {
+      host01 = { a = "10.0.0.1", aaaa = "fd69::1", cname = null }
+      app    = { cname = "host01.lylat.space." }
+    }
+  }
+  assert {
+    condition = (
+      dns_a_record_set.records["host01"].addresses == toset(["10.0.0.1"]) &&
+      dns_aaaa_record_set.records["host01"].addresses == toset(["fd69::1"]) &&
+      dns_cname_record.records["app"].cname == "host01.lylat.space." &&
+      length(dns_a_record_set.records) == 1 &&
+      length(dns_aaaa_record_set.records) == 1 &&
+      length(dns_cname_record.records) == 1
+    )
+    error_message = "Only the supplied record types should be created; omitted/null fields must be ignored."
+  }
+  assert {
+    condition = (
+      length(dns_a_record_set.proxmox) == 8 &&
+      dns_a_record_set.proxmox["fichina"].addresses == toset(["10.20.7.11"]) &&
+      dns_a_record_set.proxmox["greatfox"].addresses == toset(["10.20.7.20"])
+    )
+    error_message = "Both clustered and standalone Proxmox hosts must receive management A records."
+  }
+}
+
+run "proxmox_inventory_changes" {
+  command = plan
+  variables {
+    nodes = merge(var.nodes, {
+      proxmox_cluster = merge(var.nodes.proxmox_cluster, {
+        fichina = merge(var.nodes.proxmox_cluster.fichina, { id = 21 })
+      })
+      proxmox = merge(var.nodes.proxmox, {
+        slippy = { id = 25, cpu_cores = 2 }
+      })
+    })
+  }
+  assert {
+    condition = (
+      dns_a_record_set.proxmox["fichina"].addresses == toset(["10.20.7.21"]) &&
+      dns_a_record_set.proxmox["slippy"].addresses == toset(["10.20.7.25"]) &&
+      length(dns_a_record_set.proxmox) == 9
+    )
+    error_message = "Node additions and ID changes must update management records automatically."
+  }
+}
+
+run "reject_cname_with_address" {
+  command = plan
+  variables { records = { host01 = { a = "10.0.0.1", cname = "dns1.lylat.space." } } }
+  expect_failures = [var.records]
+}
+
+run "reject_generated_name_override" {
+  command = plan
+  variables { records = { fichina = { a = "10.0.0.1" } } }
+  expect_failures = [var.records]
+}
+
+run "reject_invalid_address" {
+  command = plan
+  variables { records = { host01 = { a = "10.0.0.999" } } }
+  expect_failures = [var.records]
+}

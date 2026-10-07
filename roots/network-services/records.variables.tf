@@ -1,0 +1,1 @@
+../../inventory/schema/records.tf

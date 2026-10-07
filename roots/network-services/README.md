@@ -8,6 +8,7 @@ Edit these shared inventory files; the root loads them through relative symlinks
 
 - `network-services-vm.auto.tfvars`: one hardware/storage template for all four VMs.
 - `network-services.auto.tfvars`: VM names, placements, IDs and addresses.
+- `records.auto.tfvars`: extra DNS records in `lylat.space`.
 
 The shared template sets **2 CPU cores, 2048 MiB memory and a 10 GiB boot disk**,
 plus storage, management bridge and startup. Both module calls use it directly.
@@ -47,8 +48,8 @@ restricted configuration file on each VM. Keep the same state between applies.
 forwarders, the TSIG key and zone declarations. Configuration is mounted read-only;
 `/var/lib/bind9` is mounted writable for zones/journals. Initial zone data is seeded
 once (or migrated from the previous static primary zone); later applies preserve
-it. The DNS provider owns the A records after bootstrap. Add future records as
-`dns_*_record_set` resources in `dns.tf`, rather than editing zone files.
+it. The DNS provider owns the A records after bootstrap. Define additional records
+in `records.auto.tfvars`; OpenTofu creates them through the provider.
 
 The Quadlet starts at boot and publishes TCP/UDP 53 on each service IP only.
 Use `systemctl status bind9` and `journalctl -u bind9` on the VMs for status/logs.
@@ -79,6 +80,34 @@ tofu -chdir=roots/network-services apply \
 
 Removing the bootstrap resource does not uninstall BIND. Destroying a DNS record
 resource removes that record through the DNS provider.
+
+## DNS entries
+
+Edit [`inventory/auto.tfvars/records.auto.tfvars`](../../inventory/auto.tfvars/records.auto.tfvars).
+Keys are lowercase hostnames relative to `lylat.space`. Supply only the types you
+want; omitted fields and `null` are ignored. A hostname can have both A and AAAA,
+or a CNAME alone. All records use a 300-second TTL.
+
+```hcl
+records = {
+  host01 = {
+    a    = "10.0.0.1"
+    aaaa = "fd69::1"
+  }
+  app = { cname = "host01.lylat.space." }
+}
+```
+
+This creates `host01.lylat.space` IPv4/IPv6 records and an `app.lylat.space` alias.
+CNAME targets must be fully qualified and end in a dot. The supplied file starts
+empty with commented examples, so no placeholder hosts are deployed.
+
+Proxmox A records are automatic: both `nodes.proxmox_cluster` and `nodes.proxmox`
+are included, with management addresses `10.20.7.<id>`. For example,
+`fichina.lylat.space` resolves to `10.20.7.11`, and `greatfox.lylat.space` to
+`10.20.7.20`. Node additions and ID changes flow through on the next apply.
+Proxmox names and `dns1`/`dns2` are reserved; do not redefine them in `records`.
+Removing a manual entry removes its provider-managed record on the next apply.
 
 ## Image and SSH key
 

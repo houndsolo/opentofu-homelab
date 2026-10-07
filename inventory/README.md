@@ -21,6 +21,7 @@ Shared configuration used by the roots.
 | vms.auto.tfvars | General VM definitions |
 | network-services.auto.tfvars | DHCP and DNS VM identities |
 | network-services-vm.auto.tfvars | Shared minimal DNS/DHCP VM template |
+| records.auto.tfvars | Extra A, AAAA and CNAME records in lylat.space |
 
 Edit values here. Roots and modules use relative symlinks to the shared files.
 

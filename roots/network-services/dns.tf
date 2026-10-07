@@ -22,3 +22,39 @@ resource "dns_a_record_set" "servers" {
   ttl        = 300
   depends_on = [terraform_data.bind9]
 }
+
+resource "dns_a_record_set" "proxmox" {
+  for_each   = merge(var.nodes.proxmox_cluster, var.nodes.proxmox)
+  zone       = "lylat.space."
+  name       = each.key
+  addresses  = [cidrhost(local.pve_mgmt_subnet, each.value.id)]
+  ttl        = 300
+  depends_on = [terraform_data.bind9]
+}
+
+resource "dns_a_record_set" "records" {
+  for_each   = { for name, record in var.records : name => record if record.a != null }
+  zone       = "lylat.space."
+  name       = each.key
+  addresses  = [each.value.a]
+  ttl        = 300
+  depends_on = [terraform_data.bind9]
+}
+
+resource "dns_aaaa_record_set" "records" {
+  for_each   = { for name, record in var.records : name => record if record.aaaa != null }
+  zone       = "lylat.space."
+  name       = each.key
+  addresses  = [each.value.aaaa]
+  ttl        = 300
+  depends_on = [terraform_data.bind9]
+}
+
+resource "dns_cname_record" "records" {
+  for_each   = { for name, record in var.records : name => record if record.cname != null }
+  zone       = "lylat.space."
+  name       = each.key
+  cname      = each.value.cname
+  ttl        = 300
+  depends_on = [terraform_data.bind9]
+}
