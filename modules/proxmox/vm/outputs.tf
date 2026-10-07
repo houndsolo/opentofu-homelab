@@ -36,3 +36,12 @@ output "ip_configs" {
     ]
   ])
 }
+
+output "hardware" {
+  description = "Configured CPU cores, dedicated memory and boot disk size."
+  value = {
+    cpu_cores    = proxmox_virtual_environment_vm.this.cpu[0].cores
+    memory_mb    = proxmox_virtual_environment_vm.this.memory[0].dedicated
+    disk_size_gb = proxmox_virtual_environment_vm.this.disk[0].size
+  }
+}

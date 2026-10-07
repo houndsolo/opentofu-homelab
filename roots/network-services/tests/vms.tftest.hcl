@@ -29,6 +29,17 @@ run "four_service_vms" {
     error_message = "The service inventory must produce exactly the four requested VMs."
   }
   assert {
+    condition = alltrue([
+      for vm in values(merge(module.dhcp, module.dns)) :
+      vm.hardware.cpu_cores == 2 && vm.hardware.memory_mb == 2048 && vm.hardware.disk_size_gb == 10
+    ])
+    error_message = "All four service VMs must use the 2-core, 2-GiB, 10-GiB shared template."
+  }
+  assert {
+    condition     = output.vms.dhcp1.vm_id == 6701 && output.vms.dhcp2.vm_id == 6702
+    error_message = "The updated DHCP VM IDs must be preserved."
+  }
+  assert {
     condition     = output.vms.dhcp1.node == "titania" && output.vms.dhcp2.node == "zoness" && output.vms.dns1.node == "fichina" && output.vms.dns2.node == "fortuna"
     error_message = "Pair members must use the configured distinct hypervisors."
   }
@@ -52,12 +63,11 @@ run "four_service_vms" {
   }
   assert {
     condition = (
-      output.dhcp_interfaces.dhcp1["9008"].vlan_id == 8 &&
-      output.dhcp_interfaces.dhcp1["9008"].mac_address == "02:70:00:01:00:08" &&
-      output.dhcp_interfaces.dhcp2["9008"].mac_address == "02:70:00:02:00:08" &&
+      length(module.dhcp["dhcp1"].network_devices) == 0 &&
+      length(module.dhcp["dhcp2"].network_devices) == 0 &&
       length(module.dhcp["dhcp1"].ip_configs) == 1
     )
-    error_message = "DHCP service NICs must have distinct stable MACs and no service IP configuration yet."
+    error_message = "DHCP must have only its management NIC while service interfaces are deferred."
   }
   assert {
     condition = (
@@ -65,6 +75,24 @@ run "four_service_vms" {
       yamldecode(proxmox_virtual_environment_file.dns_user_data["dns1"].source_raw[0].data).users[0].ssh_authorized_keys[0] == var.dns_ssh_public_keys[0]
     )
     error_message = "Debian bootstrap must install only the guest agent and include the supplied SSH key."
+  }
+}
+
+run "shared_hardware_template" {
+  command = plan
+  variables {
+    network_services_vm = merge(var.network_services_vm, {
+      cpu_cores    = 3
+      memory_mb    = 3072
+      disk_size_gb = 20
+    })
+  }
+  assert {
+    condition = alltrue([
+      for vm in values(merge(module.dhcp, module.dns)) :
+      vm.hardware.cpu_cores == 3 && vm.hardware.memory_mb == 3072 && vm.hardware.disk_size_gb == 20
+    ])
+    error_message = "One shared template must control the hardware of both DNS and DHCP guests."
   }
 }
 
@@ -79,7 +107,7 @@ run "reject_duplicate_service_ids" {
   variables {
     network_services = merge(var.network_services, {
       dns = merge(var.network_services.dns, {
-        dns1 = merge(var.network_services.dns.dns1, { vm_id = 771 })
+        dns1 = merge(var.network_services.dns.dns1, { vm_id = var.network_services.dhcp.dhcp1.vm_id })
       })
     })
   }

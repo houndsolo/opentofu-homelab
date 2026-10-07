@@ -1,0 +1,1 @@
+../../inventory/auto.tfvars/network-services-vm.auto.tfvars

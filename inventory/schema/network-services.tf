@@ -5,7 +5,6 @@ variable "network_services" {
       node               = string
       vm_id              = number
       management_address = string
-      mac_slot           = number
     }))
     dns = map(object({
       node               = string
@@ -13,30 +12,12 @@ variable "network_services" {
       management_address = string
       service_address    = string
     }))
-    dhcp_bridge = optional(string, "vmbr4000")
     dns_network = optional(object({
       bridge  = optional(string, "vmbr4000")
       vlan_id = optional(number, 8)
       gateway = optional(string, "10.8.0.5")
     }), {})
-    dhcp_vm_config = optional(object({
-      cpu_cores         = optional(number, 4)
-      memory_mb         = optional(number, 4096)
-      disk_size_gb      = optional(number, 10)
-      started           = optional(bool, true)
-      tags              = optional(list(string), ["opentofu", "vyos", "dhcp"])
-      user_data_file_id = optional(string, "cephfs:snippets/vyos_api.yml")
-    }), {})
-    dns_vm_config = optional(object({
-      datastore_id            = optional(string, "ceph_rbd")
-      cloud_init_datastore_id = optional(string, "ceph_rbd")
-      management_bridge       = optional(string, "vmbr0")
-      cpu_cores               = optional(number, 2)
-      memory_mb               = optional(number, 2048)
-      disk_size_gb            = optional(number, 10)
-      started                 = optional(bool, true)
-      tags                    = optional(list(string), ["opentofu", "debian", "dns"])
-    }), {})
+    dhcp_user_data_file_id = optional(string, "cephfs:snippets/vyos_api.yml")
     dns_bootstrap = optional(object({
       node         = optional(string, "fichina")
       datastore_id = optional(string, "cephfs")
@@ -55,13 +36,6 @@ variable "network_services" {
       length(var.network_services.dhcp) + length(var.network_services.dns)
     )
     error_message = "All service VM IDs must be unique."
-  }
-  validation {
-    condition = (
-      length(distinct([for vm in values(var.network_services.dhcp) : vm.mac_slot])) == length(var.network_services.dhcp) &&
-      alltrue([for vm in values(var.network_services.dhcp) : vm.mac_slot >= 1 && vm.mac_slot <= 255 && floor(vm.mac_slot) == vm.mac_slot])
-    )
-    error_message = "DHCP MAC slots must be unique integers in 1..255."
   }
   validation {
     condition = length(distinct(concat(

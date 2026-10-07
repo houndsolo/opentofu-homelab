@@ -1,0 +1,1 @@
+../../inventory/schema/network-services-vm.tf

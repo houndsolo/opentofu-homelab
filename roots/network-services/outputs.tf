@@ -18,17 +18,3 @@ output "vms" {
     error_message = "Service VM nodes must exist in nodes.proxmox_cluster."
   }
 }
-
-output "dhcp_interfaces" {
-  description = "Stable VNI/VLAN/interface/MAC layout for later DHCP configuration."
-  value = {
-    for name, vm in module.dhcp : name => {
-      for index, vni in sort(keys(local.dhcp_segments)) : vni => {
-        interface   = "eth${index + 1}"
-        bridge      = vm.network_devices[index].bridge
-        vlan_id     = vm.network_devices[index].vlan_id
-        mac_address = vm.network_devices[index].mac_address
-      }
-    }
-  }
-}

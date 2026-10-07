@@ -1,1 +1,0 @@
-../../inventory/schema/vnis.tf
