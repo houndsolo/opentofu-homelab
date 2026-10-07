@@ -1,7 +1,9 @@
 module "spines" {
-  for_each  = { for name, node in var.fabric.nodes.spines : name => node if node.configure }
-  source    = "./spines_mikrotik"
-  node      = var.fabric.nodes.spines[each.key]
-  providers = { routeros = routeros.spines[each.key] }
+  source    = "../../modules/fabric/spines"
+  for_each  = var.fabric.spines
+  name      = each.key
+  spine     = each.value
   fabric    = var.fabric
+  leaves    = local.leaves[each.key]
+  providers = { routeros = routeros.spines[each.key] }
 }
