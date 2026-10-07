@@ -1,7 +1,7 @@
 network_services = {
   dhcp = {
-    dhcp1 = { node = "titania", vm_id = 771, management_address = "10.20.10.251/16", mac_slot = 1 }
-    dhcp2 = { node = "zoness", vm_id = 772, management_address = "10.20.10.252/16", mac_slot = 2 }
+    dhcp1 = { node = "titania", vm_id = 6701, management_address = "10.20.10.251/16", mac_slot = 1 }
+    dhcp2 = { node = "zoness", vm_id = 6702, management_address = "10.20.10.252/16", mac_slot = 2 }
   }
   dns = {
     dns1 = { node = "fichina", vm_id = 5301, management_address = "10.20.53.1/16", service_address = "10.8.53.1/16" }

@@ -25,7 +25,7 @@ variable "network_services" {
       disk_size_gb      = optional(number, 10)
       started           = optional(bool, true)
       tags              = optional(list(string), ["opentofu", "vyos", "dhcp"])
-      user_data_file_id = optional(string)
+      user_data_file_id = optional(string, "cephfs:snippets/vyos_api.yml")
     }), {})
     dns_vm_config = optional(object({
       datastore_id            = optional(string, "ceph_rbd")
