@@ -1,5 +1,5 @@
 nodes = {
-  proxmox = {
+  proxmox_cluster = {
     fichina = {
       id        = 11
       cpu_cores = 8
@@ -29,9 +29,10 @@ nodes = {
       cpu_cores = 16
     }
   }
-  proxmox_cluster = {
-    pve = {
-      endpoint_node = "venom"
+  proxmox= {
+    greatfox = {
+      id        = 20
+      cpu_cores = 16
     }
   }
 }

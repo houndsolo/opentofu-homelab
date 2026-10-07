@@ -10,7 +10,7 @@ output "leaf_vms" {
     }
   }
   precondition {
-    condition     = length(distinct([for node in values(var.nodes.proxmox) : node.id])) == length(var.nodes.proxmox)
+    condition     = length(distinct([for node in values(var.nodes.proxmox_cluster) : node.id])) == length(var.nodes.proxmox_cluster)
     error_message = "Proxmox node IDs must be unique to derive unique leaf VM IDs."
   }
 }

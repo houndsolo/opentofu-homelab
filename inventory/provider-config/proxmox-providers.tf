@@ -10,12 +10,8 @@ variable "ssh_private_key_path" {
 locals {
   pve_mgmt_subnet = "10.20.7.0/24"
 
-  pve_node_mgmt = {
-    for name, node in var.nodes.proxmox :
-    name => cidrhost(local.pve_mgmt_subnet, node.id)
-  }
 
-  pve_cluster_mgmt = "https://${local.pve_node_mgmt[var.nodes.proxmox_cluster.pve.endpoint_node]}:8006"
+  pve_cluster_mgmt = "https://10.20.7.11:8006"
 }
 
 provider "proxmox" {
