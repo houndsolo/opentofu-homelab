@@ -19,7 +19,11 @@ module "vm" {
 }
 
 module "greatfox_vm" {
-  for_each = var.nodes.proxmox.greatfox
+  for_each = {
+    for name, node in var.nodes.proxmox :
+    name => node
+    if name == "greatfox"
+  }
   providers = { proxmox = proxmox.greatfox }
   name     = "${var.pve_leaf.vm_config.hostname_prefix}${each.key}"
   source   = "../../modules/proxmox/vm"
