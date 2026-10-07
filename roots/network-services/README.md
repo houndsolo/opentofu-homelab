@@ -30,14 +30,17 @@ DNS keeps its management NIC and a service NIC on `vmbr4000`, VLAN 8, with
 `10.8.53.1/16` or `10.8.53.2/16` and gateway `10.8.0.5`. Cloud-init bootstraps a
 public-key user and installs/starts only `qemu-guest-agent`.
 
-## Required inputs
+## Image and SSH key
 
-Supply `debian_image` (dated HTTPS URL, filename, published SHA512 checksum) and
-`dns_ssh_public_keys` via an ignored private tfvars file or `TF_VAR_...` JSON.
-The image upload node/datastore default to `fichina`/`cephfs`. Obtain the verified
-image pin from <https://cloud.debian.org/images/cloud/trixie/>; `latest` URLs are
-rejected. No unverified pin is supplied because this environment cannot reach
-that catalog. Test fixture URLs/checksums are not deployment inputs.
+`network-services.auto.tfvars` pins Debian 13's `20261001-2618` genericcloud image
+and its supplied SHA512 checksum. Downloads verify that checksum. The image upload
+node/datastore default to `fichina`/`cephfs`; no separate image inputs are needed.
+
+Debian's `mechanic` user automatically receives the public key from
+`"${pathexpand(var.ssh_private_key_path)}.pub"`, using the same key pair as the
+Proxmox SSH connection. With the existing default, this reads `~/.ssh/id_rsa.pub`.
+The matching public-key file must exist beside the private key on the machine
+running OpenTofu. No separate `dns_ssh_public_keys` input is needed.
 
 The existing shared Proxmox provider configuration is unchanged. Shared `cephfs`
 must permit `import`/`snippets` and be accessible to both DNS hosts. The Proxmox
@@ -47,7 +50,7 @@ and IPs are free, or reconcile existing VMs/state before applying.
 ```sh
 tofu -chdir=roots/network-services init
 tofu -chdir=roots/network-services validate
-tofu -chdir=roots/network-services plan -var-file=/absolute/path/services.secret.tfvars
+tofu -chdir=roots/network-services plan
 tofu -chdir=roots/network-services test
 ```
 

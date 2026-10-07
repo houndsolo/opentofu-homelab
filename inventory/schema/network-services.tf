@@ -68,12 +68,3 @@ variable "debian_image" {
     error_message = "Provide a pinned HTTPS Debian image URL and its published SHA512 checksum."
   }
 }
-
-variable "dns_ssh_public_keys" {
-  description = "Public SSH keys for the initial Debian user. Supply via TF_VAR_dns_ssh_public_keys or a private tfvars file."
-  type        = list(string)
-  validation {
-    condition     = length(var.dns_ssh_public_keys) > 0 && alltrue([for key in var.dns_ssh_public_keys : can(regex("^(ssh-ed25519|ssh-rsa|ecdsa-sha2-[^ ]+) [A-Za-z0-9+/]+=*", trimspace(key)))])
-    error_message = "Supply at least one SSH public key for Debian bootstrap."
-  }
-}

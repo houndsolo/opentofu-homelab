@@ -25,7 +25,9 @@ the previous management-only behavior when explicit IP configs are omitted.
 
 The shared Proxmox provider configuration is unchanged. DNS/DHCP application
 configuration is outside this root's scope. No live resources have been created;
-verified Debian image metadata and public SSH keys are required deployment inputs.
+the Debian image URL/checksum are pinned in shared inventory, and Debian's SSH
+public key is loaded automatically from the existing `ssh_private_key_path` plus
+`.pub`.
 
 References inspected for the original implementation:
 

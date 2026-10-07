@@ -12,14 +12,9 @@ mock_provider "proxmox" {
 
 # Mock-only inputs. No image is downloaded and no credentials are used.
 variables {
-  pve_api_token       = "mock-only"
-  gf_api_token        = "mock-only"
-  dns_ssh_public_keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockOnlyPublicKeyForPlanTests"]
-  debian_image = {
-    url       = "https://images.example.test/debian-13-20260101.qcow2"
-    file_name = "debian-test.qcow2"
-    checksum  = "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-  }
+  pve_api_token        = "mock-only"
+  gf_api_token         = "mock-only"
+  ssh_private_key_path = "tests/fixtures/id_test"
 }
 
 run "four_service_vms" {
@@ -72,9 +67,9 @@ run "four_service_vms" {
   assert {
     condition = (
       join(",", yamldecode(proxmox_virtual_environment_file.dns_user_data["dns1"].source_raw[0].data).packages) == "qemu-guest-agent" &&
-      yamldecode(proxmox_virtual_environment_file.dns_user_data["dns1"].source_raw[0].data).users[0].ssh_authorized_keys[0] == var.dns_ssh_public_keys[0]
+      yamldecode(proxmox_virtual_environment_file.dns_user_data["dns1"].source_raw[0].data).users[0].ssh_authorized_keys[0] == trimspace(file("${pathexpand(var.ssh_private_key_path)}.pub"))
     )
-    error_message = "Debian bootstrap must install only the guest agent and include the supplied SSH key."
+    error_message = "Debian bootstrap must install only the guest agent and load the public key matching ssh_private_key_path."
   }
 }
 
@@ -94,12 +89,6 @@ run "shared_hardware_template" {
     ])
     error_message = "One shared template must control the hardware of both DNS and DHCP guests."
   }
-}
-
-run "reject_empty_ssh_keys" {
-  command = plan
-  variables { dns_ssh_public_keys = [] }
-  expect_failures = [var.dns_ssh_public_keys]
 }
 
 run "reject_duplicate_service_ids" {

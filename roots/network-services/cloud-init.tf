@@ -16,7 +16,7 @@ resource "proxmox_virtual_environment_file" "dns_user_data" {
         shell               = "/bin/bash"
         lock_passwd         = true
         sudo                = "ALL=(ALL) NOPASSWD:ALL"
-        ssh_authorized_keys = var.dns_ssh_public_keys
+        ssh_authorized_keys = [trimspace(file("${pathexpand(var.ssh_private_key_path)}.pub"))]
       }]
       runcmd = ["systemctl enable --now qemu-guest-agent"]
     })}"
