@@ -15,6 +15,10 @@ variable "vm" {
     tags               = optional(list(string))
     management_address = optional(string, "dhcp")
     gateway            = optional(string)
+    ip_configs = optional(list(object({
+      address = string
+      gateway = optional(string)
+    })))
     network_devices = optional(list(object({
       bridge       = string
       vlan_id      = optional(number)

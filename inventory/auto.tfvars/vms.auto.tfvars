@@ -1,12 +1,4 @@
 vms = {
-  dns01 = {
-    owner     = "network-services"
-    node      = "pve01"
-    vm_id     = 301
-    cores     = 2
-    memory_mb = 2048
-    bridge    = "vmbr0"
-  }
   lab01 = {
     owner     = "workloads"
     node      = "pve01"

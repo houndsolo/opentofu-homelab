@@ -1,8 +1,10 @@
 # Network services VM creation proposal
 
 Proposed on `proposal/network-services-vms`, based on `main` at `5c99b2c`.
-This is a design proposal. It does not change executable OpenTofu configuration
-or create VMs.
+This accepted design is now implemented on the same branch. See
+[the root's usage instructions](../roots/network-services/README.md). No live
+resources have been created. Debian image metadata and public SSH keys remain
+explicit deployment inputs.
 
 Create exactly `dhcp1`, `dhcp2`, `dns1`, and `dns2` in `roots/network-services`,
 using the existing `modules/proxmox/vm` module. Keep DHCP/DNS application
@@ -36,11 +38,13 @@ The input `network_services` has:
 
 - `dhcp`: two VM definitions containing node, VM ID, management CIDR and a stable
   MAC slot (1 or 2).
-- `dns`: two VM definitions containing node, VM ID, management CIDR, service CIDR
-  and public SSH keys/username for initial login.
+- `dns`: two VM definitions containing node, VM ID, management CIDR, service CIDR. Public SSH keys are supplied separately; username is in
+  the shared `dns_bootstrap` settings.
 - `dhcp_vm_config` and `dns_vm_config`: small, typed profile overrides for hardware,
   disk/storage and startup, rather than duplicating every VM module option.
-- `debian_image`: URL, pinned filename, checksum, download node and datastore.
+The separate required input `debian_image` supplies URL, pinned filename,
+checksum, download node and datastore. `dns_ssh_public_keys` supplies initial
+login keys.
 
 Reuse shared `pve-leaf`, `nodes` and `vnis` inventory through symlinks. DHCP inherits
 its VyOS image and disk/CPU defaults from `pve_leaf.vm_config`, with service-profile
@@ -139,12 +143,9 @@ so future interface configuration should bind by MAC rather than assume order.
 
 ## Provider wiring and checks
 
-Restore the provider-version and inventory links expected by this root. Use a
-cluster-only Proxmox provider configuration matching the existing shared cluster
-endpoint and authentication pattern. The current shared provider file also
-requires a Greatfox token/key for an unused alias; the four proposed VMs do not
-need that alias or that extra credential. Do not change the other roots' providers
-as part of this implementation.
+Restore the provider-version and inventory links expected by this root. Use the
+existing shared Proxmox provider configuration unchanged; provider cleanup is a
+separate task.
 
 Before applying, validate target nodes, unique VM IDs and addresses, one default
 route per Debian guest, image/snippet storage access and explicit NIC/IP list

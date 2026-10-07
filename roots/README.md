@@ -11,7 +11,7 @@ Run commands from the repository directory.
 | fabric-spines | RouterOS spine configuration | Placeholder |
 | proxmox-settings | Proxmox settings | Incomplete |
 | proxmox-virtual-hosts | General VM/container configuration | Placeholder |
-| network-services | Service VMs | Incomplete |
+| network-services | DHCP/VyOS and DNS/Debian VM creation | Implemented; image pin and SSH keys required |
 | workloads | Other VMs | Incomplete |
 
 ## Examples

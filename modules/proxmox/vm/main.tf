@@ -49,10 +49,16 @@ resource "proxmox_virtual_environment_vm" "this" {
       datastore_id      = coalesce(var.vm_config.cloud_init_datastore_id, var.vm_config.datastore_id)
       user_data_file_id = var.vm_config.user_data_file_id
 
-      ip_config {
-        ipv4 {
+      dynamic "ip_config" {
+        for_each = var.vm.ip_configs != null ? var.vm.ip_configs : [{
           address = var.vm.management_address
           gateway = var.vm.gateway
+        }]
+        content {
+          ipv4 {
+            address = ip_config.value.address
+            gateway = ip_config.value.gateway
+          }
         }
       }
     }
@@ -102,5 +108,20 @@ resource "proxmox_virtual_environment_vm" "this" {
   lifecycle {
     # Match the reference: do not reconcile the provider-generated user account.
     ignore_changes = [initialization[0].user_account]
+
+    precondition {
+      condition     = var.vm.ip_configs == null ? true : length(var.vm.ip_configs) == 1 + length(var.vm.network_devices)
+      error_message = "Explicit ip_configs must have one entry per NIC, with management first."
+    }
+    precondition {
+      condition     = var.vm.ip_configs == null ? true : length([for ip in var.vm.ip_configs : ip if ip.gateway != null]) <= 1
+      error_message = "Explicit ip_configs may specify at most one default gateway."
+    }
+    precondition {
+      condition = var.vm.ip_configs == null ? true : alltrue([
+        for ip in var.vm.ip_configs : ip.address == "dhcp" || can(cidrhost(ip.address, 0))
+      ])
+      error_message = "Explicit IPv4 addresses must be DHCP or valid CIDR addresses."
+    }
   }
 }

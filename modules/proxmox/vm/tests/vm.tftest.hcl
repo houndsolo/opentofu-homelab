@@ -117,3 +117,46 @@ run "resource_settings_are_configurable" {
     error_message = "Hardware, network and timeout settings must be templated."
   }
 }
+
+run "ordered_ip_configs" {
+  command = plan
+  variables {
+    vm = {
+      node            = "fichina"
+      vm_id           = 5301
+      network_devices = [{ bridge = "vmbr4000", vlan_id = 8 }]
+      ip_configs = [
+        { address = "10.20.53.1/16" },
+        { address = "10.8.53.1/16", gateway = "10.8.0.5" },
+      ]
+    }
+  }
+  assert {
+    condition     = output.management_address == "10.20.53.1/16" && length(output.ip_configs) == 2 && output.ip_configs[0].address == "10.20.53.1/16" && output.ip_configs[1].gateway == "10.8.0.5"
+    error_message = "Explicit cloud-init addresses must match ordered NICs."
+  }
+}
+
+run "reject_ip_config_count" {
+  command = plan
+  variables {
+    vm = { node = "fichina", vm_id = 5301, ip_configs = [{ address = "10.20.53.1/16" }, { address = "10.8.53.1/16" }] }
+  }
+  expect_failures = [proxmox_virtual_environment_vm.this]
+}
+
+run "reject_multiple_default_routes" {
+  command = plan
+  variables {
+    vm = {
+      node            = "fichina"
+      vm_id           = 5301
+      network_devices = [{ bridge = "vmbr4000", vlan_id = 8 }]
+      ip_configs = [
+        { address = "10.20.53.1/16", gateway = "10.20.0.1" },
+        { address = "10.8.53.1/16", gateway = "10.8.0.5" },
+      ]
+    }
+  }
+  expect_failures = [proxmox_virtual_environment_vm.this]
+}

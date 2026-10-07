@@ -19,6 +19,7 @@ Shared configuration used by the roots.
 | pve-network.auto.tfvars | Proxmox host networking |
 | vnis.auto.tfvars | VRFs, L2/L3 VNIs, gateways and route targets |
 | vms.auto.tfvars | General VM definitions |
+| network-services.auto.tfvars | DHCP and DNS VM creation |
 
 Edit values here. Roots and modules use relative symlinks to the shared files.
 
