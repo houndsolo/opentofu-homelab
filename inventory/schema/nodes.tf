@@ -7,7 +7,9 @@ variable "nodes" {
       network_profile = optional(string)
     }))
     proxmox_cluster = map(object({
-      endpoint_node = string
+      id              = number
+      cpu_cores       = number
+      network_profile = optional(string)
     }))
   })
 }

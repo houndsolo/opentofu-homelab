@@ -2,6 +2,10 @@ variable "pve_api_token" {
   type      = string
   sensitive = true
 }
+variable "gf_api_token" { 
+  type      = string
+  sensitive = true
+}
 variable "ssh_private_key_path" {
   type    = string
   default = "~/.ssh/id_rsa"
@@ -15,7 +19,7 @@ locals {
     name => cidrhost(local.pve_mgmt_subnet, node.id)
   }
 
-  pve_cluster_mgmt = "https://${local.pve_node_mgmt[var.nodes.proxmox_cluster.pve.endpoint_node]}:8006"
+  pve_cluster_mgmt = "https://10.20.7.11:8006"
 }
 
 provider "proxmox" {
@@ -35,5 +39,17 @@ provider "proxmox" {
         address = node.value
       }
     }
+  }
+}
+
+provider "proxmox" {
+  endpoint  = "https://10.20.7.20:8006"
+  alias     = "greatfox"
+  api_token = var.gf_api_token
+  insecure  = true
+
+  ssh {
+    username    = "root"
+    private_key = file("~/.ssh/id_rsa")
   }
 }
