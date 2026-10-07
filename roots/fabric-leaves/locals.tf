@@ -17,7 +17,7 @@ locals {
       id               = node.id
       access_interface = "eth${length(var.fabric.spines) + 1}"
     }
-    if name == "greatfox"
+    if node_name == "greatfox"
   }
 
   leaves = merge(var.fabric.leaves, local.proxmox_leaves, local.greatfox_nodes)
