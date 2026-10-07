@@ -19,6 +19,7 @@ variable "fabric" {
       id               = number
       proxmox_node     = optional(string)
       access_interface = string
+      spine_uplink      = optional(string)
     }))
     spines = map(object({
       management_ip = string
@@ -26,8 +27,4 @@ variable "fabric" {
       uplink_if     = optional(string)
     }))
   })
-  validation {
-    condition     = var.fabric.overlay_as >= 1 && var.fabric.overlay_as <= 4294967295 && floor(var.fabric.overlay_as) == var.fabric.overlay_as
-    error_message = "overlay_as must be a valid integer ASN."
-  }
 }

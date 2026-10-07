@@ -17,6 +17,7 @@ fabric = {
       role = "external_l2"
       id   = 42
       access_interface = "eth3"
+      spine_uplink = "ether10"
     }
     external_l3_01 = {
       role = "external_l3"
