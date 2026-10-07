@@ -4,6 +4,6 @@ module "spines" {
   name      = each.key
   spine     = each.value
   fabric    = var.fabric
-  leaves    = local.leaves[each.key]
+  leaves    = local.leaves
   providers = { routeros = routeros.spines[each.key] }
 }
