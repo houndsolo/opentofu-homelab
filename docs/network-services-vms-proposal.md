@@ -24,9 +24,11 @@ configs match the management and DNS service NICs. The shared VM module keeps
 the previous management-only behavior when explicit IP configs are omitted.
 
 The shared Proxmox provider configuration is unchanged. `bind9.tf` now configures
-the DNS VMs with a Podman Quadlet, Cloudflare forwarders, and a static
-`lylat.space` zone whose DNS server records come from inventory.
-DHCP application configuration remains outside this root's scope. No live resources have been created;
+the DNS VMs with a Podman Quadlet and Cloudflare forwarders. `dns.tf` uses
+`hashicorp/dns` for the inventory's A records in `lylat.space`. OpenTofu generates
+the TSIG key automatically; dns1 accepts authenticated updates, and dns2 receives
+signed transfers. Writable persistent storage retains zones and journals.
+DHCP application configuration remains outside this root's scope. No live infrastructure was modified during development;
 the Debian image URL/checksum are pinned in shared inventory, and Debian's SSH
 public key is loaded automatically from the existing `ssh_private_key_path` plus
 `.pub`.

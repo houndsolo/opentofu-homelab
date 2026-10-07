@@ -10,6 +10,13 @@ mock_provider "proxmox" {
   alias = "greatfox"
 }
 
+mock_provider "dns" {}
+mock_provider "random" {
+  mock_resource "random_bytes" {
+    defaults = { base64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" }
+  }
+}
+
 # Mock-only inputs. No image is downloaded and no credentials are used.
 variables {
   pve_api_token        = "mock-only"
@@ -127,8 +134,7 @@ run "bind9_plan" {
       strcontains(deployment.triggers_replace[0].named_conf, "forwarders { 1.1.1.1; 1.0.0.1; };") &&
       strcontains(deployment.triggers_replace[0].named_conf, "forward only;") &&
       strcontains(deployment.triggers_replace[0].named_conf, "allow-recursion { clients; };") &&
-      strcontains(deployment.triggers_replace[0].zone, "dns1 IN A 10.8.53.1") &&
-      strcontains(deployment.triggers_replace[0].zone, "dns2 IN A 10.8.53.2")
+      strcontains(deployment.triggers_replace[0].zone, "dns1 IN A 10.8.53.1")
     ])
     error_message = "Both resolvers must use Cloudflare upstreams and serve the inventory's local DNS records."
   }
@@ -137,6 +143,7 @@ run "bind9_plan" {
       strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "PublishPort=10.8.53.1:53:53/tcp") &&
       strcontains(terraform_data.bind9["dns2"].triggers_replace[0].quadlet, "PublishPort=10.8.53.2:53:53/udp") &&
       strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "Volume=/etc/bind9:/etc/bind:ro") &&
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "Volume=/var/lib/bind9:/var/lib/bind:rw") &&
       strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "Tmpfs=/var/cache/bind:rw,mode=1777") &&
       strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "WantedBy=multi-user.target")
     )
@@ -155,10 +162,31 @@ run "bind9_inventory_changes" {
   }
   assert {
     condition = (
-      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].zone, "dns2 IN A 10.8.53.22") &&
-      strcontains(terraform_data.bind9["dns2"].triggers_replace[0].zone, "dns2 IN A 10.8.53.22") &&
+      dns_a_record_set.servers["dns2"].addresses == toset(["10.8.53.22"]) &&
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].named_conf, "also-notify { 10.8.53.22 key") &&
       strcontains(terraform_data.bind9["dns2"].triggers_replace[0].quadlet, "PublishPort=10.8.53.22:53:53/tcp")
     )
-    error_message = "Service IP changes must update both zone deployments and the affected listener."
+    error_message = "Service IP changes must update the provider-managed record, primary notifications and secondary listener."
+  }
+}
+
+run "provider_managed_records" {
+  command = plan
+  assert {
+    condition = (
+      dns_a_record_set.servers["dns1"].zone == "lylat.space." &&
+      dns_a_record_set.servers["dns1"].addresses == toset(["10.8.53.1"]) &&
+      dns_a_record_set.servers["dns2"].addresses == toset(["10.8.53.2"])
+    )
+    error_message = "The DNS provider must own both server A records."
+  }
+  assert {
+    condition = (
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].named_conf, "type primary;") &&
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].named_conf, "allow-update { key \"opentofu.lylat.space.\"; };") &&
+      strcontains(terraform_data.bind9["dns2"].triggers_replace[0].named_conf, "type secondary;") &&
+      strcontains(terraform_data.bind9["dns2"].triggers_replace[0].named_conf, "primaries { 10.8.53.1 key \"opentofu.lylat.space.\"; };")
+    )
+    error_message = "dns1 must accept signed updates, and dns2 must transfer the zone using the shared key."
   }
 }

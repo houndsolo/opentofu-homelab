@@ -31,43 +31,45 @@ DNS keeps its management NIC and a service NIC on `vmbr4000`, VLAN 8, with
 `10.8.53.1/16` or `10.8.53.2/16` and gateway `10.8.0.5`. Cloud-init bootstraps a
 public-key user and installs `qemu-guest-agent`, `net-tools` and `podman`.
 
-## BIND9
+## BIND9 and provider-managed records
 
-`bind9.tf` configures both DNS VMs over their management SSH addresses, using the
-existing username and `ssh_private_key_path`. No Ansible or extra provider is
-needed. It waits for cloud-init and installs Podman and DNS query tools if missing,
-so the same setup works on the existing VMs.
+`dns.tf` uses the official [`hashicorp/dns`](https://registry.terraform.io/providers/hashicorp/dns/latest/docs)
+provider to manage `dns1.lylat.space` and `dns2.lylat.space` A records from
+`network_services.dns`. `dns1` is the primary; `dns2` is the secondary and receives
+signed zone transfers. Both forward other queries to `1.1.1.1` and `1.0.0.1`.
+Queries and recursion are allowed from `10.0.0.0/8` and loopback.
 
-Both servers independently serve the same static `lylat.space` zone:
+OpenTofu generates a shared HMAC-SHA256 TSIG key using `random_bytes`. No extra
+input is needed. The key is retained in sensitive state and installed in a
+restricted configuration file on each VM. Keep the same state between applies.
 
-- `dns1.lylat.space` → `10.8.53.1`
-- `dns2.lylat.space` → `10.8.53.2`
+`bind9.tf` handles only server bootstrap over management SSH: Podman, the Quadlet,
+forwarders, the TSIG key and zone declarations. Configuration is mounted read-only;
+`/var/lib/bind9` is mounted writable for zones/journals. Initial zone data is seeded
+once (or migrated from the previous static primary zone); later applies preserve
+it. The DNS provider owns the A records after bootstrap. Add future records as
+`dns_*_record_set` resources in `dns.tf`, rather than editing zone files.
 
-The A records and NS records are generated from `network_services.dns`. Other
-queries forward only to `1.1.1.1` and `1.0.0.1`. Queries and recursion are allowed
-from `10.0.0.0/8` and loopback. Edit `templates/named.conf` to change upstreams or
-allowed client networks, and `templates/lylat.space.tftpl` to extend the zone.
+The Quadlet starts at boot and publishes TCP/UDP 53 on each service IP only.
+Use `systemctl status bind9` and `journalctl -u bind9` on the VMs for status/logs.
+Edit `templates/named.conf.tftpl` for upstreams or client networks.
 
-OpenTofu writes `/etc/bind9` on each VM; the container mounts it read-only.
-BIND runs as the image's `bind` user and writes runtime/cache data to a temporary
-writable `/var/cache/bind`. No writable zone files, replication, or dynamic DNS
-updates are configured. The Quadlet at `/etc/containers/systemd/bind9.container`
-starts at boot, restarts on failure, and publishes TCP/UDP 53 on the service IP
-only. `systemctl status bind9` and `journalctl -u bind9` show its status/logs.
-
-Apply from a machine that can SSH to both management addresses. The VMs need
-outbound HTTPS for packages/container downloads and TCP/UDP 53 to the upstreams:
+Run from a machine that can SSH to both management addresses and reach
+`dns1`'s service IP on TCP 53. Both VMs need outbound HTTPS for packages/images,
+TCP/UDP 53 for upstream DNS, and connectivity to each other on TCP/UDP 53:
 
 ```sh
+tofu -chdir=roots/network-services init
 tofu -chdir=roots/network-services plan
 tofu -chdir=roots/network-services apply
 ```
 
-Configuration, inventory address, and installer changes trigger another SSH
-deployment. It validates the staged config and zone with `named-checkconf -z`
-before installing files, restarts BIND, and checks both local records over UDP/TCP.
-Provisioners do not continuously reconcile guest changes. To redeploy after a
-manual change or a VM rebuild with the same identity:
+One apply generates the key, bootstraps both servers, then creates the DNS records.
+Bootstrap changes validate staged files with `named-checkconf -z`, restart BIND,
+and wait for the zone to load before provider updates. Existing zone files and
+journals are never replaced on redeployment. Provisioners do not continuously
+reconcile guest changes. After a manual guest change or VM rebuild with the same
+identity, redeploy the bootstrap using:
 
 ```sh
 tofu -chdir=roots/network-services apply \
@@ -75,7 +77,8 @@ tofu -chdir=roots/network-services apply \
   -replace='terraform_data.bind9["dns2"]'
 ```
 
-Removing the deployment resource does not uninstall the guest service.
+Removing the bootstrap resource does not uninstall BIND. Destroying a DNS record
+resource removes that record through the DNS provider.
 
 ## Image and SSH key
 
@@ -103,5 +106,8 @@ tofu -chdir=roots/network-services test
 
 `vms` outputs each guest's identity and management address. Mocked tests check
 both groups share the template, DHCP has no extra NICs, DNS image/cloud-init
-wiring, generated BIND9 deployments, inventory-driven changes and invalid inputs.
+wiring, generated BIND9 deployments, provider-managed records and invalid inputs.
+An additional plan check uses the real DNS/random providers for first-time key
+generation. Local container checks exercised provider updates, signed replication
+and persistent journals.
 No live apply to Proxmox or SSH to the DNS VMs was performed.

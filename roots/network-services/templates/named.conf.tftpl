@@ -1,0 +1,37 @@
+acl "clients" {
+    127.0.0.0/8;
+    10.0.0.0/8;
+};
+
+options {
+    directory "/var/cache/bind";
+    listen-on { any; };
+    listen-on-v6 { none; };
+    recursion yes;
+    allow-query { clients; };
+    allow-recursion { clients; };
+    allow-query-cache { clients; };
+    allow-transfer { none; };
+    forward only;
+    forwarders { 1.1.1.1; 1.0.0.1; };
+    dnssec-validation auto;
+};
+
+key "opentofu.lylat.space." {
+    algorithm hmac-sha256;
+    secret "${tsig_key}";
+};
+
+zone "lylat.space" {
+    file "/var/lib/bind/lylat.space.zone";
+%{ if primary ~}
+    type primary;
+    allow-update { key "opentofu.lylat.space."; };
+    allow-transfer { key "opentofu.lylat.space."; };
+    also-notify { ${dns2} key "opentofu.lylat.space."; };
+%{ else ~}
+    type secondary;
+    primaries { ${dns1} key "opentofu.lylat.space."; };
+    allow-notify { key "opentofu.lylat.space."; };
+%{ endif ~}
+};

@@ -1,12 +1,13 @@
 $ORIGIN lylat.space.
 $TTL 300
 @ IN SOA dns1.lylat.space. hostmaster.lylat.space. (
-    1      ; serial (both servers serve the same static zone)
+    1      ; serial (BIND increments this on dynamic updates)
     3600   ; refresh
     600    ; retry
     86400  ; expire
     300    ; negative cache TTL
 )
+; Initial zone only. The DNS provider owns these A records after bootstrap.
 %{ for name, address in servers ~}
 @ IN NS ${name}.lylat.space.
 ${name} IN A ${address}

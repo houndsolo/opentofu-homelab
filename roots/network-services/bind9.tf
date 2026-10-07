@@ -2,7 +2,12 @@ locals {
   bind9_image = "docker.io/internetsystemsconsortium/bind9:9.20"
   bind9_files = {
     for name, vm in var.network_services.dns : name => {
-      named_conf = file("${path.module}/templates/named.conf")
+      named_conf = templatefile("${path.module}/templates/named.conf.tftpl", {
+        primary  = name == "dns1"
+        dns1     = split("/", var.network_services.dns.dns1.service_address)[0]
+        dns2     = split("/", var.network_services.dns.dns2.service_address)[0]
+        tsig_key = random_bytes.dns_tsig.base64
+      })
       zone = templatefile("${path.module}/templates/lylat.space.tftpl", {
         servers = { for hostname, server in var.network_services.dns : hostname => split("/", server.service_address)[0] }
       })
@@ -13,6 +18,7 @@ locals {
         PublishPort=${split("/", vm.service_address)[0]}:53:53/tcp
         PublishPort=${split("/", vm.service_address)[0]}:53:53/udp
         Volume=/etc/bind9:/etc/bind:ro
+        Volume=/var/lib/bind9:/var/lib/bind:rw
         Tmpfs=/var/cache/bind:rw,mode=1777
 
         [Service]
@@ -54,8 +60,8 @@ resource "terraform_data" "bind9" {
         zone            = base64encode(local.bind9_files[each.key].zone)
         quadlet         = base64encode(local.bind9_files[each.key].quadlet)
         service_address = split("/", each.value.service_address)[0]
-        dns1_address    = split("/", var.network_services.dns.dns1.service_address)[0]
-        dns2_address    = split("/", var.network_services.dns.dns2.service_address)[0]
+        primary         = each.key == "dns1"
+        primary_address = split("/", var.network_services.dns.dns1.service_address)[0]
       })}\nBIND9_SETUP",
     ]
   }

@@ -1,1 +1,1 @@
-../../inventory/versions/pve-versions.tf
+../../inventory/versions/network-services-versions.tf

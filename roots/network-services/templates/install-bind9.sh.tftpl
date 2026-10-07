@@ -1,42 +1,60 @@
+umask 077
+
 # Existing VMs may predate the cloud-init package additions.
 if ! command -v podman >/dev/null || ! command -v dig >/dev/null; then
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y podman net-tools dnsutils
 fi
 
-install -d -m 0755 /etc/bind9 /etc/containers/systemd
+install -d -m 0755 /etc/bind9 /var/lib/bind9 /etc/containers/systemd
 staging=$(mktemp -d /etc/bind9/.staging.XXXXXX)
 trap 'rm -rf "$staging"' EXIT
 chmod 0755 "$staging"
 printf '%s' '${named_conf}' | base64 -d > "$staging/named.conf"
 printf '%s' '${zone}' | base64 -d > "$staging/lylat.space.zone"
 printf '%s' '${quadlet}' | base64 -d > "$staging/bind9.container"
-chmod 0644 "$staging"/*
+chmod 0600 "$staging/named.conf"
+chmod 0644 "$staging/lylat.space.zone" "$staging/bind9.container"
 
 podman pull '${image}'
 # Validate both configuration and zone before changing the running service.
 podman run --rm --network=none --entrypoint /usr/bin/named-checkconf \
-    -v "$staging:/etc/bind:ro" --tmpfs /var/cache/bind:rw,mode=1777 \
+    -v "$staging:/etc/bind:ro" -v "$staging:/var/lib/bind:ro" --tmpfs /var/cache/bind:rw,mode=1777 \
     '${image}' -z /etc/bind/named.conf
 
-install -m 0644 "$staging/named.conf" /etc/bind9/named.conf
-install -m 0644 "$staging/lylat.space.zone" /etc/bind9/lylat.space.zone
+# Never overwrite an existing dynamic zone or its journal on a later apply.
+%{ if primary ~}
+if [ ! -f /var/lib/bind9/lylat.space.zone ]; then
+    if [ -f /etc/bind9/lylat.space.zone ]; then
+        install -m 0644 /etc/bind9/lylat.space.zone /var/lib/bind9/lylat.space.zone
+    else
+        install -m 0644 "$staging/lylat.space.zone" /var/lib/bind9/lylat.space.zone
+    fi
+fi
+%{ endif ~}
+install -m 0600 "$staging/named.conf" /etc/bind9/named.conf
 install -m 0644 "$staging/bind9.container" /etc/containers/systemd/bind9.container
+# Resolve ownership using the image's bind user rather than a hardcoded UID.
+podman run --rm --network=none --entrypoint /bin/sh \
+    -v /etc/bind9:/config -v /var/lib/bind9:/var/lib/bind '${image}' \
+    -ec 'chown bind:bind /config/named.conf; chown -R bind:bind /var/lib/bind'
+# Signed readiness checks also handle the first deployment and key rotation.
+sed -n '/^key /,/^};/p' /etc/bind9/named.conf > "$staging/tsig.key"
+wait_for_zone() {
+    for attempt in $(seq 1 120); do
+        if dig -k "$staging/tsig.key" @"$1" lylat.space SOA +tcp +norecurse +time=1 +tries=1 | grep -q 'flags:.* aa'; then
+            return 0
+        fi
+        sleep 2
+    done
+    journalctl -u bind9.service -n 30 --no-pager
+    return 1
+}
+%{ if !primary ~}
+# Start the secondary only once the primary accepts this key.
+wait_for_zone '${primary_address}'
+%{ endif ~}
 systemctl daemon-reload
 systemctl restart bind9.service
 systemctl is-active --quiet bind9.service
-
-# Wait for BIND to listen, then verify local data over both UDP and TCP.
-ready=false
-for attempt in $(seq 1 30); do
-    if [ "$(dig @${service_address} dns1.lylat.space A +short +time=1 +tries=1)" = '${dns1_address}' ] &&
-       [ "$(dig @${service_address} dns2.lylat.space A +tcp +short +time=1 +tries=1)" = '${dns2_address}' ]; then
-        ready=true
-        break
-    fi
-    sleep 1
-done
-if [ "$ready" != true ]; then
-    journalctl -u bind9.service -n 30 --no-pager
-    exit 1
-fi
+wait_for_zone '${service_address}'
