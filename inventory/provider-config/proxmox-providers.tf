@@ -2,7 +2,7 @@ variable "pve_api_token" {
   type      = string
   sensitive = true
 }
-variable "gf_api_token" {
+variable "gf_api_token" { 
   type      = string
   sensitive = true
 }
@@ -14,6 +14,10 @@ variable "ssh_private_key_path" {
 locals {
   pve_mgmt_subnet = "10.20.7.0/24"
 
+  pve_node_mgmt = {
+    for name, node in var.nodes.proxmox :
+    name => cidrhost(local.pve_mgmt_subnet, node.id)
+  }
 
   pve_cluster_mgmt = "https://10.20.7.11:8006"
 }
