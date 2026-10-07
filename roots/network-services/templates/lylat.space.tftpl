@@ -1,0 +1,13 @@
+$ORIGIN lylat.space.
+$TTL 300
+@ IN SOA dns1.lylat.space. hostmaster.lylat.space. (
+    1      ; serial (both servers serve the same static zone)
+    3600   ; refresh
+    600    ; retry
+    86400  ; expire
+    300    ; negative cache TTL
+)
+%{ for name, address in servers ~}
+@ IN NS ${name}.lylat.space.
+${name} IN A ${address}
+%{ endfor ~}

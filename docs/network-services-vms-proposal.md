@@ -23,8 +23,10 @@ SSH-key login and install/start the QEMU guest agent. Ordered cloud-init IP
 configs match the management and DNS service NICs. The shared VM module keeps
 the previous management-only behavior when explicit IP configs are omitted.
 
-The shared Proxmox provider configuration is unchanged. DNS/DHCP application
-configuration is outside this root's scope. No live resources have been created;
+The shared Proxmox provider configuration is unchanged. `bind9.tf` now configures
+the DNS VMs with a Podman Quadlet, Cloudflare forwarders, and a static
+`lylat.space` zone whose DNS server records come from inventory.
+DHCP application configuration remains outside this root's scope. No live resources have been created;
 the Debian image URL/checksum are pinned in shared inventory, and Debian's SSH
 public key is loaded automatically from the existing `ssh_private_key_path` plus
 `.pub`.

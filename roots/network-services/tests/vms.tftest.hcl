@@ -66,10 +66,10 @@ run "four_service_vms" {
   }
   assert {
     condition = (
-      join(",", yamldecode(proxmox_virtual_environment_file.dns_user_data["dns1"].source_raw[0].data).packages) == "qemu-guest-agent" &&
+      join(",", yamldecode(proxmox_virtual_environment_file.dns_user_data["dns1"].source_raw[0].data).packages) == "qemu-guest-agent,net-tools,podman" &&
       yamldecode(proxmox_virtual_environment_file.dns_user_data["dns1"].source_raw[0].data).users[0].ssh_authorized_keys[0] == trimspace(file("${pathexpand(var.ssh_private_key_path)}.pub"))
     )
-    error_message = "Debian bootstrap must install only the guest agent and load the public key matching ssh_private_key_path."
+    error_message = "Debian bootstrap must preserve the guest agent, net-tools, Podman and the matching SSH public key."
   }
 }
 
@@ -113,4 +113,52 @@ run "reject_unpinned_image" {
     }
   }
   expect_failures = [var.debian_image]
+}
+
+run "bind9_plan" {
+  command = plan
+  assert {
+    condition     = join(",", sort(keys(terraform_data.bind9))) == "dns1,dns2"
+    error_message = "Only DNS VMs should receive the BIND9 deployment."
+  }
+  assert {
+    condition = alltrue([
+      for deployment in values(terraform_data.bind9) :
+      strcontains(deployment.triggers_replace[0].named_conf, "forwarders { 1.1.1.1; 1.0.0.1; };") &&
+      strcontains(deployment.triggers_replace[0].named_conf, "forward only;") &&
+      strcontains(deployment.triggers_replace[0].named_conf, "allow-recursion { clients; };") &&
+      strcontains(deployment.triggers_replace[0].zone, "dns1 IN A 10.8.53.1") &&
+      strcontains(deployment.triggers_replace[0].zone, "dns2 IN A 10.8.53.2")
+    ])
+    error_message = "Both resolvers must use Cloudflare upstreams and serve the inventory's local DNS records."
+  }
+  assert {
+    condition = (
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "PublishPort=10.8.53.1:53:53/tcp") &&
+      strcontains(terraform_data.bind9["dns2"].triggers_replace[0].quadlet, "PublishPort=10.8.53.2:53:53/udp") &&
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "Volume=/etc/bind9:/etc/bind:ro") &&
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "Tmpfs=/var/cache/bind:rw,mode=1777") &&
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].quadlet, "WantedBy=multi-user.target")
+    )
+    error_message = "Quadlet must bind the service IPs, protect configuration, provide writable runtime storage and start at boot."
+  }
+}
+
+run "bind9_inventory_changes" {
+  command = plan
+  variables {
+    network_services = merge(var.network_services, {
+      dns = merge(var.network_services.dns, {
+        dns2 = merge(var.network_services.dns.dns2, { service_address = "10.8.53.22/16" })
+      })
+    })
+  }
+  assert {
+    condition = (
+      strcontains(terraform_data.bind9["dns1"].triggers_replace[0].zone, "dns2 IN A 10.8.53.22") &&
+      strcontains(terraform_data.bind9["dns2"].triggers_replace[0].zone, "dns2 IN A 10.8.53.22") &&
+      strcontains(terraform_data.bind9["dns2"].triggers_replace[0].quadlet, "PublishPort=10.8.53.22:53:53/tcp")
+    )
+    error_message = "Service IP changes must update both zone deployments and the affected listener."
+  }
 }
