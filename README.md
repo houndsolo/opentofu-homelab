@@ -32,3 +32,19 @@ tofu -chdir=roots/fabric-vms apply
 ```
 
 Review the plan before applying. Each root has separate state.
+
+## Order to run roots
+
+- Proxmox Hypervisor settings/network settings
+tofu -chdir=roots/proxmox-settings apply
+tofu -chdir=roots/proxmox-network apply
+
+- EVPN-VxLAN fabric. Proxmox VTEP VM creation, Spine & Leaf configuration
+tofu -chdir=roots/fabric-vms apply
+tofu -chdir=roots/fabric-leaves apply
+tofu -chdir=roots/fabric-spines apply
+
+- Network service VMs, (DNS, DHCP, NTP, etc)
+tofu -chdir=roots/network-services apply
+- VMs and LXCs
+tofu -chdir=roots/proxmox-virtual-hosts
