@@ -10,7 +10,7 @@ resource "proxmox_virtual_environment_file" "dns_user_data" {
       manage_etc_hosts = true
       ssh_pwauth       = false
       package_update   = true
-      packages         = ["qemu-guest-agent"]
+      packages         = ["qemu-guest-agent", "net-tools", "podman"]
       users = [{
         name                = var.network_services.dns_bootstrap.username
         shell               = "/bin/bash"
