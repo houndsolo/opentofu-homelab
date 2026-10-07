@@ -1,7 +1,7 @@
 locals {
   greatfox_nodes = {
-    for name, node in var.nodes.proxmox :
-    name => node
-    if name == "greatfox"
+    for node_name, node in var.nodes.proxmox :
+    node_name => node
+    if node_name == "greatfox"
   }
 }

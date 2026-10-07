@@ -10,8 +10,8 @@ locals {
   }
 
   greatfox_nodes = {
-    for name, node in var.nodes.proxmox :
-    name => {
+    for node_name, node in var.nodes.proxmox :
+    node_name => {
       role             = "proxmox"
       proxmox_node     = node_name
       id               = node.id
