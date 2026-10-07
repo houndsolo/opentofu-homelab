@@ -1,37 +1,34 @@
-# OpenTofu homelab starter
+# OpenTofu homelab
 
+Proxmox infrastructure and a VyOS EVPN/VXLAN fabric.
 
 | Directory | Purpose |
 | --- | --- |
-| inventory/auto.tfvars/ | Shared example values; edit these files |
-| inventory/schema/ | HCL variable types and validation |
-| inventory/versions/ | Tofu provider versions |
-| examples/auto.tfvars/ | Links to the example inventory values |
-| roots/proxmox-network/ | Proxmox networking |
-| roots/proxmox-settings/ | Proxmox settings |
-| roots/proxmox-virtual-hosts/ | Proxmox VMs/LXCs |
-| roots/fabric-vms/ | Fabric VM lifecycle |
-| roots/fabric-leaves/ | VyOS leaf configuration |
-| roots/fabric-spines/ | RouterOS spine configuration |
-| roots/network-services/ | Service VM lifecycle |
-| roots/workloads/ | Other VM lifecycle |
-| modules/proxmox/network/ | Proxmox networking module - bridges, bonds, subinterfaces |
-| modules/proxmox/vm/ | VM |
-| modules/proxmox/lxc/ | LXC |
-| modules/fabric/leaf/ | leaves |
-| modules/fabric/spine/ | spines |
+| inventory/ | Shared values, variable definitions and provider configuration |
+| roots/ | Separate OpenTofu configurations |
+| modules/ | Reusable modules |
 | providers/ | Provider source submodules |
-| tooling/ | provider build scripts |
-| docs/ | Suggested implementation steps |
+| tooling/ | Provider build and installation scripts |
 
-```bash
-tofu -chdir=roots/proxmox-network init
-tofu -chdir=roots/proxmox-network validate
-tofu -chdir=roots/proxmox-network plan
+## Setup
+
+Run from the repository directory:
+
+```sh
+git submodule update --init --recursive
+nix-shell
+tooling/build-all proxmox vyoscmd
+export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
 ```
 
-Run each root separately. Each has independent local state in its directory.
-The top level is not a deployment root. Relative symlinks load only the data
-and declarations that each root uses. Do not replace those links with copies.
-Required OpenTofu version is a compatibility floor, not a release pin.
-Use your installed current stable OpenTofu release.
+## Usage
+
+Edit the shared inventory, then select a root:
+
+```sh
+tofu -chdir=roots/fabric-vms init
+tofu -chdir=roots/fabric-vms plan
+tofu -chdir=roots/fabric-vms apply
+```
+
+Review the plan before applying. Each root has separate state.

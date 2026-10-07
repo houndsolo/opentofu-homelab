@@ -1,7 +1,5 @@
 # Provider source code
 
-The starter does not clone or build providers. Add them when needed:
-
 ```bash
 git init
 git submodule add git@github.com:houndsolo/terraform-provider-proxmox.git providers/terraform-provider-proxmox
