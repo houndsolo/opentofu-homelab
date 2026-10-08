@@ -39,12 +39,15 @@ resource "terraform_data" "bind9" {
     local.bind9_files[each.key],
     each.value,
     filesha256("${path.module}/templates/install-bind9.sh.tftpl"),
+    # Reinstall BIND on VM replacement, even when the configured VM ID is reused.
+    module.dns[each.key].id,
   ]
+  # VM creation (including its image and cloud-init files) completes before SSH.
   depends_on = [module.dns]
 
   connection {
     type        = "ssh"
-    host        = split("/", each.value.management_address)[0]
+    host        = split("/", module.dns[each.key].management_address)[0]
     user        = var.network_services.dns_bootstrap.username
     private_key = file(pathexpand(var.ssh_private_key_path))
     timeout     = "10m"

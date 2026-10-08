@@ -1,3 +1,8 @@
+output "id" {
+  description = "Computed resource ID; becomes unknown during VM replacement."
+  value       = proxmox_virtual_environment_vm.this.id
+}
+
 output "vm_id" {
   description = "Proxmox VM ID."
   value       = proxmox_virtual_environment_vm.this.vm_id

@@ -65,12 +65,25 @@ tofu -chdir=roots/network-services plan
 tofu -chdir=roots/network-services apply
 ```
 
-One apply generates the key, bootstraps both servers, then creates the DNS records.
+OpenTofu combines all `.tf` files into one dependency graph. The apply order is:
+
+1. Debian image download and cloud-init snippet uploads.
+2. `module.dns` VM creation.
+3. `terraform_data.bind9` SSH bootstrap and signed zone-readiness checks.
+4. All DNS record resources in `dns.tf`.
+
+The TSIG key is generated independently before BIND bootstrap, keeping that path
+free of circular dependencies. DHCP VM creation remains independent of DNS.
+Dependencies order apply operations; refreshing existing DNS records during a
+plan still requires the primary DNS server to be reachable.
+
+Bootstrap also tracks each VM's computed resource ID, so a VM replacement
+schedules BIND setup again even when its configured numeric VM ID stays the same.
 Bootstrap changes validate staged files with `named-checkconf -z`, restart BIND,
 and wait for the zone to load before provider updates. Existing zone files and
 journals are never replaced on redeployment. Provisioners do not continuously
-reconcile guest changes. After a manual guest change or VM rebuild with the same
-identity, redeploy the bootstrap using:
+reconcile guest changes. After a manual guest change or a rebuild performed
+outside OpenTofu, redeploy the bootstrap using:
 
 ```sh
 tofu -chdir=roots/network-services apply \
@@ -99,8 +112,8 @@ records = {
 ```
 
 This creates `host01.lylat.space` IPv4/IPv6 records and an `app.lylat.space` alias.
-CNAME targets must be fully qualified and end in a dot. The supplied file starts
-empty with commented examples, so no placeholder hosts are deployed.
+CNAME targets must be fully qualified and end in a dot. Commented examples in
+the inventory file can be used as a starting point.
 
 Proxmox A records are automatic: both `nodes.proxmox_cluster` and `nodes.proxmox`
 are included, with management addresses `10.20.7.<id>`. For example,

@@ -14,6 +14,9 @@ provider "dns" {
   }
 }
 
+# OpenTofu orders resources, not .tf files. Every record below waits for both
+# BIND services to finish bootstrap and signed zone-readiness checks.
+# Keep the TSIG key above independent: BIND needs it before records can be created.
 resource "dns_a_record_set" "servers" {
   for_each   = var.network_services.dns
   zone       = "lylat.space."
