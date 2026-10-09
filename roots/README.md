@@ -11,7 +11,8 @@ Run commands from the repository directory.
 | fabric-spines | RouterOS spine configuration | Placeholder |
 | proxmox-settings | Proxmox settings | Incomplete |
 | proxmox-virtual-hosts | General VM/container configuration | Placeholder |
-| network-services | Service VMs | Incomplete |
+| services-vms | Service VM creation and cloud-init | Implemented; requires VM settings |
+| services-config | Configuration through service APIs | Placeholder |
 | workloads | Other VMs | Incomplete |
 
 ## Examples

@@ -1,6 +1,6 @@
 vms = {
   dns01 = {
-    owner     = "network-services"
+    owner     = "services-vms"
     node      = "pve01"
     vm_id     = 301
     cores     = 2
