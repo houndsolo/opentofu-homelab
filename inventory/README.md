@@ -27,3 +27,7 @@ Route targets are explicit values; changing the overlay AS does not update them.
 
 Keep credentials outside tracked inventory files. Use environment variables
 or private variable files.
+
+`schema/vm-config.tf` defines the shared VM settings used by the VM module
+and the services-vms root. VM entries with `owner = "services-vms"` belong
+to that root.
