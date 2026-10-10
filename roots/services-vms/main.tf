@@ -11,4 +11,5 @@ module "vm" {
   name      = each.key
   vm        = each.value
   vm_config = var.vm_config
+  vm_images = var.vm_images
 }

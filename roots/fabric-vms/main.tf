@@ -6,24 +6,32 @@ module "proxmox_fabric_macs" {
     local.greatfox_nodes,
   )
 
-  underlay_bridges       = var.pve_leaf.vm_config.default_underlay_bridges
-  underlay_local_as_base = var.pve_leaf.vm_config.underlay_local_as_base
+  underlay_bridges       = var.fabric_vms.default_underlay_bridges
+  underlay_local_as_base = var.fabric_vms.underlay_local_as_base
 }
 
 module "vm" {
   source   = "../../modules/proxmox/vm"
   for_each = var.nodes.proxmox_cluster
 
-  name = "${var.pve_leaf.vm_config.hostname_prefix}${each.key}"
+  name = "${var.fabric_vms.hostname_prefix}${each.key}"
 
-  vm = {
+  vm = merge({
+    image              = "vyos"
+    started            = true
+    tags               = ["opentofu", "debian", "vyos", "vxlan"]
     node               = each.key
-    vm_id              = each.value.id + var.pve_leaf.vm_config.vm_id_offset
-    management_address = "${cidrhost(var.pve_leaf.vm_config.management_prefix, each.value.id)}/${var.pve_leaf.vm_config.management_cidr}"
+    vm_id              = each.value.id + var.fabric_vms.vm_id_offset
+    management_address = "${cidrhost(var.fabric_vms.management_prefix, each.value.id)}/${var.fabric_vms.management_cidr}"
     network_devices    = module.proxmox_fabric_macs.network_devices[each.key]
-  }
+    }, [
+    for name, vm in var.vms : {
+      for key, value in vm : key => value if value != null
+    } if name == "${var.fabric_vms.hostname_prefix}${each.key}" && vm.owner == "fabric-vms"
+  ]...)
 
-  vm_config = var.pve_leaf.vm_config
+  vm_config = var.vm_config
+  vm_images = var.vm_images
 }
 
 module "greatfox_vm" {
@@ -34,14 +42,22 @@ module "greatfox_vm" {
     proxmox = proxmox.greatfox
   }
 
-  name = "${var.pve_leaf.vm_config.hostname_prefix}${each.key}"
+  name = "${var.fabric_vms.hostname_prefix}${each.key}"
 
-  vm = {
+  vm = merge({
+    image              = "vyos"
+    started            = true
+    tags               = ["opentofu", "debian", "vyos", "vxlan"]
     node               = each.key
-    vm_id              = each.value.id + var.pve_leaf.vm_config.vm_id_offset
-    management_address = "${cidrhost(var.pve_leaf.vm_config.management_prefix, each.value.id)}/${var.pve_leaf.vm_config.management_cidr}"
+    vm_id              = each.value.id + var.fabric_vms.vm_id_offset
+    management_address = "${cidrhost(var.fabric_vms.management_prefix, each.value.id)}/${var.fabric_vms.management_cidr}"
     network_devices    = module.proxmox_fabric_macs.network_devices[each.key]
-  }
+    }, [
+    for name, vm in var.vms : {
+      for key, value in vm : key => value if value != null
+    } if name == "${var.fabric_vms.hostname_prefix}${each.key}" && vm.owner == "fabric-vms"
+  ]...)
 
-  vm_config = var.pve_leaf.vm_config
+  vm_config = var.vm_config
+  vm_images = var.vm_images
 }

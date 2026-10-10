@@ -46,21 +46,26 @@ when you implement a service. Each root has separate state.
 ### Create service VMs
 
 Run from the repository directory after the setup commands above.
-Set each service VM's node, ID, CPU, RAM and bridge in the shared inventory.
-Replace the starter node `pve01` with an actual Proxmox node.
+Edit `inventory/auto.tfvars/vms.auto.tfvars` to set each VM's node, ID,
+image, and any overrides. Shared defaults are already loaded from
+`inventory/auto.tfvars/vm-config.auto.tfvars`; no extra VM settings file is needed.
 
-Create the local settings file:
+Check that the Debian 13 and VyOS image IDs in `vm_images` match files
+in your Proxmox storage. This root imports existing images; it does not
+fetch them. The Debian path is `cephfs:import/debian-13-genericcloud-amd64.qcow2`.
+The starter DNS and DHCP VMs use node `venom` and IDs 301 and 302.
+Check these IDs before applying.
 
-```sh
-cp examples/services-vms.tfvars roots/services-vms/settings.secret.auto.tfvars
-```
-
-Edit that file. Set the datastore and the existing cloud image ID.
-Add `pve_api_token` and `gf_api_token`, or supply them with
-`TF_VAR_pve_api_token` and `TF_VAR_gf_api_token`.
+Supply `pve_api_token` and `gf_api_token` in your private variable file,
+or use `TF_VAR_pve_api_token` and `TF_VAR_gf_api_token`.
 The shared provider configuration requires both tokens.
 Set `ssh_private_key_path` if the default `~/.ssh/id_rsa` is incorrect.
-The `*.secret.auto.tfvars` file is ignored by Git.
+Keep credentials outside tracked inventory files. For unrelated shared
+credentials such as `vyos_api_key` and `ssh_keys`, use `TF_VAR_...`
+environment variables to avoid warnings from roots that do not declare them.
+
+Remove any old local `vm_config` assignment made from the previous example.
+It would replace the shared inventory assignment.
 
 ```sh
 tofu -chdir=roots/services-vms init
@@ -70,10 +75,83 @@ tofu -chdir=roots/services-vms apply
 tofu -chdir=roots/services-vms output vms
 ```
 
-The VM module starts guests only when `vm_config.started = true`.
-Its default is false. Start the VMs and check service API access before
+The service VM default is `started = false`. Use a per-VM override to start
+a guest. Generated VTEPs retain `started = true`. Start the VMs and check service API access before
 you apply service configuration. A DHCP management address in the outputs
 is the configured value `dhcp`, not the assigned IP address.
+
+### Shared VM defaults and overrides
+
+All VM roots call `modules/proxmox/vm`. Its `defaults` submodule resolves
+shared defaults and per-VM overrides. There is no separate `pve_leaf`
+hardware configuration.
+
+| File | Purpose |
+| --- | --- |
+| `inventory/auto.tfvars/vm-config.auto.tfvars` | Shared storage and hardware defaults, plus named images |
+| `inventory/schema/vm-config.tf` | Available shared settings and built-in defaults |
+| `inventory/auto.tfvars/vms.auto.tfvars` | VM placement, image selection, and per-VM overrides |
+| `inventory/auto.tfvars/fabric-vms.auto.tfvars` | VTEP naming, generated IDs, addresses, and NIC layout |
+
+Settings apply in this order: shared defaults, selected image settings,
+short per-VM fields (`cores`, `memory_mb`, `bridge`, `started`, `tags`),
+then `config`. A later value overrides an earlier value.
+Omitted or null override values inherit the previous value. False, zero,
+and empty lists are explicit overrides. Lists are replaced as a whole.
+An image selection can clear a shared cloud-init snippet; Debian has no
+VyOS snippet. `cloud_init = false` disables cloud-init for a VM.
+
+For example, edit the `dns01` entry:
+
+```hcl
+dns01 = {
+  owner = "services-vms"
+  node  = "venom"
+  vm_id = 301
+  image = "debian13"
+  cores = 2
+  memory_mb = 2048
+  config = {
+    disk_size_gb = 20
+    started      = true
+  }
+}
+```
+
+Use `image = "vyos"` for DHCP VMs. The supplied DHCP entry creates a
+VyOS guest with the existing API cloud-init snippet. DHCP scopes and
+interfaces still require service configuration.
+
+VTEPs are generated from the node inventory. To override one, add an entry
+with its generated hostname to the same `vms` map:
+
+```hcl
+vtep-venom = {
+  owner = "fabric-vms"
+  config = {
+    cpu_cores    = 2
+    memory_mb    = 2048
+    disk_size_gb = 20
+  }
+}
+```
+
+This entry changes the existing VTEP. It does not create a second VM.
+Unspecified node, ID, management address, and NICs retain generated values.
+Future VMs use the same `vms` map and module.
+VTEP entries must use `owner = "fabric-vms"`.
+
+```sh
+tofu -chdir=roots/fabric-vms init
+tofu -chdir=roots/fabric-vms validate
+tofu -chdir=roots/fabric-vms plan -input=false
+
+tofu -chdir=roots/services-vms plan -input=false
+```
+
+VM resource addresses remain unchanged. No state move is required for
+this defaults change. Review plans before applying; changing an image,
+node, or ID can cause replacement or other provider-managed changes.
 
 ### Configure services
 
@@ -114,3 +192,12 @@ Do not copy the old `.terraform` directory; run `init` in the new root.
 For remote state, configure the new VM root to use the existing backend
 and state key. The configuration root must use the state that already owns
 the VMs. Do not apply an empty VM state to existing VMs.
+
+## Check VM defaults
+
+This check needs OpenTofu, but does not need Proxmox access or a provider binary:
+
+```sh
+tofu -chdir=modules/proxmox/vm/defaults init
+tofu -chdir=modules/proxmox/vm/defaults test
+```

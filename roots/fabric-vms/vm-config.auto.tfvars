@@ -1,0 +1,1 @@
+../../inventory/auto.tfvars/vm-config.auto.tfvars
