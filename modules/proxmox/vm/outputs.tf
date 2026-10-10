@@ -15,7 +15,7 @@ output "name" {
 
 output "management_address" {
   description = "Configured management IPv4 address, or null when cloud-init is disabled."
-  value       = var.vm_config.cloud_init ? var.vm.management_address : null
+  value       = local.config.cloud_init ? var.vm.management_address : null
 }
 
 output "network_devices" {

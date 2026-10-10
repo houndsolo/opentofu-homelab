@@ -1,10 +1,10 @@
 variable "vm_config" {
-  description = "Shared resource settings; callers can supply separate settings for each VM group."
+  description = "Shared defaults for every Proxmox VM. Per-VM config values override these settings."
   type = object({
     datastore_id            = string
     import_image            = string
     description             = optional(string, "managed by opentofu")
-    tags                    = optional(list(string), ["opentofu", "debian", "vyos", "vxlan"])
+    tags                    = optional(list(string), ["opentofu"])
     started                 = optional(bool, false)
     keyboard_layout         = optional(string, "en-us")
     migrate                 = optional(bool, false)

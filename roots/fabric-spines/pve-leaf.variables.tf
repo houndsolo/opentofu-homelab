@@ -1,1 +1,0 @@
-../../inventory/schema/pve-leaf.tf
