@@ -15,7 +15,8 @@ Shared configuration used by the roots.
 | --- | --- |
 | nodes.auto.tfvars | Proxmox nodes and stable IDs |
 | fabric.auto.tfvars | Fabric members, addressing and MTUs |
-| pve-leaf.auto.tfvars | Fabric VM settings |
+| fabric-vms.auto.tfvars | VTEP naming, addresses and NIC generation |
+| vm-config.auto.tfvars | Shared VM defaults and named Debian/VyOS images |
 | pve-network.auto.tfvars | Proxmox host networking |
 | vnis.auto.tfvars | VRFs, L2/L3 VNIs, gateways and route targets |
 | vms.auto.tfvars | General VM definitions |
@@ -27,3 +28,7 @@ Route targets are explicit values; changing the overlay AS does not update them.
 
 Keep credentials outside tracked inventory files. Use environment variables
 or private variable files.
+
+`schema/vm-config.tf` defines the shared VM settings used by the VM module
+and all VM roots. VM entries with `owner = "services-vms"` belong
+to that root.

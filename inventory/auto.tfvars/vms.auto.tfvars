@@ -1,16 +1,45 @@
 vms = {
   dns01 = {
-    owner     = "network-services"
-    node      = "pve01"
-    vm_id     = 301
+    owner     = "services-vms"
+    node      = "venom"
+    vm_id     = 5301
+    image     = "debian13"
+    cores     = 2
+    memory_mb = 2048
+    bridge    = "vmbr0"
+  }
+  dns02 = {
+    owner     = "services-vms"
+    node      = "eldarad"
+    vm_id     = 5302
+    image     = "debian13"
+    cores     = 2
+    memory_mb = 2048
+    bridge    = "vmbr0"
+  }
+  dhcp01 = {
+    owner     = "services-vms"
+    node      = "venom"
+    vm_id     = 6701
+    image     = "vyos"
+    cores     = 2
+    memory_mb = 2048
+    bridge    = "vmbr0"
+  }
+  dhcp02 = {
+    owner     = "services-vms"
+    node      = "eldarad"
+    vm_id     = 6702
+    image     = "vyos"
     cores     = 2
     memory_mb = 2048
     bridge    = "vmbr0"
   }
   lab01 = {
     owner     = "workloads"
-    node      = "pve01"
+    node      = "venom"
     vm_id     = 401
+    image     = "debian13"
     cores     = 4
     memory_mb = 4096
     bridge    = "vmbr0"
