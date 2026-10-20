@@ -1,3 +1,9 @@
+variable "vendor_data_file_id" {
+  description = "Optional cloud-init vendor data snippet, preserving generated user data."
+  type        = string
+  default     = null
+}
+
 variable "name" {
   description = "VM hostname, derived by the caller."
   type        = string

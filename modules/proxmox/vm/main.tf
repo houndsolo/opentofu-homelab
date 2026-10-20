@@ -45,9 +45,11 @@ resource "proxmox_virtual_environment_vm" "this" {
   dynamic "initialization" {
     for_each = local.config.cloud_init ? [true] : []
     content {
-      interface         = local.config.cloud_init_interface
-      datastore_id      = coalesce(local.config.cloud_init_datastore_id, local.config.datastore_id)
-      user_data_file_id = local.config.user_data_file_id
+      interface           = local.config.cloud_init_interface
+      datastore_id        = coalesce(local.config.cloud_init_datastore_id, local.config.datastore_id)
+      user_data_file_id   = local.config.user_data_file_id
+      upgrade             = false
+      vendor_data_file_id = var.vendor_data_file_id
 
       ip_config {
         ipv4 {
