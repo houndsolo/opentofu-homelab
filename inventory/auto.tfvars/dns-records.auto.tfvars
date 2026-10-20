@@ -5,6 +5,9 @@ dns_hosts = {
   # www      = { CNAME = "greatfox.lylat.space." }
   # "@"      = { MX = "10 mail.lylat.space.", TXT = "example text" }
   # "_dns._udp" = { SRV = "0 5 53 dns01.lylat.space." }
+  v100 = { A = "10.12.0.10"}
+  rx3080 = { A = "10.12.0.11"}
+  6800xt = { A = "10.12.0.12"}
   ai-v100 = { A = "10.12.0.10"}
   ai-rx3080 = { A = "10.12.0.11"}
   ai-6800xt = { A = "10.12.0.12"}
