@@ -15,8 +15,8 @@ vms = {
       ipv4_address = "10.8.53.1/16"
     }]
     config = {
-      ssh_username = "debian"
-      ssh_pubkeys  = [] # Select names from inventory/ssh_pubkeys.tf, e.g. ["laptop", "desktop"].
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"] 
     }
   }
   dns02 = {
@@ -35,8 +35,8 @@ vms = {
       ipv4_address = "10.8.53.2/16"
     }]
     config = {
-      ssh_username = "debian"
-      ssh_pubkeys  = [] # Select names from inventory/ssh_pubkeys.tf, e.g. ["laptop", "desktop"].
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"] 
     }
   }
   dhcp01 = {
