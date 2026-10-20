@@ -13,7 +13,9 @@ resource "proxmox_virtual_environment_download_file" "debian13" {
   datastore_id = "cephfs"
   content_type = "import"
   file_name    = "debian-13-genericcloud-amd64.qcow2"
-  url          = "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
+  #url          = "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
+  url          = "https://cloud.debian.org/images/cloud/trixie/20261017-2634/debian-13-genericcloud-amd64-20261017-2634.qcow2"
+
   overwrite    = false
 }
 
