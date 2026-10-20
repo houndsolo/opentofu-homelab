@@ -1,3 +1,9 @@
+variable "configure_data_nic_ips" {
+  description = "Whether cloud-init configures IPs on additional NICs. Management is configured separately."
+  type        = bool
+  default     = true
+}
+
 variable "ssh_pubkeys" {
   description = "Named SSH public key registry; VMs select entries with config.ssh_pubkeys."
   type        = map(string)
