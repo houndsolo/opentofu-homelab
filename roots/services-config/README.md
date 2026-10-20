@@ -1,6 +1,9 @@
-# BIND9 with the HashiCorp DNS provider
+# Service configuration: DNS and DHCP
 
-There are two parts:
+Use this single root to configure both service groups. DNS and DHCP VMs remain
+created separately by `services-vms`.
+
+The DNS configuration has two parts:
 
 1. `main.tf` uses SSH to configure Podman/Quadlet, BIND and its TSIG key.
 2. `dns-records.tf` uses `hashicorp/dns` to manage records directly over RFC 2136.
@@ -143,3 +146,28 @@ After replication, SOA serials should match. Unsigned updates/transfers are
 rejected. Queries/recursion default to 10.0.0.0/8; signed authoritative queries
 are also permitted for the provider. TSIG authenticates traffic; it does not
 encrypt it. Restart/transfer errors appear in `journalctl -u bind9` on each VM.
+
+## VyOS DHCP
+
+`dhcp.tf` selects VMs owned by `services-vms-dhcp` and calls
+`modules/services/dhcp` once per VM, using its OOB management address.
+The shared VyOS provider uses `VYOS_API_KEY` or the `vyos_api_key` variable,
+just like the leaf configuration. Build/install the local provider using the
+repository setup before initializing this root.
+
+Edit these files:
+
+- `modules/services/dhcp/interfaces.tf`: interface commands.
+- `modules/services/dhcp/dhcp-ha.tf`: HA commands.
+- `modules/services/dhcp/dhcp-pools.tf`: pool commands.
+
+The module combines all three locals into one `vyoscmd_commands` resource per
+VM and uses `save = true` so successful configuration persists across reboots.
+There is no separate DHCP root or second apply command.
+
+**DHCP is currently a scaffold.** Only the example
+`set service dhcp-server high-availability mode active-active` is populated.
+Complete the required peer/local HA settings, interfaces and pools for your
+VyOS version before an untargeted services-config apply. Use `var.name` inside
+the module to distinguish peers when adding server-specific commands. The VyOS
+HTTPS API must already be enabled and reachable. Nothing has been applied.

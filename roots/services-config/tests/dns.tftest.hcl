@@ -1,3 +1,4 @@
+mock_provider "vyoscmd" {}
 mock_provider "dns" {}
 mock_provider "random" {
   mock_resource "random_bytes" {
