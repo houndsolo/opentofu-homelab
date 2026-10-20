@@ -36,5 +36,5 @@ VLAN's MAC. Update VyOS address/pool bindings to match that new interface order.
 
 Review and apply the VM NIC changes in services-vms and matching VyOS bindings
 in services-config together. Existing data connectivity may be interrupted while
-MACs/bindings change. The existing HA/pool scaffold must still be completed
-before applying services-config; this module only adds NIC identity.
+MACs/bindings change. HA and pool commands are configured separately by the
+DHCP service module; this calculator only supplies NIC identity.

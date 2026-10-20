@@ -13,6 +13,7 @@ resource "vyoscmd_commands" "this" {
     local.system_commands,
     local.interface_commands,
     local.dhcp_ha_commands,
+    local.dhcp_listen_commands,
     local.dhcp_pool_commands,
   ])
 }

@@ -15,7 +15,7 @@ variable "fabric_macs" {
 }
 variable "dhcp_ha_subnet" {
   description = "dhcp ha peering subnet"
-  type = string
+  type        = string
 }
 
 variable "ha" {
@@ -25,8 +25,8 @@ variable "ha" {
     address_slot        = number
     peer_slot           = number
     peer_name           = string
-    index           = string
-    remote_index           = string
+    index               = string
+    remote_index        = string
     local_management_ip = string
     peer_management_ip  = string
   })
@@ -44,4 +44,16 @@ variable "interface_addresses" {
     ])
     error_message = "Assign valid IPv4 CIDRs only to data ethN interfaces; eth0 is excluded."
   }
+}
+
+variable "default_name_servers" {
+  description = "DNS servers advertised when a DHCP scope does not override name_servers."
+  type        = list(string)
+  default     = ["10.8.53.1", "10.8.53.2"]
+}
+
+variable "default_domain" {
+  description = "DHCP domain-name/domain-search default."
+  type        = string
+  default     = "lylat.space"
 }
