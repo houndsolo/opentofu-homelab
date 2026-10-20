@@ -1,0 +1,29 @@
+acl trusted_clients {
+%{ for prefix in allowed_clients ~}
+    ${prefix};
+%{ endfor ~}
+};
+
+options {
+    directory "/var/cache/bind";
+    listen-on port 53 { ${address}; };
+    listen-on-v6 { none; };
+    recursion yes;
+    allow-query { trusted_clients; };
+    allow-recursion { trusted_clients; };
+    allow-query-cache { trusted_clients; };
+    allow-transfer { none; };
+    forward only;
+    forwarders { 1.1.1.1; 1.0.0.1; };
+    dnssec-validation auto;
+    pid-file "/run/named/named.pid";
+};
+
+controls {};
+
+zone "lylat.space" {
+    type primary;
+    file "/etc/bind/lylat.space.zone";
+    notify no;
+    allow-update { none; };
+};

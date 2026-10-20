@@ -1,0 +1,12 @@
+$TTL 300
+@ IN SOA dns01.lylat.space. hostmaster.lylat.space. (
+    1  ; serial: both servers load this zone independently, without transfers
+    300
+    120
+    604800
+    300
+)
+%{ for name, address in addresses ~}
+@ IN NS ${name}.lylat.space.
+${name} IN A ${address}
+%{ endfor ~}
