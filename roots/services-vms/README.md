@@ -1,5 +1,13 @@
 # Service VMs
 
+Debian service VMs (including dns01 and dns02) receive cloud-init vendor data
+that refreshes package metadata, installs `qemu-guest-agent`, and starts it.
+Package upgrades remain disabled. The snippet is uploaded to shared `cephfs`,
+which must allow `Snippets` content; upload uses the provider's SSH connection.
+Vendor data preserves Proxmox-generated user and network configuration.
+These installation steps run on first boot. Already initialized guests need
+the agent installed and started manually, or must be recreated.
+
 This root makes PVE download the official Debian 13 (Trixie) genericcloud
 AMD64 QCOW2 before creating service VMs, including dns01 and dns02:
 
