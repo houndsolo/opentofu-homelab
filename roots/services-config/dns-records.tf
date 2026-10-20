@@ -19,6 +19,14 @@ locals {
     }
   }
 
+  dhcp_dns_hosts = {
+    for name, vm in var.vms :
+    name => {
+      A = split("/", vm.management_address)[0]
+    }
+    if vm.owner == "services-vms-dhcp"
+  }
+
   proxmox_dns_hosts = {
     for name, node in merge(var.nodes.proxmox_cluster, var.nodes.proxmox) :
     name => { A = cidrhost("10.20.7.0/24", node.id) }
