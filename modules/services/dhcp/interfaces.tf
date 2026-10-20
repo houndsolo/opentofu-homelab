@@ -8,7 +8,8 @@ locals {
 
   interface_commands = concat(
     local.interface_binding_commands,
-    # Add data-interface addresses/descriptions here; no cloud-init data IPs.
-    [],
+    [for interface, address in var.interface_addresses :
+      "set interfaces ethernet ${interface} address '${address}'"
+    ],
   )
 }

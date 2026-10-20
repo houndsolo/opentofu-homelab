@@ -181,3 +181,24 @@ NIC and combines these with the other commands in the existing single resource.
 VM 6701 uses `02:00:00:67:01:<VLAN>`; VM 6702 uses `02:00:00:67:02:<VLAN>`.
 VLAN octets are decimal-looking and limited to 1..99. eth0 is never included.
 See the shared calculator's README for the full interface/VLAN table.
+
+### Derived DHCP pair identity and VLAN IPs
+
+No per-VM role flag is needed. `dhcp.tf` sorts DHCP VMs numerically by `vm_id`:
+6701 is the primary identity/slot 1 and 6702 is secondary/slot 2. The inventory
+requires either no DHCP VMs or exactly two with distinct VM IDs.
+
+Each module receives `var.ha` with `role`, `address_slot`, `peer_slot`,
+`peer_name`, `local_management_ip` and `peer_management_ip`. These fields are
+available when completing the HA peer commands; both servers still use the
+same `active-active` mode. Identity is not an automatic failover election.
+
+Data-interface addresses are generated as `10.<VLAN>.67.<slot>`, using each
+L2VNI's configured prefix length. Thus VLAN 8 is `10.8.67.1/16` on dhcp01 and
+`10.8.67.2/16` on dhcp02 with the current inventory. The shared MAC module's
+ordered NIC list maps these onto the correct ethN. Management remains unchanged.
+
+Keep VM IDs stable: changing numeric order swaps identities and generated IPs.
+Changing identity/addressing later can require removing old guest addresses;
+the generated set commands do not automatically delete unrelated addresses.
+HA peer/local commands and DHCP pool configuration remain to be completed.
