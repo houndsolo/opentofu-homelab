@@ -31,7 +31,7 @@ variable "dns_deploy_revision" {
 }
 
 variable "dns_hosts" {
-  description = "Zone-relative owner => record type => single RDATA string, in BIND zone-file syntax. Overrides generated records for that owner."
+  description = "Zone-relative owner => supported record type => value. TXT is plain text; MX and SRV use space-separated fields. Overrides generated records for that owner."
   type        = map(map(string))
   default     = {}
   validation {
@@ -39,16 +39,20 @@ variable "dns_hosts" {
       for owner, records in var.dns_hosts : [
         for type, data in records :
         can(regex("^(@|[A-Za-z0-9_*][A-Za-z0-9_.*-]*)$", owner)) &&
-        can(regex("^[A-Z][A-Z0-9]*$", type)) &&
+        contains(["A", "AAAA", "CNAME", "TXT", "MX", "NS", "PTR", "SRV"], type) &&
+        !(owner == "@" && type == "NS") &&
+        !(contains(keys(local.dns_vms), lower(trimsuffix(owner, "."))) && type == "A") &&
+        (type != "MX" || can(regex("^[0-9]+\\s+[^\\s]+\\.$", data))) &&
+        (type != "SRV" || can(regex("^[0-9]+\\s+[0-9]+\\s+[0-9]+\\s+[^\\s]+\\.$", data))) &&
         !can(regex("[\r\n]", data)) && trimspace(data) != ""
       ]
     ]))
-    error_message = "Use DNS owner names, uppercase record types and nonempty single-line RDATA in BIND syntax."
+    error_message = "Use relative owners, supported uppercase types and single-line values. Apex NS and DNS-server A records are bootstrap-owned."
   }
 }
 
 variable "dns_records" {
-  description = "Additional records, supporting repeated owner/type pairs and per-record TTLs. RDATA uses BIND syntax, including RFC 3597 TYPE records."
+  description = "Additional records with repeated owner/type pairs and per-record TTLs. Supports A, AAAA, CNAME, TXT, MX, NS, PTR and SRV."
   type = list(object({
     name = string
     type = string
@@ -60,12 +64,28 @@ variable "dns_records" {
     condition = alltrue([
       for record in var.dns_records :
       can(regex("^(@|[A-Za-z0-9_*][A-Za-z0-9_.*-]*)$", record.name)) &&
-      can(regex("^[A-Z][A-Z0-9]*$", record.type)) &&
+      contains(["A", "AAAA", "CNAME", "TXT", "MX", "NS", "PTR", "SRV"], record.type) &&
+      !(record.name == "@" && record.type == "NS") &&
+      !(contains(keys(local.dns_vms), lower(trimsuffix(record.name, "."))) && record.type == "A") &&
+      (record.type != "MX" || can(regex("^[0-9]+\\s+[^\\s]+\\.$", record.data))) &&
+      (record.type != "SRV" || can(regex("^[0-9]+\\s+[0-9]+\\s+[0-9]+\\s+[^\\s]+\\.$", record.data))) &&
       !can(regex("[\r\n]", record.data)) && trimspace(record.data) != "" &&
       record.ttl >= 0 && record.ttl <= 2147483647 && record.ttl == floor(record.ttl)
     ])
-    error_message = "Records need a valid owner, uppercase type, single-line RDATA and an integer TTL in 0..2147483647."
+    error_message = "Records need a relative owner, supported type, single-line value and integer TTL. Apex NS and DNS-server A records are bootstrap-owned."
   }
+  validation {
+    condition = alltrue([
+      for record in var.dns_records : alltrue([
+        for peer in concat(local.host_records, var.dns_records) :
+        lower(trimsuffix(record.name, ".")) == lower(trimsuffix(peer.name, ".")) && record.type == peer.type ? (
+          record.ttl == peer.ttl && (!contains(["CNAME", "PTR"], record.type) || record.data == peer.data)
+        ) : true
+      ])
+    ])
+    error_message = "Use one TTL per owner/type RRset, and only one target for CNAME or PTR."
+  }
+
 }
 
 variable "dns_primary" {

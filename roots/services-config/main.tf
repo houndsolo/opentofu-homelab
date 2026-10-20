@@ -1,6 +1,10 @@
 terraform {
   required_version = ">= 1.9.0"
   required_providers {
+    dns = {
+      source  = "hashicorp/dns"
+      version = "~> 3.4"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.7"
@@ -27,7 +31,6 @@ locals {
   }
   zone_data = templatefile("${path.module}/templates/lylat.space.zone.tftpl", {
     addresses = local.dns_addresses
-    records   = []
     primary   = var.dns_primary
   })
   deployments = {
@@ -91,51 +94,4 @@ resource "terraform_data" "bind9" {
 output "dns_addresses" {
   description = "BIND9 service addresses, reachable on TCP and UDP port 53."
   value       = local.dns_addresses
-}
-
-resource "terraform_data" "dns_records" {
-  lifecycle {
-    precondition {
-      condition = alltrue([
-        for records in values(local.record_sets) :
-        length(distinct([for record in records : record.ttl])) == 1
-      ])
-      error_message = "All records in an owner/type RRset must have the same TTL."
-    }
-    precondition {
-      condition = alltrue([
-        for record in local.custom_records :
-        !contains(["ANY", "AXFR", "IXFR", "OPT", "TSIG", "TKEY", "SOA"], record.type) &&
-        !(record.name == "@" && record.type == "NS") &&
-        !(contains(keys(local.dns_vms), lower(trimsuffix(record.name, "."))) && record.type == "A")
-      ])
-      error_message = "SOA, apex NS and DNS VM A records are bootstrap-owned; DNS protocol meta-types cannot be managed as data."
-    }
-  }
-  triggers_replace = [
-    sha256(local.record_deployment),
-    terraform_data.bind9[var.dns_primary].id,
-  ]
-
-  connection {
-    type        = "ssh"
-    host        = split("/", local.dns_vms[var.dns_primary].management_address)[0]
-    user        = local.dns_vms[var.dns_primary].config.ssh_username
-    private_key = file(pathexpand(var.ssh_private_key_path))
-    timeout     = "5m"
-  }
-
-  provisioner "file" {
-    content     = local.record_deployment
-    destination = "/tmp/tofu-dns-records-${self.id}.py"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo -n python3 /tmp/tofu-dns-records-${self.id}.py",
-      "rm -f /tmp/tofu-dns-records-${self.id}.py",
-    ]
-  }
-
-  depends_on = [terraform_data.bind9]
 }

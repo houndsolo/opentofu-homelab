@@ -14,7 +14,7 @@ options {
     listen-on port 53 { ${address}; };
     listen-on-v6 { none; };
     recursion yes;
-    allow-query { trusted_clients; };
+    allow-query { trusted_clients; key "tofu-lylat"; };
     allow-recursion { trusted_clients; };
     allow-query-cache { trusted_clients; };
     allow-transfer { none; };
