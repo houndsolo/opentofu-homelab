@@ -33,7 +33,7 @@ locals {
   }
 
   host_records = flatten([
-    for name, records in merge(local.proxmox_dns_hosts,local.spine_dns_hosts, local.leaf_dns_hosts,  var.dns_hosts) : [
+    for name, records in merge(var.dns_hosts, local.proxmox_dns_hosts,local.spine_dns_hosts, local.leaf_dns_hosts, local.dhcp_dns_hosts)  : [
       for type, data in records : {
         name = name
         type = type
