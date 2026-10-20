@@ -25,18 +25,18 @@ locals {
   ]))
 }
 
-resource "proxmox_virtual_environment_file" "debian_cloud_init" {
-  count = length(local.debian_nodes) > 0 ? 1 : 0
-
-  node_name    = local.debian_nodes[0]
-  datastore_id = "cephfs"
-  content_type = "snippets"
-
-  source_raw {
-    data      = file("${path.module}/cloud-init/debian.yaml")
-    file_name = "debian-guest-agent.yaml"
-  }
-}
+#resource "proxmox_virtual_environment_file" "debian_cloud_init" {
+#  count = length(local.debian_nodes) > 0 ? 1 : 0
+#
+#  node_name    = local.debian_nodes[0]
+#  datastore_id = "cephfs"
+#  content_type = "snippets"
+#
+#  source_raw {
+#    data      = file("${path.module}/cloud-init/debian.yaml")
+#    file_name = "debian-guest-agent.yaml"
+#  }
+#}
 
 module "vm" {
   source              = "../../modules/proxmox/vm"
