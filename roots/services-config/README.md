@@ -62,3 +62,74 @@ dig +tcp @10.8.53.2 example.org A
 
 On each VM, inspect `sudo systemctl status bind9` and
 `sudo journalctl -u bind9 -e` for runtime errors.
+
+## Custom zone records
+
+Edit `inventory/auto.tfvars/dns-records.auto.tfvars`, linked into this root.
+Owner names are relative to `lylat.space`; `@` means the zone apex. For example:
+
+```hcl
+dns_hosts = {
+  greatfox = { A = "10.20.7.20", AAAA = "fd69:20::20" }
+  www      = { CNAME = "greatfox.lylat.space." }
+  mail     = { A = "10.8.25.1" }
+  "@" = {
+    MX  = "10 mail.lylat.space."
+    TXT = "\"v=spf1 -all\""
+    CAA = "0 issue \"letsencrypt.org\""
+  }
+  "_dns._udp" = { SRV = "0 5 53 dns01.lylat.space." }
+}
+```
+
+This interface does not impose a fixed record-type allowlist: use any uppercase
+BIND-supported type, with its RDATA as a single-line zone-file string. Domain
+name targets need a trailing dot to be absolute. TXT strings need zone-file
+quotes (escaped in HCL). For an unrecognized type, use RFC 3597 `TYPE<number>`
+with generic wire-format RDATA. BIND's `named-checkconf -z` rejects invalid zone
+content before replacing live files; not every owner/type combination is legal
+(for example, CNAME cannot coexist with A at the same owner).
+
+Use `dns_records` for multiple values of one type or a different TTL:
+
+```hcl
+dns_records = [
+  { name = "app", type = "A", data = "10.8.10.1", ttl = 60 },
+  { name = "app", type = "A", data = "10.8.10.2", ttl = 60 },
+  { name = "opaque", type = "TYPE65280", data = "\\# 2 ABCD" },
+]
+```
+
+Host-map records use TTL 300; list records default to 300 unless overridden.
+Both forms add records alongside the built-in DNS server A and apex NS/SOA
+records. They do not replace those built-ins. Avoid adding conflicting records.
+
+## Generated Proxmox management records
+
+`dns-records.tf` demonstrates the live loop over both sets of Proxmox hosts:
+
+```hcl
+locals {
+  proxmox_dns_hosts = {
+    for name, node in merge(var.nodes.proxmox_cluster, var.nodes.proxmox) :
+    name => { A = cidrhost("10.20.7.0/24", node.id) }
+  }
+}
+```
+
+This generates, for example, `fichina.lylat.space A 10.20.7.11` and
+`greatfox.lylat.space A 10.20.7.20`. Custom `dns_hosts` replace the entire
+generated record map for a matching owner; include its A record if also adding
+an AAAA. `dns_records` appends additional records. Edit the generator if your
+management subnet/address convention changes.
+
+## Later: dynamic updates
+
+BIND supports RFC 2136 DNS UPDATE, typically authenticated with TSIG and managed
+using `nsupdate` or a DNS update provider. It is disabled here (`allow-update
+{ none; };`). These records currently deploy by regenerating the zone file on
+both hosts. To migrate, use one writable primary, a secondary with authenticated
+zone transfers/notifications, persistent writable zone/journal storage, and a
+scoped TSIG update policy. Stop managing the same records through static files
+before enabling dynamic updates. A REST API would require a separate management
+service; BIND's native update protocol is RFC 2136.

@@ -15,6 +15,7 @@ locals {
   }
   zone_data = templatefile("${path.module}/templates/lylat.space.zone.tftpl", {
     addresses = local.dns_addresses
+    records   = local.custom_records
   })
   deployments = {
     for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/deploy.sh.tftpl", {

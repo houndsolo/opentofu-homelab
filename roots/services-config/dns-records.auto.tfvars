@@ -1,0 +1,1 @@
+../../inventory/auto.tfvars/dns-records.auto.tfvars

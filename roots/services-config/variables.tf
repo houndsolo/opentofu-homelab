@@ -29,3 +29,41 @@ variable "dns_deploy_revision" {
   type        = string
   default     = "1"
 }
+
+variable "dns_hosts" {
+  description = "Zone-relative owner => record type => single RDATA string, in BIND zone-file syntax. Overrides generated records for that owner."
+  type        = map(map(string))
+  default     = {}
+  validation {
+    condition = alltrue(flatten([
+      for owner, records in var.dns_hosts : [
+        for type, data in records :
+        can(regex("^(@|[A-Za-z0-9_*][A-Za-z0-9_.*-]*)$", owner)) &&
+        can(regex("^[A-Z][A-Z0-9]*$", type)) &&
+        !can(regex("[\\r\\n]", data)) && trimspace(data) != ""
+      ]
+    ]))
+    error_message = "Use DNS owner names, uppercase record types and nonempty single-line RDATA in BIND syntax."
+  }
+}
+
+variable "dns_records" {
+  description = "Additional records, supporting repeated owner/type pairs and per-record TTLs. RDATA uses BIND syntax, including RFC 3597 TYPE records."
+  type = list(object({
+    name = string
+    type = string
+    data = string
+    ttl  = optional(number, 300)
+  }))
+  default = []
+  validation {
+    condition = alltrue([
+      for record in var.dns_records :
+      can(regex("^(@|[A-Za-z0-9_*][A-Za-z0-9_.*-]*)$", record.name)) &&
+      can(regex("^[A-Z][A-Z0-9]*$", record.type)) &&
+      !can(regex("[\\r\\n]", record.data)) && trimspace(record.data) != "" &&
+      record.ttl >= 0 && record.ttl <= 2147483647 && record.ttl == floor(record.ttl)
+    ])
+    error_message = "Records need a valid owner, uppercase type, single-line RDATA and an integer TTL in 0..2147483647."
+  }
+}
