@@ -3,13 +3,8 @@ locals {
     for name, node in var.nodes : name => [
       for index, bridge in var.underlay_bridges : {
         bridge = bridge
-        # Decimal-looking octets: node 11 / vmbr4001 -> 02:00:00:11:40:01.
-        mac_address = format(
-          "02:00:00:%02d:%02d:%02d",
-          node.id,
-          floor(tonumber(trimprefix(bridge, "vmbr")) / 100),
-          tonumber(trimprefix(bridge, "vmbr")) % 100,
-        )
+        # Match guest ethN by list position; management eth0 is separate.
+        mac_address = format("02:00:00:%02d:00:%02d", node.id, index + 1)
       }
     ]
   }
