@@ -5,6 +5,7 @@ Run commands from the repository directory.
 
 | Root | Purpose | Status |
 | --- | --- | --- |
+| proxmox-download-files | PVE cloud image downloads | Implemented; apply separately |
 | proxmox-network | Host interfaces, bonds, bridges and VLANs | Implemented |
 | fabric-vms | VyOS VM creation | Implemented |
 | fabric-leaves | VyOS BGP, VXLAN, VRFs and policies | Implemented |
