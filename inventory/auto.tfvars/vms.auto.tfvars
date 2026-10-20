@@ -13,6 +13,7 @@ vms = {
       bridge       = "vmbr4000"
       vlan_id      = 8
       ipv4_address = "10.8.53.1/16"
+      ipv4_gateway = "10.8.0.5"
     }]
     config = {
       ssh_username = "mechanic"
@@ -33,6 +34,7 @@ vms = {
       bridge       = "vmbr4000"
       vlan_id      = 8
       ipv4_address = "10.8.53.2/16"
+      ipv4_gateway = "10.8.0.5"
     }]
     config = {
       ssh_username = "mechanic"
