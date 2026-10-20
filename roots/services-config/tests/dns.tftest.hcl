@@ -6,6 +6,13 @@ run "dns_rollout_plan" {
   command = plan
 
   assert {
+    condition = strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", {
+      image = var.bind9_image
+    }), "Exec=-g -c /etc/bind/named.conf")
+    error_message = "Quadlet must pass arguments to the image entrypoint without duplicating named."
+  }
+
+  assert {
     condition     = output.dns_addresses == { dns01 = "10.8.53.1", dns02 = "10.8.53.2" }
     error_message = "Only the DNS VMs should be selected, using their service addresses rather than OOB."
   }

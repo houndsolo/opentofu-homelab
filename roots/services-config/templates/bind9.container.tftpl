@@ -8,7 +8,8 @@ Image=${image}
 ContainerName=bind9
 Network=host
 Volume=/etc/bind9-container:/etc/bind:ro
-Exec=/usr/sbin/named -g -u bind -c /etc/bind/named.conf
+# The image entrypoint already runs /usr/sbin/named -u bind.
+Exec=-g -c /etc/bind/named.conf
 
 [Service]
 Restart=on-failure
