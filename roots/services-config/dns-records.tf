@@ -15,7 +15,7 @@ locals {
       var.nodes.proxmox,
     ) :
     "leaf-${leaf.id}" => {
-      A = cidrhost(var.fabric.settings.vyos_mgmt_prefix, leaf.id)
+      A = cidrhost(var.fabric.settings.management_prefix, leaf.id)
     }
   }
 
