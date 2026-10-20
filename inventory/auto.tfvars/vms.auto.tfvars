@@ -7,7 +7,7 @@ vms = {
     cores     = 2
     memory_mb = 2048
     bridge    = "vmbr0"
-    management_address = "10.20.53.1"
+    management_address = "10.20.53.1/16"
   }
   dns02 = {
     owner     = "services-vms"
@@ -17,7 +17,7 @@ vms = {
     cores     = 2
     memory_mb = 2048
     bridge    = "vmbr0"
-    management_address = "10.20.53.2"
+    management_address = "10.20.53.2/16"
   }
   dhcp01 = {
     owner     = "services-vms"
@@ -27,7 +27,7 @@ vms = {
     cores     = 2
     memory_mb = 2048
     bridge    = "vmbr0"
-    management_address = "10.20.67.1"
+    management_address = "10.20.67.1/16"
   }
   dhcp02 = {
     owner     = "services-vms"
@@ -37,7 +37,7 @@ vms = {
     cores     = 2
     memory_mb = 2048
     bridge    = "vmbr0"
-    management_address = "10.20.67.2"
+    management_address = "10.20.67.2/16"
   }
   lab01 = {
     owner     = "workloads"
