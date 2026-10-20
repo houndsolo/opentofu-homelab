@@ -48,6 +48,7 @@ resource "proxmox_virtual_environment_vm" "this" {
       interface         = local.config.cloud_init_interface
       datastore_id      = coalesce(local.config.cloud_init_datastore_id, local.config.datastore_id)
       user_data_file_id = local.config.user_data_file_id
+      upgrade           = false
 
       ip_config {
         ipv4 {
