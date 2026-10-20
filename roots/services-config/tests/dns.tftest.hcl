@@ -1,3 +1,4 @@
+mock_provider "vyoscmd" {}
 mock_provider "dns" {}
 mock_provider "random" {
   mock_resource "random_bytes" {
@@ -92,5 +93,21 @@ run "generate_tsig_by_default" {
   assert {
     condition     = length(random_bytes.dns_tsig) == 1 && random_bytes.dns_tsig[0].length == 32
     error_message = "Generate a persistent 32-byte TSIG secret when none is supplied."
+  }
+}
+
+run "dhcp_pair_identity" {
+  command = plan
+  assert {
+    condition = (
+      local.dhcp_ha.dhcp01.role == "primary" &&
+      local.dhcp_ha.dhcp01.address_slot == 1 &&
+      local.dhcp_ha.dhcp01.peer_name == "dhcp02" &&
+      local.dhcp_ha.dhcp01.peer_management_ip == "10.20.67.2" &&
+      local.dhcp_ha.dhcp02.role == "secondary" &&
+      local.dhcp_ha.dhcp02.address_slot == 2 &&
+      local.dhcp_ha.dhcp02.peer_name == "dhcp01"
+    )
+    error_message = "Order DHCP identities by VM ID and pair local/remote endpoints correctly."
   }
 }

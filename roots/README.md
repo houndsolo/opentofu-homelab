@@ -13,7 +13,7 @@ Run commands from the repository directory.
 | proxmox-settings | Proxmox settings | Incomplete |
 | proxmox-virtual-hosts | General VM/container configuration | Placeholder |
 | services-vms | Service VM creation and cloud-init | Implemented; requires VM settings |
-| services-config | Podman BIND9 deployment over SSH | Implemented |
+| services-config | BIND9 DNS records and VyOS DHCP configuration | DHCP scaffold; complete HA before applying |
 | workloads | Other VMs | Incomplete |
 
 ## Examples

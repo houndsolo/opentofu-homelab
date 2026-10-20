@@ -1,6 +1,9 @@
-# BIND9 with the HashiCorp DNS provider
+# Service configuration: DNS and DHCP
 
-There are two parts:
+Use this single root to configure both service groups. DNS and DHCP VMs remain
+created separately by `services-vms`.
+
+The DNS configuration has two parts:
 
 1. `main.tf` uses SSH to configure Podman/Quadlet, BIND and its TSIG key.
 2. `dns-records.tf` uses `hashicorp/dns` to manage records directly over RFC 2136.
@@ -143,3 +146,59 @@ After replication, SOA serials should match. Unsigned updates/transfers are
 rejected. Queries/recursion default to 10.0.0.0/8; signed authoritative queries
 are also permitted for the provider. TSIG authenticates traffic; it does not
 encrypt it. Restart/transfer errors appear in `journalctl -u bind9` on each VM.
+
+## VyOS DHCP
+
+`dhcp.tf` selects VMs owned by `services-vms-dhcp` and calls
+`modules/services/dhcp` once per VM, using its OOB management address.
+The shared VyOS provider uses `VYOS_API_KEY` or the `vyos_api_key` variable,
+just like the leaf configuration. Build/install the local provider using the
+repository setup before initializing this root.
+
+Edit these files:
+
+- `modules/services/dhcp/interfaces.tf`: interface commands.
+- `modules/services/dhcp/dhcp-ha.tf`: HA commands.
+- `modules/services/dhcp/dhcp-pools.tf`: pool commands.
+
+The module combines all three locals into one `vyoscmd_commands` resource per
+VM and uses `save = true` so successful configuration persists across reboots.
+There is no separate DHCP root or second apply command.
+
+**DHCP is currently a scaffold.** Only the example
+`set service dhcp-server high-availability mode active-active` is populated.
+Complete the required peer/local HA settings, interfaces and pools for your
+VyOS version before an untargeted services-config apply. Use `var.name` inside
+the module to distinguish peers when adding server-specific commands. The VyOS
+HTTPS API must already be enabled and reachable. Nothing has been applied.
+
+### DHCP data MAC bindings
+
+`dhcp.tf` calls `modules/services/dhcp/macs`, the same pure calculator used by
+`services-vms`. It passes the resulting `fabric_macs` into the DHCP module.
+`interfaces.tf` emits one `set interfaces ethernet ethN hw-id <MAC>` per data
+NIC and combines these with the other commands in the existing single resource.
+VM 6701 uses `02:00:00:67:01:<VLAN>`; VM 6702 uses `02:00:00:67:02:<VLAN>`.
+VLAN octets are decimal-looking and limited to 1..99. eth0 is never included.
+See the shared calculator's README for the full interface/VLAN table.
+
+### Derived DHCP pair identity and VLAN IPs
+
+No per-VM role flag is needed. `dhcp.tf` sorts DHCP VMs numerically by `vm_id`:
+6701 is the primary identity/slot 1 and 6702 is secondary/slot 2. The inventory
+requires either no DHCP VMs or exactly two with distinct VM IDs.
+
+Each module receives `var.ha` with `role`, `address_slot`, `peer_slot`,
+`peer_name`, `local_management_ip` and `peer_management_ip`. These fields are
+available when completing the HA peer commands; both servers still use the
+same `active-active` mode. Identity is not an automatic failover election.
+
+Data-interface addresses are generated as `10.<VLAN>.67.<slot>`, using each
+L2VNI's configured prefix length. Thus VLAN 8 is `10.8.67.1/16` on dhcp01 and
+`10.8.67.2/16` on dhcp02 with the current inventory. The shared MAC module's
+ordered NIC list maps these onto the correct ethN. Management remains unchanged.
+
+Keep VM IDs stable: changing numeric order swaps identities and generated IPs.
+Changing identity/addressing later can require removing old guest addresses;
+the generated set commands do not automatically delete unrelated addresses.
+HA peer/local commands and DHCP pool configuration remain to be completed.
