@@ -13,7 +13,7 @@ variable "fabric_macs" {
   type        = map(string)
   default     = {}
 }
-variable "dhcp_ha_subnet" {
+variable "ha_subnet" {
   description = "dhcp ha peering subnet"
   type        = string
 }

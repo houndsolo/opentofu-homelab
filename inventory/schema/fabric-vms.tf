@@ -4,7 +4,7 @@ variable "fabric_vms" {
     hostname_prefix          = optional(string, "vtep-")
     vm_id_offset             = optional(number, 700)
     management_prefix        = string
-    management_cidr          = number
-    default_underlay_bridges = list(string)
+    management_prefix_length = number
+    underlay_bridges         = list(string)
   })
 }

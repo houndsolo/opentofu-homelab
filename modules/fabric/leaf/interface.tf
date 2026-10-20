@@ -8,9 +8,9 @@ locals {
     local.interface_binding_commands,
     length(local.role_vrfs) > 0 ? flatten([
       [for spine in var.fabric.spines : [
-        "set interfaces ethernet ${coalesce(spine.uplink_if, "eth${spine.id}")} description 'p2p-spine-${spine.id}'",
-        "set interfaces ethernet ${coalesce(spine.uplink_if, "eth${spine.id}")} mtu '${var.fabric.settings.outer_mtu}'",
-        "set service router-advert interface ${coalesce(spine.uplink_if, "eth${spine.id}")}",
+        "set interfaces ethernet ${coalesce(spine.uplink_interface, "eth${spine.id}")} description 'p2p-spine-${spine.id}'",
+        "set interfaces ethernet ${coalesce(spine.uplink_interface, "eth${spine.id}")} mtu '${var.fabric.settings.outer_mtu}'",
+        "set service router-advert interface ${coalesce(spine.uplink_interface, "eth${spine.id}")}",
       ]],
       [
         "set interfaces dummy ${var.fabric.settings.loopback_interface} address '${local.vtep_ipv6}/128'",

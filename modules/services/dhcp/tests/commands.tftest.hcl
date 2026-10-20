@@ -1,7 +1,7 @@
 mock_provider "vyoscmd" {}
 
 variables {
-  dhcp_ha_subnet = "10.6.67.0/24"
+  ha_subnet = "10.6.67.0/24"
   ha = {
     role                = "primary"
     address_slot        = 1

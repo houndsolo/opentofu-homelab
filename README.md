@@ -1,39 +1,27 @@
 # OpenTofu homelab
 
-Proxmox infrastructure and a VyOS EVPN/VXLAN fabric.
-
-| Directory | Purpose |
-| --- | --- |
-| inventory/ | Shared values, variable definitions and provider configuration |
-| roots/ | Separate OpenTofu configurations |
-| modules/ | Reusable modules |
-| providers/ | Provider source submodules |
-| tooling/ | Provider build and installation scripts |
-
-## Setup
-
-Run from the repository directory:
+Proxmox VMs and host networking, a VyOS/RouterOS EVPN fabric, and BIND/DHCP services.
 
 ```sh
 git submodule update --init --recursive
 nix-shell
-tooling/build-all proxmox vyoscmd
+tooling/build-all
 export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
+tooling/walk-roots.sh
 ```
 
-## Usage
+Edit [inventory](inventory/README.md) first. The Bash runner walks the usable
+[roots](roots/README.md) in dependency order, offering plan, apply, skip and quit.
+It reviews a saved plan before applying it and offers a separate first-time DNS
+bootstrap. Each root keeps its own state; retain and back up those state files.
 
-Edit the shared inventory, then select a root:
+| Directory | Purpose |
+| --- | --- |
+| [inventory/](inventory/README.md) | Values, schemas, public keys and provider configuration |
+| [roots/](roots/README.md) | Deployable configurations, each with separate state |
+| [modules/](modules/README.md) | Shared VM, network and service logic |
+| providers/ | Provider source submodules |
+| [tooling/](tooling/README.md) | Provider builds, secrets wrapper and guided runner |
 
-```sh
-tofu -chdir=roots/fabric-vms init
-tofu -chdir=roots/fabric-vms plan
-tofu -chdir=roots/fabric-vms apply
-```
-
-Review the plan before applying. Each root has separate state.
-
-
-For a shared passwords tfvars file across roots, see the secrets wrapper in
-[inventory/README.md](inventory/README.md#one-shared-secrets-file-without-undeclared-variable-warnings).
-Run `tooling/with-secrets tofu -chdir=roots/services-config plan` from nix-shell.
+For a single root: `tooling/walk-roots.sh services-config`.
+For direct commands and shared credentials, see [secrets setup](inventory/README.md#secrets).
