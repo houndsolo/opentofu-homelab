@@ -5,12 +5,14 @@ dns_hosts = {
   # www      = { CNAME = "greatfox.lylat.space." }
   # "@"      = { MX = "10 mail.lylat.space.", TXT = "example text" }
   # "_dns._udp" = { SRV = "0 5 53 dns01.lylat.space." }
+  haygi = { A = "10.12.0.10"}
   v100 = { A = "10.12.0.10"}
-  rx3080 = { A = "10.12.0.11"}
-  6800xt = { A = "10.12.0.12"}
   ai-v100 = { A = "10.12.0.10"}
+  rx3080 = { A = "10.12.0.11"}
   ai-rx3080 = { A = "10.12.0.11"}
+  rx6800xt = { A = "10.12.0.12"}
   ai-6800xt = { A = "10.12.0.12"}
+  ai-rx6800xt = { A = "10.12.0.12"}
   fw-wan = { A = "10.20.10.255"}
   torrent = { A = "10.8.7.7"}
 }
