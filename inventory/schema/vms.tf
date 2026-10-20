@@ -13,6 +13,8 @@ variable "vms" {
     management_address = optional(string)
     gateway            = optional(string)
     config = optional(object({
+      ssh_pubkeys             = optional(list(string), [])
+      ssh_username            = optional(string, "debian")
       datastore_id            = optional(string)
       import_image            = optional(string)
       description             = optional(string)
@@ -68,6 +70,8 @@ variable "vms" {
       model        = optional(string)
       mtu          = optional(number)
       disconnected = optional(bool)
+      ipv4_address = optional(string)
+      ipv4_gateway = optional(string)
     })))
   }))
   validation {

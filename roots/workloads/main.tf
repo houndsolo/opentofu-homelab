@@ -11,5 +11,6 @@ module "vm" {
   name      = each.key
   vm        = each.value
   vm_config = var.vm_config
+  ssh_pubkeys = local.ssh_pubkey
   vm_images = var.vm_images
 }
