@@ -1,6 +1,36 @@
 # OpenTofu homelab
 
-Proxmox VMs and host networking, a VyOS/RouterOS EVPN fabric, and BIND/DHCP services.
+This repo builds a homelab from shared OpenTofu inventory: Proxmox host
+networking and VMs, VyOS EVPN/VXLAN leaves, and RouterOS BGP/EVPN spines.
+L3VNIs define VRFs; nested L2VNIs define tenant VLANs and anycast gateways.
+Leaf roles select which networks each device receives.
+
+It also provisions Debian DNS and VyOS DHCP VMs. BIND runs under Podman,
+replicates between DNS peers, and accepts records through RFC 2136. DHCP NICs,
+HA identities and pools are generated from the same VM/VNI inventory. Separate
+roots let you update each layer independently.
+
+## Downstream VNI (DVNI)
+
+DVNI lets an ingress VTEP use the destination VRF's advertised L3VNI when routing
+across VRFs. Route-target imports select the reachable routes; the destination
+VNI comes from EVPN. FRR requires a single VXLAN device for this dataplane;
+the leaf module uses external-mode `vxlan0` with VLAN-to-VNI mappings.
+See [FRR's DVNI documentation](https://docs.frrouting.org/en/latest/bgp.html#evpn-downstream-vni).
+
+The [VNI example](examples/auto.tfvars/vnis.auto.tfvars) pairs `services`
+(L3VNI 10000 on `proxmox` leaves) with `lan` (L3VNI 20000 on `external_l2`
+leaves). Each exports its own EVPN route target and imports the other's:
+traffic toward LAN uses VNI 20000; the return path uses VNI 10000. Configure
+leaves with those roles to try it. No separate `dvni` variable is needed.
+
+Imports do not bypass routing policy or firewall rules. The current leaf export
+policy filters Type-5 routes matching its L2 subnet prefixes, so inspect the
+advertised/imported EVPN routes when testing reachability; RTs alone do not
+originate routes. This example demonstrates the DVNI configuration, not a live
+connectivity test.
+
+## Getting started
 
 ```sh
 git submodule update --init --recursive

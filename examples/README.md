@@ -10,7 +10,7 @@ for your working inventory.
 | fabric-vms.auto.tfvars | Fabric VM names, OOB addresses and bridge order |
 | vm-config.auto.tfvars | Shared VM defaults and existing image/snippet paths |
 | vms.auto.tfvars | Two DNS VMs, a DHCP HA pair and an optional workload |
-| vnis.auto.tfvars | HA-only VLAN, DHCP pool VLAN and VLAN without DHCP |
+| vnis.auto.tfvars | Two L3VNIs with reciprocal DVNI imports, DHCP pools and static VLANs |
 | dns-records.auto.tfvars | A/AAAA, CNAME, MX, TXT, SRV, NS and multiple A values |
 | passwords.example.auto.tfvars | Placeholder credentials; use the ignored secrets path |
 
