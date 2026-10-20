@@ -20,7 +20,7 @@ locals {
       for name, vm in local.dhcp_vms : format("%010d:%s", vm.vm_id, name)
     ]) : split(":", entry)[1]
   ]
-  dhcp_ha_subnet = "10.6.67.0/16"
+  dhcp_ha_subnet = "10.6.67.0/24"
 
   dhcp_ha = length(local.dhcp_names) == 2 ? {
     for index, name in local.dhcp_names : name => {
