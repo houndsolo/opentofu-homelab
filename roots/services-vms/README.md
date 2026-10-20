@@ -3,7 +3,8 @@
 This root manages `services-vms-dns` and `services-vms-dhcp` owners, plus the
 legacy `services-vms` owner. They retain `module.vm["<name>"]` state addresses.
 The customized Debian QCOW2 and VyOS image/snippets must already exist in PVE;
-this root no longer downloads or customizes the Debian image.
+this root no longer downloads or customizes the Debian image. Downloads are
+managed separately in `roots/proxmox-download-files`.
 
 ## DHCP VM interfaces
 
