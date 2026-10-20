@@ -25,8 +25,8 @@ locals {
   dhcp_ha = length(local.dhcp_names) == 2 ? {
     for index, name in local.dhcp_names : name => {
       role                = index == 0 ? "primary" : "secondary"
-      index        = index 
-      remote_index        = 1 - index 
+      index               = index
+      remote_index        = 1 - index
       address_slot        = index + 1
       peer_slot           = 2 - index # good meme
       peer_name           = local.dhcp_names[1 - index]
@@ -46,11 +46,13 @@ module "dhcp" {
   source   = "../../modules/services/dhcp"
   for_each = local.dhcp_ha
 
-  dhcp_ha_subnet = local.dhcp_ha_subnet
-  fabric_macs   = module.dhcp_macs.fabric_macs[each.key]
-  name          = each.key
-  management_ip = each.value.local_management_ip
-  ha            = each.value
+  dhcp_ha_subnet       = local.dhcp_ha_subnet
+  vnis                 = var.vnis
+  default_name_servers = values(local.dns_addresses)
+  fabric_macs          = module.dhcp_macs.fabric_macs[each.key]
+  name                 = each.key
+  management_ip        = each.value.local_management_ip
+  ha                   = each.value
   interface_addresses = {
     for index, nic in module.dhcp_macs.network_devices[each.key] :
     "eth${index + 1}" => "10.${nic.vlan_id}.67.${each.value.address_slot}/${local.dhcp_prefix_lengths[tostring(nic.vlan_id)]}"

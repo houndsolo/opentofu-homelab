@@ -165,12 +165,9 @@ The module combines all three locals into one `vyoscmd_commands` resource per
 VM and uses `save = true` so successful configuration persists across reboots.
 There is no separate DHCP root or second apply command.
 
-**DHCP is currently a scaffold.** Only the example
-`set service dhcp-server high-availability mode active-active` is populated.
-Complete the required peer/local HA settings, interfaces and pools for your
-VyOS version before an untargeted services-config apply. Use `var.name` inside
-the module to distinguish peers when adding server-specific commands. The VyOS
-HTTPS API must already be enabled and reachable. Nothing has been applied.
+DHCP HA uses the inventory-derived primary/secondary identities with
+active-passive mode and `10.6.67.0/24` peer addresses. The VyOS HTTPS API must
+already be enabled and reachable. No infrastructure has been applied here.
 
 ### DHCP data MAC bindings
 
@@ -191,7 +188,7 @@ requires either no DHCP VMs or exactly two with distinct VM IDs.
 Each module receives `var.ha` with `role`, `address_slot`, `peer_slot`,
 `peer_name`, `local_management_ip` and `peer_management_ip`. These fields are
 available when completing the HA peer commands; both servers still use the
-same `active-active` mode. Identity is not an automatic failover election.
+same `active-passive` mode. Identity is not an automatic failover election.
 
 Data-interface addresses are generated as `10.<VLAN>.67.<slot>`, using each
 L2VNI's configured prefix length. Thus VLAN 8 is `10.8.67.1/16` on dhcp01 and
@@ -201,4 +198,23 @@ ordered NIC list maps these onto the correct ethN. Management remains unchanged.
 Keep VM IDs stable: changing numeric order swaps identities and generated IPs.
 Changing identity/addressing later can require removing old guest addresses;
 the generated set commands do not automatically delete unrelated addresses.
-HA peer/local commands and DHCP pool configuration remain to be completed.
+HA peer/local commands are in `modules/services/dhcp/dhcp-commands.tf`; pools are generated below.
+
+### Generated DHCP pools and listen interfaces
+
+`modules/services/dhcp/dhcp-pools.tf` filters nested L2VNIs with a DHCP scope,
+then builds `l2vni<VNI>` shared networks. It derives the canonical network CIDR
+from `anycast_gw_ip/anycast_gw_cidr`, advertises that gateway, assigns the VNI as
+`subnet-id`, and loops through every entry of `dhcp.scope.ranges`.
+
+Defaults match the supplied configuration: authoritative, lease 86400 seconds,
+domain/domain-search `lylat.space`, and the DNS VM service addresses. Per-scope
+`authoritative`, `lease_seconds`, `domain_name`, `domain_search` and `name_servers`
+override these defaults. Explicit empty search/server lists omit those options.
+A `dhcp` block without `scope` creates a data NIC but no pool.
+
+Listen-interface commands use the same `fabric_macs` keys as the shared NIC
+mapping, so eth1 onwards match VM creation and eth0 is excluded. The main module
+still sends all interface, HA, listen and pool commands in one resource per VM.
+Both peers receive identical pools; their local interface addresses differ.
+Your active-passive peer configuration is retained alongside these shared pools.
