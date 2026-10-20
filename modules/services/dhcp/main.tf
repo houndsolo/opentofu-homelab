@@ -1,6 +1,7 @@
 locals {
   system_commands = [
-    "set system ip disable-forwarding"
+    "set system ip disable-forwarding",
+    "set system host-name '${var.name}'"
   ]
 }
 # One combined configuration request per DHCP VM, matching the leaf module.
