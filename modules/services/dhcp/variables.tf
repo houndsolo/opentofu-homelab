@@ -13,6 +13,10 @@ variable "fabric_macs" {
   type        = map(string)
   default     = {}
 }
+variable "dhcp_ha_subnet" {
+  description = "dhcp ha peering subnet"
+  type = string
+}
 
 variable "ha" {
   description = "Pair identity derived from numeric VM-ID order; active-active mode is separate from identity."
@@ -21,6 +25,8 @@ variable "ha" {
     address_slot        = number
     peer_slot           = number
     peer_name           = string
+    index           = string
+    remote_index           = string
     local_management_ip = string
     peer_management_ip  = string
   })
