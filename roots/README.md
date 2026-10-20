@@ -1,36 +1,28 @@
 # Roots
 
-Each directory is a separate OpenTofu configuration with its own local state.
-Run commands from the repository directory.
+Each root has independent local state. Shared `.tf` and `.auto.tfvars` symlinks
+point into `inventory/`; edit their targets there.
 
-| Root | Purpose | Status |
+| Order | Root | Purpose / prerequisite |
 | --- | --- | --- |
-| proxmox-download-files | PVE cloud image downloads | Implemented; apply separately |
-| proxmox-network | Host interfaces, bonds, bridges and VLANs | Implemented |
-| fabric-vms | VyOS VM creation | Implemented |
-| fabric-leaves | VyOS BGP, VXLAN, VRFs and policies | Implemented |
-| fabric-spines | RouterOS spine configuration | Placeholder |
-| proxmox-settings | Proxmox settings | Incomplete |
-| proxmox-virtual-hosts | General VM/container configuration | Placeholder |
-| services-vms | Service VM creation and cloud-init | Implemented; requires VM settings |
-| services-config | BIND9 DNS records and VyOS DHCP configuration | DHCP scaffold; complete HA before applying |
-| workloads | Other VMs | Incomplete |
+| 1 | proxmox-download-files | Optional Debian image download; skip for an existing customized image |
+| 2 | proxmox-network | Proxmox Ethernet, bonds, bridges and VLANs |
+| 3 | fabric-vms | VyOS guests; requires existing image/snippets |
+| 4 | fabric-spines | RouterOS BGP/EVPN; requires reachable APIs |
+| 5 | fabric-leaves | VyOS fabric; enable guest APIs first |
+| 6 | services-vms | DNS and DHCP VMs; requires images and host networking |
+| 7 | services-config | Podman/BIND, RFC 2136 records and VyOS DHCP HA/pools |
+| 8 | workloads | VMs with `owner = "workloads"` |
 
-## Examples
-
-```sh
-tofu -chdir=roots/proxmox-network init
-tofu -chdir=roots/proxmox-network validate
-tofu -chdir=roots/proxmox-network plan
-```
+`proxmox-settings` is incomplete (`influxdb` is undeclared in its module).
+`proxmox-virtual-hosts` is empty. The runner excludes both.
 
 ```sh
-tofu -chdir=roots/fabric-leaves init
-tofu -chdir=roots/fabric-leaves plan
-tofu -chdir=roots/fabric-leaves apply
+tooling/walk-roots.sh                         # all usable roots
+tooling/walk-roots.sh services-vms services-config
+# Or run a command directly:
+tooling/with-secrets tofu -chdir=roots/services-config plan
 ```
 
-For new fabric guests, create the VMs first. Enable and check their VyOS APIs
-before applying leaf configuration.
-
-Roots load shared inventory through relative symlinks. Keep those links.
+The runner orders selected roots as shown above; it does not install images,
+enable guest APIs, or configure credentials. See [tooling](../tooling/README.md).

@@ -1,4 +1,4 @@
-variable "configure_data_nic_ips" {
+variable "configure_data_ips" {
   description = "Whether cloud-init configures IPs on additional NICs. Management is configured separately."
   type        = bool
   default     = true

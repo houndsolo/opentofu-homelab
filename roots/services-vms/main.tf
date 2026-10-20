@@ -19,16 +19,16 @@ module "dhcp_macs" {
 
 
 module "vm" {
-  source                 = "../../modules/proxmox/vm"
-  for_each               = local.selected_vms
-  name                   = each.key
-  configure_data_nic_ips = each.value.owner != "services-vms-dhcp"
+  source             = "../../modules/proxmox/vm"
+  for_each           = local.selected_vms
+  name               = each.key
+  configure_data_ips = each.value.owner != "services-vms-dhcp"
   vm = merge(each.value, each.value.owner == "services-vms-dhcp" ? {
     # The VM module prepends management as net0. DHCP data NICs are generated
     # solely from VNI inventory, rather than manually listed per DHCP VM.
     network_devices = module.dhcp_macs.network_devices[each.key]
   } : {})
   vm_config   = var.vm_config
-  ssh_pubkeys = local.ssh_pubkey
+  ssh_pubkeys = local.ssh_pubkeys
   vm_images   = var.vm_images
 }

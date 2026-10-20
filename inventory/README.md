@@ -1,83 +1,73 @@
 # Inventory
 
-Shared configuration used by the roots.
+Edit values in `auto.tfvars/`. Roots link to these files and their `schema/`
+declarations; providers and version constraints live in `provider-config/` and
+`versions/`. `ssh_pubkeys.tf` holds the named public-key registry.
 
-| Directory | Contents |
+| Value file | Purpose |
 | --- | --- |
-| auto.tfvars/ | Configuration values |
-| schema/ | Variable types, defaults and validation |
-| provider-config/ | Provider configuration and credential variables |
-| versions/ | Provider requirements |
+| nodes.auto.tfvars | Proxmox hosts and stable node IDs |
+| fabric.auto.tfvars | Leaves, spines, addressing and MTUs |
+| fabric-vms.auto.tfvars | Fabric VM naming, addresses and ordered bridges |
+| pve-network.auto.tfvars | Host networking |
+| vm-config.auto.tfvars | VM defaults and named images |
+| vms.auto.tfvars | VM owners, placement, NICs and overrides |
+| vnis.auto.tfvars | VRFs, VNIs, gateways, route targets and DHCP scopes |
+| dns-records.auto.tfvars | Custom DNS records |
 
-## Main value files
+VNI `roles` select participating leaves. VM `owner` selects the deploying root.
+Route targets are explicit; changing an AS does not rewrite them.
 
-| File | Purpose |
+## Naming
+
+Use `snake_case`, plural names for collections, and familiar network terms
+(`ip`, `vlan`, `vni`, `mac`). Use `management` consistently. A network `prefix`
+is a CIDR string; `prefix_length` is a number. Keep provider field names intact.
+
+This cleanup renames the following inputs; tracked inventory and callers are
+updated together. Update any private override files using the old names:
+
+| Old | New |
 | --- | --- |
-| nodes.auto.tfvars | Proxmox nodes and stable IDs |
-| fabric.auto.tfvars | Fabric members, addressing and MTUs |
-| fabric-vms.auto.tfvars | VTEP naming, addresses and NIC generation |
-| vm-config.auto.tfvars | Shared VM defaults and named Debian/VyOS images |
-| pve-network.auto.tfvars | Proxmox host networking |
-| vnis.auto.tfvars | VRFs, L2/L3 VNIs, gateways and route targets |
-| vms.auto.tfvars | General VM definitions |
+| fabric.settings.vyos_mgmt_prefix | management_prefix |
+| fabric.settings.vyos_mgmt_cidr | management_prefix_length |
+| fabric_vms.management_cidr | management_prefix_length |
+| fabric_vms.default_underlay_bridges | underlay_bridges |
+| fabric.spines[*].uplink_if | uplink_interface |
+| VNI border_leaf_ipv4_vpn_import_bool | import_ipv4_vpn |
+| VNI border_leaf_ipv4_vrf_imports | import_ipv4_vrfs |
+| VM module configure_data_nic_ips | configure_data_ips |
+| DHCP module dhcp_ha_subnet | ha_subnet |
+| local.ssh_pubkey | local.ssh_pubkeys |
 
-Edit values here. Roots and modules use relative symlinks to the shared files.
+Resource/module labels and inventory keys are unchanged; these renames do not
+require state moves. Credential variable names are unchanged.
 
-A VNI's `roles` select the leaves that receive its VRF and nested L2VNIs.
-Route targets are explicit values; changing the overlay AS does not update them.
+## Secrets
 
-Keep credentials outside tracked inventory files. Use environment variables
-or private variable files.
-
-`schema/vm-config.tf` defines the shared VM settings used by the VM module
-and all VM roots. `schema/vm.tf` contains the single-VM object used by
-the VM module and its defaults helper. Service VM owners include
-`services-vms-dns` and `services-vms-dhcp`.
-
-## One shared secrets file without undeclared-variable warnings
-
-OpenTofu has no per-variable warning ignore list. An auto-loaded tfvars file
-warns when a root does not declare every supplied key. `-compact-warnings`
-shortens warnings; it does not suppress this category. Do not add unused dummy
-variable declarations to every root just to silence the warnings.
-
-Keep your one existing file at:
-
-```text
-inventory/auto.tfvars/passwords.secret.auto.tfvars
-```
-
-Run the wrapper from the repository directory inside `nix-shell`:
+Keep the central, ignored file at
+`inventory/auto.tfvars/passwords.secret.auto.tfvars`. Run inside `nix-shell`:
 
 ```sh
 tooling/with-secrets tofu -chdir=roots/services-config plan
-tooling/with-secrets tofu -chdir=roots/services-config apply
 ```
 
-The wrapper loads that file as `TF_VAR_<name>` environment variables for the
-child command. Roots consume only variables they declare; extra environment
-settings are ignored without these warnings. Strings and complex values are
-decoded by a temporary, provider-free OpenTofu configuration, not by shell eval.
-The wrapper prints no secret values or parser diagnostics containing them.
-Null entries unset the corresponding environment setting, allowing defaults.
-Normal tfvars and `-var` command-line precedence still apply over environment
-values. The existing `TF_CLI_CONFIG_FILE` provider-mirror selection is preserved
-for your actual command.
+The wrapper exports `TF_VAR_*` only to its child process. Undeclared environment
+variables are ignored, avoiding shared-tfvars warnings. It preserves value types;
+null entries unset their environment variable. Normal tfvars/CLI precedence applies.
+There is no per-variable warning filter; `-compact-warnings` only shortens output.
 
-Remove any symlink to that shared file from each root first, otherwise OpenTofu
-will still auto-load it. For example, after confirming this is a symlink:
+Remove root symlinks to the secrets file once, so it is not also auto-loaded:
 
 ```sh
-test -L roots/services-config/passwords.secret.auto.tfvars && \
+test -L roots/services-config/passwords.secret.auto.tfvars &&
   unlink roots/services-config/passwords.secret.auto.tfvars
 ```
 
-`unlink` removes only the link; keep the central secrets file. The wrapper also
-checks for an auto-loaded link and reports it rather than modifying it.
-Override the source path with `--file /path/to/secrets.tfvars` before the command.
-It requires OpenTofu/Terraform and python-hcl2, already included in `nix-shell`.
+Repeat for other roots with that link; retain the central target. The wrapper
+reports remaining links without removing them. `--file PATH` selects another
+secrets file. The guided runner uses the wrapper automatically when the central
+file exists, or accepts `--no-secrets` for existing environment credentials.
 
-The old `ssh_keys` setting has no consumer in the tracked configuration. VM SSH
-keys come from `inventory/ssh_pubkeys.tf` and each VM's `config.ssh_pubkeys`.
-Remove that old secret-file entry if nothing outside this repo uses it; the
-wrapper can also leave it present harmlessly as an unused environment setting.
+`ssh_keys` has no tracked consumer. Public keys use `local.ssh_pubkeys` and VM
+`config.ssh_pubkeys = ["laptop", "desktop"]`. Never store private keys in Git.

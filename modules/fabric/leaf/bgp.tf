@@ -23,7 +23,7 @@ locals {
   bgp_neighbor_commands = flatten([
     for name, spine in var.fabric.spines : [
       "set protocols bgp neighbor ${cidrhost(var.fabric.settings.loopback_ipv6_prefix, parseint(tostring(spine.id), 16))} peer-group 'spine_overlay'",
-      "set protocols bgp neighbor ${coalesce(spine.uplink_if, "eth${spine.id}")} interface v6only peer-group 'spine_underlay'",
+      "set protocols bgp neighbor ${coalesce(spine.uplink_interface, "eth${spine.id}")} interface v6only peer-group 'spine_underlay'",
     ]
   ])
 

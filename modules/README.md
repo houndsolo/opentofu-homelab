@@ -1,20 +1,18 @@
 # Modules
 
-Reusable configuration called by the roots.
+Roots supply inventory and providers to these modules. Run deployments from a root.
 
 | Module | Purpose |
 | --- | --- |
-| proxmox/network | Ethernet interfaces, bonds, bridges and VLANs |
-| proxmox/vm | One image-backed VM |
-| proxmox/settings | Proxmox settings; incomplete |
-| fabric/leaf | VyOS system, interfaces, BGP, VXLAN, VRFs and policies |
-| fabric/macs | Shared MAC calculation for VM NICs and VyOS bindings |
+| proxmox/network | Host Ethernet, bonds, bridges and VLANs |
+| proxmox/vm | Image-backed VM, defaults, cloud-init and selected SSH keys |
+| proxmox/settings | Incomplete Proxmox settings configuration |
+| fabric/leaf | VyOS interfaces, BGP, VXLAN, VRFs and policies |
+| fabric/spines | RouterOS BGP/EVPN configuration |
+| fabric/macs | Shared leaf NIC and VyOS binding MACs |
+| services/dhcp | Combined VyOS interfaces, HA, listen and pool commands |
+| services/dhcp/macs | Shared DHCP NIC and VyOS binding MACs |
 
-Modules receive their inputs from the calling root.
-Run deployment commands against a root, not a module.
-
-The leaf module combines command lists from separate files into one
-`vyoscmd_commands` resource.
-
-The MAC module preserves NIC list order. Changes to node IDs, AS base or bridge
-order can change MAC assignments.
+MAC calculators create no resources. VM and configuration roots use the same
+ordered mappings; keep their inventory consistent. VyOS modules combine command
+locals into one `vyoscmd_commands` resource per device.

@@ -6,7 +6,7 @@ module "proxmox_fabric_macs" {
     local.greatfox_nodes,
   )
 
-  underlay_bridges = var.fabric_vms.default_underlay_bridges
+  underlay_bridges = var.fabric_vms.underlay_bridges
 }
 
 module "vm" {
@@ -21,7 +21,7 @@ module "vm" {
     tags               = ["opentofu", "debian", "vyos", "vxlan"]
     node               = each.key
     vm_id              = each.value.id + var.fabric_vms.vm_id_offset
-    management_address = "${cidrhost(var.fabric_vms.management_prefix, each.value.id)}/${var.fabric_vms.management_cidr}"
+    management_address = "${cidrhost(var.fabric_vms.management_prefix, each.value.id)}/${var.fabric_vms.management_prefix_length}"
     network_devices    = module.proxmox_fabric_macs.network_devices[each.key]
     }, [
     for name, vm in var.vms : {
@@ -30,7 +30,7 @@ module "vm" {
   ]...)
 
   vm_config   = var.vm_config
-  ssh_pubkeys = local.ssh_pubkey
+  ssh_pubkeys = local.ssh_pubkeys
   vm_images   = var.vm_images
 }
 
@@ -50,7 +50,7 @@ module "greatfox_vm" {
     tags               = ["opentofu", "debian", "vyos", "vxlan"]
     node               = each.key
     vm_id              = each.value.id + var.fabric_vms.vm_id_offset
-    management_address = "${cidrhost(var.fabric_vms.management_prefix, each.value.id)}/${var.fabric_vms.management_cidr}"
+    management_address = "${cidrhost(var.fabric_vms.management_prefix, each.value.id)}/${var.fabric_vms.management_prefix_length}"
     network_devices    = module.proxmox_fabric_macs.network_devices[each.key]
     }, [
     for name, vm in var.vms : {
@@ -59,6 +59,6 @@ module "greatfox_vm" {
   ]...)
 
   vm_config   = var.vm_config
-  ssh_pubkeys = local.ssh_pubkey
+  ssh_pubkeys = local.ssh_pubkeys
   vm_images   = var.vm_images
 }

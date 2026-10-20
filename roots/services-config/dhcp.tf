@@ -44,7 +44,7 @@ module "dhcp" {
   source   = "../../modules/services/dhcp"
   for_each = local.dhcp_ha
 
-  dhcp_ha_subnet       = local.dhcp_ha_subnet
+  ha_subnet            = local.dhcp_ha_subnet
   vnis                 = var.vnis
   default_name_servers = values(local.dns_addresses)
   fabric_macs          = module.dhcp_macs.fabric_macs[each.key]
