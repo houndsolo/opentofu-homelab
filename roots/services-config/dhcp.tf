@@ -25,6 +25,8 @@ locals {
   dhcp_ha = length(local.dhcp_names) == 2 ? {
     for index, name in local.dhcp_names : name => {
       role                = index == 0 ? "primary" : "secondary"
+      index        = index 
+      remote_index        = 1 - index 
       address_slot        = index + 1
       peer_slot           = 2 - index # good meme
       peer_name           = local.dhcp_names[1 - index]
