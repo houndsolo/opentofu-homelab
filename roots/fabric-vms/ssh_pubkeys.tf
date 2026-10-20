@@ -1,0 +1,1 @@
+../../inventory/ssh_pubkeys.tf

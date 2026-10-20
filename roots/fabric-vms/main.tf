@@ -31,6 +31,7 @@ module "vm" {
   ]...)
 
   vm_config = var.vm_config
+  ssh_pubkeys = local.ssh_pubkey
   vm_images = var.vm_images
 }
 
@@ -59,5 +60,6 @@ module "greatfox_vm" {
   ]...)
 
   vm_config = var.vm_config
+  ssh_pubkeys = local.ssh_pubkey
   vm_images = var.vm_images
 }

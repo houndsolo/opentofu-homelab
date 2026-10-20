@@ -57,6 +57,24 @@ resource "proxmox_virtual_environment_vm" "this" {
           gateway = var.vm.gateway
         }
       }
+
+      dynamic "ip_config" {
+        for_each = var.vm.network_devices
+        content {
+          ipv4 {
+            address = ip_config.value.ipv4_address
+            gateway = ip_config.value.ipv4_gateway
+          }
+        }
+      }
+
+      dynamic "user_account" {
+        for_each = length(var.vm.config.ssh_pubkeys) > 0 ? [true] : []
+        content {
+          username = var.vm.config.ssh_username
+          keys     = [for name in var.vm.config.ssh_pubkeys : var.ssh_pubkeys[name]]
+        }
+      }
     }
   }
 
@@ -102,7 +120,9 @@ resource "proxmox_virtual_environment_vm" "this" {
   timeout_stop_vm     = local.config.timeout_stop_vm
 
   lifecycle {
-    # Match the reference: do not reconcile the provider-generated user account.
-    ignore_changes = [initialization[0].user_account]
+    precondition {
+      condition     = length(var.vm.config.ssh_pubkeys) == 0 || (local.config.cloud_init && local.config.user_data_file_id == null)
+      error_message = "config.ssh_pubkeys requires cloud-init enabled and no custom user_data_file_id."
+    }
   }
 }

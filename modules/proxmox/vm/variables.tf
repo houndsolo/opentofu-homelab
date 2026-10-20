@@ -1,3 +1,9 @@
+variable "ssh_pubkeys" {
+  description = "Named SSH public key registry; VMs select entries with config.ssh_pubkeys."
+  type        = map(string)
+  default     = {}
+}
+
 variable "vendor_data_file_id" {
   description = "Optional cloud-init vendor data snippet, preserving generated user data."
   type        = string
@@ -23,6 +29,8 @@ variable "vm" {
     management_address = optional(string, "dhcp")
     gateway            = optional(string)
     config = optional(object({
+      ssh_pubkeys             = optional(list(string), [])
+      ssh_username            = optional(string, "debian")
       datastore_id            = optional(string)
       import_image            = optional(string)
       description             = optional(string)
@@ -78,6 +86,8 @@ variable "vm" {
       model        = optional(string)
       mtu          = optional(number)
       disconnected = optional(bool)
+      ipv4_address = optional(string)
+      ipv4_gateway = optional(string)
     })), [])
   })
 }
