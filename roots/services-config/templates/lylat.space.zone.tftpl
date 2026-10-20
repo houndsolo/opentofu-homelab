@@ -10,3 +10,6 @@ $TTL 300
 @ IN NS ${name}.lylat.space.
 ${name} IN A ${address}
 %{ endfor ~}
+%{ for record in records ~}
+${record.name} ${record.ttl} IN ${record.type} ${record.data}
+%{ endfor ~}
