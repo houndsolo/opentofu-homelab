@@ -25,8 +25,6 @@ variable "ha" {
     address_slot        = number
     peer_slot           = number
     peer_name           = string
-    index               = string
-    remote_index        = string
     local_management_ip = string
     peer_management_ip  = string
   })

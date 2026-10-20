@@ -1,6 +1,5 @@
 variables {
-  name = "test"
-  vm   = { node = "venom", vm_id = 999 }
+  vm = { node = "venom", vm_id = 999 }
   vm_config = {
     datastore_id = "ceph_rbd"
     import_image = "cephfs:import/debian-13-genericcloud-amd64.qcow2"

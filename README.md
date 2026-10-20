@@ -33,3 +33,7 @@ tofu -chdir=roots/fabric-vms apply
 
 Review the plan before applying. Each root has separate state.
 
+
+For a shared passwords tfvars file across roots, see the secrets wrapper in
+[inventory/README.md](inventory/README.md#one-shared-secrets-file-without-undeclared-variable-warnings).
+Run `tooling/with-secrets tofu -chdir=roots/services-config plan` from nix-shell.

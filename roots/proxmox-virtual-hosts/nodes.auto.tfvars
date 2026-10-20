@@ -1,1 +1,0 @@
-../../inventory/auto.tfvars/nodes.auto.tfvars

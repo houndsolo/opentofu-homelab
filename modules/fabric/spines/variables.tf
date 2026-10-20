@@ -1,7 +1,3 @@
-variable "name" {
-  type = string
-}
-
 variable "spine" {
   type = object({
     management_ip = string
