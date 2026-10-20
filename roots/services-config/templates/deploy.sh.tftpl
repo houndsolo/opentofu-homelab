@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+command -v podman >/dev/null
+stage=$(mktemp -d /tmp/tofu-bind9.XXXXXX)
+trap 'rm -rf "$stage"' EXIT
+chmod 0755 "$stage"
+image=$(printf '%s' '${image_b64}' | base64 -d)
+printf '%s' '${config_b64}' | base64 -d > "$stage/named.conf"
+printf '%s' '${zone_b64}' | base64 -d > "$stage/lylat.space.zone"
+printf '%s' '${quadlet_b64}' | base64 -d > "$stage/bind9.container"
+chmod 0644 "$stage/"*
+
+podman pull "$image"
+# Validate both the server configuration and local zone before replacing files.
+podman run --rm --network=none --entrypoint named-checkconf \
+  -v "$stage:/etc/bind:ro" "$image" -z /etc/bind/named.conf
+
+install -d -m 0755 /etc/bind9-container /etc/containers/systemd
+install -m 0644 "$stage/named.conf" /etc/bind9-container/named.conf
+install -m 0644 "$stage/lylat.space.zone" /etc/bind9-container/lylat.space.zone
+install -m 0644 "$stage/bind9.container" /etc/containers/systemd/bind9.container
+systemctl daemon-reload
+# Quadlet's [Install] section enables the generated service at boot.
+systemctl restart bind9.service
+systemctl is-active --quiet bind9.service

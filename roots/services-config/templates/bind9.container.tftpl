@@ -1,0 +1,20 @@
+[Unit]
+Description=BIND9 DNS resolver and lylat.space authority
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=bind9
+Network=host
+Volume=/etc/bind9-container:/etc/bind:ro
+# The image entrypoint already runs /usr/sbin/named -u bind.
+Exec=-g -c /etc/bind/named.conf
+
+[Service]
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
