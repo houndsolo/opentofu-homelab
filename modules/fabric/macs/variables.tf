@@ -15,7 +15,7 @@ variable "underlay_bridges" {
   validation {
     condition = alltrue([
       for bridge in var.underlay_bridges : can(regex("^vmbr(0|[1-9][0-9]{0,3})$", bridge))
-    ]) && length(distinct(var.underlay_bridges)) == length(var.underlay_bridges)
-    error_message = "Use unique vmbr<number> bridge names, with numbers in 0..9999 and no leading zeros."
+    ]) && length(var.underlay_bridges) <= 99 && length(distinct(var.underlay_bridges)) == length(var.underlay_bridges)
+    error_message = "Use at most 99 unique vmbr<number> bridge names, with numbers in 0..9999 and no leading zeros."
   }
 }
