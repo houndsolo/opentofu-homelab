@@ -47,3 +47,11 @@ zone "lylat.space" {
     notify no;
 %{ endif ~}
 };
+
+zone "haylett.lan" {
+    type forward;
+    forward only;
+    forwarders {
+        10.0.1.110;
+    };
+};
