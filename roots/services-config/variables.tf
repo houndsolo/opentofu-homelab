@@ -40,7 +40,7 @@ variable "dns_hosts" {
         for type, data in records :
         can(regex("^(@|[A-Za-z0-9_*][A-Za-z0-9_.*-]*)$", owner)) &&
         can(regex("^[A-Z][A-Z0-9]*$", type)) &&
-        !can(regex("[\\r\\n]", data)) && trimspace(data) != ""
+        !can(regex("[\r\n]", data)) && trimspace(data) != ""
       ]
     ]))
     error_message = "Use DNS owner names, uppercase record types and nonempty single-line RDATA in BIND syntax."
@@ -61,9 +61,26 @@ variable "dns_records" {
       for record in var.dns_records :
       can(regex("^(@|[A-Za-z0-9_*][A-Za-z0-9_.*-]*)$", record.name)) &&
       can(regex("^[A-Z][A-Z0-9]*$", record.type)) &&
-      !can(regex("[\\r\\n]", record.data)) && trimspace(record.data) != "" &&
+      !can(regex("[\r\n]", record.data)) && trimspace(record.data) != "" &&
       record.ttl >= 0 && record.ttl <= 2147483647 && record.ttl == floor(record.ttl)
     ])
     error_message = "Records need a valid owner, uppercase type, single-line RDATA and an integer TTL in 0..2147483647."
+  }
+}
+
+variable "dns_primary" {
+  description = "Inventory hostname of the writable primary; other DNS VMs are secondaries."
+  type        = string
+  default     = "dns01"
+}
+
+variable "dns_tsig_secret" {
+  description = "Optional existing base64 HMAC-SHA256 key. When null, generate 32 random bytes once and retain them in state."
+  type        = string
+  sensitive   = true
+  default     = null
+  validation {
+    condition     = var.dns_tsig_secret == null || can(regex("^[A-Za-z0-9+/]{43}=$", var.dns_tsig_secret))
+    error_message = "Supply a base64-encoded 32-byte HMAC-SHA256 key, e.g. openssl rand -base64 32."
   }
 }

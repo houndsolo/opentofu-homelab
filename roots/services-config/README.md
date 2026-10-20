@@ -1,27 +1,44 @@
-# DNS services with Podman
+# DNS services: BIND9, Podman and RFC 2136
 
-This root deploys BIND9 on VMs owned by `services-vms-dns`. It does not create
-VMs or install Podman. Each VM must have Podman with Quadlet support, systemd,
-a reachable static OOB management address, and passwordless sudo for its
-`config.ssh_username` (currently `mechanic`). The runner needs SSH access to
-both OOB addresses with an authorized private key. The VMs need registry access
-and outbound TCP/UDP DNS access to Cloudflare.
+This experimental `codex-tsig` branch changes the DNS pair to one writable
+primary (`dns01`, 10.8.53.1) and one secondary (`dns02`, 10.8.53.2). Both still
+provide recursion through 1.1.1.1/1.0.0.1 and serve the local lylat.space zone.
 
-Both servers run the same stack, listening only on their respective vmbr4000
-VLAN 8 IPv4 address, on TCP and UDP port 53. Host networking is used. Port 53
-must be free on that address. This root does not change the guest firewall.
+## How it works
 
-- Queries outside `lylat.space` forward only to 1.1.1.1 and 1.0.0.1.
-- The authoritative local zone contains dns01.lylat.space = 10.8.53.1 and
-  dns02.lylat.space = 10.8.53.2, derived from VM inventory, with both NS records.
-- Both servers load the zone independently; no zone transfer or dynamic updates.
-- Queries/recursion are allowed from 10.0.0.0/8 and loopback by default. Adjust
-  `dns_allowed_clients` if other networks should use these resolvers.
-- The local zone shadows the entire public lylat.space zone: unknown local names
-  return NXDOMAIN, without forwarding to public DNS. No zone-apex A record or
-  reverse zone is created.
+- `terraform_data.bind9` bootstraps BIND over OOB SSH with Quadlet and TSIG.
+- The primary seeds only SOA/NS/DNS-server A records once. Its zone and journal
+  are persistent under `/var/lib/bind9-container/primary` on the host.
+- The secondary stores its transferred zone under the same host directory's
+  `secondary` subdirectory. Signed NOTIFY and AXFR/IXFR replicate primary changes.
+- `terraform_data.dns_records` sends one signed RFC 2136 transaction for the
+  desired custom/generated RRsets. It runs `nsupdate` in the primary container
+  through SSH; the protocol speaks to the primary on its service address.
+- Record-only edits do not change bootstrap files or restart either service.
+  BIND increments the SOA serial automatically and notifies the secondary.
+- `/var/lib/bind9-tofu-records.json` on the primary tracks owner/type pairs
+  managed by this root. Removed records are deleted on the next successful apply;
+  unrelated dynamically added RRsets are left alone. Do not edit the same RRset
+  from another client: OpenTofu replaces all values for each RRset it owns.
+- A rejected update leaves the ownership manifest unchanged. Each transaction
+  replaces all desired RRsets, so retrying an interrupted apply is safe.
 
-Review and apply separately from VM creation:
+## First apply / migration from the static-file branch
+
+Back up the existing `/etc/bind9-container` configuration and your OpenTofu state.
+For a previous dynamic deployment, also back up the zone, journal and ownership
+manifest together. Do not overwrite a live dynamic zone file manually.
+
+The initial migration deliberately seeds a fresh primary zone containing only
+bootstrap records; it does not import the old static zone. All desired records
+must be present in the inventory before applying. The update phase adds them
+immediately after bootstrap; there can be a brief window where they are absent.
+The old static file is retained but is no longer loaded. Nothing is applied by
+switching branches alone.
+
+The default generates a 32-byte TSIG key automatically using `random_bytes` on
+the first apply. The key is retained in OpenTofu state, so subsequent applies
+reuse it. No secret file or manual key generation is needed:
 
 ```sh
 tofu -chdir=roots/services-config init
@@ -29,39 +46,47 @@ tofu -chdir=roots/services-config plan -var='ssh_private_key_path=~/.ssh/id_ed25
 tofu -chdir=roots/services-config apply -var='ssh_private_key_path=~/.ssh/id_ed25519'
 ```
 
-The private key must match one authorized on the guests. `bind9_image` defaults
-to `docker.io/internetsystemsconsortium/bind9:9.20`; override with a version or
-digest to pin it more tightly. It is pulled on deployment, with no auto-update
-service. The image's default bind user runs named inside a rootful container.
+Back up and protect the state: it contains the generated secret in plaintext.
+Losing or replacing the random resource rotates the key. Do not taint/replace
+it casually. The generated value is sensitive and is not exposed as an output.
+To reuse an existing key instead, set `TF_VAR_dns_tsig_secret` or supply
+`dns_tsig_secret` in an ignored `*.secret.auto.tfvars` file. Switching between
+an override and generated keys is a key rotation, requiring coordinated rollout.
+Protect saved plans and `/etc/bind9-container/tsig.key` on the guests too.
+The same HMAC-SHA256 key authenticates updates,
+notifications and transfers. It can modify this zone; give it only to trusted
+administrators. It grants no authority over other zones. Authentication does
+not encrypt DNS traffic. Key rotation restarts the pair and should be planned
+as a coordinated operation; separate update/transfer keys can be added later.
 
-OpenTofu uses built-in `terraform_data` SSH provisioners to upload a deployment
-script. BIND validates its configuration and zone in a temporary container
-before files are installed. Configuration goes in `/etc/bind9-container` and
-Quadlet in `/etc/containers/systemd/bind9.container`. systemd starts the generated
-`bind9.service`, and Quadlet's Install section starts it on subsequent boots.
-Template, inventory connection, or image-reference changes trigger redeployment
-and a brief restart. A local zone change redeploys both hosts. If a VM is rebuilt
-with the same address and VM ID, change `dns_deploy_revision` or use
-`-replace='terraform_data.bind9["dns01"]'` to bootstrap it again.
+Requirements: Podman/Quadlet, systemd and Python 3 on the VMs, passwordless sudo
+for their configured SSH user, registry access, and a reachable OOB SSH path.
+Allow TCP and UDP 53 between the service addresses for transfers/notifications
+and clients. Queries/recursion default to 10.0.0.0/8; adjust
+`dns_allowed_clients` as needed. Unsigned updates and transfers are rejected.
+The bootstrap still uses SSH; there is no REST management service or external
+DNS provider plugin in this implementation.
 
-Provisioners do not continuously detect guest-side drift. Removing a VM from
-this root or destroying its terraform_data resource does not uninstall the
-container: stop `bind9.service` and remove its Quadlet manually when retiring it.
-The first rollout is not an atomic operation across both hosts.
+Use the persistent host directories when rebuilding/upgrading containers.
+`dns_deploy_revision` forces bootstrap after rebuilding a VM at the same IP/ID.
+Do not change `dns_primary` as an automatic failover mechanism: moving primary
+ownership requires transferring the latest zone/journal and ownership manifest.
+A missing manifest prevents discovery/removal of previously managed records.
+The generated key depends on this root's existing state; apply from the checkout
+that owns the deployed services-config state.
 
-Verify from a permitted client:
+Deleting/destroying terraform_data does not uninstall containers or erase the
+zone. Provisioners do not detect live drift on every plan. To reconcile external
+changes, use `-replace=terraform_data.dns_records` on a reviewed apply.
 
-```sh
-dig @10.8.53.1 dns01.lylat.space A
-dig @10.8.53.1 dns02.lylat.space A
-dig @10.8.53.2 dns01.lylat.space A
-dig @10.8.53.2 dns02.lylat.space A
-dig @10.8.53.1 example.org A
-dig +tcp @10.8.53.2 example.org A
-```
+SOA, apex NS and DNS VM A records remain bootstrap-owned; custom records cannot
+replace them. All other BIND data types and RFC 3597 records use the same record
+inputs below. Protocol meta-types (ANY/AXFR/IXFR/OPT/TSIG/TKEY) are not data RRsets.
+All values for an owner/type RRset must use one TTL. Names are zone-relative,
+including `@` for the apex; do not supply fully qualified owner names.
 
-On each VM, inspect `sudo systemctl status bind9` and
-`sudo journalctl -u bind9 -e` for runtime errors.
+The private local zone shadows public lylat.space. Unknown local names return
+NXDOMAIN rather than falling back to public DNS.
 
 ## Custom zone records
 
@@ -86,8 +111,7 @@ This interface does not impose a fixed record-type allowlist: use any uppercase
 BIND-supported type, with its RDATA as a single-line zone-file string. Domain
 name targets need a trailing dot to be absolute. TXT strings need zone-file
 quotes (escaped in HCL). For an unrecognized type, use RFC 3597 `TYPE<number>`
-with generic wire-format RDATA. BIND's `named-checkconf -z` rejects invalid zone
-content before replacing live files; not every owner/type combination is legal
+with generic wire-format RDATA. BIND validates updates and rejects invalid transactions; not every owner/type combination is legal
 (for example, CNAME cannot coexist with A at the same owner).
 
 Use `dns_records` for multiple values of one type or a different TTL:
@@ -123,13 +147,26 @@ generated record map for a matching owner; include its A record if also adding
 an AAAA. `dns_records` appends additional records. Edit the generator if your
 management subnet/address convention changes.
 
-## Later: dynamic updates
+## Verification
 
-BIND supports RFC 2136 DNS UPDATE, typically authenticated with TSIG and managed
-using `nsupdate` or a DNS update provider. It is disabled here (`allow-update
-{ none; };`). These records currently deploy by regenerating the zone file on
-both hosts. To migrate, use one writable primary, a secondary with authenticated
-zone transfers/notifications, persistent writable zone/journal storage, and a
-scoped TSIG update policy. Stop managing the same records through static files
-before enabling dynamic updates. A REST API would require a separate management
-service; BIND's native update protocol is RFC 2136.
+```sh
+dig @10.8.53.1 greatfox.lylat.space A
+dig @10.8.53.2 greatfox.lylat.space A
+dig @10.8.53.1 lylat.space SOA +short
+dig @10.8.53.2 lylat.space SOA +short
+```
+
+After NOTIFY/transfer completes, both SOA serials should match. Inspect
+`sudo journalctl -u bind9 -e` on each host for update/transfer errors.
+`dig @10.8.53.1 lylat.space AXFR` without a key must fail.
+
+Tests:
+
+```sh
+tofu -chdir=roots/services-config test
+python3 -m unittest discover -s roots/services-config/tests -p 'test_*.py'
+```
+
+The plan tests use an explicitly fake or mocked key and make no SSH connections. A local
+isolated BIND integration test also verified signed add/delete replication and
+rejection of unsigned UPDATE/AXFR during development.

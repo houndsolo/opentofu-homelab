@@ -22,3 +22,23 @@ locals {
     ]
   ]), var.dns_records)
 }
+
+locals {
+  # Keep each owner/type RRset together so updates replace all of its values.
+  record_sets = {
+    for record in local.custom_records :
+    "${lower(trimsuffix(record.name, "."))}|${record.type}" => record...
+  }
+  record_payload = {
+    server = local.dns_addresses[var.dns_primary]
+    rrsets = [for records in values(local.record_sets) : {
+      name = records[0].name == "@" ? "lylat.space." : "${trimsuffix(records[0].name, ".")}.lylat.space."
+      type = records[0].type
+      ttl  = records[0].ttl
+      data = distinct([for record in records : record.data])
+    }]
+  }
+  record_deployment = templatefile("${path.module}/templates/update-records.py.tftpl", {
+    payload_b64 = base64encode(jsonencode(local.record_payload))
+  })
+}

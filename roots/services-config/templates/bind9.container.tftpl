@@ -8,6 +8,7 @@ Image=${image}
 ContainerName=bind9
 Network=host
 Volume=/etc/bind9-container:/etc/bind:ro
+Volume=/var/lib/bind9-container:/var/lib/bind:rw
 # The image entrypoint already runs /usr/sbin/named -u bind.
 Exec=-g -c /etc/bind/named.conf
 
