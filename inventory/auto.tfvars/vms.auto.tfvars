@@ -1,6 +1,6 @@
 vms = {
   dns01 = {
-    owner     = "services-vms"
+    owner     = "services-vms-dns"
     node      = "venom"
     vm_id     = 5301
     image     = "debian13"
@@ -21,7 +21,7 @@ vms = {
     }
   }
   dns02 = {
-    owner     = "services-vms"
+    owner     = "services-vms-dns"
     node      = "eldarad"
     vm_id     = 5302
     image     = "debian13"
@@ -42,7 +42,7 @@ vms = {
     }
   }
   dhcp01 = {
-    owner     = "services-vms"
+    owner     = "services-vms-dhcp"
     node      = "venom"
     vm_id     = 6701
     image     = "vyos"
@@ -52,7 +52,7 @@ vms = {
     management_address = "10.20.67.1/16"
   }
   dhcp02 = {
-    owner     = "services-vms"
+    owner     = "services-vms-dhcp"
     node      = "eldarad"
     vm_id     = 6702
     image     = "vyos"
