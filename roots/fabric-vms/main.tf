@@ -6,8 +6,7 @@ module "proxmox_fabric_macs" {
     local.greatfox_nodes,
   )
 
-  underlay_bridges       = var.fabric_vms.default_underlay_bridges
-  underlay_local_as_base = var.fabric_vms.underlay_local_as_base
+  underlay_bridges = var.fabric_vms.default_underlay_bridges
 }
 
 module "vm" {
@@ -30,9 +29,9 @@ module "vm" {
     } if name == "${var.fabric_vms.hostname_prefix}${each.key}" && vm.owner == "fabric-vms"
   ]...)
 
-  vm_config = var.vm_config
+  vm_config   = var.vm_config
   ssh_pubkeys = local.ssh_pubkey
-  vm_images = var.vm_images
+  vm_images   = var.vm_images
 }
 
 module "greatfox_vm" {
@@ -59,7 +58,7 @@ module "greatfox_vm" {
     } if name == "${var.fabric_vms.hostname_prefix}${each.key}" && vm.owner == "fabric-vms"
   ]...)
 
-  vm_config = var.vm_config
+  vm_config   = var.vm_config
   ssh_pubkeys = local.ssh_pubkey
-  vm_images = var.vm_images
+  vm_images   = var.vm_images
 }

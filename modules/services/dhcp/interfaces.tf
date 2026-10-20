@@ -1,5 +1,14 @@
 locals {
-  # Add VyOS interface commands here. eth0 is management; generated data NICs
-  # follow the VLAN order in roots/services-vms. Addresses are configured in VyOS.
-  interface_commands = []
+  # Bind the Proxmox-created data NICs to the matching VyOS interface names.
+  # Management eth0 is deliberately absent from this map.
+  interface_binding_commands = [
+    for interface, mac in var.fabric_macs :
+    "set interfaces ethernet ${interface} hw-id ${mac}"
+  ]
+
+  interface_commands = concat(
+    local.interface_binding_commands,
+    # Add data-interface addresses/descriptions here; no cloud-init data IPs.
+    [],
+  )
 }

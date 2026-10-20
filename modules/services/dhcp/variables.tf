@@ -7,3 +7,9 @@ variable "management_ip" {
   description = "DHCP VM OOB IPv4 address, without the CIDR prefix."
   type        = string
 }
+
+variable "fabric_macs" {
+  description = "Shared ethN -> MAC map from the same calculator used by VM creation. Excludes eth0."
+  type        = map(string)
+  default     = {}
+}

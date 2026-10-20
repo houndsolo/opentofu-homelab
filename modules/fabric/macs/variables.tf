@@ -1,14 +1,21 @@
 variable "nodes" {
-  description = "Shared Proxmox node inventory; IDs determine stable MACs."
+  description = "Shared node IDs, written as decimal-looking MAC octets (01..99)."
   type        = map(object({ id = number }))
+  validation {
+    condition = alltrue([
+      for node in values(var.nodes) : node.id >= 1 && node.id <= 99 && node.id == floor(node.id)
+    ]) && length(distinct([for node in values(var.nodes) : node.id])) == length(var.nodes)
+    error_message = "Node IDs must be unique integers in 1..99 for the decimal-looking MAC format."
+  }
 }
 
 variable "underlay_bridges" {
-  description = "Ordered bridges for eth1 onwards; eth0 is the management NIC."
+  description = "Ordered vmbr<number> bridges for eth1 onwards; management eth0 is excluded."
   type        = list(string)
-}
-
-variable "underlay_local_as_base" {
-  description = "Shared seed for the existing reference MAC formula."
-  type        = number
+  validation {
+    condition = alltrue([
+      for bridge in var.underlay_bridges : can(regex("^vmbr(0|[1-9][0-9]{0,3})$", bridge))
+    ]) && length(distinct(var.underlay_bridges)) == length(var.underlay_bridges)
+    error_message = "Use unique vmbr<number> bridge names, with numbers in 0..9999 and no leading zeros."
+  }
 }

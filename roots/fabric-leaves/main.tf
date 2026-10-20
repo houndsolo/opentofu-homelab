@@ -1,8 +1,7 @@
 module "proxmox_fabric_macs" {
-  source                 = "../../modules/fabric/macs"
-  nodes                  = var.nodes.proxmox_cluster
-  underlay_bridges       = var.fabric_vms.default_underlay_bridges
-  underlay_local_as_base = var.fabric_vms.underlay_local_as_base
+  source           = "../../modules/fabric/macs"
+  nodes            = merge(var.nodes.proxmox_cluster, local.greatfox_nodes)
+  underlay_bridges = var.fabric_vms.default_underlay_bridges
 }
 
 module "leaf" {

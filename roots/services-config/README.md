@@ -171,3 +171,13 @@ Complete the required peer/local HA settings, interfaces and pools for your
 VyOS version before an untargeted services-config apply. Use `var.name` inside
 the module to distinguish peers when adding server-specific commands. The VyOS
 HTTPS API must already be enabled and reachable. Nothing has been applied.
+
+### DHCP data MAC bindings
+
+`dhcp.tf` calls `modules/services/dhcp/macs`, the same pure calculator used by
+`services-vms`. It passes the resulting `fabric_macs` into the DHCP module.
+`interfaces.tf` emits one `set interfaces ethernet ethN hw-id <MAC>` per data
+NIC and combines these with the other commands in the existing single resource.
+VM 6701 uses `02:00:00:67:01:<VLAN>`; VM 6702 uses `02:00:00:67:02:<VLAN>`.
+VLAN octets are decimal-looking and limited to 1..99. eth0 is never included.
+See the shared calculator's README for the full interface/VLAN table.

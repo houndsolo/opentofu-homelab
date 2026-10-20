@@ -91,3 +91,9 @@ OOB management uses `10.20.53.1/16` and `10.20.53.2/16` on vmbr0.
 Leave `gateway` unset for OOB. No default gateway is
 configured on VLAN 8 either; add `ipv4_gateway` there if off-subnet access
 (such as fetching Debian packages) requires it.
+
+DHCP data NICs now use `modules/services/dhcp/macs` for static MACs, shared with
+services-config's VyOS hw-id bindings. VM 6701 uses `02:00:00:67:01:<VLAN>` and
+VM 6702 uses `02:00:00:67:02:<VLAN>`. The sorted DHCP VLAN list and management
+NIC separation are unchanged. This format requires VLANs in 1..99. Review both
+roots before migrating existing NIC MACs; management MACs are untouched.
