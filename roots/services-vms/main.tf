@@ -46,7 +46,7 @@ module "vm" {
   vm_config           = var.vm_config
   ssh_pubkeys         = local.ssh_pubkey
   vm_images           = var.vm_images
-  vendor_data_file_id = each.value.image == "debian13" ? proxmox_virtual_environment_file.debian_cloud_init[0].id : null
+  #vendor_data_file_id = each.value.image == "debian13" ? proxmox_virtual_environment_file.debian_cloud_init[0].id : null
 
   depends_on = [proxmox_virtual_environment_download_file.debian13]
 }
