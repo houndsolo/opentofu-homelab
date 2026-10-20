@@ -1,6 +1,7 @@
 vm_config = {
   datastore_id = "ceph_rbd"
   import_image = "cephfs:import/debian-13-genericcloud-amd64.qcow2"
+  started = true
 }
 
 # services-vms downloads the Debian image; other images and snippets must exist.
