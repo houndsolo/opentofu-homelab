@@ -15,6 +15,9 @@ dns_hosts = {
   ai-rx6800xt = { A = "10.12.0.12"}
   fw-wan = { A = "10.20.10.255"}
   torrent = { A = "10.8.7.7"}
+  automation0 = { A = "10.20.250.255"}
+  nixos = { A = "10.20.250.255"}
+  arch = { A = "10.9.9.69"}
 }
 
 # Use this list for multiple records with the same owner/type or custom TTLs.
