@@ -1,38 +1,30 @@
 # Service VMs
 
-Debian service VMs (including dns01 and dns02) receive cloud-init vendor data
-that refreshes package metadata, installs `qemu-guest-agent`, and starts it.
-Package upgrades remain disabled. The snippet is uploaded to shared `cephfs`,
-which must allow `Snippets` content; upload uses the provider's SSH connection.
-Vendor data preserves Proxmox-generated user and network configuration.
-These installation steps run on first boot. Already initialized guests need
-the agent installed and started manually, or must be recreated.
+This root manages `services-vms-dns` and `services-vms-dhcp` owners, plus the
+legacy `services-vms` owner. They retain `module.vm["<name>"]` state addresses.
+The customized Debian QCOW2 and VyOS image/snippets must already exist in PVE;
+this root no longer downloads or customizes the Debian image.
 
-This root makes PVE download the official Debian 13 (Trixie) genericcloud
-AMD64 QCOW2 before creating service VMs, including dns01 and dns02:
+## DHCP VM interfaces
 
-https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2
+A VM owned by `services-vms-dhcp` gets its management NIC (`net0`) from its VM
+inventory settings, followed by one NIC per L2VNI with a non-null `dhcp` block
+in `inventory/auto.tfvars/vnis.auto.tfvars`. Omit the block to disable DHCP
+participation. Each generated data NIC uses `vmbr4000` and the L2VNI's `vlan_id`.
+The list is ordered numerically by VLAN ID, across all VRFs. Both DHCP VMs get
+the same data NIC list. Their explicit `network_devices` settings are replaced
+by this generated list; DNS VMs retain their explicit settings.
 
-The cloud image includes cloud-init. It is an imported disk image, rather than
-an installer ISO. The download runs once through a Debian VM's node and is
-stored on shared `cephfs` as
-`cephfs:import/debian-13-genericcloud-amd64.qcow2`.
-Enable the `Import` content type on that storage. The PVE API token needs
-`Datastore.AllocateTemplate`, `Sys.Audit`, and `Sys.Modify` for the download API.
+Currently DHCP VLANs are 2, 6, 8, 9, 10 and 12, so each DHCP VM has seven NICs
+including management. Adding or removing a selected VLAN can shift subsequent
+guest NIC indices; review the plan and VyOS interface bindings before applying.
+This configures virtual NICs only, without assigning data-plane IPs, routes,
+DHCP scopes or HA settings inside VyOS. Ensure vmbr4000 carries these VLANs on
+each host. Management addressing remains unchanged.
 
-`overwrite = false` keeps the downloaded image on subsequent applies, even
-when Debian updates the `latest` URL. A missing managed file is downloaded again.
-If the image already exists before the first apply, import it into state
-instead of downloading it again (use the download node shown in the plan):
-
-```sh
-tofu -chdir=roots/services-vms import \
-  'proxmox_virtual_environment_download_file.debian13[0]' \
-  'eldarad/cephfs:import/debian-13-genericcloud-amd64.qcow2'
-```
-
-Review the plan before applying. VyOS images and cloud-init snippets still
-need to be present separately.
+DHCP VMs explicitly disable cloud-init IP configuration for all data NICs;
+only their management NIC receives an `ip_config` block. Set up all data NIC
+addressing through VyOS configuration.
 
 ## Static addresses and SSH keys
 
