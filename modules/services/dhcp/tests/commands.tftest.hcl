@@ -7,8 +7,6 @@ variables {
     address_slot        = 1
     peer_slot           = 2
     peer_name           = "dhcp02"
-    index               = "0"
-    remote_index        = "1"
     local_management_ip = "10.20.67.1"
     peer_management_ip  = "10.20.67.2"
   }

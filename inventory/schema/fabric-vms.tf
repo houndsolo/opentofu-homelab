@@ -5,7 +5,6 @@ variable "fabric_vms" {
     vm_id_offset             = optional(number, 700)
     management_prefix        = string
     management_cidr          = number
-    underlay_local_as_base   = optional(number, 700)
     default_underlay_bridges = list(string)
   })
 }
