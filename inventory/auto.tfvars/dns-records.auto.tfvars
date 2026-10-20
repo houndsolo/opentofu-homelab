@@ -5,6 +5,11 @@ dns_hosts = {
   # www      = { CNAME = "greatfox.lylat.space." }
   # "@"      = { MX = "10 mail.lylat.space.", TXT = "example text" }
   # "_dns._udp" = { SRV = "0 5 53 dns01.lylat.space." }
+  ai-v100 = { A = "10.12.0.10"}
+  ai-rx3080 = { A = "10.12.0.11"}
+  ai-6800xt = { A = "10.12.0.12"}
+  fw-wan = { A = "10.20.10.255"}
+  torrent = { A = "10.8.7.7"}
 }
 
 # Use this list for multiple records with the same owner/type or custom TTLs.
