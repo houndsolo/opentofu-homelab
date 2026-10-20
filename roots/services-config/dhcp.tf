@@ -20,12 +20,13 @@ locals {
       for name, vm in local.dhcp_vms : format("%010d:%s", vm.vm_id, name)
     ]) : split(":", entry)[1]
   ]
+  dhcp_ha_subnet = "10.6.67.0/31"
 
   dhcp_ha = length(local.dhcp_names) == 2 ? {
     for index, name in local.dhcp_names : name => {
       role                = index == 0 ? "primary" : "secondary"
       address_slot        = index + 1
-      peer_slot           = 2 - index
+      peer_slot           = 2 - index # good meme
       peer_name           = local.dhcp_names[1 - index]
       local_management_ip = split("/", local.dhcp_vms[name].management_address)[0]
       peer_management_ip  = split("/", local.dhcp_vms[local.dhcp_names[1 - index]].management_address)[0]
@@ -43,6 +44,7 @@ module "dhcp" {
   source   = "../../modules/services/dhcp"
   for_each = local.dhcp_ha
 
+  dhcp_ha_subnet = local.dhcp_ha_subnet
   fabric_macs   = module.dhcp_macs.fabric_macs[each.key]
   name          = each.key
   management_ip = each.value.local_management_ip
