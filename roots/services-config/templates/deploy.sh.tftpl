@@ -1,25 +1,37 @@
 #!/bin/bash
 set -euo pipefail
+umask 077
 command -v podman >/dev/null
 stage=$(mktemp -d /tmp/tofu-bind9.XXXXXX)
 trap 'rm -rf "$stage"' EXIT
-chmod 0755 "$stage"
 image=$(printf '%s' '${image_b64}' | base64 -d)
 printf '%s' '${config_b64}' | base64 -d > "$stage/named.conf"
-printf '%s' '${zone_b64}' | base64 -d > "$stage/lylat.space.zone"
+printf '%s' '${zone_b64}' | base64 -d > "$stage/seed.zone"
 printf '%s' '${quadlet_b64}' | base64 -d > "$stage/bind9.container"
-chmod 0644 "$stage/"*
+printf '%s' '${key_b64}' | base64 -d > "$stage/tsig.key"
 
 podman pull "$image"
-# Validate both the server configuration and local zone before replacing files.
+# Validation runs as root with networking disabled; key contents stay private.
 podman run --rm --network=none --entrypoint named-checkconf \
-  -v "$stage:/etc/bind:ro" "$image" -z /etc/bind/named.conf
+  -v "$stage:/etc/bind:ro" "$image" /etc/bind/named.conf
+podman run --rm --network=none --entrypoint named-checkzone \
+  -v "$stage:/etc/bind:ro" "$image" lylat.space /etc/bind/seed.zone
 
+bind_uid=$(podman run --rm --network=none --entrypoint id "$image" -u bind)
+bind_gid=$(podman run --rm --network=none --entrypoint id "$image" -g bind)
 install -d -m 0755 /etc/bind9-container /etc/containers/systemd
+install -d -m 0750 -o "$bind_uid" -g "$bind_gid" \
+  /var/lib/bind9-container /var/lib/bind9-container/primary /var/lib/bind9-container/secondary
+%{ if primary ~}
+# Seed only once. Never replace a dynamic zone or its journal on redeployment.
+if [ ! -f /var/lib/bind9-container/primary/lylat.space.zone ]; then
+  install -m 0640 -o "$bind_uid" -g "$bind_gid" \
+    "$stage/seed.zone" /var/lib/bind9-container/primary/lylat.space.zone
+fi
+%{ endif ~}
 install -m 0644 "$stage/named.conf" /etc/bind9-container/named.conf
-install -m 0644 "$stage/lylat.space.zone" /etc/bind9-container/lylat.space.zone
+install -m 0640 -o root -g "$bind_gid" "$stage/tsig.key" /etc/bind9-container/tsig.key
 install -m 0644 "$stage/bind9.container" /etc/containers/systemd/bind9.container
 systemctl daemon-reload
-# Quadlet's [Install] section enables the generated service at boot.
 systemctl restart bind9.service
 systemctl is-active --quiet bind9.service

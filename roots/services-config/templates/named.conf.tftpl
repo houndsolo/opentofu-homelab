@@ -1,6 +1,11 @@
+include "/etc/bind/tsig.key";
+
 acl trusted_clients {
 %{ for prefix in allowed_clients ~}
     ${prefix};
+%{ endfor ~}
+%{ for peer in concat([primary_address], secondary_addresses) ~}
+    ${peer};
 %{ endfor ~}
 };
 
@@ -9,7 +14,7 @@ options {
     listen-on port 53 { ${address}; };
     listen-on-v6 { none; };
     recursion yes;
-    allow-query { trusted_clients; };
+    allow-query { trusted_clients; key "tofu-lylat"; };
     allow-recursion { trusted_clients; };
     allow-query-cache { trusted_clients; };
     allow-transfer { none; };
@@ -22,8 +27,23 @@ options {
 controls {};
 
 zone "lylat.space" {
+%{ if primary ~}
     type primary;
-    file "/etc/bind/lylat.space.zone";
+    file "/var/lib/bind/primary/lylat.space.zone";
+    update-policy { grant tofu-lylat zonesub ANY; };
+    allow-transfer { key "tofu-lylat"; };
+    notify explicit;
+    also-notify {
+%{ for peer in secondary_addresses ~}
+        ${peer} key "tofu-lylat";
+%{ endfor ~}
+    };
+%{ else ~}
+    type secondary;
+    file "/var/lib/bind/secondary/lylat.space.zone";
+    primaries { ${primary_address} key "tofu-lylat"; };
+    allow-notify { key "tofu-lylat"; };
+    allow-update-forwarding { none; };
     notify no;
-    allow-update { none; };
+%{ endif ~}
 };

@@ -1,6 +1,6 @@
 $TTL 300
-@ IN SOA dns01.lylat.space. hostmaster.lylat.space. (
-    1  ; serial: both servers load this zone independently, without transfers
+@ IN SOA ${primary}.lylat.space. hostmaster.lylat.space. (
+    1  ; initial serial; RFC 2136 updates increment this automatically
     300
     120
     604800
@@ -9,7 +9,4 @@ $TTL 300
 %{ for name, address in addresses ~}
 @ IN NS ${name}.lylat.space.
 ${name} IN A ${address}
-%{ endfor ~}
-%{ for record in records ~}
-${record.name} ${record.ttl} IN ${record.type} ${record.data}
 %{ endfor ~}
