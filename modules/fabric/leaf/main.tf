@@ -1,6 +1,6 @@
 locals {
   management_ip = cidrhost(
-    var.fabric.settings.vyos_mgmt_prefix,
+    var.fabric.settings.management_prefix,
     var.leaf.id,
   )
 }

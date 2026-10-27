@@ -1,1 +1,1 @@
-../variables.tf
+../../../../inventory/schema/vm.tf

@@ -1,6 +1,14 @@
 # This file is maintained automatically by "tofu init".
 # Manual edits may be lost in future updates.
 
+provider "local/mechanic/vyoscmd" {
+  version     = "0.1.0"
+  constraints = "0.1.0"
+  hashes = [
+    "h1:wUpgIUfZRVZjjl3r2Skwni75oc019BH2vLPmHjT/LFM=",
+  ]
+}
+
 provider "registry.opentofu.org/hashicorp/dns" {
   version     = "3.6.2"
   constraints = "~> 3.4"

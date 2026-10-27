@@ -1,13 +1,9 @@
-variable "name" {
-  type = string
-}
-
 variable "spine" {
   type = object({
-    management_ip = string
-    id            = number
-    uplink_if     = optional(string)
-    as            = optional(number)
+    management_ip    = string
+    id               = number
+    uplink_interface = optional(string)
+    as               = optional(number)
   })
 }
 

@@ -81,4 +81,12 @@ variable "vms" {
     ])
     error_message = "Service and workload VMs require node and vm_id. Generated fabric VM overrides may omit them."
   }
+  validation {
+    condition = length([for vm in values(var.vms) : vm if vm.owner == "services-vms-dhcp"]) == 0 || (
+      length([for vm in values(var.vms) : vm if vm.owner == "services-vms-dhcp"]) == 2 &&
+      length(distinct([for vm in values(var.vms) : vm.vm_id if vm.owner == "services-vms-dhcp"])) == 2
+    )
+    error_message = "Define either no DHCP VMs or exactly two DHCP VMs with distinct VM IDs for the HA pair."
+  }
+
 }

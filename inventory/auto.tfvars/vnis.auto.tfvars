@@ -1,16 +1,16 @@
 vnis = [
   {
-    vlan_id     = 1000
-    vni         = 6666
-    roles       = ["external_l3"]
-    vrf         = "lylat_external"
-    vrf_table   = 6666
-    anycast_mac = "bc:24:11:00:66:66"
-    ext_l3                           = true
-    ipv4_rt_imports      = "700:6900 700:6600 700:6200"
-    ipv4_rt_exports      = "700:6666"
-    border_leaf_ipv4_vpn_import_bool = true
-    export_vpn_ipv4                  = true
+    vlan_id         = 1000
+    vni             = 6666
+    roles           = ["external_l3"]
+    vrf             = "lylat_external"
+    vrf_table       = 6666
+    anycast_mac     = "bc:24:11:00:66:66"
+    ext_l3          = true
+    ipv4_rt_imports = "700:6900 700:6600 700:6200"
+    ipv4_rt_exports = "700:6666"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
     evpn_rt_imports = [
       "700:6666",
       "700:6900",
@@ -30,8 +30,8 @@ vnis = [
     vrf_table       = 1000
     ipv4_rt_imports = "700:6200 700:6900"
     ipv4_rt_exports = "700:6600"
-    border_leaf_ipv4_vpn_import_bool = true
-    export_vpn_ipv4                  = true
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
     evpn_rt_imports = [
       "700:6600",
       "700:6200",
@@ -83,15 +83,15 @@ vnis = [
     }
   },
   {
-    vlan_id   = 69
-    vni       = 6900
-    roles     = ["proxmox", "external_l2"]
-    vrf       = "lylat_lan"
-    vrf_table = 1337
+    vlan_id         = 69
+    vni             = 6900
+    roles           = ["proxmox", "external_l2"]
+    vrf             = "lylat_lan"
+    vrf_table       = 1337
     ipv4_rt_imports = "700:6600 700:6200 700:6800"
     ipv4_rt_exports = "700:6900"
-    border_leaf_ipv4_vpn_import_bool = true
-    export_vpn_ipv4                  = true
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
     #redistribute_ipv4 = {
     #  connected = {}
     #}
@@ -162,8 +162,8 @@ vnis = [
     vrf_table       = 700
     ipv4_rt_imports = "700:6600 700:6900"
     ipv4_rt_exports = "700:6200"
-    border_leaf_ipv4_vpn_import_bool = true
-    export_vpn_ipv4                  = true
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
     evpn_rt_imports = [
       "700:6200",
       "700:6900",
@@ -199,15 +199,15 @@ vnis = [
   },
 
   {
-    vlan_id                          = 67
-    vni                              = 6700
-    roles                            = ["proxmox", "external_l2"]
-    vrf                              = "lylat_ai"
-    vrf_table                        = 6700
-    ipv4_rt_imports                  = "700:6600 700:6900"
-    ipv4_rt_exports                  = "700:6700"
-    border_leaf_ipv4_vpn_import_bool = true
-    export_vpn_ipv4                  = true
+    vlan_id         = 67
+    vni             = 6700
+    roles           = ["proxmox", "external_l2"]
+    vrf             = "lylat_ai"
+    vrf_table       = 6700
+    ipv4_rt_imports = "700:6600 700:6900"
+    ipv4_rt_exports = "700:6700"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
     evpn_rt_imports = [
       "700:6700",
       "700:6900",

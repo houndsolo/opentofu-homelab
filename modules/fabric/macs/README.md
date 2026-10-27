@@ -1,29 +1,23 @@
-# Dynamic Proxmox fabric MACs
+# Leaf MACs
 
-This pure OpenTofu module computes the mapping dynamically on every plan. There
-is no per-node MAC inventory file or external refresh script. It owns the existing stable MAC calculation. Both
-`roots/fabric-vms` and `roots/fabric-leaves` call it with the same shared node IDs,
-underlay bridge list and AS base from the inventory. It creates no resources and
-requires no remote-state dependency between the roots.
+Pure calculator shared by `fabric-vms` and `fabric-leaves`; no remote state.
+Format: `02:00:00:<node ID>:00:<interface number>`.
 
-Outputs:
+| Node | Interface | Bridge | MAC |
+| --- | --- | --- | --- |
+| 11 | eth1 | vmbr4001 | 02:00:00:11:00:01 |
+| 11 | eth2 | vmbr4002 | 02:00:00:11:00:02 |
+| 11 | eth3 | vmbr4000 | 02:00:00:11:00:03 |
 
-- `network_devices[node]`: ordered bridge/MAC objects for VM creation.
-- `fabric_macs[node]["ethN"]`: the corresponding VyOS interface MACs.
+Digits are decimal-looking: node 17 uses `17`, not hex `11`. Unique node IDs
+must be 1..99. Up to 99 ordered bridges map to eth1 onwards; bridge numbers do
+not enter the MAC calculation.
 
-The management NIC is created first by the VM module. Additional NICs therefore
-map to `eth1`, `eth2`, etc. The list order is preserved, including when there are
-more than nine NICs; it is not reconstructed by sorting interface names.
+`network_devices[node]` supplies VM NICs; `fabric_macs[node]["ethN"]` supplies
+matching VyOS hw-id bindings. Management eth0 is excluded. Reordering bridges
+preserves each interface position's MAC but changes its bridge attachment.
 
-For node `fichina`, ID `11`, AS base `700`, and the three default bridges:
-
-| Guest interface | VM bridge | MAC |
-| --- | --- | --- |
-| eth1 | vmbr4001 | 02:07:11:00:11:01 |
-| eth2 | vmbr4002 | 02:07:11:00:11:02 |
-| eth3 | vmbr4000 | 02:07:11:00:11:03 |
-
-The decimal zero-padded reference formula is preserved, so existing VM MACs do
-not change. Keep IDs/AS values within the four-digit format and interface indexes
-within two digits. Changing node IDs, AS base or bridge order changes the shared
-mapping; review both VM creation and VyOS configuration plans together.
+When switching from bridge-derived MACs, apply `fabric-vms` first so PVE NICs
+have the new MACs, then `fabric-leaves` to update VyOS hw-id bindings. Both roots
+must use the same node IDs and bridge order. Inspect existing guest interface
+bindings if VyOS still reports a conflict after the NIC change.

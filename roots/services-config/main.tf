@@ -1,17 +1,3 @@
-terraform {
-  required_version = ">= 1.9.0"
-  required_providers {
-    dns = {
-      source  = "hashicorp/dns"
-      version = "~> 3.4"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.7"
-    }
-  }
-}
-
 resource "random_bytes" "dns_tsig" {
   count  = nonsensitive(var.dns_tsig_secret == null) ? 1 : 0
   length = 32

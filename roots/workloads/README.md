@@ -1,5 +1,9 @@
-# workloads
+# Workload VMs
 
-Run OpenTofu from this directory. This root has its own local state.
-Shared variables and values are relative symlinks to inventory/.
-The starter computes outputs only. Add your resources in small steps.
+Creates entries in `inventory/auto.tfvars/vms.auto.tfvars` with
+`owner = "workloads"`, using the shared VM module, named images and SSH keys.
+Host networking and selected images must already exist.
+
+```sh
+tooling/walk-roots.sh workloads
+```

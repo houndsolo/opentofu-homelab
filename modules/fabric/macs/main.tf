@@ -3,12 +3,8 @@ locals {
     for name, node in var.nodes : name => [
       for index, bridge in var.underlay_bridges : {
         bridge = bridge
-        mac_address = join(":", regexall("..", format(
-          "02%04d%04d%02d",
-          var.underlay_local_as_base + node.id,
-          node.id,
-          index + 1,
-        )))
+        # Match guest ethN by list position; management eth0 is separate.
+        mac_address = format("02:00:00:%02d:00:%02d", node.id, index + 1)
       }
     ]
   }

@@ -1,0 +1,1 @@
+../../inventory/provider-config/vyoscmd-provider.tf
