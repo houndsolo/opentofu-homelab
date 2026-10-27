@@ -17,7 +17,7 @@ options {
     allow-query { trusted_clients; key "tofu-lylat"; };
     allow-recursion { trusted_clients; };
     allow-query-cache { trusted_clients; };
-    allow-transfer { none; };
+    allow-transfer { key "tofu-lylat"; };
     forward only;
     forwarders { 1.1.1.1; 1.0.0.1; };
     dnssec-validation auto;
@@ -46,4 +46,12 @@ zone "lylat.space" {
     allow-update-forwarding { none; };
     notify no;
 %{ endif ~}
+};
+
+zone "haylett.lan" {
+    type forward;
+    forward only;
+    forwarders {
+        10.0.1.110;
+    };
 };
