@@ -1,6 +1,7 @@
 """Exercise the interactive runner with a fake tofu; never contact infrastructure."""
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -71,3 +72,39 @@ if command == 'plan': sys.exit(2)
         result, calls = self.run_walk('', 'proxmox-settings')
         self.assertEqual(result.returncode, 2)
         self.assertEqual(calls, [])
+
+
+class WalkRootsSecretsTests(unittest.TestCase):
+    """Run a copy of the runner in a scratch repo with a fake wrapper."""
+
+    def run_plan(self, link):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            (repo / 'tooling').mkdir()
+            shutil.copy(SCRIPT, repo / 'tooling/walk-roots.sh')
+            log = repo / 'calls'
+            for name in ('tofu', 'with-secrets'):
+                fake = repo / 'tooling' / name
+                fake.write_text('#!/bin/sh\necho "%s $*" >> "$TEST_LOG"\n[ "$3" != plan ] || exit 2\n' % name)
+                fake.chmod(0o755)
+            secrets = repo / 'inventory/auto.tfvars/passwords.secret.auto.tfvars'
+            secrets.parent.mkdir(parents=True)
+            secrets.write_text('token = "fake"\n')
+            root = repo / 'roots/workloads'
+            root.mkdir(parents=True)
+            if link:
+                (root / 'passwords.secret.auto.tfvars').symlink_to('../../inventory/auto.tfvars/passwords.secret.auto.tfvars')
+            env = dict(os.environ, TOFU_BIN=str(repo / 'tooling/tofu'), TEST_LOG=str(log))
+            result = subprocess.run(['bash', str(repo / 'tooling/walk-roots.sh'), 'workloads'],
+                                    input='p\n', text=True, capture_output=True, env=env, cwd='/tmp')
+            return result, log.read_text().splitlines()
+
+    def test_linked_root_runs_tofu_directly(self):
+        result, calls = self.run_plan(link=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(calls and all(call.startswith('tofu ') for call in calls), calls)
+
+    def test_unlinked_root_uses_wrapper(self):
+        result, calls = self.run_plan(link=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(calls and all(call.startswith('with-secrets ') for call in calls), calls)

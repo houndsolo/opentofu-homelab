@@ -13,8 +13,9 @@ Walk all usable roots in dependency order, or only the named roots.
 At each root: plan, plan then apply, skip, or quit. Services-config also
 has a DNS bootstrap choice; use it once before its first normal apply.
 
-Uses tooling/with-secrets when the central passwords file exists.
---no-secrets uses your existing TF_VAR_* environment instead.
+A root that links a *.secret.auto.tfvars file runs tofu directly, which
+auto-loads it. Other roots use tooling/with-secrets when the central
+passwords file exists. --no-secrets uses your existing TF_VAR_* environment.
 Set TOFU_BIN to select an OpenTofu executable.
 Example: TF_VAR_ssh_private_key_path=~/.ssh/id_ed25519 tooling/walk-roots.sh services-config
 
@@ -40,10 +41,8 @@ for root in "${selected[@]}"; do
 done
 tofu=${TOFU_BIN:-tofu}
 command -v "$tofu" >/dev/null || { echo 'OpenTofu is missing. Run nix-shell first.' >&2; exit 1; }
+secrets_file=inventory/auto.tfvars/passwords.secret.auto.tfvars
 command_prefix=()
-if [[ $use_secrets == true && -f inventory/auto.tfvars/passwords.secret.auto.tfvars ]]; then
-  command_prefix=("$repo/tooling/with-secrets" --tofu "$tofu" --)
-fi
 run_tofu() { "${command_prefix[@]}" "$tofu" "-chdir=$repo/roots/$root" "$@"; }
 plan_dir=''
 trap '[[ -z $plan_dir ]] || rm -rf -- "$plan_dir"' EXIT
@@ -57,6 +56,12 @@ for root in "${roots[@]}"; do
     [[ $found == true ]] || continue
   fi
   printf '\n--- %s ---\n' "$root"
+  command_prefix=()
+  if compgen -G "roots/$root/*.secret.auto.tfvars" >/dev/null; then
+    echo 'Secrets: auto-loading the file linked into this root.'
+  elif [[ $use_secrets == true && -f $secrets_file ]]; then
+    command_prefix=("$repo/tooling/with-secrets" --tofu "$tofu" --)
+  fi
   case "$root" in
     proxmox-download-files) echo 'Optional image download. Skip if your customized QCOW2 already exists.' ;;
     proxmox-network) echo 'Host networking: review bridge, bond and VLAN changes carefully.' ;;

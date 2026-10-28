@@ -48,7 +48,7 @@ class SharedSecretsTests(unittest.TestCase):
             link.symlink_to(secret)
             result = subprocess.run([sys.executable, str(WRAPPER), '--file', str(secret), '--tofu', TOFU, '--', TOFU, '-chdir=' + str(root), 'plan'], text=True, capture_output=True)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn('unlink', result.stderr)
+            self.assertIn('already auto-loads', result.stderr)
             self.assertTrue(secret.exists())
             self.assertTrue(link.is_symlink())
 
@@ -59,7 +59,7 @@ class SharedSecretsTests(unittest.TestCase):
             root.mkdir()
             (root / 'main.tf').write_text('variable "token" {\n type = string\n sensitive = true\n}\n')
             secret = base / 'secret.tfvars'
-            secret.write_text('token = "fake"\ngf_api_token = "also-fake"\nssh_keys = { desktop = "fake-key" }\n')
+            secret.write_text('token = "fake"\ngreatfox_api_token = "also-fake"\nssh_keys = { desktop = "fake-key" }\n')
             result = subprocess.run([sys.executable, str(WRAPPER), '--file', str(secret), '--tofu', TOFU, '--', TOFU, '-chdir=' + str(root), 'plan', '-input=false', '-no-color'], text=True, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertNotIn('undeclared variable', result.stdout + result.stderr)

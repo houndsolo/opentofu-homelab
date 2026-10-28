@@ -45,29 +45,39 @@ require state moves. Credential variable names are unchanged.
 
 ## Secrets
 
-Keep the central, ignored file at
-`inventory/auto.tfvars/passwords.secret.auto.tfvars`. Run inside `nix-shell`:
+Credentials live in one central file,
+`inventory/auto.tfvars/passwords.secret.auto.tfvars`, kept only on the machine
+that runs OpenTofu (an editing checkout needs none). Keep the
+`.secret.auto.tfvars` suffix: OpenTofu auto-loads only `*.auto.tfvars`, and
+`.gitignore` ignores `*.secret.auto.tfvars` and `*.secret.tfvars`. See
+[the example](../examples/auto.tfvars/passwords.example.auto.tfvars).
+Supply it to roots in either of two ways.
+
+**Root symlinks.** Link the central file into each root that needs credentials:
+
+```sh
+ln -s ../../inventory/auto.tfvars/passwords.secret.auto.tfvars roots/services-config/
+```
+
+Plain `tofu` then auto-loads it. Roots that do not declare every variable in the
+file print undeclared-variable warnings; they are harmless, and
+`-compact-warnings` shortens them.
+
+**Wrapper.** Without links, run commands through the wrapper inside `nix-shell`:
 
 ```sh
 tooling/with-secrets tofu -chdir=roots/services-config plan
 ```
 
-The wrapper exports `TF_VAR_*` only to its child process. Undeclared environment
-variables are ignored, avoiding shared-tfvars warnings. It preserves value types;
-null entries unset their environment variable. Normal tfvars/CLI precedence applies.
-There is no per-variable warning filter; `-compact-warnings` only shortens output.
+It exports `TF_VAR_*` only to its child process, so undeclared variables are
+ignored without warnings. It preserves value types; null entries unset their
+environment variable. Normal tfvars/CLI precedence applies. `--file PATH` selects
+another secrets file. It refuses a root that also links the file, since that
+root already auto-loads it; use plain `tofu` there.
 
-Remove root symlinks to the secrets file once, so it is not also auto-loaded:
-
-```sh
-test -L roots/services-config/passwords.secret.auto.tfvars &&
-  unlink roots/services-config/passwords.secret.auto.tfvars
-```
-
-Repeat for other roots with that link; retain the central target. The wrapper
-reports remaining links without removing them. `--file PATH` selects another
-secrets file. The guided runner uses the wrapper automatically when the central
-file exists, or accepts `--no-secrets` for existing environment credentials.
+The guided runner chooses per root: a root linking a `*.secret.auto.tfvars` file
+runs `tofu` directly, and other roots use the wrapper when the central file
+exists. `--no-secrets` disables the wrapper for existing environment credentials.
 
 `ssh_keys` has no tracked consumer. Public keys use `local.ssh_pubkeys` and VM
 `config.ssh_pubkeys = ["laptop", "desktop"]`. Never store private keys in Git.
