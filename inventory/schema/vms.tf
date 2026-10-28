@@ -86,6 +86,15 @@ variable "vms" {
     error_message = "Service and workload VMs require node and vm_id. Generated fabric VM overrides may omit them."
   }
   validation {
+    condition = alltrue([
+      for vm in values(var.vms) :
+      vm.role != "dns" || length([
+        for nic in(vm.network_devices == null ? [] : vm.network_devices) : nic if nic.ipv4_address != null
+      ]) == 1
+    ])
+    error_message = "DNS VMs need exactly one network device with ipv4_address; BIND listens on it."
+  }
+  validation {
     condition = length([for vm in values(var.vms) : vm if vm.role == "dhcp"]) == 0 || (
       length([for vm in values(var.vms) : vm if vm.role == "dhcp"]) == 2 &&
       length(distinct([for vm in values(var.vms) : vm.vm_id if vm.role == "dhcp"])) == 2

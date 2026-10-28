@@ -87,6 +87,16 @@ run "reject_unsupported_type" {
   expect_failures = [var.dns_hosts]
 }
 
+run "reject_dns_vm_without_service_address" {
+  command = plan
+  variables {
+    vms = {
+      dns01 = { owner = "services-vms", role = "dns", node = "venom", vm_id = 5301, network_devices = [{ bridge = "vmbr4000" }] }
+    }
+  }
+  expect_failures = [var.vms]
+}
+
 run "generate_tsig_by_default" {
   command = plan
   variables { dns_tsig_secret = null }
