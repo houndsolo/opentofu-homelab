@@ -1,7 +1,7 @@
 mock_provider "vyoscmd" {}
 
 variables {
-  ha_subnet = "10.6.67.0/24"
+  ha_prefix = "10.6.67.0/24"
   ha = {
     role                = "primary"
     address_slot        = 1
@@ -12,7 +12,7 @@ variables {
   }
   name          = "dhcp01"
   management_ip = "10.20.67.1"
-  fabric_macs = {
+  interface_macs = {
     eth1 = "02:00:00:67:01:02"
     eth2 = "02:00:00:67:01:06"
   }

@@ -2,7 +2,7 @@ locals {
   # Bind the Proxmox-created data NICs to the matching VyOS interface names.
   # Management eth0 is deliberately absent from this map.
   interface_binding_commands = [
-    for interface, mac in var.fabric_macs :
+    for interface, mac in var.interface_macs :
     "set interfaces ethernet ${interface} hw-id ${mac}"
   ]
 

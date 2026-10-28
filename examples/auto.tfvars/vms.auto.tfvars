@@ -3,7 +3,8 @@
 # One vms map contains all owners; merge entries into your existing map.
 vms = {
   dns01 = {
-    owner              = "services-vms-dns"
+    owner              = "services-vms"
+    role               = "dns"
     node               = "fichina"
     vm_id              = 5301
     image              = "debian13"      # Key in vm_images.
@@ -22,7 +23,8 @@ vms = {
     }
   }
   dns02 = {
-    owner              = "services-vms-dns"
+    owner              = "services-vms"
+    role               = "dns"
     node               = "macbeth"
     vm_id              = 5302
     image              = "debian13"
@@ -45,14 +47,16 @@ vms = {
   # Data NICs come from DHCP-enabled VNIs, and VyOS assigns their IPs.
   # Do not add network_devices or per-VM HA roles here.
   dhcp01 = {
-    owner              = "services-vms-dhcp"
+    owner              = "services-vms"
+    role               = "dhcp"
     node               = "fichina"
     vm_id              = 6701
     image              = "vyos"
     management_address = "10.20.67.1/16"
   }
   dhcp02 = {
-    owner              = "services-vms-dhcp"
+    owner              = "services-vms"
+    role               = "dhcp"
     node               = "macbeth"
     vm_id              = 6702
     image              = "vyos"

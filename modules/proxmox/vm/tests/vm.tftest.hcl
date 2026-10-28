@@ -33,7 +33,7 @@ run "general_vm_plan" {
   command = plan
   variables {
     name      = "app01"
-    vm        = { node = "venom", vm_id = 401, cores = 2, memory_mb = 2048, bridge = "vmbr10", started = false }
+    vm        = { node = "venom", vm_id = 401, config = { cpu_cores = 2, memory_mb = 2048, management_bridge = "vmbr10", started = false } }
     vm_config = { datastore_id = "ceph_rbd", import_image = "cephfs:import/debian.qcow2", cloud_init = false, agent_enabled = false }
   }
   assert {
@@ -49,7 +49,7 @@ run "general_vm_plan" {
 run "resource_settings_are_configurable" {
   command = plan
   variables {
-    vm = { node = "venom", vm_id = 711, tags = [] }
+    vm = { node = "venom", vm_id = 711, config = { tags = [] } }
     vm_config = {
       datastore_id            = "local-lvm"
       import_image            = "local:import/test.qcow2"

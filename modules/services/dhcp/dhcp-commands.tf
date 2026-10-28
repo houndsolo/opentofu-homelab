@@ -3,14 +3,14 @@ locals {
   dhcp_ha_commands = [
     "set service dhcp-server high-availability mode 'active-passive'",
     "set service dhcp-server high-availability name 'vyos-DHCP-${var.ha.peer_slot}'",
-    "set service dhcp-server high-availability remote '${cidrhost(var.ha_subnet, var.ha.peer_slot)}'",
-    "set service dhcp-server high-availability source-address '${cidrhost(var.ha_subnet, var.ha.address_slot)}'",
+    "set service dhcp-server high-availability remote '${cidrhost(var.ha_prefix, var.ha.peer_slot)}'",
+    "set service dhcp-server high-availability source-address '${cidrhost(var.ha_prefix, var.ha.address_slot)}'",
     "set service dhcp-server high-availability status '${var.ha.role}'",
   ]
 
   # Reuse the VM/VyOS NIC map, rather than guessing ethN from VNI map order.
   dhcp_listen_commands = [
-    for interface in keys(var.fabric_macs) :
+    for interface in keys(var.interface_macs) :
     "set service dhcp-server listen-interface '${interface}'"
   ]
 

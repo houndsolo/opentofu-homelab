@@ -43,7 +43,8 @@ Supported types: A, AAAA, CNAME, TXT, MX, NS, PTR, SRV. Names are zone-relative;
 SRV is `priority weight port target.`. Use one TTL per owner/type and one target
 for CNAME/PTR. Reverse DNS requires a separate reverse zone.
 
-Locals generate Proxmox management names and `leaf-<hostname>` records.
+Locals generate A records for Proxmox hosts (`<node>`), spines (`spine-<id>`),
+leaves (`leaf-<id>`) and DHCP VMs (`<vm>`).
 `dns_hosts` replaces a generated owner's entire type map; `dns_records` adds
 values. OpenTofu owns whole RRsets: removing a managed set deletes it. SOA, apex
 NS and DNS-server A records are bootstrap-owned. The local zone shadows public
@@ -62,7 +63,8 @@ tooling/with-secrets tofu -chdir=roots/services-config import \
 ## DHCP
 
 DHCP VMs are sorted numerically by VM ID: lower ID is primary/slot 1, higher is
-secondary/slot 2. Current HA mode is **active-passive**, using `10.6.67.0/24`.
+secondary/slot 2. Current HA mode is **active-passive**, peering on `dhcp_ha_prefix`
+(default `10.6.67.0/24`).
 Data addresses are `10.<VLAN>.67.<slot>` with the L2VNI prefix length.
 
 Edit `inventory/auto.tfvars/vnis.auto.tfvars` for DHCP scopes. Each L2VNI with a

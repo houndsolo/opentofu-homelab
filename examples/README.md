@@ -34,7 +34,7 @@ locals {
 
 `.tfvars` contain literal values; reference keys by name, not `local.*` or `var.*`.
 VyOS uses its existing bootstrap snippet for API access. The HA example includes
-VLAN 6 because `services-config` currently peers on `10.6.67.0/24`.
+VLAN 6 because `services-config` peers on `dhcp_ha_prefix` (default `10.6.67.0/24`).
 
 Review plans with `tooling/walk-roots.sh`. See [inventory](../inventory/README.md)
 for shared secrets and [roots](../roots/README.md) for deployment order.

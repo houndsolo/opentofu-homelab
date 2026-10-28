@@ -2,7 +2,7 @@ variable "pve_api_token" {
   type      = string
   sensitive = true
 }
-variable "gf_api_token" { 
+variable "greatfox_api_token" {
   type      = string
   sensitive = true
 }
@@ -12,18 +12,16 @@ variable "ssh_private_key_path" {
 }
 
 locals {
-  pve_mgmt_subnet = "10.20.7.0/24"
-
-  pve_node_mgmt = {
+  pve_management_ips = {
     for name, node in var.nodes.proxmox :
-    name => cidrhost(local.pve_mgmt_subnet, node.id)
+    name => cidrhost(var.nodes.management_prefix, node.id)
   }
 
-  pve_cluster_mgmt = "https://10.20.7.11:8006"
+  pve_api_url = "https://${local.pve_management_ips[var.nodes.cluster_api_node]}:8006"
 }
 
 provider "proxmox" {
-  endpoint  = local.pve_cluster_mgmt
+  endpoint  = local.pve_api_url
   api_token = var.pve_api_token
   insecure  = true
 
@@ -32,7 +30,10 @@ provider "proxmox" {
     private_key = file(pathexpand(var.ssh_private_key_path))
 
     dynamic "node" {
-      for_each = local.pve_node_mgmt
+      for_each = {
+        for name, ip in local.pve_management_ips : name => ip
+        if !var.nodes.proxmox[name].standalone
+      }
 
       content {
         name    = node.key
@@ -43,13 +44,13 @@ provider "proxmox" {
 }
 
 provider "proxmox" {
-  endpoint  = "https://10.20.7.20:8006"
+  endpoint  = "https://${local.pve_management_ips["greatfox"]}:8006"
   alias     = "greatfox"
-  api_token = var.gf_api_token
+  api_token = var.greatfox_api_token
   insecure  = true
 
   ssh {
     username    = "root"
-    private_key = file("~/.ssh/id_rsa")
+    private_key = file(pathexpand(var.ssh_private_key_path))
   }
 }

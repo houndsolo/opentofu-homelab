@@ -15,7 +15,9 @@ declarations; providers and version constraints live in `provider-config/` and
 | vnis.auto.tfvars | VRFs, VNIs, gateways, route targets and DHCP scopes |
 | dns-records.auto.tfvars | Custom DNS records |
 
-VNI `roles` select participating leaves. VM `owner` selects the deploying root.
+VNI `roles` select participating leaves. VM `owner` (`fabric-vms`, `services-vms`
+or `workloads`) selects the deploying root; `role` (`dns` or `dhcp`) selects the
+service. Set `standalone = true` on the one Proxmox host outside the cluster.
 Route targets are explicit; changing an AS does not rewrite them.
 
 ## Naming
@@ -39,9 +41,21 @@ updated together. Update any private override files using the old names:
 | VM module configure_data_nic_ips | configure_data_ips |
 | DHCP module dhcp_ha_subnet | ha_subnet |
 | local.ssh_pubkey | local.ssh_pubkeys |
+| fabric.settings.bgp_system_as | leaf_underlay_as_base |
+| fabric.overlay_as | fabric.settings.overlay_as |
+| fabric_vms.management_prefix, management_prefix_length | removed; uses fabric.settings.management_* |
+| nodes.proxmox_cluster + nodes.proxmox | nodes.proxmox, with standalone = true on greatfox |
+| (hardcoded 10.20.7.0/24, cluster API URL) | nodes.management_prefix, nodes.cluster_api_node |
+| VM cores, memory_mb, bridge, started, tags | config.cpu_cores, memory_mb, management_bridge, started, tags |
+| owner services-vms-dns / services-vms-dhcp | owner = "services-vms" with role = "dns" / "dhcp" |
+| VM owner default "services-vms" | owner is required |
+| gf_api_token | greatfox_api_token |
+| DHCP module ha_subnet, fabric_macs | ha_prefix, interface_macs |
+| DHCP MAC module dhcp_vlans input | vnis (selects DHCP VLANs itself) |
 
-Resource/module labels and inventory keys are unchanged; these renames do not
-require state moves. Credential variable names are unchanged.
+Module and inventory keys are unchanged. Two spine resources were renamed
+(`BGP-LOOPBACKS` → `bgp_loopbacks`, `test` → `leaf_uplinks`); `moved` blocks
+migrate their state on the next plan. Rename `gf_api_token` in your secrets file.
 
 ## Secrets
 

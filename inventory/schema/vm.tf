@@ -4,11 +4,6 @@ variable "vm" {
     image              = optional(string)
     node               = string
     vm_id              = number
-    cores              = optional(number)
-    memory_mb          = optional(number)
-    bridge             = optional(string)
-    started            = optional(bool)
-    tags               = optional(list(string))
     management_address = optional(string, "dhcp")
     gateway            = optional(string)
     config = optional(object({

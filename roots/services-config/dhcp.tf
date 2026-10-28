@@ -1,17 +1,13 @@
 module "dhcp_macs" {
   source = "../../modules/services/dhcp/macs"
-  vms    = { for name, vm in var.vms : name => vm if vm.owner == "services-vms-dhcp" }
-  dhcp_vlans = flatten([
-    for l3 in var.vnis : [
-      for l2 in values(l3.l2) : l2.vlan_id if l2.dhcp != null
-    ]
-  ])
+  vms    = local.dhcp_vms
+  vnis   = var.vnis
 }
 
 locals {
   dhcp_vms = {
     for name, vm in var.vms : name => vm
-    if vm.owner == "services-vms-dhcp"
+    if vm.owner == "services-vms" && vm.role == "dhcp"
   }
 
   # Numeric VM-ID order, independent of names or map iteration order.
@@ -20,7 +16,6 @@ locals {
       for name, vm in local.dhcp_vms : format("%010d:%s", vm.vm_id, name)
     ]) : split(":", entry)[1]
   ]
-  dhcp_ha_subnet = "10.6.67.0/24"
 
   dhcp_ha = length(local.dhcp_names) == 2 ? {
     for index, name in local.dhcp_names : name => {
@@ -44,10 +39,10 @@ module "dhcp" {
   source   = "../../modules/services/dhcp"
   for_each = local.dhcp_ha
 
-  ha_subnet            = local.dhcp_ha_subnet
+  ha_prefix            = var.dhcp_ha_prefix
   vnis                 = var.vnis
   default_name_servers = values(local.dns_addresses)
-  fabric_macs          = module.dhcp_macs.fabric_macs[each.key]
+  interface_macs       = module.dhcp_macs.interface_macs[each.key]
   name                 = each.key
   management_ip        = each.value.local_management_ip
   ha                   = each.value
