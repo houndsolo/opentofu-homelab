@@ -29,9 +29,10 @@ The runner excludes the unfinished settings and empty virtual-host roots.
 Selected roots still run in dependency order; dependencies are not auto-selected.
 It does not apply anything merely by starting it.
 
-The runner uses `with-secrets` if the central passwords file exists. Remove its
-root auto-tfvars symlinks first ([instructions](../inventory/README.md#secrets)).
-Use `--no-secrets` for existing environment credentials. `TOFU_BIN` selects the
+Roots that link the passwords file run `tofu` directly and auto-load it. Other
+roots use `with-secrets` when the central file exists
+([secrets setup](../inventory/README.md#secrets)). Use `--no-secrets` for
+existing environment credentials. `TOFU_BIN` selects the
 executable; `TF_VAR_*` supplies inputs, for example:
 
 ```sh
