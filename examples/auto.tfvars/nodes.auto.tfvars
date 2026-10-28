@@ -4,9 +4,9 @@ nodes = {
   management_prefix = "10.20.7.0/24" # Host management IP = cidrhost(prefix, id).
   cluster_api_node  = "fichina"      # The default provider uses this node's API.
   proxmox = {
-    fichina = { id = 11, cpu_cores = 16 }
-    macbeth = { id = 12, cpu_cores = 16 }
+    fichina = { id = 11 }
+    macbeth = { id = 12 }
     # At most one standalone (non-cluster) host, served by the greatfox provider alias.
-    greatfox = { id = 20, cpu_cores = 8, standalone = true }
+    greatfox = { id = 20, standalone = true }
   }
 }
