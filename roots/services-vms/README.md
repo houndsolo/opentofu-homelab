@@ -5,7 +5,8 @@ role for other service VMs. Images/snippets must already exist; optional Debian 
 live in `proxmox-download-files`. Configure guest services with `services-config`.
 
 Edit `inventory/auto.tfvars/vms.auto.tfvars`. Management is net0 on vmbr0 with no
-OOB gateway. DNS VMs use explicit ordered `network_devices`, for example:
+OOB gateway. DNS VMs use explicit ordered `network_devices`; exactly one has an
+`ipv4_address`, and BIND listens on it. For example:
 
 ```hcl
 dns01 = {

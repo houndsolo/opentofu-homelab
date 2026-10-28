@@ -9,10 +9,10 @@ locals {
     for name, vm in var.vms : name => vm
     if vm.owner == "services-vms" && vm.role == "dns"
   }
+  # BIND listens on the one data NIC with an address; the vms validation checks it.
   dns_addresses = {
     for name, vm in local.dns_vms : name => split("/", one([
-      for nic in vm.network_devices : nic.ipv4_address
-      if nic.bridge == "vmbr4000" && nic.vlan_id == 8
+      for nic in vm.network_devices : nic.ipv4_address if nic.ipv4_address != null
     ]))[0]
   }
   zone_data = templatefile("${path.module}/templates/lylat.space.zone.tftpl", {
