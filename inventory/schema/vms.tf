@@ -1,15 +1,11 @@
 variable "vms" {
-  description = "VM definitions and overrides. Each entry belongs to one root."
+  description = "VM definitions and overrides. owner selects the deploying root."
   type = map(object({
     image              = optional(string)
-    owner              = optional(string, "services-vms")
+    owner              = string           # fabric-vms, services-vms or workloads.
+    role               = optional(string) # services-vms only: dns or dhcp.
     node               = optional(string)
     vm_id              = optional(number)
-    cores              = optional(number)
-    memory_mb          = optional(number)
-    bridge             = optional(string)
-    started            = optional(bool)
-    tags               = optional(list(string))
     management_address = optional(string)
     gateway            = optional(string)
     config = optional(object({
@@ -77,16 +73,23 @@ variable "vms" {
   validation {
     condition = alltrue([
       for vm in values(var.vms) :
+      contains(["fabric-vms", "services-vms", "workloads"], vm.owner) &&
+      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp"], vm.role)))
+    ])
+    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns or dhcp) applies only to services-vms."
+  }
+  validation {
+    condition = alltrue([
+      for vm in values(var.vms) :
       vm.owner == "fabric-vms" || (vm.node != null && vm.vm_id != null)
     ])
     error_message = "Service and workload VMs require node and vm_id. Generated fabric VM overrides may omit them."
   }
   validation {
-    condition = length([for vm in values(var.vms) : vm if vm.owner == "services-vms-dhcp"]) == 0 || (
-      length([for vm in values(var.vms) : vm if vm.owner == "services-vms-dhcp"]) == 2 &&
-      length(distinct([for vm in values(var.vms) : vm.vm_id if vm.owner == "services-vms-dhcp"])) == 2
+    condition = length([for vm in values(var.vms) : vm if vm.role == "dhcp"]) == 0 || (
+      length([for vm in values(var.vms) : vm if vm.role == "dhcp"]) == 2 &&
+      length(distinct([for vm in values(var.vms) : vm.vm_id if vm.role == "dhcp"])) == 2
     )
     error_message = "Define either no DHCP VMs or exactly two DHCP VMs with distinct VM IDs for the HA pair."
   }
-
 }

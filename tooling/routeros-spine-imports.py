@@ -71,7 +71,7 @@ def candidates(fabric, leaves, spine):
         return lambda row: all(str(row.get(k, '')) == str(v) for k, v in fields.items())
     def address_entry(list_name, address):
         return lambda row: row.get('list') == list_name and same_address(row.get('address', ''), address)
-    yield 'routeros_ipv6_firewall_addr_list.BGP-LOOPBACKS', 'ipv6/firewall/address-list', address_entry('BGP-LOOPBACKS', loopback)
+    yield 'routeros_ipv6_firewall_addr_list.bgp_loopbacks', 'ipv6/firewall/address-list', address_entry('BGP-LOOPBACKS', loopback)
     yield 'routeros_ipv6_firewall_addr_list.fabric_loopbacks_ipv6', 'ipv6/firewall/address-list', address_entry('fabric_loopbacks_ipv6', str(prefix))
     yield 'routeros_routing_bgp_instance.main', 'routing/bgp/instance', exact(name='default')
     yield 'routeros_routing_bgp_template.underlay', 'routing/bgp/template', exact(name='SPINE-eBGP-v6-LL')
@@ -88,7 +88,7 @@ def candidates(fabric, leaves, spine):
         for kind in ('underlay', 'overlay'):
             yield f'routeros_routing_bgp_connection.{kind}[{index}]', 'routing/bgp/connection', exact(name=f"{kind}-leaf-{leaf['id']}")
         interface = leaf.get('spine_uplink') or f"ether{leaf['id']}"
-        yield f'routeros_ipv6_nd_prefix.test[{index}]', 'ipv6/nd/prefix', exact(interface=interface, prefix='none')
+        yield f'routeros_ipv6_nd_prefix.leaf_uplinks[{index}]', 'ipv6/nd/prefix', exact(interface=interface, prefix='none')
 
 
 def main():

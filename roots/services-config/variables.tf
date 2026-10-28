@@ -104,3 +104,13 @@ variable "dns_tsig_secret" {
     error_message = "Supply a base64-encoded 32-byte HMAC-SHA256 key, e.g. openssl rand -base64 32."
   }
 }
+
+variable "dhcp_ha_prefix" {
+  description = "DHCP HA peering prefix; the lower VM ID uses host 1 and the higher uses host 2."
+  type        = string
+  default     = "10.6.67.0/24"
+  validation {
+    condition     = can(cidrhost(var.dhcp_ha_prefix, 2))
+    error_message = "Use an IPv4 CIDR with at least two host addresses."
+  }
+}

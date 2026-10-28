@@ -1,8 +1,8 @@
-# Example values. Replace these with your intended topology.
 fabric = {
   settings = {
-    bgp_system_as            = 700
+    leaf_underlay_as_base    = 700
     spine_as                 = 810
+    overlay_as               = 700
     loopback_ipv4_prefix     = "10.255.240.0/24"
     loopback_ipv6_prefix     = "fd69:255:240::/64"
     loopback_interface       = "dum240"
@@ -10,8 +10,7 @@ fabric = {
     management_prefix_length = 16
     l2_vni_base              = 9000
   }
-  overlay_as = 700
-  #physical leaves. Virtual leaves are generated per var.nodes.proxmox
+  # Physical leaves. The fabric roots generate virtual Proxmox leaves from var.nodes.
   leaves = {
     external_l2_01 = {
       role             = "external_l2"

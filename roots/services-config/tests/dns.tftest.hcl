@@ -16,7 +16,7 @@ run "default_records" {
   assert {
     condition = (
       dns_a_record_set.records["greatfox|A"].addresses == toset(["10.20.7.20"]) &&
-      dns_a_record_set.records["leaf-venom|A"].addresses == toset(["10.20.10.17"]) &&
+      dns_a_record_set.records["leaf-17|A"].addresses == toset(["10.20.10.17"]) &&
       dns_a_record_set.records["fichina|A"].zone == "lylat.space."
     )
     error_message = "Generate management and leaf A records as DNS-provider resources."

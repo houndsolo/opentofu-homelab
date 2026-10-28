@@ -9,13 +9,8 @@ variable "vms" {
   }
 }
 
-variable "dhcp_vlans" {
-  description = "DHCP-enabled L2VNI VLAN IDs. One decimal-looking octet limits these to 1..99."
-  type        = list(number)
-  validation {
-    condition = alltrue([
-      for vlan in var.dhcp_vlans : vlan >= 1 && vlan <= 99 && vlan == floor(vlan)
-    ]) && length(distinct(var.dhcp_vlans)) == length(var.dhcp_vlans)
-    error_message = "DHCP VLAN IDs must be unique integers in 1..99 for the requested MAC format."
-  }
+variable "bridge" {
+  description = "VLAN-aware Proxmox bridge carrying the DHCP data VLANs."
+  type        = string
+  default     = "vmbr4000"
 }

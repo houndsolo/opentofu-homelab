@@ -1,6 +1,6 @@
 module "proxmox_fabric_macs" {
   source           = "../../modules/fabric/macs"
-  nodes            = merge(var.nodes.proxmox_cluster, local.greatfox_nodes)
+  nodes            = var.nodes.proxmox
   underlay_bridges = var.fabric_vms.underlay_bridges
 }
 

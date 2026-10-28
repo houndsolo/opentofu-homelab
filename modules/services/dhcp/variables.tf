@@ -8,13 +8,14 @@ variable "management_ip" {
   type        = string
 }
 
-variable "fabric_macs" {
+variable "interface_macs" {
   description = "Shared ethN -> MAC map from the same calculator used by VM creation. Excludes eth0."
   type        = map(string)
   default     = {}
 }
-variable "ha_subnet" {
-  description = "dhcp ha peering subnet"
+
+variable "ha_prefix" {
+  description = "HA peering prefix; peers use host addresses 1 and 2."
   type        = string
 }
 

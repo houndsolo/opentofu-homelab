@@ -7,7 +7,7 @@ locals {
   dns_tsig_secret = var.dns_tsig_secret != null ? var.dns_tsig_secret : random_bytes.dns_tsig[0].base64
   dns_vms = {
     for name, vm in var.vms : name => vm
-    if vm.owner == "services-vms-dns"
+    if vm.owner == "services-vms" && vm.role == "dns"
   }
   dns_addresses = {
     for name, vm in local.dns_vms : name => split("/", one([

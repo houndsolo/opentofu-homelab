@@ -7,7 +7,7 @@ locals {
     local.bgp_spine_underlay_commands,
   ) : []
   bgp_base_commands = [
-    "set protocols bgp system-as ${var.fabric.overlay_as}",
+    "set protocols bgp system-as ${var.fabric.settings.overlay_as}",
     "set protocols bgp parameters router-id ${local.router_id}",
     "set protocols bgp address-family ipv6-unicast network ${local.vtep_ipv6}/128",
     "set protocols bgp address-family l2vpn-evpn advertise-all-vni",
@@ -39,7 +39,7 @@ locals {
     "set protocols bgp peer-group spine_underlay address-family ipv6-unicast soft-reconfiguration inbound",
     "set protocols bgp peer-group spine_underlay bfd",
     "set protocols bgp peer-group spine_underlay capability extended-nexthop",
-    "set protocols bgp peer-group spine_underlay local-as ${var.fabric.settings.bgp_system_as + var.leaf.id} no-prepend replace-as",
+    "set protocols bgp peer-group spine_underlay local-as ${var.fabric.settings.leaf_underlay_as_base + var.leaf.id} no-prepend replace-as",
     "set protocols bgp peer-group spine_underlay remote-as 'external'",
   ]
 }

@@ -17,7 +17,7 @@ locals {
       "set vrf name ${vrf.vrf} protocols bgp address-family l2vpn-evpn rd '${local.router_id}:${vrf.vni}'",
       "set vrf name ${vrf.vrf} protocols bgp parameters bestpath as-path multipath-relax",
       "set vrf name ${vrf.vrf} protocols bgp parameters router-id '${local.router_id}'",
-      "set vrf name ${vrf.vrf} protocols bgp system-as '${var.fabric.overlay_as}'",
+      "set vrf name ${vrf.vrf} protocols bgp system-as '${var.fabric.settings.overlay_as}'",
     ]
   ])
   vrf_base_commands = flatten([

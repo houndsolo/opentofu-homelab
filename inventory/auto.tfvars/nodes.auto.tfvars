@@ -1,5 +1,7 @@
 nodes = {
-  proxmox_cluster = {
+  management_prefix = "10.20.7.0/24"
+  cluster_api_node  = "fichina"
+  proxmox = {
     fichina = {
       id        = 11
       cpu_cores = 8
@@ -28,11 +30,10 @@ nodes = {
       id        = 17
       cpu_cores = 16
     }
-  }
-  proxmox= {
     greatfox = {
-      id        = 20
-      cpu_cores = 16
+      id         = 20
+      cpu_cores  = 16
+      standalone = true
     }
   }
 }

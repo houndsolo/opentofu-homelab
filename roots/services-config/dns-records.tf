@@ -1,6 +1,10 @@
+module "leaves" {
+  source = "../../modules/fabric/leaves"
+  fabric = var.fabric
+  nodes  = var.nodes
+}
+
 locals {
-  # Include both standalone PVE hosts (greatfox) and the PVE cluster.
-  # Match the existing management address convention: 10.20.7.<node.id>.
   spine_dns_hosts = {
     for name, spine in var.fabric.spines :
     "spine-${spine.id}" => {
@@ -9,31 +13,27 @@ locals {
   }
 
   leaf_dns_hosts = {
-    for name, leaf in merge(
-      var.fabric.leaves,
-      var.nodes.proxmox_cluster,
-      var.nodes.proxmox,
-    ) :
+    for name, leaf in module.leaves.leaves :
     "leaf-${leaf.id}" => {
       A = cidrhost(var.fabric.settings.management_prefix, leaf.id)
     }
   }
 
   dhcp_dns_hosts = {
-    for name, vm in var.vms :
+    for name, vm in local.dhcp_vms :
     name => {
       A = split("/", vm.management_address)[0]
     }
-    if vm.owner == "services-vms-dhcp"
   }
 
+  # Cluster and standalone hosts alike.
   proxmox_dns_hosts = {
-    for name, node in merge(var.nodes.proxmox_cluster, var.nodes.proxmox) :
-    name => { A = cidrhost("10.20.7.0/24", node.id) }
+    for name, node in var.nodes.proxmox :
+    name => { A = cidrhost(var.nodes.management_prefix, node.id) }
   }
 
   host_records = flatten([
-    for name, records in merge(var.dns_hosts, local.proxmox_dns_hosts,local.spine_dns_hosts, local.leaf_dns_hosts, local.dhcp_dns_hosts)  : [
+    for name, records in merge(local.proxmox_dns_hosts, local.spine_dns_hosts, local.leaf_dns_hosts, local.dhcp_dns_hosts, var.dns_hosts) : [
       for type, data in records : {
         name = name
         type = type
