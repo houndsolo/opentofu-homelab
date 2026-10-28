@@ -4,9 +4,7 @@ variable "nodes" {
     management_prefix = string # Host management IP = cidrhost(prefix, id).
     cluster_api_node  = string # Cluster node whose API the default provider uses.
     proxmox = map(object({
-      id              = number
-      cpu_cores       = number
-      network_profile = optional(string)
+      id = number
       # Outside the cluster; managed through the greatfox provider alias.
       standalone = optional(bool, false)
     }))

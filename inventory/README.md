@@ -46,6 +46,7 @@ updated together. Update any private override files using the old names:
 | fabric_vms.management_prefix, management_prefix_length | removed; uses fabric.settings.management_* |
 | nodes.proxmox_cluster + nodes.proxmox | nodes.proxmox, with standalone = true on greatfox |
 | (hardcoded 10.20.7.0/24, cluster API URL) | nodes.management_prefix, nodes.cluster_api_node |
+| nodes.*.cpu_cores, network_profile | removed (unused) |
 | VM cores, memory_mb, bridge, started, tags | config.cpu_cores, memory_mb, management_bridge, started, tags |
 | owner services-vms-dns / services-vms-dhcp | owner = "services-vms" with role = "dns" / "dhcp" |
 | VM owner default "services-vms" | owner is required |
