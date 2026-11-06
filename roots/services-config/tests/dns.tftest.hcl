@@ -153,8 +153,10 @@ run "preserve_ha_peer_configuration" {
       contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability status 'primary'") &&
       contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability source-address '10.6.67.2'") &&
       contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability remote '10.6.67.1'") &&
-      contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability status 'secondary'")
+      contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability status 'secondary'") &&
+      contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability name 'dhcp02'") &&
+      contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability name 'dhcp01'")
     )
-    error_message = "Keep the supplied active-passive HA roles and opposite source/remote addresses on both peers."
+    error_message = "Keep the supplied active-passive HA roles, opposite source/remote addresses and real peer names on both peers."
   }
 }

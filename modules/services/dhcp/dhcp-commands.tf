@@ -2,7 +2,8 @@ locals {
   # HA, listen interfaces and pools are combined by main.tf.
   dhcp_ha_commands = [
     "set service dhcp-server high-availability mode 'active-passive'",
-    "set service dhcp-server high-availability name 'vyos-DHCP-${var.ha.peer_slot}'",
+    # Kea matches this against the peer's own host-name, so it must be the real peer name (dhcp01/dhcp02).
+    "set service dhcp-server high-availability name '${var.ha.peer_name}'",
     "set service dhcp-server high-availability remote '${cidrhost(var.ha_prefix, var.ha.peer_slot)}'",
     "set service dhcp-server high-availability source-address '${cidrhost(var.ha_prefix, var.ha.address_slot)}'",
     "set service dhcp-server high-availability status '${var.ha.role}'",

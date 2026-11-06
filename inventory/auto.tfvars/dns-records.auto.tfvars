@@ -18,6 +18,7 @@ dns_hosts = {
   automation0 = { A = "10.20.250.255"}
   nixos = { A = "10.20.250.255"}
   arch = { A = "10.9.9.69"}
+  netbox = { A = "10.2.0.40"}
 }
 
 # Use this list for multiple records with the same owner/type or custom TTLs.

@@ -31,6 +31,17 @@ run "bind_only_data_interfaces" {
   }
 }
 
+run "ha_name_is_peer_hostname" {
+  command = plan
+  assert {
+    condition = (
+      contains(vyoscmd_commands.this.commands, "set service dhcp-server high-availability name 'dhcp02'") &&
+      alltrue([for command in vyoscmd_commands.this.commands : !strcontains(command, "vyos-DHCP-")])
+    )
+    error_message = "Kea HA peer name must be the peer's real host-name, or both servers fall into partner-down."
+  }
+}
+
 run "configure_data_addresses" {
   command = plan
   variables {
