@@ -56,6 +56,15 @@ resource "routeros_ipv6_nd_prefix" "leaf_uplinks" {
   interface = each.value
 }
 
+# Leaves learn the spine link-local for BGP unnumbered from RAs. The RouterOS
+# default (3m20s-10m) can stall leaf underlay peering for minutes after boot.
+resource "routeros_ipv6_neighbor_discovery" "leaf_uplinks" {
+  for_each      = local.leaf_uplinks
+  interface     = each.value
+  ra_interval   = "10s-30s"
+  advertise_dns = false
+}
+
 resource "routeros_routing_bgp_template" "underlay" {
   name             = "SPINE-eBGP-v6-LL"
   as               = local.spine_as
