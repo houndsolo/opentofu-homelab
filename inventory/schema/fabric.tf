@@ -14,6 +14,7 @@ variable "fabric" {
       vxlan_mtu                = optional(number, 9119)
       outer_mtu                = optional(number, 9189)
       ntp_servers              = optional(list(string), ["0.pool.ntp.org", "1.pool.ntp.org"])
+      leaf_ntp_vrf             = optional(string) # VRF the leaf NTP client runs in; null = default VRF.
     })
     leaves = map(object({
       role             = string
