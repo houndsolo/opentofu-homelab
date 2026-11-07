@@ -70,6 +70,8 @@ resource "routeros_routing_bgp_template" "underlay" {
   as               = local.spine_as
   address_families = "ipv6"
   nexthop_choice   = "force-self"
+  keepalive_time   = var.keepalive_time
+  hold_time        = var.hold_time
   output {
     network = "BGP-LOOPBACKS"
   }
@@ -82,6 +84,8 @@ resource "routeros_routing_bgp_connection" "underlay" {
   address_families = "ipv6"
   instance         = "default"
   use_bfd          = true
+  keepalive_time   = var.keepalive_time
+  hold_time        = var.hold_time
   local {
     role    = "ebgp"
     address = local.leaf_uplinks[each.key]
@@ -103,6 +107,8 @@ resource "routeros_routing_bgp_template" "overlay" {
   as               = var.fabric.settings.overlay_as
   address_families = "evpn"
   nexthop_choice   = "propagate"
+  keepalive_time   = var.keepalive_time
+  hold_time        = var.hold_time
   input {
     filter = "EVPN-IN"
   }
@@ -115,6 +121,8 @@ resource "routeros_routing_bgp_connection" "overlay" {
   address_families = "evpn"
   instance         = "default"
   use_bfd          = true
+  keepalive_time   = var.keepalive_time
+  hold_time        = var.hold_time
   input {
     filter = "EVPN-IN"
   }

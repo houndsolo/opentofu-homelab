@@ -20,6 +20,13 @@ or `workloads`) selects the deploying root; `role` (`dns` or `dhcp`) selects the
 service. Set `standalone = true` on the one Proxmox host outside the cluster.
 Route targets are explicit; changing an AS does not rewrite them.
 
+`fabric.settings.ntp_servers` is a list of NTP hostnames or addresses shared by
+spines and leaves. It defaults to `["0.pool.ntp.org", "1.pool.ntp.org"]`; override
+it in `auto.tfvars/fabric.auto.tfvars` for lab NTP servers. The public defaults
+require working DNS and outbound NTP access. An empty list skips NTP management
+without removing existing device configuration. Spine BGP timer inputs are
+documented in [fabric-spines](../roots/fabric-spines/README.md).
+
 ## Naming
 
 Use `snake_case`, plural names for collections, and familiar network terms
