@@ -9,6 +9,8 @@ fabric = {
     management_prefix        = "10.20.10.0/24"
     management_prefix_length = 16
     l2_vni_base              = 9000
+    ntp_servers              = ["10.20.10.255"] # fw-wan, mgmt network
+    leaf_ntp_vrf             = "mgmt"
   }
   # Physical leaves. The fabric roots generate virtual Proxmox leaves from var.nodes.
   leaves = {

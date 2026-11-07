@@ -17,6 +17,7 @@ for physical leaves. Review plans against existing RouterOS configuration.
 | `keepalive_time` | `"1m"` | Interval on both BGP templates and every connection |
 | `hold_time` | `"3m"` | Hold timer on both templates and every connection |
 | `fabric.settings.ntp_servers` | `["0.pool.ntp.org", "1.pool.ntp.org"]` | Shared spine/leaf NTP servers; override in inventory |
+| `fabric.settings.leaf_ntp_vrf` | `null` | VRF the leaf NTP client runs in; spines ignore it |
 
 Set root timer overrides in a local `.auto.tfvars` file or with `-var`.
 Keep keepalive at most one third of hold time. Explicit connection values

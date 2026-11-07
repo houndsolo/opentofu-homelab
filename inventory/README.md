@@ -23,7 +23,9 @@ Route targets are explicit; changing an AS does not rewrite them.
 `fabric.settings.ntp_servers` is a list of NTP hostnames or addresses shared by
 spines and leaves. It defaults to `["0.pool.ntp.org", "1.pool.ntp.org"]`; override
 it in `auto.tfvars/fabric.auto.tfvars` for lab NTP servers. The public defaults
-require working DNS and outbound NTP access. An empty list skips NTP management
+require working DNS and outbound NTP access. The inventory points both at fw-wan
+(`10.20.10.255`) on the management network; `fabric.settings.leaf_ntp_vrf = "mgmt"`
+makes the leaves' chrony run in their management VRF. An empty list skips NTP management
 without removing existing device configuration. Spine BGP timer inputs are
 documented in [fabric-spines](../roots/fabric-spines/README.md).
 

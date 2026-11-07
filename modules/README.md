@@ -28,5 +28,9 @@ logging action with 10,000 lines and enables the NTP client when
 Both `fabric/spines` and `fabric/leaf` use `fabric.settings.ntp_servers`
 (default `["0.pool.ntp.org", "1.pool.ntp.org"]`). The leaf module adds
 `set service ntp server` commands in its system configuration and enables BGP
-`log-neighbor-changes`. An empty list skips NTP configuration; it does not
-remove previously configured servers or disable an existing client.
+`log-neighbor-changes`. When the list is nonempty, the leaf also deletes the
+VyOS image default servers (`0/1.pool.ntp.org`, `time1-3.vyos.net`) not in the
+list, and runs chrony in `fabric.settings.leaf_ntp_vrf` when set (e.g. `mgmt`,
+so the leaf reaches an NTP server on the management network). An empty list
+skips NTP configuration; it does not remove previously configured servers or
+disable an existing client.

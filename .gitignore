@@ -12,3 +12,4 @@ tooling/tests/__pycache__/
 .provider-build/
 .tofu-provider-mirror/
 crash.log
+tmp/
