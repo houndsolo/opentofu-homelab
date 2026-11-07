@@ -59,7 +59,10 @@ resource "proxmox_virtual_environment_vm" "this" {
       }
 
       dynamic "ip_config" {
-        for_each = var.configure_data_ips ? var.vm.network_devices : []
+        for_each = var.configure_data_ips ? [
+          for device in var.vm.network_devices :
+          device if device.ipv4_address != null
+        ] : []
         content {
           ipv4 {
             address = ip_config.value.ipv4_address
