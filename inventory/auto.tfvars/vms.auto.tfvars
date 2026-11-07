@@ -65,6 +65,92 @@ vms = {
       memory_mb = 2048
     }
   }
+  mon01 = {
+    owner              = "services-vms"
+    role               = "monitoring"
+    node               = "zoness"
+    vm_id              = 510
+    image              = "debian13"
+    management_address = "10.20.5.10/16"
+    # No OOB default gateway is configured here.
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.30/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        bridge       = "vmbr100"
+        ipv4_address = "10.5.11.30/16"
+      },
+    ]
+    config = {
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 200 # Prometheus TSDB + InfluxDB + Grafana Postgres.
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  graf01 = {
+    owner              = "services-vms"
+    role               = "grafana"
+    node               = "venom"
+    vm_id              = 501
+    image              = "debian13"
+    management_address = "10.20.5.1/16"
+    # No OOB default gateway is configured here.
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.5.1/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Future Grafana HA (keepalived/VIP).
+        bridge       = "vmbr4000"
+        vlan_id      = 6
+        ipv4_address = "10.6.5.1/16"
+      },
+    ]
+    config = {
+      cpu_cores    = 2
+      memory_mb    = 2048
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  graf02 = {
+    owner              = "services-vms"
+    role               = "grafana"
+    node               = "eldarad"
+    vm_id              = 502
+    image              = "debian13"
+    management_address = "10.20.5.2/16"
+    # No OOB default gateway is configured here.
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.5.2/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Future Grafana HA (keepalived/VIP).
+        bridge       = "vmbr4000"
+        vlan_id      = 6
+        ipv4_address = "10.6.5.2/16"
+      },
+    ]
+    config = {
+      cpu_cores    = 2
+      memory_mb    = 2048
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   lab01 = {
     owner = "workloads"
     node  = "venom"

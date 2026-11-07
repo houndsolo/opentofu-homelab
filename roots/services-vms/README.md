@@ -1,7 +1,8 @@
 # Service VMs
 
-Creates VMs with `owner = "services-vms"`: `role = "dns"`, `role = "dhcp"`, or no
-role for other service VMs. Images/snippets must already exist; optional Debian downloads
+Creates VMs with `owner = "services-vms"`: `role = "dns"`, `"dhcp"`, `"monitoring"`,
+`"grafana"`, or no role for other service VMs. `monitoring`/`grafana` VMs get no
+guest configuration yet. Images/snippets must already exist; optional Debian downloads
 live in `proxmox-download-files`. Configure guest services with `services-config`.
 
 Edit `inventory/auto.tfvars/vms.auto.tfvars`. Management is net0 on vmbr0 with no

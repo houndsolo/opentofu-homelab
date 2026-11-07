@@ -3,7 +3,7 @@ variable "vms" {
   type = map(object({
     image              = optional(string)
     owner              = string           # fabric-vms, services-vms or workloads.
-    role               = optional(string) # services-vms only: dns or dhcp.
+    role               = optional(string) # services-vms only: dns, dhcp, monitoring or grafana.
     node               = optional(string)
     vm_id              = optional(number)
     management_address = optional(string)
@@ -74,9 +74,9 @@ variable "vms" {
     condition = alltrue([
       for vm in values(var.vms) :
       contains(["fabric-vms", "services-vms", "workloads"], vm.owner) &&
-      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp"], vm.role)))
+      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp", "monitoring", "grafana"], vm.role)))
     ])
-    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns or dhcp) applies only to services-vms."
+    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns, dhcp, monitoring or grafana) applies only to services-vms."
   }
   validation {
     condition = alltrue([

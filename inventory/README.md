@@ -16,8 +16,8 @@ declarations; providers and version constraints live in `provider-config/` and
 | dns-records.auto.tfvars | Custom DNS records |
 
 VNI `roles` select participating leaves. VM `owner` (`fabric-vms`, `services-vms`
-or `workloads`) selects the deploying root; `role` (`dns` or `dhcp`) selects the
-service. Set `standalone = true` on the one Proxmox host outside the cluster.
+or `workloads`) selects the deploying root; `role` (`dns`, `dhcp`, `monitoring` or
+`grafana`) selects the service. Set `standalone = true` on the one Proxmox host outside the cluster.
 Route targets are explicit; changing an AS does not rewrite them.
 
 `fabric.settings.ntp_servers` is a list of NTP hostnames or addresses shared by
