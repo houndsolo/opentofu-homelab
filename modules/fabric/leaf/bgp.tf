@@ -9,6 +9,7 @@ locals {
   bgp_base_commands = [
     "set protocols bgp system-as ${var.fabric.settings.overlay_as}",
     "set protocols bgp parameters router-id ${local.router_id}",
+    "set protocols bgp parameters log-neighbor-changes",
     "set protocols bgp address-family ipv6-unicast network ${local.vtep_ipv6}/128",
     "set protocols bgp address-family l2vpn-evpn advertise-all-vni",
     "set protocols bgp address-family l2vpn-evpn flooding head-end-replication",

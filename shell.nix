@@ -42,4 +42,9 @@ pkgs.mkShell {
 
   # Disable Go integration with C code for these provider builds.
   CGO_ENABLED = "0";
+
+  # Resolve the local/mechanic/* providers from the repo's provider mirror.
+  shellHook = ''
+    export TF_CLI_CONFIG_FILE=${toString ./tooling/local-provider.generated.tfrc}
+  '';
 }

@@ -20,6 +20,13 @@ or `workloads`) selects the deploying root; `role` (`dns` or `dhcp`) selects the
 service. Set `standalone = true` on the one Proxmox host outside the cluster.
 Route targets are explicit; changing an AS does not rewrite them.
 
+`fabric.settings.ntp_servers` is a list of NTP hostnames or addresses shared by
+spines and leaves. It defaults to `["0.pool.ntp.org", "1.pool.ntp.org"]`; override
+it in `auto.tfvars/fabric.auto.tfvars` for lab NTP servers. The public defaults
+require working DNS and outbound NTP access. An empty list skips NTP management
+without removing existing device configuration. Spine BGP timer inputs are
+documented in [fabric-spines](../roots/fabric-spines/README.md).
+
 ## Naming
 
 Use `snake_case`, plural names for collections, and familiar network terms
@@ -60,23 +67,31 @@ migrate their state on the next plan. Rename `gf_api_token` in your secrets file
 
 ## Secrets
 
-Credentials live in one central file,
-`inventory/auto.tfvars/passwords.secret.auto.tfvars`, kept only on the machine
-that runs OpenTofu (an editing checkout needs none). Keep the
-`.secret.auto.tfvars` suffix: OpenTofu auto-loads only `*.auto.tfvars`, and
-`.gitignore` ignores `*.secret.auto.tfvars` and `*.secret.tfvars`. See
-[the example](../examples/auto.tfvars/passwords.example.auto.tfvars).
-Supply it to roots in either of two ways.
+Credentials live in per-provider files under
+`inventory/auto.tfvars.secret/`, kept only on the machine that runs OpenTofu
+(an editing checkout needs none):
 
-**Root symlinks.** Link the central file into each root that needs credentials:
+| File | Variables |
+| --- | --- |
+| proxmox.secret.auto.tfvars | pve_api_token, greatfox_api_token |
+| vyos.secret.auto.tfvars | vyos_api_key |
+| routeros.secret.auto.tfvars | routeros_password |
+| ssh_keys.secret.auto.tfvars | ssh_keys |
+
+Keep the `.secret.auto.tfvars` suffix: OpenTofu auto-loads only `*.auto.tfvars`,
+and `.gitignore` ignores `*.secret.auto.tfvars` and `*.secret.tfvars`. The
+directory is `chmod 700` and the files `chmod 600`. Supply the relevant file(s)
+to each root with a symlink:
 
 ```sh
-ln -s ../../inventory/auto.tfvars/passwords.secret.auto.tfvars roots/services-config/
+ln -s ../../inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars roots/proxmox-network/
+ln -s ../../inventory/auto.tfvars.secret/vyos.secret.auto.tfvars roots/services-config/
 ```
 
-Plain `tofu` then auto-loads it. Roots that do not declare every variable in the
-file print undeclared-variable warnings; they are harmless, and
-`-compact-warnings` shortens them.
+Plain `tofu` then auto-loads them. A root only receives the variables its
+provider config declares, so no undeclared-variable warnings appear.
+`ssh_keys.secret.auto.tfvars` has no tracked consumer; link it only if a
+custom root needs it.
 
 **Wrapper.** Without links, run commands through the wrapper inside `nix-shell`:
 

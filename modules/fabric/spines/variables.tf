@@ -13,4 +13,21 @@ variable "leaves" {
     id           = number
     spine_uplink = optional(string, null)
   }))
+
+  validation {
+    condition     = length(distinct([for leaf in values(var.leaves) : leaf.id])) == length(var.leaves)
+    error_message = "Leaf IDs must be unique so each spine has only one underlay/overlay connection pair per leaf."
+  }
+}
+
+variable "keepalive_time" {
+  description = "RouterOS BGP keepalive interval on both templates and every connection; use at most one third of hold_time."
+  type        = string
+  default     = "1m"
+}
+
+variable "hold_time" {
+  description = "RouterOS BGP hold time on both templates and every connection."
+  type        = string
+  default     = "3m"
 }

@@ -10,7 +10,7 @@ locals {
     "set interfaces bridge br0 ip enable-arp-accept",
     "set interfaces bridge br0 mac '${local.vtep_mac}'",
     "set interfaces bridge br0 member interface vxlan0 disable-learning",
-    "set interfaces bridge br0 mtu '${var.fabric.settings.outer_mtu}'",
+    "set interfaces bridge br0 mtu '${var.fabric.settings.vxlan_mtu}'",
   ]
   vxlan_base_commands = [
     "set interfaces vxlan vxlan0 ipv6",
@@ -24,7 +24,7 @@ locals {
   vni_commands = flatten([
     for vni in local.all_vnis : [
       "set interfaces vxlan vxlan0 vlan-to-vni ${vni.vlan_id} vni '${vni.vni}'",
-      "set interfaces bridge br0 vif ${vni.vlan_id} mtu '${var.fabric.settings.outer_mtu}'",
+      "set interfaces bridge br0 vif ${vni.vlan_id} mtu '${var.fabric.settings.vxlan_mtu}'",
       "set interfaces bridge br0 vif ${vni.vlan_id} vrf '${vni.vrf}'",
     ]
   ])
