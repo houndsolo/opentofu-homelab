@@ -58,7 +58,7 @@ for root in "${roots[@]}"; do
   printf '\n--- %s ---\n' "$root"
   command_prefix=()
   if compgen -G "roots/$root/*.secret.auto.tfvars" >/dev/null; then
-    echo 'Secrets: auto-loading the file linked into this root.'
+    echo 'Secrets: auto-loading the per-provider files linked into this root.'
   elif [[ $use_secrets == true && -f $secrets_file ]]; then
     command_prefix=("$repo/tooling/with-secrets" --tofu "$tofu" --)
   fi

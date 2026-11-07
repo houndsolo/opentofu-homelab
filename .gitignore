@@ -6,6 +6,8 @@
 *.tfplan
 *.secret.auto.tfvars
 *.secret.tfvars
+inventory/auto.tfvars.secret/
+tooling/tests/__pycache__/
 .env
 .provider-build/
 .tofu-provider-mirror/
