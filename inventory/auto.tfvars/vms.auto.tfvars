@@ -99,20 +99,20 @@ vms = {
     node               = "venom"
     vm_id              = 501
     image              = "debian13"
-    management_address = "10.20.5.1/16"
+    management_address = "10.20.11.31/16"
     # No OOB default gateway is configured here.
     network_devices = [
       {
         bridge       = "vmbr4000"
         vlan_id      = 2
-        ipv4_address = "10.2.5.1/16"
+        ipv4_address = "10.2.11.31/16"
         ipv4_gateway = "10.2.0.5"
       },
       {
         # Future Grafana HA (keepalived/VIP).
         bridge       = "vmbr4000"
         vlan_id      = 6
-        ipv4_address = "10.6.5.1/16"
+        ipv4_address = "10.6.11.31/16"
       },
     ]
     config = {
@@ -128,20 +128,20 @@ vms = {
     node               = "eldarad"
     vm_id              = 502
     image              = "debian13"
-    management_address = "10.20.5.2/16"
+    management_address = "10.20.11.32/16"
     # No OOB default gateway is configured here.
     network_devices = [
       {
         bridge       = "vmbr4000"
         vlan_id      = 2
-        ipv4_address = "10.2.5.2/16"
+        ipv4_address = "10.2.11.32/16"
         ipv4_gateway = "10.2.0.5"
       },
       {
         # Future Grafana HA (keepalived/VIP).
         bridge       = "vmbr4000"
         vlan_id      = 6
-        ipv4_address = "10.6.5.2/16"
+        ipv4_address = "10.6.11.32/16"
       },
     ]
     config = {
