@@ -84,6 +84,12 @@ vms = {
         bridge       = "vmbr100"
         ipv4_address = "10.5.11.30/16"
       },
+      {
+        # Isolated monitoring backend (lylat_monitor VRF): Grafana <-> mon01.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.30/16"
+      },
     ]
     config = {
       cpu_cores    = 4
@@ -109,10 +115,10 @@ vms = {
         ipv4_gateway = "10.2.0.5"
       },
       {
-        # Future Grafana HA (keepalived/VIP).
+        # Isolated monitoring backend (lylat_monitor VRF): mon01 + Grafana HA.
         bridge       = "vmbr4000"
-        vlan_id      = 6
-        ipv4_address = "10.6.11.31/16"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.31/16"
       },
     ]
     config = {
@@ -138,10 +144,10 @@ vms = {
         ipv4_gateway = "10.2.0.5"
       },
       {
-        # Future Grafana HA (keepalived/VIP).
+        # Isolated monitoring backend (lylat_monitor VRF): mon01 + Grafana HA.
         bridge       = "vmbr4000"
-        vlan_id      = 6
-        ipv4_address = "10.6.11.32/16"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.32/16"
       },
     ]
     config = {
