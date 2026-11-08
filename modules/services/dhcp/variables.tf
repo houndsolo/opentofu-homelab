@@ -56,3 +56,11 @@ variable "default_domain" {
   type        = string
   default     = "lylat.space"
 }
+
+variable "prometheus_exporters" {
+  description = "VyOS node-exporter (:9100) and frr-exporter (:9342) on management_ip, in vrf (null = default VRF). null = don't manage them."
+  type = object({
+    vrf = optional(string)
+  })
+  default = null
+}

@@ -114,3 +114,11 @@ variable "dhcp_ha_prefix" {
     error_message = "Use an IPv4 CIDR with at least two host addresses."
   }
 }
+
+variable "dhcp_prometheus_exporters" {
+  description = "VyOS node-exporter/frr-exporter on each DHCP VM's management address, in this VRF (scraped by monitoring-config). null = don't manage them."
+  type = object({
+    vrf = optional(string)
+  })
+  default = { vrf = "mgmt" }
+}

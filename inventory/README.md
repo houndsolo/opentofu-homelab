@@ -123,6 +123,7 @@ fabric = {
     l2_vni_base              = 9000                # not read by any code at the moment
     ntp_servers              = ["10.20.10.255"]    # NTP for spines AND leaves (fw-wan, on the management network)
     leaf_ntp_vrf             = "mgmt"              # the VRF the leaves' NTP client runs in (leave out = default VRF)
+    leaf_prometheus_exporters = { vrf = "mgmt" }   # node/frr exporters on each leaf's mgmt address (leave out = unmanaged)
     # vxlan_mtu = 9119                             # default; tenant side: vxlan0, br0 and its VLANs, the access port
     # outer_mtu = 9189                             # default; underlay side: the spine links and the loopback
   }
@@ -180,6 +181,14 @@ the spines and the leaves:
   only polls the servers you configured.
 - **An empty list (`[]`) means "don't manage NTP".** It doesn't remove servers
   that are already configured, or turn an existing client off.
+
+`fabric.settings.leaf_prometheus_exporters = { vrf = "mgmt" }` turns on VyOS's
+`node-exporter` (port 9100) and `frr-exporter` (port 9342) on every leaf,
+listening on its management address inside that VRF. frr-exporter also gets the
+`bgp-l2-vpn` collector (the EVPN overlay sessions; IPv6 unicast is always on) and
+`bgp peer-hostname` labels. [monitoring-config](../roots/monitoring-config/README.md)
+scrapes them (jobs `vyos-node`, `vyos-frr`). Leaving the setting out (null)
+means "don't manage the exporters"; it doesn't remove existing configuration.
 
 ### fabric-vms.auto.tfvars: the leaf VMs
 

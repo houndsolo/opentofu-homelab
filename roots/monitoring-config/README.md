@@ -212,10 +212,11 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
 
 ## Next steps
 
-1. Exporters on the targets: VyOS `set service monitoring prometheus
-   node-exporter` / `frr-exporter` (with `vrf mgmt` on the leaves),
-   `prometheus-node-exporter` on the Proxmox nodes and DNS VMs, SNMP v2c on the
-   switches and WLCs.
+1. Exporters on the remaining targets: `prometheus-node-exporter` on the
+   Proxmox nodes and DNS VMs, and node/frr exporters on fw-wan (not managed by
+   this repo). The leaves get theirs from `fabric.settings.leaf_prometheus_exporters`
+   (fabric-leaves) and the DHCP VMs from `dhcp_prometheus_exporters`
+   (services-config).
 2. Proxmox metric server → InfluxDB.
 3. keepalived VIP for Grafana on the backend VLAN.
 4. More dashboards (node exporter, VyOS/FRR, blackbox, Proxmox) under

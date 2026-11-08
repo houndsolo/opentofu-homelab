@@ -127,6 +127,7 @@ Turns one leaf's inventory into its full VyOS configuration.
 | `vrf.tf` | VRF tables and VNIs, per-VRF BGP, and the route-targets |
 | `policy.tf` | Prefix lists and route-maps |
 | `system.tf` | Hostname, domain, multipath settings, and NTP (see below) |
+| `monitoring.tf` | node-exporter and frr-exporter on the management address and VRF, when `fabric.settings.leaf_prometheus_exporters` is set |
 | `main.tf` | Combines everything into the one resource |
 
 If the leaf's role gets no VRFs, everything except the `hw-id` bindings and the
@@ -208,6 +209,7 @@ configuration.
 | `interfaces.tf` | `hw-id` bindings and the data interface addresses |
 | `dhcp-commands.tf` | The HA settings, listen interfaces and the pools (one per VLAN with a `dhcp.scope`) |
 | `main.tf` | The hostname and `disable-forwarding`, plus the one combined resource |
+| `monitoring.tf` | node-exporter and frr-exporter on the management address and VRF, when `prometheus_exporters` is set |
 
 `interface_addresses` only accepts `eth1` and above, with valid CIDRs. The
 management interface `eth0` can't be touched.

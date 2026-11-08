@@ -11,6 +11,8 @@ fabric = {
     l2_vni_base              = 9000
     ntp_servers              = ["10.20.10.255"] # fw-wan, mgmt network
     leaf_ntp_vrf             = "mgmt"
+    # Scraped by monitoring-config (jobs vyos-node / vyos-frr).
+    leaf_prometheus_exporters = { vrf = "mgmt" }
   }
   # Physical leaves. The fabric roots generate virtual Proxmox leaves from var.nodes.
   leaves = {

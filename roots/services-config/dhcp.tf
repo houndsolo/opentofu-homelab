@@ -45,6 +45,7 @@ module "dhcp" {
   interface_macs       = module.dhcp_macs.interface_macs[each.key]
   name                 = each.key
   management_ip        = each.value.local_management_ip
+  prometheus_exporters = var.dhcp_prometheus_exporters
   ha                   = each.value
   interface_addresses = {
     for index, nic in module.dhcp_macs.network_devices[each.key] :

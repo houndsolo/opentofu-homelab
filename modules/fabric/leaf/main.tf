@@ -17,5 +17,6 @@ resource "vyoscmd_commands" "this" {
     local.interface_commands,
     local.policy_commands,
     local.system_commands,
+    local.monitoring_commands,
   ])
 }

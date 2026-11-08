@@ -15,6 +15,11 @@ variable "fabric" {
       outer_mtu                = optional(number, 9189)
       ntp_servers              = optional(list(string), ["0.pool.ntp.org", "1.pool.ntp.org"])
       leaf_ntp_vrf             = optional(string) # VRF the leaf NTP client runs in; null = default VRF.
+      # VyOS node-exporter (:9100) and frr-exporter (:9342) on each leaf's management
+      # address, running in this VRF (null = default VRF). null = don't manage them.
+      leaf_prometheus_exporters = optional(object({
+        vrf = optional(string)
+      }))
     })
     leaves = map(object({
       role             = string

@@ -97,3 +97,27 @@ run "scope_options_override_defaults" {
     error_message = "Respect explicit scope overrides, including false authoritative and an empty search list."
   }
 }
+
+run "no_exporters_by_default" {
+  command = plan
+  assert {
+    condition     = alltrue([for command in vyoscmd_commands.this.commands : !strcontains(command, "service monitoring")])
+    error_message = "Leave the Prometheus exporters unmanaged unless prometheus_exporters is set."
+  }
+}
+
+run "exporters_on_management_vrf" {
+  command = plan
+  variables {
+    prometheus_exporters = { vrf = "mgmt" }
+  }
+  assert {
+    condition = (
+      contains(vyoscmd_commands.this.commands, "set service monitoring prometheus node-exporter listen-address '10.20.67.1'") &&
+      contains(vyoscmd_commands.this.commands, "set service monitoring prometheus frr-exporter listen-address '10.20.67.1'") &&
+      contains(vyoscmd_commands.this.commands, "set service monitoring prometheus node-exporter vrf 'mgmt'") &&
+      contains(vyoscmd_commands.this.commands, "set service monitoring prometheus frr-exporter vrf 'mgmt'")
+    )
+    error_message = "Bind node/frr exporters to the management address inside the management VRF."
+  }
+}
