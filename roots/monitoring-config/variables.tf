@@ -82,7 +82,7 @@ variable "node_extra_targets" {
 }
 
 variable "snmp_targets" {
-  description = "SNMP jobs: job suffix => modules (from the exporter's bundled snmp.yml), auth and host => IP. The spines are added automatically as snmp-spines."
+  description = "SNMP jobs: job suffix => modules (from the exporter's bundled snmp.yml), auth and host => IP. Use the devices' monitoring-network (10.5/16) addresses: the MikroTiks bind their SNMP agent there."
   type = map(object({
     modules = list(string)
     auth    = optional(string, "public_v2")
@@ -91,11 +91,15 @@ variable "snmp_targets" {
   default = {
     fs-switches = {
       modules = ["if_mib", "system"]
-      targets = { "switch-1" = "10.20.0.1", "switch-2" = "10.20.0.2" }
+      targets = { "switch-1" = "10.5.0.1", "switch-2" = "10.5.0.2" }
     }
     mikrotik-access = {
       modules = ["if_mib", "mikrotik"]
-      targets = { "m317-1" = "10.20.0.3", "m317-2" = "10.20.0.4" }
+      targets = { "m317-1" = "10.5.0.4", "m317-2" = "10.5.0.3" }
+    }
+    spines = {
+      modules = ["if_mib", "mikrotik"]
+      targets = { "m326-1" = "10.5.0.5", "m326-2" = "10.5.0.6" }
     }
     wlc = {
       modules = ["if_mib", "cisco_wlc"]

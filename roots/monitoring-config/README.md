@@ -96,7 +96,7 @@ service VM updates Prometheus on the next apply.
 | --- | --- | --- |
 | `node` | backend (monitoring address), grafana VMs (backend VLAN), DNS VMs (mgmt), Proxmox nodes (`cidrhost(vmbr100 prefix, id)`) | `vms`, `nodes`, `pve_network` |
 | `vyos-node` (:9100), `vyos-frr` (:9342) | every leaf (mgmt), DHCP VMs (mgmt), `vyos_extra_targets` (fw-wan) | `fabric`, `nodes`, `vms` |
-| `snmp-<name>` | `snmp_targets` (FS switches, CRS317s, WLCs) plus `snmp-spines` from `fabric.spines` | variables, `fabric` |
+| `snmp-<name>` | `snmp_targets`: FS switches, CRS317s and spines on their monitoring-network (10.5/16) addresses, where the MikroTiks bind their SNMP agent; WLCs on mgmt | variables |
 | `pve` | cluster nodes' API, through pve-exporter (only with a token; standalone greatfox is left out) | `nodes` |
 | `blackbox-icmp`, `blackbox-http_2xx` | `blackbox_icmp_targets`, `blackbox_http_targets` | variables |
 | `blackbox-dns_soa` | each DNS VM's service address, `SOA lylat.space` | `vms` |

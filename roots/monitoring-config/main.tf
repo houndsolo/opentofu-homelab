@@ -53,13 +53,7 @@ locals {
     )
     pve     = [for name, address in local.pve_nodes : { host = name, address = address } if !var.nodes.proxmox[name].standalone]
     grafana = [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0") }]
-    snmp = merge(var.snmp_targets, {
-      spines = {
-        modules = ["if_mib", "mikrotik"]
-        auth    = "public_v2"
-        targets = { for name, spine in var.fabric.spines : name => split("/", spine.management_ip)[0] }
-      }
-    })
+    snmp    = var.snmp_targets
     blackbox = {
       icmp     = [for host, address in var.blackbox_icmp_targets : { host = host, target = address }]
       http_2xx = [for host, url in var.blackbox_http_targets : { host = host, target = url }]
