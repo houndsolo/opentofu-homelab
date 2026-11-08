@@ -122,3 +122,21 @@ variable "blackbox_http_targets" {
     "llama-v100" = "http://10.12.0.10:8080/health"
   }
 }
+
+variable "grafana_admin_password" {
+  description = "Grafana 'admin' password. null generates one (output grafana_admin_password). Only applied when Grafana first creates the admin user."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "influxdb_admin_password" {
+  description = "InfluxDB 'admin' password (at least 8 characters). null generates one. Only applied when InfluxDB first initialises."
+  type        = string
+  sensitive   = true
+  default     = null
+  validation {
+    condition     = var.influxdb_admin_password == null || length(coalesce(var.influxdb_admin_password, "xxxxxxxx")) >= 8
+    error_message = "InfluxDB requires a password of at least 8 characters."
+  }
+}

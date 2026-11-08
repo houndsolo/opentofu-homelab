@@ -115,10 +115,10 @@ module "monitoring" {
   targets  = local.targets
   settings = var.settings
   secrets = {
-    influxdb_admin_password = random_password.influxdb_admin.result
+    influxdb_admin_password = coalesce(var.influxdb_admin_password, random_password.influxdb_admin.result)
     influxdb_admin_token    = random_password.influxdb_token.result
     grafana_db_password     = random_password.grafana_db.result
-    grafana_admin_password  = random_password.grafana_admin.result
+    grafana_admin_password  = coalesce(var.grafana_admin_password, random_password.grafana_admin.result)
     grafana_secret_key      = random_password.grafana_secret_key.result
   }
   pve_exporter_token = var.pve_exporter_token

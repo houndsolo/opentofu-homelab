@@ -24,7 +24,7 @@ output "grafana_urls" {
 
 output "grafana_admin_password" {
   description = "Grafana 'admin' password: tofu output -raw grafana_admin_password"
-  value       = random_password.grafana_admin.result
+  value       = coalesce(var.grafana_admin_password, random_password.grafana_admin.result)
   sensitive   = true
 }
 

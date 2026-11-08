@@ -117,6 +117,7 @@ until they do. See [Next steps](#next-steps).
 | `images` | pinned tags | Container images; override one key at a time |
 | `settings` | see `variables.tf` | Prometheus retention (90d / 120GB), InfluxDB org/bucket/retention, Grafana root URL, DNS probe zone |
 | `pve_exporter_token` | `null` | PVE API token; `null` leaves pve-exporter out |
+| `grafana_admin_password`, `influxdb_admin_password` | `null` (generated) | Fixed UI passwords; set them in a git-ignored `*.secret.auto.tfvars`. Only used when Grafana/InfluxDB first initialise. InfluxDB needs 8+ characters |
 | `vyos_extra_targets`, `node_extra_targets`, `snmp_targets`, `blackbox_icmp_targets`, `blackbox_http_targets` | see `variables.tf` | Targets outside the inventory |
 
 ## Running it
