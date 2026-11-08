@@ -69,7 +69,7 @@ vms = {
     owner              = "services-vms"
     role               = "monitoring"
     node               = "zoness"
-    vm_id              = 510
+    vm_id              = 1130
     image              = "debian13"
     management_address = "10.20.11.30/16"
     # No OOB default gateway is configured here.
@@ -97,7 +97,7 @@ vms = {
     owner              = "services-vms"
     role               = "grafana"
     node               = "venom"
-    vm_id              = 511
+    vm_id              = 1131
     image              = "debian13"
     management_address = "10.20.11.31/16"
     # No OOB default gateway is configured here.
@@ -126,7 +126,7 @@ vms = {
     owner              = "services-vms"
     role               = "grafana"
     node               = "eldarad"
-    vm_id              = 512
+    vm_id              = 1132
     image              = "debian13"
     management_address = "10.20.11.32/16"
     # No OOB default gateway is configured here.
