@@ -187,6 +187,31 @@ locals {
     ]
   })
 
+  # Dashboards: dashboards/<Folder>/<name>.json becomes Grafana folder <Folder>.
+  # Files are minified (and so checked to be valid JSON) at plan time.
+  dashboards_dir = "${local.grafana_conf}/provisioning/dashboards/files"
+  dashboards = {
+    for rel in fileset("${path.module}/dashboards", "**/*.json") :
+    rel => jsonencode(jsondecode(file("${path.module}/dashboards/${rel}")))
+  }
+  dashboard_dirs = sort(distinct([for rel in keys(local.dashboards) : dirname(rel) if dirname(rel) != "."]))
+
+  dashboard_providers_yml = yamlencode({
+    apiVersion = 1
+    providers = [{
+      name                  = "lylat"
+      orgId                 = 1
+      type                  = "file"
+      disableDeletion       = false # Removing a JSON file removes its dashboard.
+      allowUiUpdates        = false # Change the JSON in git; the UI can't save over it.
+      updateIntervalSeconds = 30    # New or changed JSON is picked up without a restart.
+      options = {
+        path                      = "/etc/grafana/provisioning/dashboards/files"
+        foldersFromFilesStructure = true
+      }
+    }]
+  })
+
   # One container unit per service. "reload" adds ExecReload (SIGHUP) for config-only changes.
   # A {for} expression keeps the per-service object shapes (merge with a
   # conditional {} would need identical types).
@@ -356,11 +381,14 @@ locals {
       { path = local.backend_data, mode = "0755", owner = "root" },
       { path = "${local.backend_data}/prometheus", mode = "0750", owner = "runtime|${var.images.prometheus}" },
       { path = "${local.backend_data}/alertmanager", mode = "0750", owner = "runtime|${var.images.alertmanager}" },
-      # The InfluxDB and Postgres entrypoints start as root and chown their own data.
+      # The InfluxDB and Postgres images start as root and drop to a service user.
+      # Their data dirs must stay owned by that user: their entrypoints chown
+      # only at container start, so forcing root here would lock out a server
+      # that this deployment doesn't restart.
       { path = "${local.backend_data}/influxdb", mode = "0755", owner = "root" },
-      { path = "${local.backend_data}/influxdb/data", mode = "0700", owner = "root" },
-      { path = "${local.backend_data}/influxdb/config", mode = "0700", owner = "root" },
-      { path = "${local.backend_data}/postgres", mode = "0700", owner = "root" },
+      { path = "${local.backend_data}/influxdb/data", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
+      { path = "${local.backend_data}/influxdb/config", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
+      { path = "${local.backend_data}/postgres", mode = "0700", owner = "user|${var.images.postgres}|postgres" },
     ],
     local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
   )
@@ -383,6 +411,7 @@ locals {
     state_file  = "${local.backend_conf}/.tofu-quadlets"
     images      = distinct([for c in values(local.backend_containers) : c.image])
     dirs        = local.backend_dirs
+    prune_dirs  = []
     files       = local.backend_files
     validations = local.backend_validations
     services    = concat(["monitoring-network"], local.backend_order)
@@ -447,13 +476,19 @@ locals {
       host       = name
       state_file = "${local.grafana_conf}/.tofu-quadlets"
       images     = [var.images.grafana, var.images.node_exporter]
-      dirs = [
+      dirs = concat([
         { path = local.quadlet_dir, mode = "0755", owner = "root" },
         { path = local.grafana_conf, mode = "0755", owner = "root" },
         { path = "${local.grafana_conf}/provisioning", mode = "0755", owner = "root" },
         { path = "${local.grafana_conf}/provisioning/datasources", mode = "0755", owner = "root" },
+        { path = "${local.grafana_conf}/provisioning/dashboards", mode = "0755", owner = "root" },
+        { path = local.dashboards_dir, mode = "0755", owner = "root" },
         { path = local.grafana_data, mode = "0750", owner = "runtime|${var.images.grafana}" },
-      ]
+        ], [
+        for dir in local.dashboard_dirs : { path = "${local.dashboards_dir}/${dir}", mode = "0755", owner = "root" }
+      ])
+      # Dashboard JSON that's no longer in the module is deleted, and Grafana drops the dashboard.
+      prune_dirs = [local.dashboards_dir]
       files = concat(
         [for unit in ["grafana", "node-exporter"] : {
           path    = "${local.quadlet_dir}/${unit}.container"
@@ -473,6 +508,14 @@ locals {
             reload  = []
           },
           {
+            path    = "${local.grafana_conf}/provisioning/dashboards/dashboards.yml"
+            mode    = "0644"
+            owner   = "root"
+            content = local.dashboard_providers_yml
+            restart = ["grafana"]
+            reload  = []
+          },
+          {
             path    = "${local.grafana_conf}/grafana.env"
             mode    = "0600"
             owner   = "root"
@@ -481,6 +524,15 @@ locals {
             reload  = []
           },
         ],
+        # No restart: the provider polls the directory (updateIntervalSeconds).
+        [for rel, content in local.dashboards : {
+          path    = "${local.dashboards_dir}/${rel}"
+          mode    = "0644"
+          owner   = "root"
+          content = content
+          restart = []
+          reload  = []
+        }],
       )
       validations = []
       services    = ["grafana", "node-exporter"]

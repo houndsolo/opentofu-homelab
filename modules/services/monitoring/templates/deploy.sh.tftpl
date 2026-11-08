@@ -27,10 +27,20 @@ ${validation}
 %{ endfor ~}
 
 declare -A owner_cache=()
-# "root" -> 0:0; "runtime|IMAGE" -> uid:gid of the user IMAGE runs as.
+# "root" -> 0:0; "runtime|IMAGE" -> uid:gid of the user IMAGE runs as;
+# "user|IMAGE|NAME" -> uid:gid of user NAME inside IMAGE (for images that start
+# as root and drop to a service user, like postgres and influxdb).
 owner_ids() {
   local spec=$1 image user u
   [ "$spec" != root ] || { echo 0:0; return; }
+  if [ "$${spec%%|*}" = user ]; then
+    if [ -z "$${owner_cache[$spec]:-}" ]; then
+      image=$${spec#user|}; image=$${image%|*}; u=$${spec##*|}
+      owner_cache[$spec]="$(podman run --rm --network=none --entrypoint id "$image" -u "$u"):$(podman run --rm --network=none --entrypoint id "$image" -g "$u")"
+    fi
+    echo "$${owner_cache[$spec]}"
+    return
+  fi
   image=$${spec#runtime|}
   if [ -z "$${owner_cache[$image]:-}" ]; then
     user=$(podman image inspect --format '{{.Config.User}}' "$image")
@@ -54,7 +64,24 @@ differs() { # path mode owner-spec
   [ "$(stat -c '%a %u:%g' "$1")" = "$${2#0} $ids" ] && return 1 || return 0
 }
 
+in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+
+# Files under these directories that this deployment doesn't install are removed.
+managed='${join(" ", [for f in files : f.path])}'
+prune() { # dir
+  local f
+  [ -d "$1" ] || return 0
+  while IFS= read -r -d '' f; do
+    in_list "$f" "$managed" && continue
+    if [ "$mode" = check ]; then echo "would remove $f"; else rm -f "$f"; echo "removed $f"; fi
+  done < <(find "$1" -type f -print0)
+  [ "$mode" = check ] || find "$1" -mindepth 1 -type d -empty -delete
+}
+
 if [ "$mode" = check ]; then
+%{ for d in prune_dirs ~}
+  prune '${d}'
+%{ endfor ~}
 %{ for f in files ~}
   if differs '${f.path}' '${f.mode}' '${f.owner}'; then echo "would update ${f.path}"; fi
 %{ endfor ~}
@@ -88,7 +115,9 @@ put() { # path mode owner-spec restart-units reload-units
 put '${f.path}' '${f.mode}' '${f.owner}' '${join(" ", f.restart)}' '${join(" ", f.reload)}'
 %{ endfor ~}
 
-in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
+%{ for d in prune_dirs ~}
+prune '${d}'
+%{ endfor ~}
 
 # Stop and remove Quadlet units this deployment used to manage but no longer does.
 state='${state_file}'

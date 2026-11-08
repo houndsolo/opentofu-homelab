@@ -37,3 +37,13 @@ output "units" {
     local.grafana_units,
   )
 }
+
+output "dashboard_providers_config" {
+  description = "Rendered Grafana dashboard provider (provisioning/dashboards/dashboards.yml)."
+  value       = local.dashboard_providers_yml
+}
+
+output "dashboards" {
+  description = "Provisioned dashboards: path under dashboards/ (folder/name.json) => minified JSON."
+  value       = local.dashboards
+}

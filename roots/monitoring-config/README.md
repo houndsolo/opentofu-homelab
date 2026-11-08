@@ -31,8 +31,8 @@ where you open the Prometheus/Alertmanager/InfluxDB UIs and where the Proxmox
 nodes push metrics.
 
 Both Grafana VMs share one Postgres database, so users, sessions, dashboards
-and alert state are the same on either. Datasources are provisioned from files,
-so a rebuilt VM comes back identical. Grafana's unified alerting peers over the
+and alert state are the same on either. Datasources and [dashboards](#dashboards)
+are provisioned from files, so a rebuilt VM comes back identical. Grafana's unified alerting peers over the
 backend VLAN, so an alert isn't sent twice. There is no VIP yet (keepalived is a
 later step).
 
@@ -50,8 +50,13 @@ backend. Each uploads `deploy.sh` to a private `/tmp` directory, runs it with
    `--config.check`. A broken config never gets installed.
 4. Creates the directories. Data directories are owned by the user each image
    runs as (looked up from the image), so non-root containers can write them.
+   Postgres and InfluxDB start as root and drop to their `postgres`/`influxdb`
+   user, so their data directories are owned by that user, looked up in the image
+   (their entrypoints only fix ownership when the container starts, so any other
+   owner would lock out a server this deployment doesn't restart).
 5. Installs only files that changed (content, mode or owner), and records which
-   services those files belong to.
+   services those files belong to. Under the dashboards directory, files that are
+   no longer in the module are deleted.
 6. Stops and removes Quadlet units it used to manage but no longer does (for
    example, `pve-exporter` after you remove the token).
 7. Runs `systemctl daemon-reload`, then for each service in order:
@@ -63,8 +68,9 @@ backend. Each uploads `deploy.sh` to a private `/tmp` directory, runs it with
    checks (`/-/ready`, `/health`, `pg_isready`, Grafana `/api/health`) to pass.
    If not, it prints the failing units' journal and exits non-zero.
 
-`deploy.sh check` runs steps 1–3 and lists the files that would change, without
-installing anything.
+`deploy.sh check` runs steps 1–3 and lists the files that would change or be
+removed, without installing anything. If `deploy.sh` fails, the apply fails and
+the `terraform_data` resource is tainted, so the next apply retries it.
 
 **When it redeploys:** whenever a rendered file or image changes, or the VM's
 management address, VM ID or `ssh_username`, or `deploy_revision`. Secrets are
@@ -82,6 +88,8 @@ part of the rendered files, but they're generated once and kept in state.
 | `/etc/monitoring/influxdb.env`, `postgres.env` | Initial credentials (mode 0600) |
 | `/var/lib/monitoring/{prometheus,alertmanager,influxdb,postgres}` | Data |
 | `/etc/grafana-container/provisioning/datasources/datasources.yml` | Grafana datasources (graf VMs) |
+| `/etc/grafana-container/provisioning/dashboards/dashboards.yml` | Grafana dashboard provider (graf VMs) |
+| `/etc/grafana-container/provisioning/dashboards/files/<Folder>/*.json` | Provisioned dashboards (graf VMs) |
 | `/etc/grafana-container/grafana.env` | Grafana secrets (mode 0600) |
 | `/var/lib/grafana-container` | Grafana plugins/cache; real state is in Postgres |
 
@@ -104,6 +112,44 @@ service VM updates Prometheus on the next apply.
 
 Most targets **don't run an exporter yet**, so they show as down (`up == 0`)
 until they do. See [Next steps](#next-steps).
+
+## Dashboards
+
+Dashboards are JSON files in
+[modules/services/monitoring/dashboards](../../modules/services/monitoring/dashboards/).
+Each subdirectory becomes a Grafana folder. A file provider loads them, so:
+
+- **Adding or changing a JSON file needs no restart.** Grafana polls the
+  directory every 30 s. Only a change to the provider file restarts Grafana.
+- **Deleting a file deletes the dashboard.** `deploy.sh` removes JSON files the
+  module no longer has.
+- **The UI can't save over them** (`allowUiUpdates: false`). You can still edit a
+  panel to explore, or "Save as" a copy. Permanent changes go into the JSON.
+- Both Grafanas provision the same files into the shared database. Grafana
+  compares checksums, so they don't overwrite each other.
+
+| Folder | Dashboard (uid) | Source | Shows |
+| --- | --- | --- | --- |
+| Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
+| Network | SNMP Interface Detail (`snmp-interface-detail`) | [grafana.com 12492](https://grafana.com/grafana/dashboards/12492) rev 4 | Per interface: status, speed, traffic, unicast/multicast/broadcast packets, errors, discards |
+| Network | Mikrotik monitoring (`mikrotik-snmp`) | [grafana.com 14420](https://grafana.com/grafana/dashboards/14420) rev 9 | MikroTik `mikrotik` module: board/firmware, CPU temperature, per-interface traffic and Ethernet error counters, interface table, neighbors (MNDP/LLDP) |
+
+The first two need only `if_mib`, so they work for every SNMP job. A dropdown in
+the top bar ("SNMP dashboards") switches between them and keeps the selected
+device and time range. The device picker shows each target's `host` label.
+
+Some Mikrotik monitoring panels stay empty here. CPU load, RAM, disk, uptime,
+model and identity need the `hrDevice`, `hrStorage` and `system` modules, which
+the MikroTik jobs in `snmp_targets` don't include. The Wi-Fi, CAPsMAN, 60 GHz,
+PoE and queue panels don't apply to CRS switches.
+
+To update or add a community dashboard, edit the list in
+[`dashboards/update.py`](../../modules/services/monitoring/dashboards/update.py)
+and run `python3 -I modules/services/monitoring/dashboards/update.py`. The script
+downloads the pinned revision and points every query at the provisioned
+Prometheus datasource (uid `prometheus`). It also drops the import-time
+datasource inputs and variables, and sets the device picker, uid, tag and links.
+Review the diff, then apply. File and folder names must not contain spaces.
 
 ## Inputs
 
@@ -171,15 +217,19 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
    switches and WLCs.
 2. Proxmox metric server → InfluxDB.
 3. keepalived VIP for Grafana on the backend VLAN.
-4. Dashboards as provisioned JSON.
+4. More dashboards (node exporter, VyOS/FRR, blackbox, Proxmox) under
+   `modules/services/monitoring/dashboards/`.
 
 ## Tests
 
 `tests/monitoring.tftest.hcl` plans against the real inventory with a mocked
 `random` provider. It checks the derived targets and URLs, that pve-exporter
 appears only with a token (and the token stays out of `prometheus.yml`), the
-unit contents (Postgres bound to the backend VLAN, Grafana HA peers), and that
-a missing backend NIC fails the plan.
+unit contents (Postgres bound to the backend VLAN, Grafana HA peers), the
+Postgres/InfluxDB data-directory owners, the dashboard provider and files (every
+query uses the provisioned Prometheus datasource, no import-time placeholders,
+no restart for JSON changes, stale files pruned), and that a missing backend NIC
+fails the plan.
 
 ```sh
 nix-shell --run 'tofu -chdir=roots/monitoring-config test'

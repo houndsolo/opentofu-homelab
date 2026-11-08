@@ -49,9 +49,53 @@ run "inventory_targets" {
       !strcontains(module.monitoring.units.mon01.postgres, "10.5.11.30") &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.13.11.31:9094,10.13.11.32:9094") &&
       strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.13.11.32:9100") &&
-      strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus")
+      strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus") &&
+      # Data dirs of images that drop from root to a service user stay owned by that user,
+      # so a redeploy that doesn't restart Postgres/InfluxDB can't lock them out.
+      strcontains(nonsensitive(module.monitoring.backend_deployment), "ensure_dir '/var/lib/monitoring/postgres' '0700' 'user|docker.io/library/postgres:17|postgres'") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployment), "ensure_dir '/var/lib/monitoring/influxdb/data' '0700' 'user|docker.io/library/influxdb:2.8|influxdb'")
     )
     error_message = "Validate before install, bind Postgres to the backend VLAN only, and peer Grafana over it."
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.dashboard_providers_config, "\"path\": \"/etc/grafana/provisioning/dashboards/files\"") &&
+      strcontains(module.monitoring.dashboard_providers_config, "\"foldersFromFilesStructure\": true") &&
+      strcontains(module.monitoring.dashboard_providers_config, "\"allowUiUpdates\": false") &&
+      toset(keys(module.monitoring.dashboards)) == toset([
+        "Network/mikrotik-snmp.json",
+        "Network/snmp-device-summary.json",
+        "Network/snmp-interface-detail.json",
+      ]) &&
+      alltrue([for rel, content in module.monitoring.dashboards : contains(
+        ["mikrotik-snmp", "snmp-device-summary", "snmp-interface-detail"], jsondecode(content).uid
+      )])
+    )
+    error_message = "Provision the SNMP dashboards from dashboards/<Folder>/*.json with a file provider that the UI can't save over."
+  }
+
+  assert {
+    condition = alltrue([for rel, content in module.monitoring.dashboards : (
+      strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") &&
+      !strcontains(content, "DS_PROMETHEUS") &&     # import-time placeholder
+      !strcontains(content, "$source") &&           # datasource template variable
+      !strcontains(content, "PBFA97CFB590B2093") && # upstream author's datasource uid
+      !strcontains(content, "\"type\":\"datasource\",\"query\":\"prometheus\"") &&
+      length([for v in jsondecode(content).templating.list : v if v.type == "datasource"]) == 0 &&
+      !can(jsondecode(content).__inputs)
+    )])
+    error_message = "Dashboards must use the provisioned Prometheus datasource (uid \"prometheus\") directly, with nothing to pick at import."
+  }
+
+  assert {
+    condition = alltrue([for name in ["graf01", "graf02"] : (
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "prune '/etc/grafana-container/provisioning/dashboards/files'") &&
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/Network' '0755' 'root'") &&
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/files/Network/snmp-device-summary.json' '0644' 'root' '' ''") &&
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/dashboards.yml' '0644' 'root' 'grafana' ''")
+    )]) && !strcontains(nonsensitive(module.monitoring.backend_deployment), "\nprune '")
+    error_message = "Grafana VMs install the dashboards without a restart (the provider polls), restart only for the provider file, and prune removed dashboards."
   }
 }
 
