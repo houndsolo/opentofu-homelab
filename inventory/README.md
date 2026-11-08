@@ -402,14 +402,20 @@ The live inventory follows a few conventions, which you can see in the example:
 Checked automatically: every VRF has at least one valid role (`proxmox`,
 `external_l2` or `external_l3`). VNIs are 1–16777215 and unique across both L2
 and L3. VRF names, table numbers and VLAN IDs (L2 and L3 together) are unique.
-Gateways are valid IPv4 with a prefix length, and MACs have six octets.
+Gateways are valid IPv4 with a prefix length, and MACs have six octets. VRF
+names start with a letter and are at most 15 characters (VyOS rejects longer
+names at commit). `ipv4_rt_imports` must be set when `import_ipv4_vpn = true`,
+and `ipv4_rt_exports` when `export_vpn_ipv4 = true`.
+
+`import_ipv4_vpn` and `export_vpn_ipv4` control the leaf's ipv4-unicast VPN
+route leaking for a VRF (`import vpn` / `route-target vpn import`, and
+`export vpn` / `rd vpn export` / `route-map vpn export` / `route-target vpn
+export`). Set both to `false`, and list only the VRF's own RT in
+`evpn_rt_imports`/`evpn_rt_exports`, for an isolated VRF such as
+`lylat_monitor`, which shares routes with no other VRF.
 
 Not checked automatically, but required:
 
-- **`ipv4_rt_imports` and `ipv4_rt_exports` must be set** on every VRF that is
-  assigned to at least one leaf. The schema marks them optional, but the leaf
-  module puts them into VyOS commands, and an empty (null) value makes `plan`
-  fail.
 - **DHCP VLANs must be 1–99**, because the VLAN number becomes a MAC octet. The
   DHCP MAC calculator rejects anything else during `plan`.
 - **DHCP-enabled subnets must contain `10.<VLAN>.67.1` and `.2`.** Those are the
@@ -665,6 +671,6 @@ no code reads them today. Changing them has no effect:
 | File | Fields |
 | --- | --- |
 | `fabric.settings` | `l2_vni_base` |
-| `vnis` (VRF level) | `ext_l3`, `import_ipv4_vpn`, `export_vpn_ipv4`, `import_ipv4_vrfs`, `redistribute_ipv4`, `anycast_mac` |
+| `vnis` (VRF level) | `ext_l3`, `import_ipv4_vrfs`, `redistribute_ipv4`, `anycast_mac` |
 | `vnis` (VLAN level) | `advertise_default_gw`, `advertise_svi_ip`, `export_ipv4_unicast` |
 | secrets | `ssh_keys` (in `ssh_keys.secret.auto.tfvars`) |

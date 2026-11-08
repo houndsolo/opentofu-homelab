@@ -201,9 +201,12 @@ delete service ntp server 'time1.vyos.net'
 - The VyOS HTTPS API must be enabled on every leaf, with the key in `vyos_api_key`.
   Link `inventory/auto.tfvars.secret/vyos.secret.auto.tfvars` into this root so
   OpenTofu gets it; see [Secrets](../../inventory/README.md#secrets).
-- **`ipv4_rt_imports` and `ipv4_rt_exports` must be set on every VRF that a leaf
-  receives.** If one is missing, `plan` fails with "Invalid template
-  interpolation value".
+- **`ipv4_rt_imports` / `ipv4_rt_exports` must be set when `import_ipv4_vpn` /
+  `export_vpn_ipv4` is true** on a VRF that a leaf receives; the `vnis`
+  validation checks this. With both flags false the VRF gets no ipv4 VPN
+  import/export lines at all (an isolated VRF, e.g. `lylat_monitor`).
+- **VRF names are at most 15 characters.** VyOS rejects longer names, and the
+  whole batch fails with HTTP 400; the `vnis` validation now catches it at plan.
 
 ```sh
 tooling/walk-roots.sh fabric-leaves

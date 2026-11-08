@@ -197,6 +197,35 @@ vnis = [
     }
   },
 
+  # Isolated monitoring backend (mon01 <-> graf01/02, Grafana HA). No ipv4 VPN
+  # leaking and EVPN RTs only its own, so no other VRF (including
+  # lylat_external) sees it. No DHCP.
+  {
+    vlan_id         = 63
+    vni             = 6300
+    roles           = ["proxmox"]
+    vrf             = "lylat_monitor"
+    vrf_table       = 6300
+    import_ipv4_vpn = false
+    export_vpn_ipv4 = false
+    evpn_rt_imports = [
+      "700:6300",
+    ]
+    evpn_rt_exports = [
+      "700:6300",
+    ]
+
+    l2 = {
+      13 = {
+        vni             = 9013
+        vlan_id         = 13
+        anycast_gw_ip   = "10.13.0.5"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:00:13:01"
+      }
+    }
+  },
+
   {
     vlan_id         = 67
     vni             = 6700

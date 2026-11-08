@@ -73,6 +73,20 @@ variable "vnis" {
   }
 
   validation {
+    # VyOS rejects longer VRF names at commit time ("15 characters or less").
+    condition     = alltrue([for l3 in var.vnis : can(regex("^[A-Za-z][A-Za-z0-9_-]{0,14}$", l3.vrf))])
+    error_message = "VRF names must start with a letter and be at most 15 characters (VyOS limit)."
+  }
+
+  validation {
+    condition = alltrue([
+      for l3 in var.vnis :
+      (!l3.import_ipv4_vpn || l3.ipv4_rt_imports != null) && (!l3.export_vpn_ipv4 || l3.ipv4_rt_exports != null)
+    ])
+    error_message = "Set ipv4_rt_imports when import_ipv4_vpn is true, and ipv4_rt_exports when export_vpn_ipv4 is true."
+  }
+
+  validation {
     condition = (
       length(distinct([for vrf in var.vnis : vrf.vrf])) == length(var.vnis) &&
       length(distinct([for vrf in var.vnis : vrf.vrf_table])) == length(var.vnis) &&
