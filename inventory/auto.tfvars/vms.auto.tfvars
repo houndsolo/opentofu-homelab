@@ -71,7 +71,7 @@ vms = {
     node               = "zoness"
     vm_id              = 510
     image              = "debian13"
-    management_address = "10.20.5.10/16"
+    management_address = "10.20.11.30/16"
     # No OOB default gateway is configured here.
     network_devices = [
       {
