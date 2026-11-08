@@ -21,7 +21,7 @@ locals {
       },
       {
         config = merge(
-          { started = true, tags = ["opentofu", "debian", "vyos", "vxlan"] },
+          { started = true, tags = ["opentofu", "vtep", "vyos"] },
           { for key, value in try(local.overrides[name].config, {}) : key => value if value != null },
         )
       },

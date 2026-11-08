@@ -14,6 +14,7 @@ vms = {
       ipv4_gateway = "10.8.0.5"
     }]
     config = {
+      tags         = ["debian", "dns", "opentofu"]
       cpu_cores    = 2
       memory_mb    = 2048
       ssh_username = "mechanic"
@@ -35,6 +36,7 @@ vms = {
       ipv4_gateway = "10.8.0.5"
     }]
     config = {
+      tags         = ["debian", "dns", "opentofu"]
       cpu_cores    = 2
       memory_mb    = 2048
       ssh_username = "mechanic"
@@ -49,6 +51,7 @@ vms = {
     image              = "vyos"
     management_address = "10.20.67.1/16"
     config = {
+      tags      = ["dhcp", "opentofu", "vyos"]
       cpu_cores = 2
       memory_mb = 2048
     }
@@ -61,6 +64,7 @@ vms = {
     image              = "vyos"
     management_address = "10.20.67.2/16"
     config = {
+      tags      = ["dhcp", "opentofu", "vyos"]
       cpu_cores = 2
       memory_mb = 2048
     }
@@ -92,6 +96,7 @@ vms = {
       },
     ]
     config = {
+      tags         = ["debian", "monitoring", "opentofu"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 200 # Prometheus TSDB + InfluxDB + Grafana Postgres.
@@ -122,6 +127,7 @@ vms = {
       },
     ]
     config = {
+      tags         = ["debian", "monitoring", "opentofu"]
       cpu_cores    = 2
       memory_mb    = 2048
       ssh_username = "mechanic"
@@ -151,6 +157,7 @@ vms = {
       },
     ]
     config = {
+      tags         = ["debian", "monitoring", "opentofu"]
       cpu_cores    = 2
       memory_mb    = 2048
       ssh_username = "mechanic"
@@ -163,6 +170,7 @@ vms = {
     vm_id = 401
     image = "debian13"
     config = {
+      tags      = ["debian", "lab", "opentofu"]
       cpu_cores = 4
       memory_mb = 4096
     }
