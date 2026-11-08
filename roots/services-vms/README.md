@@ -99,9 +99,11 @@ IP).
 
 ## Good to know
 
-- **Keep static addresses out of the DHCP pools.** Today's pools are
-  `10.<VLAN>.5.1`–`10.<VLAN>.5.99` (see `vnis.auto.tfvars`). A VM with a static
-  address inside a pool can collide with a lease the DHCP servers hand out.
+- **Keep static addresses out of the DHCP pools.** VLANs 2 and 6 hand out
+  `10.<VLAN>.100.1`–`.99`, and the other DHCP VLANs `10.<VLAN>.5.1`–`.99` (see
+  `vnis.auto.tfvars`). A VM with a static address inside a pool can collide with
+  a lease the DHCP servers hand out. The Grafana VMs' `10.2.5.x` and `10.6.5.x`
+  addresses are why VLANs 2 and 6 use `.100`.
 - **Only NICs with an `ipv4_address` get cloud-init address config.** Others
   are attached but left unconfigured.
 - **VLAN tagging is done by Proxmox.** The guest sees ordinary, untagged NICs.
