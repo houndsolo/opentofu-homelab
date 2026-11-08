@@ -139,3 +139,28 @@ run "backend_nic_required" {
 
   expect_failures = [terraform_data.backend]
 }
+
+run "snmp_v3_auths" {
+  command = plan
+
+  variables {
+    snmp_v3_auths = {
+      lylat_v3 = { username = "prometheus", password = "authsecret123", priv_password = "privsecret123" }
+    }
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.units.mon01["snmp-exporter"], "Volume=/etc/monitoring/snmp-exporter/auths.yml:/etc/snmp_exporter/auths.yml:ro") &&
+      strcontains(module.monitoring.units.mon01["snmp-exporter"], "--config.file=/etc/snmp_exporter/auths.yml") &&
+      strcontains(module.monitoring.prometheus_config, "\"lylat_v3\"") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployment), "--dry-run")
+    )
+    error_message = "SNMPv3 auths add a second exporter config file, validated before install, and the WLC job uses them."
+  }
+
+  assert {
+    condition     = !strcontains(module.monitoring.prometheus_config, "authsecret123") && !strcontains(module.monitoring.units.mon01["snmp-exporter"], "authsecret123")
+    error_message = "SNMPv3 secrets must not end up in prometheus.yml or the unit."
+  }
+}

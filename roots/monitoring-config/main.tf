@@ -116,6 +116,7 @@ module "monitoring" {
     grafana_secret_key      = random_password.grafana_secret_key.result
   }
   pve_exporter_token = var.pve_exporter_token
+  snmp_auths         = var.snmp_v3_auths
 }
 
 resource "terraform_data" "backend" {

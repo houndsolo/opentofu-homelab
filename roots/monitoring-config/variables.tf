@@ -94,16 +94,20 @@ variable "snmp_targets" {
       targets = { "switch-1" = "10.5.0.1", "switch-2" = "10.5.0.2" }
     }
     mikrotik-access = {
-      modules = ["if_mib", "mikrotik"]
+      modules = ["if_mib", "mikrotik", "system"]
       targets = { "m317-1" = "10.5.0.4", "m317-2" = "10.5.0.3" }
     }
     spines = {
-      modules = ["if_mib", "mikrotik"]
+      modules = ["if_mib", "mikrotik", "system"]
       targets = { "m326-1" = "10.5.0.5", "m326-2" = "10.5.0.6" }
     }
     wlc = {
-      modules = ["if_mib", "cisco_wlc"]
-      targets = { "c9800-wlc-1" = "10.20.1.1", "c9800-wlc-2" = "10.20.1.2" }
+      # IOS-XE secure mode refuses v1/v2c, so the WLCs use SNMPv3 (snmp_v3_auths "lylat_v3").
+      # The bundled cisco_wlc module (AireOS MIBs) emits duplicate series on the C9800
+      # (several WLANs report an empty SSID), which fails the whole scrape, so it's left out.
+      modules = ["if_mib", "system"]
+      auth    = "lylat_v3"
+      targets = { "c9800-wlc-1" = "10.5.1.1", "c9800-wlc-2" = "10.5.1.2" }
     }
   }
 }
@@ -143,4 +147,18 @@ variable "influxdb_admin_password" {
     condition     = var.influxdb_admin_password == null || length(coalesce(var.influxdb_admin_password, "xxxxxxxx")) >= 8
     error_message = "InfluxDB requires a password of at least 8 characters."
   }
+}
+
+variable "snmp_v3_auths" {
+  description = "SNMPv3 auths for snmp_exporter: name => { username, password, priv_password, ... } (see modules/services/monitoring). Reference the name as an snmp_targets auth. Put it in a git-ignored *.secret.auto.tfvars."
+  type = map(object({
+    username       = string
+    security_level = optional(string, "authPriv")
+    auth_protocol  = optional(string, "SHA")
+    password       = string
+    priv_protocol  = optional(string, "AES")
+    priv_password  = string
+  }))
+  sensitive = true
+  default   = {}
 }

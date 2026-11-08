@@ -10,6 +10,22 @@ locals {
 
   # Whether a token was given is not secret; the token itself stays sensitive.
   pve_enabled = nonsensitive(var.pve_exporter_token != null)
+  # Same for whether SNMPv3 auths were given.
+  snmp_auths_enabled = nonsensitive(length(var.snmp_auths) > 0)
+  snmp_auths_path    = "${local.backend_conf}/snmp-exporter/auths.yml"
+  snmp_auths_yml = local.snmp_auths_enabled ? yamlencode({
+    auths = {
+      for name, a in var.snmp_auths : name => {
+        version        = 3
+        username       = a.username
+        security_level = a.security_level
+        auth_protocol  = a.auth_protocol
+        password       = a.password
+        priv_protocol  = a.priv_protocol
+        priv_password  = a.priv_password
+      }
+    }
+  }) : ""
 
   # Rewrites a static target into exporter parameters (the snmp/pve/blackbox pattern).
   proxy_relabel = {
@@ -249,8 +265,10 @@ locals {
       reload = true
     }
     snmp-exporter = {
-      description = "Prometheus SNMP exporter (bundled snmp.yml)"
+      description = "Prometheus SNMP exporter (bundled snmp.yml, plus SNMPv3 auths when given)"
       image       = var.images.snmp_exporter
+      volumes     = local.snmp_auths_enabled ? ["${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro"] : []
+      exec        = local.snmp_auths_enabled ? ["--config.file=/etc/snmp_exporter/snmp.yml", "--config.file=/etc/snmp_exporter/auths.yml"] : []
     }
     blackbox-exporter = {
       description = "Prometheus blackbox exporter"
@@ -368,6 +386,15 @@ locals {
       restart = ["pve-exporter"]
       reload  = []
     }] : [],
+    local.snmp_auths_enabled ? [{
+      # SNMPv3 credentials; the exporter image runs as root.
+      path    = local.snmp_auths_path
+      mode    = "0600"
+      owner   = "root"
+      content = local.snmp_auths_yml
+      restart = ["snmp-exporter"]
+      reload  = []
+    }] : [],
   )
 
   backend_dirs = concat(
@@ -391,13 +418,16 @@ locals {
       { path = "${local.backend_data}/postgres", mode = "0700", owner = "user|${var.images.postgres}|postgres" },
     ],
     local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
+    local.snmp_auths_enabled ? [{ path = "${local.backend_conf}/snmp-exporter", mode = "0755", owner = "root" }] : [],
   )
 
-  backend_validations = [
+  backend_validations = concat([
     "podman run --rm --network=none --user 0 --entrypoint promtool -v \"$root${local.backend_conf}/prometheus:/etc/prometheus:ro\" '${var.images.prometheus}' check config /etc/prometheus/prometheus.yml",
     "podman run --rm --network=none --user 0 --entrypoint amtool -v \"$root${local.backend_conf}/alertmanager:/etc/alertmanager:ro\" '${var.images.alertmanager}' check-config /etc/alertmanager/alertmanager.yml",
     "podman run --rm --network=none --user 0 -v \"$root${local.backend_conf}/blackbox:/etc/blackbox_exporter:ro\" '${var.images.blackbox_exporter}' --config.check --config.file=/etc/blackbox_exporter/config.yml",
-  ]
+    ], local.snmp_auths_enabled ? [
+    "podman run --rm --network=none -v \"$root${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro\" '${var.images.snmp_exporter}' --dry-run --config.file=/etc/snmp_exporter/snmp.yml --config.file=/etc/snmp_exporter/auths.yml",
+  ] : [])
 
   backend_health = [
     "curl -fsS -o /dev/null --max-time 3 http://${local.back}:9090/-/ready",

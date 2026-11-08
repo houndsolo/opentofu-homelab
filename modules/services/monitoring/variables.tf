@@ -68,6 +68,20 @@ variable "pve_exporter_token" {
   default = null
 }
 
+variable "snmp_auths" {
+  description = "Extra snmp_exporter auths (SNMPv3), name => credentials, added to the bundled snmp.yml through a second config file. Reference a name as an snmp target's auth."
+  sensitive   = true
+  type = map(object({
+    username       = string
+    security_level = optional(string, "authPriv")
+    auth_protocol  = optional(string, "SHA")
+    password       = string
+    priv_protocol  = optional(string, "AES")
+    priv_password  = string
+  }))
+  default = {}
+}
+
 variable "settings" {
   description = "Retention, external URLs and InfluxDB naming."
   type = object({
