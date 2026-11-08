@@ -1,0 +1,47 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=${description}
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=${name}
+%{ if network != null ~}
+Network=${network}
+%{ endif ~}
+%{ for port in publish ~}
+PublishPort=${port}
+%{ endfor ~}
+%{ for volume in volumes ~}
+Volume=${volume}
+%{ endfor ~}
+%{ for key in sort(keys(env)) ~}
+Environment=${key}=${env[key]}
+%{ endfor ~}
+%{ for env_file in env_files ~}
+EnvironmentFile=${env_file}
+%{ endfor ~}
+%{ if user != null ~}
+User=${user}
+%{ endif ~}
+%{ for cap in caps ~}
+AddCapability=${cap}
+%{ endfor ~}
+%{ for arg in podman_args ~}
+PodmanArgs=${arg}
+%{ endfor ~}
+%{ if length(exec) > 0 ~}
+Exec=${join(" ", exec)}
+%{ endif ~}
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+%{ if reload ~}
+ExecReload=/usr/bin/podman kill --signal HUP ${name}
+%{ endif ~}
+
+[Install]
+WantedBy=multi-user.target

@@ -18,9 +18,9 @@ VM. All of them are built with the shared
 | `dns02` | `dns` | eldarad | 5302 | `debian13` | `10.20.53.2/16` | eth1: `vmbr4000` VLAN 8, `10.8.53.2/16`, gateway `10.8.0.5` |
 | `dhcp01` | `dhcp` | venom | 6701 | `vyos` | `10.20.67.1/16` | generated (see below) |
 | `dhcp02` | `dhcp` | eldarad | 6702 | `vyos` | `10.20.67.2/16` | generated |
-| `mon01` | `monitoring` | zoness | 510 | `debian13` | `10.20.5.10/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.30/16`, gateway `10.2.0.5`; eth2: `vmbr100` (untagged), `10.5.11.30/16` |
-| `graf01` | `grafana` | venom | 501 | `debian13` | `10.20.5.1/16` | eth1: `vmbr4000` VLAN 2, `10.2.5.1/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 6, `10.6.5.1/16` |
-| `graf02` | `grafana` | eldarad | 502 | `debian13` | `10.20.5.2/16` | eth1: `vmbr4000` VLAN 2, `10.2.5.2/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 6, `10.6.5.2/16` |
+| `mon01` | `monitoring` | zoness | 1130 | `debian13` | `10.20.11.30/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.30/16`, gateway `10.2.0.5`; eth2: `vmbr100` (untagged), `10.5.11.30/16`; eth3: `vmbr4000` VLAN 13, `10.13.11.30/16` |
+| `graf01` | `grafana` | venom | 1131 | `debian13` | `10.20.11.31/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.31/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 13, `10.13.11.31/16` |
+| `graf02` | `grafana` | eldarad | 1132 | `debian13` | `10.20.11.32/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.32/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 13, `10.13.11.32/16` |
 
 Sizes are set in each VM's `config`: 2 cores and 2048 MB for the DNS, DHCP and
 Grafana VMs, and 4 cores, 8192 MB and a 200 GB disk for `mon01`. Each pair is
@@ -92,10 +92,13 @@ after the other.
 `mon01` (`role = "monitoring"`, sized for Prometheus, InfluxDB and Grafana's
 Postgres) and `graf01`/`graf02` (`role = "grafana"`) are created like the DNS VMs:
 the NICs listed in the inventory, with addresses, user and keys set by
-cloud-init. **Nothing configures their software yet.** services-config ignores
-these roles, and no DNS records are generated for them. Each Grafana VM's second
-NIC, on VLAN 6, is there for a future HA setup (keepalived with a shared virtual
-IP).
+cloud-init. Their software is deployed by
+[monitoring-config](../monitoring-config/README.md). services-config ignores
+these roles, and no DNS records are generated for them. All three have a NIC on
+VLAN 13 (`10.13.0.0/16`, the isolated `lylat_monitor` VRF): Grafana reaches the
+backend's datasources and Postgres over it, and the Grafana pair uses it for
+alerting HA and, later, keepalived. The VM IDs follow the mgmt address
+(`10.20.11.30` → 1130), like the DNS and DHCP VMs.
 
 ## Good to know
 

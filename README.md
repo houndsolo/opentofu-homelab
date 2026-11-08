@@ -276,13 +276,15 @@ needs the real infrastructure from the layers before it to be up and reachable.
    VMs.
 7. [services-config](roots/services-config/README.md): BIND, DNS records, and
    DHCP high availability and pools.
-8. [workloads](roots/workloads/README.md): ordinary VMs.
+8. [monitoring-config](roots/monitoring-config/README.md): Prometheus,
+   exporters, InfluxDB and Grafana on the monitoring VMs.
+9. [workloads](roots/workloads/README.md): ordinary VMs.
 
 [roots/README.md](roots/README.md) has the prerequisites for each step.
 
 ## Tests
 
-The modules and the `services-config` root have `tofu test` suites (`*.tftest.hcl`).
+The modules and the `services-config` and `monitoring-config` roots have `tofu test` suites (`*.tftest.hcl`).
 The tooling scripts have Python unit tests. None of them touch real
 infrastructure. To run them, see [modules/](modules/README.md#tests) and
 [tooling/](tooling/README.md#tests).

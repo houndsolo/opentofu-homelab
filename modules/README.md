@@ -18,6 +18,7 @@ The only exception is tests (see [Tests](#tests)).
 | [fabric/macs](fabric/macs/README.md) | fabric-vms, fabric-leaves | Nothing; it's a calculator | none |
 | [services/dhcp](#servicesdhcp) | services-config | One list of VyOS commands per DHCP VM | vyoscmd |
 | [services/dhcp/macs](services/dhcp/macs/README.md) | services-vms, services-config | Nothing; it's a calculator | none |
+| [services/monitoring](services/monitoring/README.md) | monitoring-config | Nothing; renders one `deploy.sh` per monitoring/Grafana VM | none |
 
 ## Patterns used across the modules
 
@@ -226,6 +227,7 @@ See [its README](services/dhcp/macs/README.md).
 | `proxmox/vm/tests/vm.tftest.hcl` | yes: `proxmox` (mocked) |
 | `services/dhcp/tests/commands.tftest.hcl` | yes: `vyoscmd` (mocked) |
 | `roots/services-config/tests/dns.tftest.hcl` | yes: `vyoscmd`, plus `dns` and `random` from the registry (all mocked) |
+| `roots/monitoring-config/tests/monitoring.tftest.hcl` | yes: `random` from the registry (mocked) |
 
 A mocked provider never contacts anything, but `tofu init` still has to install
 it. The tests marked "yes" therefore need `tooling/build-all` and

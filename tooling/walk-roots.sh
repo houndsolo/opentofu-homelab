@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"
-roots=(proxmox-download-files proxmox-network fabric-vms fabric-spines fabric-leaves services-vms services-config workloads)
+roots=(proxmox-download-files proxmox-network fabric-vms fabric-spines fabric-leaves services-vms services-config monitoring-config workloads)
 usage() {
   cat <<'EOF'
 Usage: tooling/walk-roots.sh [--no-secrets] [--list] [ROOT ...]
@@ -70,6 +70,7 @@ for root in "${roots[@]}"; do
     fabric-leaves) echo 'Configure VyOS leaves after enabling their HTTPS APIs.' ;;
     services-vms) echo 'Create DNS/DHCP VMs; images, snippets and fabric must be ready.' ;;
     services-config) echo 'DNS VMs need SSH/sudo and Podman; DHCP VMs need reachable VyOS APIs.' ;;
+    monitoring-config) echo 'Monitoring/Grafana VMs need SSH/sudo and Podman, and the VLAN 13 backend NICs.' ;;
     workloads) echo 'Create VMs owned by workloads.' ;;
   esac
   while true; do

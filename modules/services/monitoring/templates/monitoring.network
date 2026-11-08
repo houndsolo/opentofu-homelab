@@ -1,0 +1,8 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# Bridge network for the backend containers. aardvark-dns lets Prometheus reach
+# exporters by container name (snmp-exporter:9116, alertmanager:9093, ...).
+[Network]
+NetworkName=monitoring
+
+[Install]
+WantedBy=multi-user.target
