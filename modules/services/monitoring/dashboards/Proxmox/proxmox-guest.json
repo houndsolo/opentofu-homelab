@@ -948,7 +948,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "colorMode": "value",
@@ -1012,7 +1012,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "colorMode": "value",
@@ -1078,7 +1078,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "colorMode": "value",
@@ -1144,7 +1144,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "colorMode": "value",
@@ -1285,7 +1285,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "showThresholdMarkers": true,
@@ -1356,7 +1356,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "showThresholdMarkers": true,
@@ -1424,7 +1424,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "showThresholdMarkers": true,
@@ -1500,7 +1500,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "showThresholdMarkers": true,
@@ -1569,7 +1569,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "colorMode": "value",
@@ -2655,7 +2655,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "fields": "",
           "values": false
         },
         "colorMode": "background",

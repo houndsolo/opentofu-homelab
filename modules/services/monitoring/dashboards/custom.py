@@ -17,6 +17,7 @@ Down targets (no exporter yet) simply have no series, so panels count what's
 there; `... or vector(0)` keeps the "down"/"failing" stats at 0 rather than
 "No data".
 """
+import copy
 import json
 import pathlib
 import sys
@@ -105,7 +106,9 @@ def panel(type_, title, targets, *, desc="", unit=None, decimals=None, min_=None
         p["transformations"] = transformations
     if links:
         p["links"] = [{"title": t, "url": u, "targetBlank": False} for t, u in links]
-    return p
+    # A deep copy: the building blocks share module-level dicts (REDUCE_LAST, GREEN, ...),
+    # and callers sometimes tweak a returned panel in place.
+    return copy.deepcopy(p)
 
 
 REDUCE_LAST = {"calcs": ["lastNotNull"], "fields": "", "values": False}
