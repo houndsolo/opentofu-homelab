@@ -323,9 +323,16 @@ set firewall ipv4 input filter rule 9273 protocol 'tcp'
 set firewall ipv4 input filter rule 9273 source address '10.5.11.30'
 set system task-scheduler task vpn-metrics interval '1m'
 set system task-scheduler task vpn-metrics executable path '/config/scripts/vpn-metrics.py'
+set system task-scheduler task nft-metrics interval '1m'
+set system task-scheduler task nft-metrics executable path '/config/scripts/nft-metrics.py'
 ```
 
-Install the script with `sudo install -m 0755 vpn-metrics.py /config/scripts/` on the router.
+Install the scripts with `sudo install -m 0755 vpn-metrics.py nft-metrics.py /config/scripts/`
+on the router. [`vyos/nft-metrics.py`](vyos/nft-metrics.py) adds per-rule counters for every
+filter chain (input/forward/output base chains and their default actions, named chains,
+IPv4 and IPv6) and NAT (`vyos_firewall_rule_{packets,bytes}_total{family,kind,chain,rule}`,
+`vyos_nat_rule_{packets,bytes}_total{family,type,rule}`); Telegraf's VyOS script only
+covers the named IPv4 chains. Telegraf's `syslog_*` series are dropped at scrape time.
 
 ## Inputs
 

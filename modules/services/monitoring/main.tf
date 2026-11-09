@@ -80,6 +80,9 @@ locals {
       job_name       = "vyos-telegraf"
       honor_labels   = true
       static_configs = [for t in var.targets.telegraf : { targets = ["${t.address}:9273"], labels = { host = t.host, role = "router" } }]
+      # The syslog input carries each log message as a label (one new series per
+      # line); the dashboards read syslog from InfluxDB instead.
+      metric_relabel_configs = [{ source_labels = ["__name__"], regex = "syslog_.*", action = "drop" }]
     }],
     length(var.targets.ceph) == 0 ? [] : [{
       job_name        = "ceph"
