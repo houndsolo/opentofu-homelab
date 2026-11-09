@@ -1,11 +1,15 @@
 vnis = [
   {
-    vlan_id         = 1000
-    vni             = 6666
-    roles           = ["external_l3"]
-    vrf             = "lylat_external"
-    vrf_table       = 6666
-    ext_l3          = true
+    vlan_id   = 1000
+    vni       = 6666
+    roles     = ["external_l3"]
+    vrf       = "lylat_external"
+    vrf_table = 6666
+    ext_l3    = true
+    ext_l3_peer = {
+      remote_as   = 420 # fw-wan (VXLAN_Border_Spine in its lylat_service VRF)
+      description = "lylat_external L3 external connectivity"
+    }
     ipv4_rt_imports = "700:6900 700:6600 700:6200 700:6700"
     ipv4_rt_exports = "700:6666"
     import_ipv4_vpn = true

@@ -14,8 +14,16 @@ variable "vnis" {
     evpn_rt_imports  = optional(list(string), [])
     evpn_rt_exports  = optional(list(string), [])
     ext_l3           = optional(bool, false)
-    export_vpn_ipv4  = optional(bool, false)
-    anycast_mac      = optional(string, null)
+    # BGP to the external router (fw-wan) on external_l3 leaves: an unnumbered (v6only)
+    # session on <access_interface>.<vlan_id> in this VRF. Needs ext_l3 = true.
+    ext_l3_peer = optional(object({
+      remote_as   = number
+      peer_group  = optional(string, "FW_L3_out")
+      bfd         = optional(bool, true)
+      description = optional(string, "external L3 connectivity")
+    }))
+    export_vpn_ipv4 = optional(bool, false)
+    anycast_mac     = optional(string, null)
     redistribute_ipv4 = optional(object({
       connected = optional(object({ route_map = optional(string) }), null)
       static    = optional(object({}), null)
@@ -70,6 +78,11 @@ variable "vnis" {
       )
     ]))
     error_message = "VNIs must be 1..16777215, tables 1..4294967295, VRF names non-empty, VLANs 1..4094, and every L2 gateway/MAC must be valid IPv4/CIDR and six-octet MAC syntax."
+  }
+
+  validation {
+    condition     = alltrue([for l3 in var.vnis : l3.ext_l3_peer == null || (l3.ext_l3 && contains(l3.roles, "external_l3"))])
+    error_message = "ext_l3_peer needs ext_l3 = true and the external_l3 role."
   }
 
   validation {
