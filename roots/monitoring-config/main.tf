@@ -51,10 +51,11 @@ locals {
       [for name in keys(local.dhcp_vms) : { host = name, address = local.mgmt[name], labels = { role = "dhcp" } }],
       [for host, address in var.vyos_extra_targets : { host = host, address = address, labels = { role = "router" } }],
     )
-    pve     = [for name, address in local.pve_nodes : { host = name, address = address } if !var.nodes.proxmox[name].standalone]
-    grafana = [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0") }]
-    ceph    = [for name in var.ceph_mgr_nodes : { host = name, address = local.pve_nodes[name] } if contains(keys(local.pve_nodes), name)]
-    snmp    = var.snmp_targets
+    pve      = [for name, address in local.pve_nodes : { host = name, address = address } if !var.nodes.proxmox[name].standalone]
+    grafana  = [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0") }]
+    telegraf = [for host, address in var.vyos_telegraf_targets : { host = host, address = address }]
+    ceph     = [for name in var.ceph_mgr_nodes : { host = name, address = local.pve_nodes[name] } if contains(keys(local.pve_nodes), name)]
+    snmp     = var.snmp_targets
     blackbox = {
       icmp     = [for host, address in var.blackbox_icmp_targets : { host = host, target = address }]
       http_2xx = [for host, url in var.blackbox_http_targets : { host = host, target = url }]

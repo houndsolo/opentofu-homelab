@@ -230,6 +230,51 @@ Panels that stay empty, and why:
 
 Review the diff, then apply. File and folder names must not contain spaces.
 
+## fw-wan (VyOS edge router, configured by hand)
+
+fw-wan isn't managed by this repo, so its monitoring was set up by hand (2026-11-09).
+Prometheus scrapes it through `vyos_extra_targets` (node :9100 and FRR :9342 on the
+mgmt VRF, 10.20.10.255) and `vyos_telegraf_targets` (job `vyos-telegraf`, :9273 on
+`lylat_service`, 10.5.0.255). Telegraf also writes to the InfluxDB bucket `vyos`
+(`telegraf.tf`): VyOS only enables its exec inputs, including the per-rule nftables
+counters (`nftables_pkts`/`nftables_bytes{chain,ruleid}`), when the influxdb output
+is set. [`vyos/vpn-metrics.py`](vyos/vpn-metrics.py) runs every minute from the task
+scheduler and writes IPsec (VICI) and WireGuard state to node_exporter's textfile
+collector (`vyos_ipsec_*`, `vyos_wireguard_*`).
+
+```
+set service monitoring prometheus node-exporter listen-address '10.20.10.255'
+set service monitoring prometheus node-exporter vrf 'mgmt'
+set service monitoring prometheus node-exporter collectors textfile
+set service monitoring prometheus frr-exporter listen-address '10.20.10.255'
+set service monitoring prometheus frr-exporter vrf 'mgmt'
+set service monitoring prometheus frr-exporter collector bgp-l2-vpn
+set service monitoring prometheus frr-exporter collector bgp peer-hostname
+set service monitoring prometheus frr-exporter collector bgp peer-description 'plain-text'
+set service monitoring prometheus frr-exporter collector bgp peer-type
+set service monitoring telegraf vrf 'lylat_service'
+set service monitoring telegraf influxdb url 'http://10.5.11.30'
+set service monitoring telegraf influxdb port '8086'
+set service monitoring telegraf influxdb bucket 'vyos'
+set service monitoring telegraf influxdb authentication organization 'lylat'
+set service monitoring telegraf influxdb authentication token '<tofu output -raw vyos_telegraf_token>'
+set service monitoring telegraf prometheus-client listen-address '10.5.0.255'
+set service monitoring telegraf prometheus-client port '9273'
+set service monitoring telegraf prometheus-client allow-from '10.5.11.30/32'
+set firewall ipv4 input filter rule 9100 action 'accept'
+set firewall ipv4 input filter rule 9100 destination port '9100,9342'
+set firewall ipv4 input filter rule 9100 protocol 'tcp'
+set firewall ipv4 input filter rule 9100 source address '10.20.11.30'
+set firewall ipv4 input filter rule 9273 action 'accept'
+set firewall ipv4 input filter rule 9273 destination port '9273'
+set firewall ipv4 input filter rule 9273 protocol 'tcp'
+set firewall ipv4 input filter rule 9273 source address '10.5.11.30'
+set system task-scheduler task vpn-metrics interval '1m'
+set system task-scheduler task vpn-metrics executable path '/config/scripts/vpn-metrics.py'
+```
+
+Install the script with `sudo install -m 0755 vpn-metrics.py /config/scripts/` on the router.
+
 ## Inputs
 
 | Variable | Default | Purpose |

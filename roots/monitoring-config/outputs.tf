@@ -43,3 +43,9 @@ output "pve_metric_buckets" {
   description = "InfluxDB bucket per Proxmox metric server: cluster and each standalone host."
   value       = local.pve_metric_buckets
 }
+
+output "vyos_telegraf_token" {
+  description = "Write-only InfluxDB token for Telegraf on the VyOS routers: tofu output -raw vyos_telegraf_token"
+  value       = influxdb_authorization.vyos.token
+  sensitive   = true
+}

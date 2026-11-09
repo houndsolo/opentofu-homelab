@@ -74,6 +74,13 @@ locals {
     # instance labels (OSD hostnames on ceph_disk_occupation etc.) are kept, and
     # the rest get instance="ceph_cluster" with no host label, so series don't
     # change identity when the active mgr moves. up{job="ceph"} keeps per-host labels.
+    # Telegraf on VyOS (firewall rule counters, interfaces, services, conntrack...).
+    # Its metrics already carry host=<router>, the same as the target label.
+    length(var.targets.telegraf) == 0 ? [] : [{
+      job_name       = "vyos-telegraf"
+      honor_labels   = true
+      static_configs = [for t in var.targets.telegraf : { targets = ["${t.address}:9273"], labels = { host = t.host, role = "router" } }]
+    }],
     length(var.targets.ceph) == 0 ? [] : [{
       job_name        = "ceph"
       honor_labels    = true

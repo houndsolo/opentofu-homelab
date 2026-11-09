@@ -41,6 +41,7 @@ variable "targets" {
     pve      = list(object({ host = string, address = string }))                                     # PVE API via pve-exporter
     grafana  = list(object({ host = string, address = string }))                                     # Grafana /metrics, :3000
     ceph     = optional(list(object({ host = string, address = string })), [])                       # Ceph mgr prometheus module, :9283 (every mgr host)
+    telegraf = optional(list(object({ host = string, address = string })), [])                       # Telegraf prometheus-client output on VyOS routers, :9273
     snmp     = map(object({ modules = list(string), auth = string, targets = map(string) }))         # job suffix => host => IP
     blackbox = map(list(object({ host = string, target = string })))                                 # blackbox module => targets (IP or URL)
   })
@@ -89,7 +90,7 @@ variable "settings" {
     prometheus_retention_time = optional(string, "90d")
     prometheus_retention_size = optional(string, "120GB")
     influxdb_org              = optional(string, "lylat")
-    influxdb_bucket           = optional(string, "proxmox") # created by InfluxDB setup on first start only
+    influxdb_bucket           = optional(string, "proxmox")     # created by InfluxDB setup on first start only
     influxdb_grafana_bucket   = optional(string, "pve_cluster") # default bucket of the Grafana InfluxDB datasource
     influxdb_retention        = optional(string, "90d")
     grafana_root_url          = optional(string, "http://grafana.lylat.space:3000/")

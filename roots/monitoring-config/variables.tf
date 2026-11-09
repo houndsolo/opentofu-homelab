@@ -83,6 +83,12 @@ variable "ceph_mgr_nodes" {
   default     = ["macbeth", "titania", "venom", "zoness"]
 }
 
+variable "vyos_telegraf_targets" {
+  description = "VyOS routers running telegraf's prometheus-client output (service monitoring telegraf prometheus-client): host => address (port 9273). It carries the per-rule firewall counters VyOS only collects with the influxdb output configured."
+  type        = map(string)
+  default     = { "fw-wan" = "10.5.0.255" }
+}
+
 variable "node_extra_targets" {
   description = "Other Linux hosts running node_exporter: host => IP (port 9100)."
   type        = map(string)
@@ -198,4 +204,10 @@ variable "pve_metrics" {
     retention_days           = optional(number, 90)
   })
   default = {}
+}
+
+variable "vyos_telegraf_bucket" {
+  description = "InfluxDB bucket that Telegraf on the VyOS routers (fw-wan) writes to. Same retention as pve_metrics."
+  type        = string
+  default     = "vyos"
 }
