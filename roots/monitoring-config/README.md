@@ -141,8 +141,8 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Network | FRR / EVPN fabric (`frr-evpn-fabric`) | custom | BGP peer table (router, VRF, AFI/SAFI, peer, hostname, ASNs, state, uptime, prefixes rx/tx, message rates), session state timeline, established sessions per router, flaps in the time range, BFD peers, EVPN remote VTEPs/MACs/ARP-ND per router and per L2 VNI, routes per VRF, RIB vs FIB, BGP RIB, frr_exporter health. Router and VRF pickers |
 | Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
 | Network | SNMP Interface Detail (`snmp-interface-detail`) | [grafana.com 12492](https://grafana.com/grafana/dashboards/12492) rev 4 | Per interface: status, speed, traffic, unicast/multicast/broadcast packets, errors, discards |
-| Edge | fw-wan overview (`fw-wan-overview`) | custom (Prometheus + InfluxDB) | The VyOS edge router. **Status:** ICMP, exporters, uptime, WAN address, WAN in/out (sparklines), CPU, memory, conntrack table, BGP sessions, VPN tunnels, VyOS services, systemd units failed/restarting, firewall drops + rejects. **Traffic:** WAN (in up, out down), traffic per VRF (VRF devices), top interfaces with their VRF. **Firewall:** rule matches by action, drops + rejects per chain. **VPNs:** tunnel state timeline, VTI/WireGuard traffic. **System:** CPU by mode, memory, temperatures, softnet drops, load, units not active. Collapsed: interface table (VRF, description, state, MTU, speed, in/out, errors, drops), router syslog |
-| Edge | fw-wan firewall (`fw-wan-firewall`) | custom (Prometheus + InfluxDB) | fw-wan's named IPv4 chains (Telegraf per-rule nftables counters): matches per second by action, drops + rejects and logged packets in range, conntrack usage, rules missing from the snapshot; chain activity timeline, packets and traffic per chain; rule table (chain, rule, action, match, packets/s, packets and bytes in range, totals), top rules, drops and rejects per rule, default actions hit, traffic dropped; conntrack entries, new connections, insert failures/drops/invalid; firewall log from the syslog (time, chain, rule, action, in/out, proto, addresses and ports) and logged packets per rule; collapsed rule and NAT reference |
+| Edge | fw-wan overview (`fw-wan-overview`) | custom (Prometheus + InfluxDB) | The VyOS edge router. **Status:** ICMP, exporters, uptime, WAN address, WAN in/out (sparklines), CPU, memory, conntrack table, BGP sessions, VPN tunnels, VyOS services, systemd units failed/restarting, firewall drops + rejects. **Traffic:** WAN (in up, out down), traffic per VRF (VRF devices), top interfaces with their VRF. **Firewall:** final verdicts (accept/drop/reject), drops + rejects per chain, NAT connections. **VPNs:** tunnel state timeline, VTI/WireGuard traffic. **System:** CPU by mode, memory, temperatures, softnet drops, load, units not active. Collapsed: interface table (VRF, description, state, MTU, speed, in/out, errors, drops), router syslog |
+| Edge | fw-wan firewall (`fw-wan-firewall`) | custom (Prometheus + InfluxDB) | Every IPv4/IPv6 filter chain (nft-metrics.py counters). **Summary:** final verdicts (accept/drop/reject per second), dropped + rejected in range, default-action drops per base chain, logged lines, rules missing from the snapshot, counter age. **Base chains:** input/forward/output verdicts by rule action (accept, → named chain, default drop/accept), default-action drops, what is being dropped (every drop/reject rule and default action). **Chains:** activity timeline, packets and traffic per chain. **Rules:** table (family, kind, chain, rule, action, jump target, match, packets/s, packets and bytes in range, totals), top rules, default actions hit. **NAT:** rule table (match/translation, connections per minute, in range, total) and connections per rule; conntrack entries, new connections, insert failures/drops/invalid; firewall log from the syslog (time, chain, rule, action, in/out, proto, addresses and ports) and logged packets per rule; collapsed rule and NAT reference |
 | Edge | fw-wan VPNs (`fw-wan-vpn`) | custom (Prometheus + InfluxDB) | IPsec connections, IKE state, CHILD SAs, WireGuard peers, BGP over the tunnels, vpn-metrics.py health; SA state timeline, SA age, rekeys in range, CHILD SA traffic and packets; VTI/WireGuard interface traffic, errors and drops, link state, tunnel interface table; WireGuard handshake age and peer traffic; BGP peers in `vpn_*` VRFs, prefixes, routes; VPN firewall chains; collapsed strongSwan log |
 | Edge | fw-wan VRFs & routing (`fw-wan-routing`) | custom | Router picker (default fw-wan, works for the leaves and DHCP VMs) and VRF picker: BGP/BFD summary, routes, VRFs, route changes, RIB not in FIB; routing table per VRF (IPv4/IPv6 RIB and FIB, BGP RIB, sessions up, changes), routes and route changes per VRF; BGP peer table (state, uptime, prefixes, messages, flaps), session state, BGP RIB, prefixes rx/tx, messages; traffic per VRF, interface traffic and table with the VRF (fw-wan); collapsed BFD peers and frr_exporter collectors |
 | Network | Mikrotik monitoring (`mikrotik-snmp`) | [grafana.com 14420](https://grafana.com/grafana/dashboards/14420) rev 9 | MikroTik `mikrotik` module: board/firmware, CPU temperature, per-interface traffic and Ethernet error counters, interface table, neighbors (MNDP/LLDP) |
@@ -180,10 +180,11 @@ drop out; a node counts as down once it hasn't reported for a minute.
 
 The fw-wan dashboards (`fw-wan` tag, folder Edge) share a "fw-wan dashboards" dropdown and
 read Prometheus (jobs `vyos-node`, `vyos-frr`, `vyos-telegraf`, `blackbox-icmp`) plus the
-syslog in the InfluxDB bucket `vyos` (firewall log, router log, strongSwan log). What a
-firewall rule does isn't in the counters, so
+syslog in the InfluxDB bucket `vyos` (firewall log, router log, strongSwan log). The firewall
+and NAT counters are nft-metrics.py's (see [fw-wan](#fw-wan-vyos-edge-router-configured-by-hand));
+Telegraf's `nftables_*` series aren't used. What a firewall rule does isn't in the counters, so
 [`dashboards/fwwan_snapshot.py`](../../modules/services/monitoring/dashboards/fwwan_snapshot.py)
-holds chain/rule → action and match, interface → VRF and the NAT rules, read from fw-wan's
+holds family/chain/rule → action, jump target and match, interface → VRF and the NAT rules, read from fw-wan's
 config by [`fwwan_config.py`](../../modules/services/monitoring/dashboards/fwwan_config.py)
 (see [Changing the dashboards](#changing-the-dashboards)). The firewall dashboard's "Rules not
 in snapshot" turns orange when fw-wan has rules the snapshot doesn't know.
@@ -239,9 +240,11 @@ Panels that stay empty, and why:
   "Pool storage" raw used query metrics Ceph 20 no longer exports; MDS CPU/open
   requests need the mgr `stats` module (disabled); RGW versions are empty (no RGW);
   the OSD size buckets skip 10-12 TB, where these 10.9 TiB OSDs fall.
-- **fw-wan dashboards:** Telegraf only exports counters for the named chains, not for the
-  base input/forward filter rules or NAT, so those have no panels (the rule reference lists
-  NAT). There's no OSPF anywhere and no BFD on fw-wan. Firewall log panels show only rules
+- **fw-wan dashboards:** the nft-metrics.py counters start on 2026-11-09 ~16:30 UTC, and
+  they restart at 0 whenever the firewall is recommitted (rate/increase handle that). NAT
+  rules count connections (only a connection's first packet passes the NAT chains); bytes
+  aren't shown. fw-wan has no output filter, so output only shows "default accept". The
+  raw (notrack) chains are left out. There's no OSPF anywhere and no BFD on fw-wan. Firewall log panels show only rules
   with `log` (deny_data 22 and 23). Road-warrior WireGuard peers and the VPS IPsec
   connection are DOWN while not connected, and "Rekeys in range" counts a reconnect too.
   The VRF column of the interface tables is fw-wan only (from the snapshot).

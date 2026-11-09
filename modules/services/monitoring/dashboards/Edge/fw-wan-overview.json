@@ -1301,7 +1301,7 @@
     {
       "type": "stat",
       "title": "Firewall drops + rejects",
-      "description": "Packets hitting drop/reject rules and default actions of the named chains (Telegraf counters; the base input/forward chains have no per-rule counters).",
+      "description": "Packets dropped or rejected by any rule or default action (input, forward, output and the named chains; IPv4 + IPv6).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1313,7 +1313,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
+          "expr": "sum ((label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(rate(vyos_firewall_rule_packets_total{host=\"fw-wan\", chain!~\"VYOS_.*_raw\"}[$__rate_interval]), \"chain\", \"input\", \"chain\", \"VYOS_IPV6_INPUT_filter\"), \"chain\", \"forward\", \"chain\", \"VYOS_IPV6_FORWARD_filter\"), \"chain\", \"output\", \"chain\", \"VYOS_IPV6_OUTPUT_filter\"), \"kind\", \"base\", \"chain\", \"input|forward|output\"), \"key\", \"/\", \"family\", \"chain\", \"rule\"), \"action\", \"unknown\", \"key\", \".*\"), \"action\", \"accept\", \"key\", \"ipv4/input/30|ipv4/input/53|ipv4/input/89|ipv4/input/646|ipv4/input/647|ipv4/input/1002|ipv4/input/2123|ipv4/input/9100|ipv4/input/9273|ipv4/input/10050|ipv4/input/10051|ipv4/input/10161|ipv4/bgp_peers/1|ipv4/bgp_peers/2|ipv4/bgp_peers/3|ipv4/conn_filter/10|ipv4/deny_guest_vrf/5|ipv4/deny_guest_vrf/10|ipv4/dns_in/1|ipv4/dns_in/2|ipv4/dns_in/3|ipv4/haystack/4|ipv4/haystack/5|ipv4/haystack/6|ipv4/haystack/60|ipv4/haystack/179|ipv4/haystack/180|ipv4/haystack/190|ipv4/haystack/3000|ipv4/haystack_dns/1|ipv4/haystack_dns/2|ipv4/haystack_dns/3|ipv4/haystack_ssh/1|ipv4/haystack_ssh/2|ipv4/haystack_ssh/3|ipv4/haystack_vxlan/1|ipv4/haystack_vxlan/100|ipv4/ipsec/1|ipv4/ipsec/2|ipv4/lylat_lan_forward/default-action|ipv4/vpn_me_FW/1|ipv4/vpn_me_FW/22|ipv4/vpn_me_FW/100|ipv4/vpn_me_FW/101|ipv4/vyos_mgmt/22|ipv4/vyos_mgmt/23|ipv4/output/default-action|ipv6/input/20|ipv6/input/30|ipv6/input/40|ipv6/input/646|ipv6/input/647|ipv6/input/1089|ipv6/forward/20|ipv6/forward/30|ipv6/bgp_in_ipv6/10|ipv6/bgp_in_ipv6/20|ipv6/bgp_in_ipv6/30|ipv6/conn_filter/10|ipv6/output/default-action\"), \"action\", \"drop\", \"key\", \"ipv4/input/default-action|ipv4/forward/default-action|ipv4/bgp_peers/default-action|ipv4/conn_filter/20|ipv4/deny_data/22|ipv4/deny_data/23|ipv4/deny_data/24|ipv4/deny_guest_vrf/9|ipv4/deny_guest_vrf/default-action|ipv4/haystack/2|ipv4/ipsec/default-action|ipv4/outside-in/default-action|ipv4/vpn_me_FW/default-action|ipv4/wg70_fw/default-action|ipv6/input/default-action|ipv6/forward/default-action|ipv6/bgp_in_ipv6/default-action|ipv6/conn_filter/20|ipv6/outside-in/default-action\"), \"action\", \"jump\", \"key\", \"ipv4/input/10|ipv4/input/22|ipv4/input/179|ipv4/input/443|ipv4/input/500|ipv4/input/501|ipv4/input/502|ipv4/forward/5|ipv4/forward/20|ipv4/forward/69|ipv4/forward/70|ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv4/forward/140|ipv4/forward/151|ipv4/haystack/22|ipv4/haystack/53|ipv4/haystack/100|ipv4/wg70_fw/10|ipv4/wg70_fw/53|ipv6/input/10|ipv6/input/179|ipv6/forward/10|ipv6/forward/40\"), \"action\", \"reject\", \"key\", \"ipv4/dns_in/default-action|ipv4/haystack/3|ipv4/haystack/default-action|ipv4/haystack_dns/default-action|ipv4/haystack_ssh/default-action|ipv4/haystack_vxlan/default-action\"), \"action\", \"return\", \"key\", \"ipv4/conn_filter/default-action|ipv4/deny_data/default-action|ipv4/vyos_mgmt/default-action|ipv6/conn_filter/default-action\"), \"target\", \"bgp_in_ipv6\", \"key\", \"ipv6/input/179\"), \"target\", \"bgp_peers\", \"key\", \"ipv4/input/179\"), \"target\", \"conn_filter\", \"key\", \"ipv4/input/10|ipv4/forward/20|ipv4/wg70_fw/10|ipv6/input/10|ipv6/forward/10\"), \"target\", \"deny_data\", \"key\", \"ipv4/forward/5\"), \"target\", \"deny_guest_vrf\", \"key\", \"ipv4/forward/140\"), \"target\", \"dns_in\", \"key\", \"ipv4/wg70_fw/53\"), \"target\", \"haystack\", \"key\", \"ipv4/forward/69\"), \"target\", \"haystack_dns\", \"key\", \"ipv4/haystack/53\"), \"target\", \"haystack_ssh\", \"key\", \"ipv4/haystack/22\"), \"target\", \"haystack_vxlan\", \"key\", \"ipv4/haystack/100\"), \"target\", \"ipsec\", \"key\", \"ipv4/input/500|ipv4/input/501|ipv4/input/502\"), \"target\", \"lylat_lan_forward\", \"key\", \"ipv4/forward/151\"), \"target\", \"outside-in\", \"key\", \"ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv6/forward/40\"), \"target\", \"vpn_me_FW\", \"key\", \"ipv4/forward/70\"), \"target\", \"vyos_mgmt\", \"key\", \"ipv4/input/22|ipv4/input/443\"), \"verdict\", \"$1\", \"action\", \"(.*)\"), \"ra\", \":\", \"rule\", \"action\"), \"verdict\", \"default $1\", \"ra\", \"default-action:(.*)\"), \"verdict\", \"→ $1\", \"target\", \"(.+)\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
           "legendFormat": "per second",
           "range": true,
           "instant": false,
@@ -1796,8 +1796,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Rule matches by action",
-      "description": "Packets matching a rule (or default action) in the named chains, by the rule's action. A packet that jumps to a chain counts once for the jump and once in the target chain.",
+      "title": "Final verdicts",
+      "description": "Packets accepted, dropped and rejected per second over every chain (rules and default actions, IPv4 + IPv6).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1809,7 +1809,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (action) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "expr": "sum by (action) ((label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(rate(vyos_firewall_rule_packets_total{host=\"fw-wan\", chain!~\"VYOS_.*_raw\"}[$__rate_interval]), \"chain\", \"input\", \"chain\", \"VYOS_IPV6_INPUT_filter\"), \"chain\", \"forward\", \"chain\", \"VYOS_IPV6_FORWARD_filter\"), \"chain\", \"output\", \"chain\", \"VYOS_IPV6_OUTPUT_filter\"), \"kind\", \"base\", \"chain\", \"input|forward|output\"), \"key\", \"/\", \"family\", \"chain\", \"rule\"), \"action\", \"unknown\", \"key\", \".*\"), \"action\", \"accept\", \"key\", \"ipv4/input/30|ipv4/input/53|ipv4/input/89|ipv4/input/646|ipv4/input/647|ipv4/input/1002|ipv4/input/2123|ipv4/input/9100|ipv4/input/9273|ipv4/input/10050|ipv4/input/10051|ipv4/input/10161|ipv4/bgp_peers/1|ipv4/bgp_peers/2|ipv4/bgp_peers/3|ipv4/conn_filter/10|ipv4/deny_guest_vrf/5|ipv4/deny_guest_vrf/10|ipv4/dns_in/1|ipv4/dns_in/2|ipv4/dns_in/3|ipv4/haystack/4|ipv4/haystack/5|ipv4/haystack/6|ipv4/haystack/60|ipv4/haystack/179|ipv4/haystack/180|ipv4/haystack/190|ipv4/haystack/3000|ipv4/haystack_dns/1|ipv4/haystack_dns/2|ipv4/haystack_dns/3|ipv4/haystack_ssh/1|ipv4/haystack_ssh/2|ipv4/haystack_ssh/3|ipv4/haystack_vxlan/1|ipv4/haystack_vxlan/100|ipv4/ipsec/1|ipv4/ipsec/2|ipv4/lylat_lan_forward/default-action|ipv4/vpn_me_FW/1|ipv4/vpn_me_FW/22|ipv4/vpn_me_FW/100|ipv4/vpn_me_FW/101|ipv4/vyos_mgmt/22|ipv4/vyos_mgmt/23|ipv4/output/default-action|ipv6/input/20|ipv6/input/30|ipv6/input/40|ipv6/input/646|ipv6/input/647|ipv6/input/1089|ipv6/forward/20|ipv6/forward/30|ipv6/bgp_in_ipv6/10|ipv6/bgp_in_ipv6/20|ipv6/bgp_in_ipv6/30|ipv6/conn_filter/10|ipv6/output/default-action\"), \"action\", \"drop\", \"key\", \"ipv4/input/default-action|ipv4/forward/default-action|ipv4/bgp_peers/default-action|ipv4/conn_filter/20|ipv4/deny_data/22|ipv4/deny_data/23|ipv4/deny_data/24|ipv4/deny_guest_vrf/9|ipv4/deny_guest_vrf/default-action|ipv4/haystack/2|ipv4/ipsec/default-action|ipv4/outside-in/default-action|ipv4/vpn_me_FW/default-action|ipv4/wg70_fw/default-action|ipv6/input/default-action|ipv6/forward/default-action|ipv6/bgp_in_ipv6/default-action|ipv6/conn_filter/20|ipv6/outside-in/default-action\"), \"action\", \"jump\", \"key\", \"ipv4/input/10|ipv4/input/22|ipv4/input/179|ipv4/input/443|ipv4/input/500|ipv4/input/501|ipv4/input/502|ipv4/forward/5|ipv4/forward/20|ipv4/forward/69|ipv4/forward/70|ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv4/forward/140|ipv4/forward/151|ipv4/haystack/22|ipv4/haystack/53|ipv4/haystack/100|ipv4/wg70_fw/10|ipv4/wg70_fw/53|ipv6/input/10|ipv6/input/179|ipv6/forward/10|ipv6/forward/40\"), \"action\", \"reject\", \"key\", \"ipv4/dns_in/default-action|ipv4/haystack/3|ipv4/haystack/default-action|ipv4/haystack_dns/default-action|ipv4/haystack_ssh/default-action|ipv4/haystack_vxlan/default-action\"), \"action\", \"return\", \"key\", \"ipv4/conn_filter/default-action|ipv4/deny_data/default-action|ipv4/vyos_mgmt/default-action|ipv6/conn_filter/default-action\"), \"target\", \"bgp_in_ipv6\", \"key\", \"ipv6/input/179\"), \"target\", \"bgp_peers\", \"key\", \"ipv4/input/179\"), \"target\", \"conn_filter\", \"key\", \"ipv4/input/10|ipv4/forward/20|ipv4/wg70_fw/10|ipv6/input/10|ipv6/forward/10\"), \"target\", \"deny_data\", \"key\", \"ipv4/forward/5\"), \"target\", \"deny_guest_vrf\", \"key\", \"ipv4/forward/140\"), \"target\", \"dns_in\", \"key\", \"ipv4/wg70_fw/53\"), \"target\", \"haystack\", \"key\", \"ipv4/forward/69\"), \"target\", \"haystack_dns\", \"key\", \"ipv4/haystack/53\"), \"target\", \"haystack_ssh\", \"key\", \"ipv4/haystack/22\"), \"target\", \"haystack_vxlan\", \"key\", \"ipv4/haystack/100\"), \"target\", \"ipsec\", \"key\", \"ipv4/input/500|ipv4/input/501|ipv4/input/502\"), \"target\", \"lylat_lan_forward\", \"key\", \"ipv4/forward/151\"), \"target\", \"outside-in\", \"key\", \"ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv6/forward/40\"), \"target\", \"vpn_me_FW\", \"key\", \"ipv4/forward/70\"), \"target\", \"vyos_mgmt\", \"key\", \"ipv4/input/22|ipv4/input/443\"), \"verdict\", \"$1\", \"action\", \"(.*)\"), \"ra\", \":\", \"rule\", \"action\"), \"verdict\", \"default $1\", \"ra\", \"default-action:(.*)\"), \"verdict\", \"→ $1\", \"target\", \"(.+)\")) and on (action) (label_replace(vector(1), \"action\", \"accept\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\")))",
           "legendFormat": "{{action}}",
           "range": true,
           "instant": false,
@@ -1892,51 +1892,6 @@
                 }
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "return"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "blue"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "jump"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "purple"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "unknown"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "yellow"
-                }
-              }
-            ]
           }
         ]
       },
@@ -1965,15 +1920,15 @@
       "id": 23,
       "gridPos": {
         "h": 9,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 35
       }
     },
     {
       "type": "timeseries",
-      "title": "Drops + rejects per chain",
-      "description": "Drop/reject rules and default actions, per named chain.",
+      "title": "Drops + rejects by chain",
+      "description": "Drop/reject rules and default actions per chain; input/forward are the base filters' default drops.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1985,8 +1940,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (chain) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\")))",
-          "legendFormat": "{{chain}}",
+          "expr": "sum by (family, chain) ((label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(rate(vyos_firewall_rule_packets_total{host=\"fw-wan\", chain!~\"VYOS_.*_raw\"}[$__rate_interval]), \"chain\", \"input\", \"chain\", \"VYOS_IPV6_INPUT_filter\"), \"chain\", \"forward\", \"chain\", \"VYOS_IPV6_FORWARD_filter\"), \"chain\", \"output\", \"chain\", \"VYOS_IPV6_OUTPUT_filter\"), \"kind\", \"base\", \"chain\", \"input|forward|output\"), \"key\", \"/\", \"family\", \"chain\", \"rule\"), \"action\", \"unknown\", \"key\", \".*\"), \"action\", \"accept\", \"key\", \"ipv4/input/30|ipv4/input/53|ipv4/input/89|ipv4/input/646|ipv4/input/647|ipv4/input/1002|ipv4/input/2123|ipv4/input/9100|ipv4/input/9273|ipv4/input/10050|ipv4/input/10051|ipv4/input/10161|ipv4/bgp_peers/1|ipv4/bgp_peers/2|ipv4/bgp_peers/3|ipv4/conn_filter/10|ipv4/deny_guest_vrf/5|ipv4/deny_guest_vrf/10|ipv4/dns_in/1|ipv4/dns_in/2|ipv4/dns_in/3|ipv4/haystack/4|ipv4/haystack/5|ipv4/haystack/6|ipv4/haystack/60|ipv4/haystack/179|ipv4/haystack/180|ipv4/haystack/190|ipv4/haystack/3000|ipv4/haystack_dns/1|ipv4/haystack_dns/2|ipv4/haystack_dns/3|ipv4/haystack_ssh/1|ipv4/haystack_ssh/2|ipv4/haystack_ssh/3|ipv4/haystack_vxlan/1|ipv4/haystack_vxlan/100|ipv4/ipsec/1|ipv4/ipsec/2|ipv4/lylat_lan_forward/default-action|ipv4/vpn_me_FW/1|ipv4/vpn_me_FW/22|ipv4/vpn_me_FW/100|ipv4/vpn_me_FW/101|ipv4/vyos_mgmt/22|ipv4/vyos_mgmt/23|ipv4/output/default-action|ipv6/input/20|ipv6/input/30|ipv6/input/40|ipv6/input/646|ipv6/input/647|ipv6/input/1089|ipv6/forward/20|ipv6/forward/30|ipv6/bgp_in_ipv6/10|ipv6/bgp_in_ipv6/20|ipv6/bgp_in_ipv6/30|ipv6/conn_filter/10|ipv6/output/default-action\"), \"action\", \"drop\", \"key\", \"ipv4/input/default-action|ipv4/forward/default-action|ipv4/bgp_peers/default-action|ipv4/conn_filter/20|ipv4/deny_data/22|ipv4/deny_data/23|ipv4/deny_data/24|ipv4/deny_guest_vrf/9|ipv4/deny_guest_vrf/default-action|ipv4/haystack/2|ipv4/ipsec/default-action|ipv4/outside-in/default-action|ipv4/vpn_me_FW/default-action|ipv4/wg70_fw/default-action|ipv6/input/default-action|ipv6/forward/default-action|ipv6/bgp_in_ipv6/default-action|ipv6/conn_filter/20|ipv6/outside-in/default-action\"), \"action\", \"jump\", \"key\", \"ipv4/input/10|ipv4/input/22|ipv4/input/179|ipv4/input/443|ipv4/input/500|ipv4/input/501|ipv4/input/502|ipv4/forward/5|ipv4/forward/20|ipv4/forward/69|ipv4/forward/70|ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv4/forward/140|ipv4/forward/151|ipv4/haystack/22|ipv4/haystack/53|ipv4/haystack/100|ipv4/wg70_fw/10|ipv4/wg70_fw/53|ipv6/input/10|ipv6/input/179|ipv6/forward/10|ipv6/forward/40\"), \"action\", \"reject\", \"key\", \"ipv4/dns_in/default-action|ipv4/haystack/3|ipv4/haystack/default-action|ipv4/haystack_dns/default-action|ipv4/haystack_ssh/default-action|ipv4/haystack_vxlan/default-action\"), \"action\", \"return\", \"key\", \"ipv4/conn_filter/default-action|ipv4/deny_data/default-action|ipv4/vyos_mgmt/default-action|ipv6/conn_filter/default-action\"), \"target\", \"bgp_in_ipv6\", \"key\", \"ipv6/input/179\"), \"target\", \"bgp_peers\", \"key\", \"ipv4/input/179\"), \"target\", \"conn_filter\", \"key\", \"ipv4/input/10|ipv4/forward/20|ipv4/wg70_fw/10|ipv6/input/10|ipv6/forward/10\"), \"target\", \"deny_data\", \"key\", \"ipv4/forward/5\"), \"target\", \"deny_guest_vrf\", \"key\", \"ipv4/forward/140\"), \"target\", \"dns_in\", \"key\", \"ipv4/wg70_fw/53\"), \"target\", \"haystack\", \"key\", \"ipv4/forward/69\"), \"target\", \"haystack_dns\", \"key\", \"ipv4/haystack/53\"), \"target\", \"haystack_ssh\", \"key\", \"ipv4/haystack/22\"), \"target\", \"haystack_vxlan\", \"key\", \"ipv4/haystack/100\"), \"target\", \"ipsec\", \"key\", \"ipv4/input/500|ipv4/input/501|ipv4/input/502\"), \"target\", \"lylat_lan_forward\", \"key\", \"ipv4/forward/151\"), \"target\", \"outside-in\", \"key\", \"ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv6/forward/40\"), \"target\", \"vpn_me_FW\", \"key\", \"ipv4/forward/70\"), \"target\", \"vyos_mgmt\", \"key\", \"ipv4/input/22|ipv4/input/443\"), \"verdict\", \"$1\", \"action\", \"(.*)\"), \"ra\", \":\", \"rule\", \"action\"), \"verdict\", \"default $1\", \"ra\", \"default-action:(.*)\"), \"verdict\", \"→ $1\", \"target\", \"(.+)\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) > 0",
+          "legendFormat": "{{chain}} ({{family}})",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -2008,6 +1963,7 @@
           },
           "mappings": [],
           "unit": "pps",
+          "noValue": "No drops or rejects in range",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2050,8 +2006,93 @@
       "id": 24,
       "gridPos": {
         "h": 9,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
+        "y": 35
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "NAT connections",
+      "description": "New connections per minute through the NAT rules (masquerade to the WAN address).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (type) (label_join(rate(vyos_nat_rule_packets_total{host=\"fw-wan\"}[$__rate_interval]), \"key\", \"/\", \"family\", \"type\", \"rule\")) * 60",
+          "legendFormat": "{{type}} NAT",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 25,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
         "y": 35
       }
     },
@@ -2059,7 +2100,7 @@
       "type": "row",
       "title": "VPNs",
       "collapsed": false,
-      "id": 25,
+      "id": 26,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -2178,7 +2219,7 @@
           "targetBlank": false
         }
       ],
-      "id": 26,
+      "id": 27,
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -2288,7 +2329,7 @@
           "targetBlank": false
         }
       ],
-      "id": 27,
+      "id": 28,
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -2300,7 +2341,7 @@
       "type": "row",
       "title": "System",
       "collapsed": false,
-      "id": 28,
+      "id": 29,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -2380,7 +2421,7 @@
           "sort": "desc"
         }
       },
-      "id": 29,
+      "id": 30,
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -2501,7 +2542,7 @@
           "sort": "desc"
         }
       },
-      "id": 30,
+      "id": 31,
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -2588,7 +2629,7 @@
           "sort": "desc"
         }
       },
-      "id": 31,
+      "id": 32,
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -2709,7 +2750,7 @@
           "sort": "desc"
         }
       },
-      "id": 32,
+      "id": 33,
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -2810,7 +2851,7 @@
           "sort": "desc"
         }
       },
-      "id": 33,
+      "id": 34,
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -2965,7 +3006,7 @@
           }
         }
       ],
-      "id": 34,
+      "id": 35,
       "gridPos": {
         "h": 8,
         "w": 8,
@@ -2977,7 +3018,7 @@
       "type": "row",
       "title": "Interfaces",
       "collapsed": true,
-      "id": 35,
+      "id": 36,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3324,7 +3365,7 @@
               }
             }
           ],
-          "id": 36,
+          "id": 37,
           "gridPos": {
             "h": 12,
             "w": 24,
@@ -3338,7 +3379,7 @@
       "type": "row",
       "title": "Router log",
       "collapsed": true,
-      "id": 37,
+      "id": 38,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3524,7 +3565,7 @@
               }
             }
           ],
-          "id": 38,
+          "id": 39,
           "gridPos": {
             "h": 12,
             "w": 24,

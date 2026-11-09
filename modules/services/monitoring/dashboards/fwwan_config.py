@@ -4,12 +4,13 @@
     python3 -I modules/services/monitoring/dashboards/fwwan_config.py
     python3 -I modules/services/monitoring/dashboards/custom.py
 
-Telegraf on fw-wan exports per-rule nftables counters (nftables_pkts/bytes with
-chain and ruleid labels), but not what a rule does. This script reads the router's
-config over ssh (vyos@10.20.10.255, read-only) and writes fwwan_snapshot.py:
-for every named IPv4 firewall chain its default action, which base-chain rules
-jump to it, and per rule the action, description and a short match summary;
-plus the source/destination NAT rules, interface -> VRF and the VRF tables.
+vyos/nft-metrics.py on fw-wan exports per-rule counters (vyos_firewall_rule_* with
+family, kind, chain and rule labels; vyos_nat_rule_* with family, type and rule),
+but not what a rule does. This script reads the router's config over ssh
+(vyos@10.20.10.255, read-only) and writes fwwan_snapshot.py: for every IPv4/IPv6
+filter chain (input, forward, output and the named ones) its default action,
+which rules jump to it, and per rule the action (with jump target), description
+and a short match summary; plus the NAT rules, interface -> VRF and the VRF tables.
 fwwan.py turns that into value mappings, drop/reject selectors and the rule
 reference tables, so custom.py stays offline.
 
@@ -27,7 +28,7 @@ import subprocess
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / "fwwan_snapshot.py"
 ROUTER = "vyos@10.20.10.255"
-WANTED = (r"^set (firewall ipv4 |nat (source|destination) rule |vrf name [^ ]+ (table|description) "
+WANTED = (r"^set (firewall ipv[46] |nat(66)? (source|destination) rule |vrf name [^ ]+ (table|description) "
           r"|interfaces [^ ]+ [^ ]+ (vif [0-9]+ )?(vrf|description) ')")
 COMMAND = ("/opt/vyatta/bin/vyatta-op-cmd-wrapper show configuration commands | grep -E "
            + shlex.quote(WANTED))
@@ -70,17 +71,23 @@ def sort_key(rule_id):
     return (0, int(rule_id)) if rule_id.isdigit() else (1, rule_id)
 
 
+BASE_HOOKS = ("input", "forward", "output")
+
+
 def parse(lines):
     chains, jumps, nat, interfaces, vrfs = {}, {}, {}, {}, {}
     for line in lines:
         w = words(line)
-        if w[1:3] == ["firewall", "ipv4"]:
+        if w[1] == "firewall" and w[2] in ("ipv4", "ipv6"):
             # set firewall ipv4 name <chain> ... | set firewall ipv4 <hook> filter ...
+            fam = w[2]
             if w[3] == "name":
-                chain, rest = w[4], w[5:]
+                chain, kind, rest = w[4], "named", w[5:]
+            elif w[3] in BASE_HOOKS and w[4] == "filter":
+                chain, kind, rest = w[3], "base", w[5:]
             else:
-                chain, rest = f"{w[3]} {w[4]}", w[5:]
-            c = chains.setdefault(chain, {"default-action": "", "rules": {}})
+                continue  # prerouting raw etc.: no counters exported
+            c = chains.setdefault((fam, chain), {"kind": kind, "default-action": "", "rules": {}})
             if rest[:1] == ["default-action"]:
                 c["default-action"] = rest[1]
             elif rest[:1] == ["rule"]:
@@ -92,11 +99,12 @@ def parse(lines):
                     r["description"] = val[0]
                 elif key == "jump-target":
                     r["target"] = val[0]
-                    jumps.setdefault(val[0], []).append(f"{chain} {rest[1]}")
+                    jumps.setdefault((fam, val[0]), []).append(f"{chain} {rest[1]}")
                 else:
                     r["conds"].append([key, *val] if val else [key])
-        elif w[1] == "nat":
-            r = nat.setdefault((w[2], w[4]), {"description": "", "conds": []})
+        elif w[1] in ("nat", "nat66"):
+            fam = "ipv6" if w[1] == "nat66" else "ipv4"
+            r = nat.setdefault((fam, w[2], w[4]), {"description": "", "conds": []})
             if w[5] == "description":
                 r["description"] = w[6]
             else:
@@ -109,19 +117,20 @@ def parse(lines):
             interfaces.setdefault(name, {"vrf": "default", "description": ""})[w[-2]] = w[-1]
 
     out_chains = {}
-    for chain, c in sorted(chains.items()):
-        if " " in chain:  # base chains (input filter, forward filter): no per-rule counters in Telegraf
-            continue
+    order = {"input": 0, "forward": 1, "output": 2}
+    for (fam, chain), c in sorted(chains.items(), key=lambda kv: (kv[0][0], kv[1]["kind"] != "base",
+                                                                   order.get(kv[0][1], 9), kv[0][1])):
         rules = {}
         for rid in sorted(c["rules"], key=sort_key):
             r = c["rules"][rid]
             action = r["action"] + (f" {r['target']}" if r.get("target") else "")
             rules[rid] = {"action": action, "description": r["description"], "match": summary(r["conds"])}
-        # VyOS drops by default in a named chain without a default-action.
-        out_chains[chain] = {"default_action": c["default-action"] or "drop",
-                             "from": sorted(jumps.get(chain, [])), "rules": rules}
-    out_nat = [{"type": t, "rule": rid, "description": r["description"], "match": summary(r["conds"])}
-               for (t, rid), r in sorted(nat.items(), key=lambda kv: (kv[0][0], sort_key(kv[0][1])))]
+        # Without a default-action, VyOS accepts in a base chain and drops in a named one.
+        default = c["default-action"] or ("accept" if c["kind"] == "base" else "drop")
+        out_chains.setdefault(fam, {})[chain] = {"kind": c["kind"], "default_action": default,
+                                                 "from": sorted(jumps.get((fam, chain), [])), "rules": rules}
+    out_nat = [{"family": f, "type": t, "rule": rid, "description": r["description"], "match": summary(r["conds"])}
+               for (f, t, rid), r in sorted(nat.items(), key=lambda kv: (kv[0][0], kv[0][1], sort_key(kv[0][2])))]
     return out_chains, out_nat, dict(sorted(interfaces.items())), dict(sorted(vrfs.items()))
 
 
@@ -135,10 +144,10 @@ def main():
     OUT.write_text(
         f'"""fw-wan config snapshot for the fw-wan dashboards (fwwan.py).\n\n'
         f"Generated by fwwan_config.py from {ROUTER} on {datetime.date.today()}; re-run it rather\n"
-        f'than editing this file. Named IPv4 firewall chains only (Telegraf has no counters for the\n'
-        f'base chains), with VyOS names (no NAME_ prefix).\n"""\n\nTAKEN = "{datetime.date.today()}"\n\n{body}\n')
-    rules = sum(len(c["rules"]) for c in chains.values())
-    print(f"{OUT.name}: {len(chains)} chains, {rules} rules, {len(nat)} NAT rules, "
+        f'than editing this file. CHAINS[family][chain]: the input/forward/output filters (kind\n'
+        f'base) and the named chains (VyOS names, no NAME_ prefix), as vyos/nft-metrics.py labels them.\n"""\n\nTAKEN = "{datetime.date.today()}"\n\n{body}\n')
+    rules = sum(len(c["rules"]) for f in chains.values() for c in f.values())
+    print(f"{OUT.name}: {sum(map(len, chains.values()))} chains, {rules} rules, {len(nat)} NAT rules, "
           f"{len(interfaces)} interfaces, {len(vrfs)} VRFs")
 
 

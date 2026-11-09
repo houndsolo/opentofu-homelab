@@ -4,15 +4,17 @@ Built by custom.py (python3 -I modules/services/monitoring/dashboards/custom.py)
 its helpers; see custom.py for the conventions. fw-wan is the VyOS edge router, set
 up by hand (roots/monitoring-config/README.md, "fw-wan"). Its data:
 
-- Prometheus job vyos-node (node_exporter, plus vpn-metrics.py's vyos_ipsec_* and
-  vyos_wireguard_* textfile metrics), vyos-frr (frr_exporter), vyos-telegraf
-  (Telegraf's prometheus-client: per-rule nftables counters, systemd units, VyOS
-  services, interface state) and blackbox-icmp;
+- Prometheus job vyos-node (node_exporter, plus the textfile metrics of
+  vpn-metrics.py, vyos_ipsec_* and vyos_wireguard_*, and nft-metrics.py, per-rule
+  firewall and NAT counters vyos_firewall_rule_* / vyos_nat_rule_*), vyos-frr
+  (frr_exporter), vyos-telegraf (Telegraf's prometheus-client: systemd units, VyOS
+  services, interface state; its nftables_* counters cover only the named IPv4
+  chains, so they aren't used) and blackbox-icmp;
 - InfluxDB bucket vyos (Flux): the same Telegraf data plus the router's syslog,
   which carries the firewall's log lines.
 
 What a firewall rule does isn't in the metrics: fwwan_snapshot.py (written by
-fwwan_config.py from the router's config) maps chain/rule to action and match.
+fwwan_config.py from the router's config) maps family/chain/rule to action, jump target and match.
 The VRFs & routing dashboard has a router picker (default fw-wan) and works for
 the leaves too; everything else is fw-wan only.
 """
@@ -84,40 +86,72 @@ def inout(title, rx, tx, legend_rx, legend_tx, *, unit="bps", **kw):
 
 
 # --- firewall rules from the snapshot ---------------------------------------------
+#
+# Counters come from vyos/nft-metrics.py (job vyos-node): vyos_firewall_rule_{packets,bytes}_total
+# {family, kind=base|named, chain, rule} and vyos_nat_rule_{packets,bytes}_total {family, type, rule}.
+# They're real counters written every minute (reset when the ruleset is reloaded). Every packet ends in
+# exactly one accept, drop or reject (a rule or a default action), so summing those over all chains
+# gives the final verdicts; jump and return only pass it on.
+
+FWR = "vyos_firewall_rule_{}_total"
+NATR = "vyos_nat_rule_{}_total"
+BASE_CHAINS = ("input", "forward", "output")
+FINAL = ("accept", "drop", "reject")
+DEFAULT = {"rule": "default-action"}
+BASE_DEFAULT = {"kind": "base", "rule": "default-action"}
+VERDICT_COLORS = {"accept": "green", "drop": "red", "reject": "orange", "default accept": "dark-green",
+                  "default drop": "dark-red", "default reject": "dark-orange", "return": "blue"}
+
 
 def _rules():
-    """{"chain/ruleid": (verb, match text)} for every rule and default action in the snapshot."""
+    """{"family/chain/rule": (verb, jump target, match text)} for every rule and default action."""
     out = {}
-    for chain, c in snap.CHAINS.items():
-        for rid, r in c["rules"].items():
-            verb, _, target = r["action"].partition(" ")
-            text_ = r["match"] or "any"
-            if target:
-                text_ = f"→ {target}; {text_}"
-            if r["description"]:
-                text_ += f" ({r['description']})"
-            out[f"{chain}/{rid}"] = (verb, text_)
-        out[f"{chain}/default-action"] = (c["default_action"], "default action")
+    for fam, chains in snap.CHAINS.items():
+        for chain, c in chains.items():
+            for rid, r in c["rules"].items():
+                verb, _, target = r["action"].partition(" ")
+                text_ = r["match"] or "any"
+                if r["description"]:
+                    text_ += f" ({r['description']})"
+                out[f"{fam}/{chain}/{rid}"] = (verb, target, text_)
+            out[f"{fam}/{chain}/default-action"] = (c["default_action"], "", "default action")
+        for chain in BASE_CHAINS:  # unconfigured base chains still have a default action (accept)
+            out.setdefault(f"{fam}/{chain}/default-action", ("accept", "", "default action (not configured)"))
     for key in out:
         assert all(ch.isalnum() or ch in "_-/" for ch in key), key  # used unescaped in regexes below
     return out
 
 
 RULES = _rules()
-MATCH_MAP = [{"type": "value", "options": {k: {"text": t, "index": i} for i, (k, (_, t)) in enumerate(RULES.items())}}]
+MATCH_MAP = [{"type": "value", "options": {k: {"text": t, "index": i} for i, (k, (_, _, t)) in enumerate(RULES.items())}}]
+NAT_MAP = [{"type": "value", "options": {
+    f"{r['family']}/{r['type']}/{r['rule']}": {"text": r["match"] + (f" ({r['description']})" if r["description"] else ""),
+                                               "index": i} for i, r in enumerate(snap.NAT)}}]
+
+
+def _relabel(e, label, groups):
+    for value, keys in sorted(groups.items()):
+        e = f'label_replace({e}, "{label}", "{value}", "key", "{"|".join(keys)}")'
+    return e
 
 
 def keyed(expr):
-    """Labels nftables series: chain without NAME_, rule = chain/ruleid and the rule's action
-    from the snapshot ("unknown" for rules added since)."""
-    e = f'label_join(label_replace({expr}, "chain", "$1", "chain", "NAME_(.+)"), "rule", "/", "chain", "ruleid")'
-    e = f'label_replace({e}, "action", "unknown", "rule", ".*")'
-    verbs = {}
-    for key, (verb, _) in RULES.items():
+    """Adds key = family/chain/rule, the rule's action ("unknown" for rules added since the snapshot),
+    target (jump target) and verdict (action, "default <action>" for default actions, "→ <target>"
+    for jumps)."""
+    e = f'label_join({expr}, "key", "/", "family", "chain", "rule")'
+    e = f'label_replace({e}, "action", "unknown", "key", ".*")'
+    verbs, targets = {}, {}
+    for key, (verb, target, _) in RULES.items():
         verbs.setdefault(verb, []).append(key)
-    for verb, keys in sorted(verbs.items()):
-        e = f'label_replace({e}, "action", "{verb}", "rule", "{"|".join(keys)}")'
-    return e
+        if target:
+            targets.setdefault(target, []).append(key)
+    e = _relabel(e, "action", verbs)
+    e = _relabel(e, "target", targets)
+    e = f'label_replace({e}, "verdict", "$1", "action", "(.*)")'
+    e = f'label_join({e}, "ra", ":", "rule", "action")'
+    e = f'label_replace({e}, "verdict", "default $1", "ra", "default-action:(.*)")'
+    return f'label_replace({e}, "verdict", "→ $1", "target", "(.+)")'
 
 
 def only(expr, label, *values):
@@ -126,31 +160,52 @@ def only(expr, label, *values):
     return f"({expr}) and on ({label}) ({rhs})"
 
 
-def nft_rate(metric="nftables_pkts", window="$__rate_interval", extra=""):
-    return keyed(f"rate({metric}{{{FW}{extra}}}[{window}])")
+def normalized(expr):
+    """nft-metrics.py (063f533) labels the IPv6 base filters by their nft names, as named chains, and
+    also reports the raw (notrack) chains: map the former to input/forward/output (kind base). The
+    raw chains are dropped in fw()."""
+    for c in BASE_CHAINS:
+        expr = f'label_replace({expr}, "chain", "{c}", "chain", "VYOS_IPV6_{c.upper()}_filter")'
+    return f'label_replace({expr}, "kind", "base", "chain", "{"|".join(BASE_CHAINS)}")'
+
+
+def fw(fn="rate", what="packets", window="$__rate_interval", **match):
+    """keyed(fn(counter[window])) for the firewall rule counters (fn=None: the counter itself).
+    match={label: value or tuple of values} filters on the normalized labels (family, kind, chain, rule)."""
+    sel = f'{FWR.format(what)}{{{FW}, chain!~"VYOS_.*_raw"}}'
+    e = normalized(f"{fn}({sel}[{window}])" if fn else sel)
+    for label, values in match.items():
+        e = only(e, label, *((values,) if isinstance(values, str) else values))
+    return keyed(e)
 
 
 def deny_rate(by="", window="$__rate_interval"):
     agg = f"sum by ({by})" if by else "sum"
-    return f"{agg} ({only(nft_rate(window=window), 'action', 'drop', 'reject')})"
+    return f"{agg} ({only(fw(window=window), 'action', 'drop', 'reject')})"
+
+
+def nat(fn="rate", what="packets", window="$__rate_interval"):
+    sel = f"{NATR.format(what)}{{{FW}}}"
+    e = f"{fn}({sel}[{window}])" if fn else sel
+    return f'label_join({e}, "key", "/", "family", "type", "rule")'
 
 
 def rule_reference():
-    lines = [f"Snapshot of fw-wan's named IPv4 chains taken {snap.TAKEN} by `fwwan_config.py`. "
-             "Base chains (input/forward filter) have no per-rule counters in Telegraf.", "",
-             "| Chain | Entered from | Rule | Action | Match |", "| --- | --- | --- | --- | --- |"]
-    for chain, c in snap.CHAINS.items():
-        src = ", ".join(c["from"]) or "(nothing)"
-        for rid, r in c["rules"].items():
-            desc = f" ({r['description']})" if r["description"] else ""
-            lines.append(f"| {chain} | {src} | {rid} | {r['action']} | {r['match'] or 'any'}{desc} |")
-            src = ""
-        lines.append(f"| {chain} | {src} | default | **{c['default_action']}** | |")
-    lines += ["", "**NAT** (no counters exported; conntrack covers the translated flows)", "",
-              "| Type | Rule | Match / translation |", "| --- | --- | --- |"]
+    lines = [f"Snapshot of fw-wan's filter chains taken {snap.TAKEN} by `fwwan_config.py`.", "",
+             "| Family | Chain | Entered from | Rule | Action | Match |", "| --- | --- | --- | --- | --- | --- |"]
+    for fam, chains in snap.CHAINS.items():
+        for chain, c in chains.items():
+            src = ", ".join(c["from"]) or ("hook" if c["kind"] == "base" else "(nothing)")
+            for rid, r in c["rules"].items():
+                desc = f" ({r['description']})" if r["description"] else ""
+                lines.append(f"| {fam} | {chain} | {src} | {rid} | {r['action']} | {r['match'] or 'any'}{desc} |")
+                src = ""
+            lines.append(f"| {fam} | {chain} | {src} | default | **{c['default_action']}** | |")
+    lines += ["", "**NAT** (counters see the first packet of each connection)", "",
+              "| Family | Type | Rule | Match / translation |", "| --- | --- | --- | --- |"]
     for r in snap.NAT:
         desc = f" ({r['description']})" if r["description"] else ""
-        lines.append(f"| {r['type']} | {r['rule']} | {r['match']}{desc} |")
+        lines.append(f"| {r['family']} | {r['type']} | {r['rule']} | {r['match']}{desc} |")
     return text("Rule reference", "\n".join(lines))
 
 
@@ -338,7 +393,7 @@ def overview_row(b):
         links=[go("fw-wan VPNs", "vpn")], desc="IPsec IKE SAs and WireGuard peers on fw-wan."), 6, 5)
     b.add(stat("Firewall drops + rejects", [q(deny_rate() + " or vector(0)")], unit="pps", decimals=2,
                thresholds=steps(("green", None), ("orange", 1), ("red", 50)), graph=True, color_mode="value",
-               links=[go("fw-wan firewall", "firewall")], desc="fw-wan's named chains."), 5, 5)
+               links=[go("fw-wan firewall", "firewall")], desc="Dropped or rejected by any fw-wan filter chain."), 5, 5)
     b.add(gauge("fw-wan conntrack", [q(f"node_nf_conntrack_entries{{{FW}}} / node_nf_conntrack_entries_limit{{{FW}}}")],
                 unit="percentunit", min_=0, max_=1, decimals=2,
                 thresholds=steps(("green", None), ("orange", 0.75), ("red", 0.9)), links=link), 4, 5)
@@ -400,8 +455,8 @@ def overview():
              "under System."), 4, 5)
     b.add(stat("Firewall drops + rejects", [q(deny_rate() + " or vector(0)", "per second")], unit="pps", decimals=2,
                thresholds=steps(("green", None), ("orange", 1), ("red", 50)), graph=True, color_mode="value",
-               desc="Packets hitting drop/reject rules and default actions of the named chains (Telegraf counters; "
-                    "the base input/forward chains have no per-rule counters).",
+               desc="Packets dropped or rejected by any rule or default action (input, forward, output and the "
+                    "named chains; IPv4 + IPv6).",
                links=[go("fw-wan firewall", "firewall")]), 4, 5)
 
     b.row("Traffic")
@@ -430,16 +485,22 @@ def overview():
     ], unit="bps", fill=0, calcs=("mean", "max"), placement="right"), 16, 10)
 
     b.row("Firewall")
-    b.add(timeseries("Rule matches by action", [
-        q(f"sum by (action) ({nft_rate()})", "{{action}}"),
+    b.add(timeseries("Final verdicts", [
+        q(f"sum by (action) ({only(fw(), 'action', *FINAL)})", "{{action}}"),
     ], unit="pps", stack=True, fill=40, calcs=("mean", "max"),
-        overrides=[fixed_color(a, c) for a, c in ACTION_COLORS.items()],
-        desc="Packets matching a rule (or default action) in the named chains, by the rule's action. A packet "
-             "that jumps to a chain counts once for the jump and once in the target chain.",
-        links=[go("fw-wan firewall", "firewall")]), 12, 9)
-    b.add(timeseries("Drops + rejects per chain", [q(deny_rate("chain"), "{{chain}}")], unit="pps", stack=True, fill=40,
-                     calcs=("mean", "max"), desc="Drop/reject rules and default actions, per named chain.",
-                     links=[go("fw-wan firewall", "firewall")]), 12, 9)
+        overrides=[fixed_color(a, ACTION_COLORS[a]) for a in FINAL],
+        desc="Packets accepted, dropped and rejected per second over every chain (rules and default actions, "
+             "IPv4 + IPv6).", links=[go("fw-wan firewall", "firewall")]), 8, 9)
+    b.add(timeseries("Drops + rejects by chain", [
+        q(f"{deny_rate('family, chain')} > 0", "{{chain}} ({{family}})"),
+    ], unit="pps", stack=True, fill=40, calcs=("mean", "max"), no_value="No drops or rejects in range",
+        desc="Drop/reject rules and default actions per chain; input/forward are the base filters' default drops.",
+        links=[go("fw-wan firewall", "firewall")]), 8, 9)
+    b.add(timeseries("NAT connections", [
+        q(f"sum by (type) ({nat()}) * 60", "{{type}} NAT"),
+    ], unit="short", fill=20, calcs=("mean", "max"),
+        desc="New connections per minute through the NAT rules (masquerade to the WAN address).",
+        links=[go("fw-wan firewall", "firewall")]), 8, 9)
 
     b.row("VPNs")
     b.add(state_timeline("Tunnels", [
@@ -507,81 +568,130 @@ def overview():
 
 def firewall():
     b = Board()
+    verdict_colors = [fixed_color(v, c) for v, c in VERDICT_COLORS.items()]
     b.row("Summary")
-    b.add(stat("Rule matches", [
-        q(f'sum({only(nft_rate(), "action", a)}) or vector(0)', a) for a in ("accept", "drop", "reject", "return", "jump")
+    b.add(stat("Final verdicts", [
+        q(f'sum({only(fw(), "action", a)}) or vector(0)', a) for a in FINAL
     ], unit="pps", decimals=2, text_mode="value_and_name", color_mode="value", graph=True,
-        overrides=[fixed_color(a, ACTION_COLORS[a]) for a in ("accept", "drop", "reject", "return", "jump")],
-        desc="Packets per second matching rules in the named chains, by the rule's action (from the config "
-             "snapshot)."), 10, 6)
-    b.add(stat("Drops + rejects in range", [q(f"sum({only(keyed(f'increase(nftables_pkts{{{FW}}}[$__range])'), 'action', 'drop', 'reject')}) or vector(0)")],
-               decimals=0, color_mode="value", thresholds=steps(("green", None), ("orange", 1)),
-               desc="Packets dropped or rejected by the named chains in the selected time range."), 4, 6)
+        overrides=[fixed_color(a, ACTION_COLORS[a]) for a in FINAL],
+        desc="Packets per second accepted, dropped and rejected, over every chain (rules and default actions, "
+             "IPv4 + IPv6). Each packet gets exactly one of these per hook it passes."), 8, 6)
+    b.add(stat("Dropped + rejected in range", [
+        q(f"sum({only(fw('increase', window='$__range'), 'action', 'drop', 'reject')}) or vector(0)")],
+        decimals=0, color_mode="value", thresholds=steps(("green", None), ("orange", 1)),
+        desc="Packets dropped or rejected anywhere in the selected time range."), 4, 6)
+    b.add(stat("Default-action drops in range", [
+        q(f"sum by (chain) ({only(fw('increase', window='$__range', **BASE_DEFAULT), 'verdict', 'default drop', 'default reject')})",
+          "{{chain}}")
+    ], decimals=0, text_mode="value_and_name", color_mode="value", thresholds=steps(("green", None), ("orange", 1)),
+        no_value="0", desc="Packets that fell through every rule of input, forward and output (IPv4 + IPv6) to the "
+                           "default action (drop for input and forward)."), 5, 6)
     b.add(on_influx(stat("Logged in range", [flux(FW_LOG_COUNT)], decimals=0, color_mode="value", thresholds=BLUE,
                          no_value="0", desc="Firewall log lines in the syslog (rules with `log`).")), 3, 6)
-    b.add(gauge("Conntrack table", [q(f"node_nf_conntrack_entries{{{FW}}} / node_nf_conntrack_entries_limit{{{FW}}}")],
-                unit="percentunit", min_=0, max_=1, decimals=2,
-                thresholds=steps(("green", None), ("orange", 0.75), ("red", 0.9))), 4, 6)
-    b.add(stat("Rules not in snapshot", [
-        q(f'count({only(keyed(f"nftables_pkts{{{FW}}}"), "action", "unknown")}) or vector(0)'),
-    ], thresholds=ORANGE_IF_ANY,
-        desc="Rules with counters that fwwan_snapshot.py doesn't know. Re-run fwwan_config.py and custom.py "
-             f"(snapshot from {snap.TAKEN})."), 3, 6)
+    b.col(4,
+          (stat("Rules not in snapshot", [
+              q(f'count({only(fw(None), "action", "unknown")}) or vector(0)'),
+          ], thresholds=ORANGE_IF_ANY,
+              desc="Rules with counters that fwwan_snapshot.py doesn't know. Re-run fwwan_config.py and custom.py "
+                   f"(snapshot from {snap.TAKEN})."), 3),
+          (stat("Counters age", [q(f"time() - vyos_nft_metrics_last_run_timestamp_seconds{{{FW}}}")], unit="s",
+                decimals=0, color_mode="value", thresholds=steps(("green", None), ("orange", 180), ("red", 600)),
+                no_value="nft-metrics.py not running",
+                desc="Age of nft-metrics.py's output (written every minute)."), 3))
+
+    b.row("Base chains: input, forward, output")
+    for c in BASE_CHAINS:
+        b.add(timeseries(c, [
+            q(f"sum by (verdict) ({fw(kind='base', chain=c)})", "{{verdict}}"),
+        ], unit="pps", stack=True, fill=40, calcs=("mean", "max"), overrides=verdict_colors,
+            no_value="No traffic" if c != "output" else "No output filter configured",
+            desc=f"What the {c} filter (IPv4 + IPv6) does with packets, per rule action: accepted, dropped, "
+                 "handed to a named chain (→ chain; its verdict is counted there) or left to the default action."),
+              8, 9)
+    b.add(timeseries("Default-action drops", [
+        q(f"sum by (family, chain) ({only(fw(**BASE_DEFAULT), 'verdict', 'default drop', 'default reject')})",
+          "{{family}} {{chain}}"),
+    ], unit="pps", fill=20, calcs=("mean", "max", "sum"),
+        desc="Packets the base chains dropped because no rule matched: unsolicited traffic to the router (input) or "
+             "through it (forward)."), 12, 9)
+    b.add(timeseries("What is being dropped", [
+        q(f"sum by (family, chain, rule) ({only(fw(), 'action', 'drop', 'reject')}) > 0", "{{chain}} #{{rule}} ({{family}})"),
+    ], unit="pps", fill=10, stack=True, calcs=("mean", "max"), placement="right", no_value="No drops or rejects in range",
+        desc="Every drop/reject rule and default action, in any chain, while it matches."), 12, 9)
 
     b.row("Chains")
     b.add(state_timeline("Chain activity", [
-        q(f"sum by (chain) ({nft_rate()})", "{{chain}}"),
+        q(f"sum by (family, chain) ({fw()})", "{{chain}} · {{family}}"),
     ], unit="pps", row_height=0.9, thresholds=steps(("transparent", None), ("dark-blue", 0.001), ("blue", 0.1),
                                                      ("green", 1), ("yellow", 10), ("orange", 100), ("red", 1000)),
-        desc="Rule matches per second in each named chain. Colour steps: >0, 0.1, 1, 10, 100, 1000 pps."), 24, 10)
-    b.add(timeseries("Packets per chain", [q(f"sum by (chain) ({nft_rate()})", "{{chain}}")],
+        desc="Rule matches per second in each chain. Colour steps: >0, 0.1, 1, 10, 100, 1000 pps."), 24, 12)
+    b.add(timeseries("Packets per chain", [q(f"sum by (family, chain) ({fw()})", "{{chain}} · {{family}}")],
                      unit="pps", fill=10, calcs=("mean", "max"), placement="right"), 12, 9)
-    b.add(timeseries("Traffic per chain", [q(f"sum by (chain) ({nft_rate('nftables_bytes')}) * 8", "{{chain}}")],
+    b.add(timeseries("Traffic per chain", [q(f"sum by (family, chain) ({fw(what='bytes')}) * 8", "{{chain}} · {{family}}")],
                      unit="bps", fill=10, calcs=("mean", "max"), placement="right"), 12, 9)
 
     b.row("Rules")
-    lbl = "max without (instance, job, role, host, table)"
+    lbl = "max without (instance, job, role, host, ra, verdict)"
     b.add(table("Rules", [
-        q(f"{lbl} ({nft_rate(window='5m')})", table=True),
-        q(f"{lbl} ({keyed(f'increase(nftables_pkts{{{FW}}}[$__range])')})", table=True),
-        q(f"{lbl} ({keyed(f'increase(nftables_bytes{{{FW}}}[$__range])')})", table=True),
-        q(f"{lbl} ({keyed(f'nftables_pkts{{{FW}}}')})", table=True),
-        q(f"{lbl} ({keyed(f'nftables_bytes{{{FW}}}')})", table=True),
-    ], desc="Every rule and default action of the named chains. Action and match come from the config snapshot "
-            f"({snap.TAKEN}); the counters reset when the firewall is reloaded (commit).",
+        q(f"{lbl} ({fw(window='5m')})", table=True),
+        q(f"{lbl} ({fw('increase', window='$__range')})", table=True),
+        q(f"{lbl} ({fw('increase', what='bytes', window='$__range')})", table=True),
+        q(f"{lbl} ({fw(None)})", table=True),
+        q(f"{lbl} ({fw(None, what='bytes')})", table=True),
+    ], desc="Every rule and default action of every chain (IPv4 and IPv6). Action, jump target and match come from "
+            f"the config snapshot ({snap.TAKEN}); the counters reset when the firewall is reloaded (commit).",
         transformations=[MERGE, organize(exclude=["Time"], rename={
-            "chain": "Chain", "ruleid": "Rule", "action": "Action", "rule": "Match", "Value #A": "Packets/s",
-            "Value #B": "Packets in range", "Value #C": "Bytes in range", "Value #D": "Total packets",
-            "Value #E": "Total bytes"},
-            order=["Chain", "Rule", "Action", "Match", "Packets/s", "Packets in range", "Bytes in range",
-                   "Total packets", "Total bytes"])],
-        overrides=[cell("Action", "color-background"), override("Action", {"mappings": ACTION_MAP, "custom.width": 110}),
-                   override("Match", {"mappings": MATCH_MAP, "custom.minWidth": 300}),
-                   override("Chain", {"custom.width": 150}), override("Rule", {"custom.width": 110}),
+            "family": "Family", "kind": "Kind", "chain": "Chain", "rule": "Rule", "action": "Action",
+            "target": "Jumps to", "key": "Match", "Value #A": "Packets/s", "Value #B": "Packets in range",
+            "Value #C": "Bytes in range", "Value #D": "Total packets", "Value #E": "Total bytes"},
+            order=["Family", "Kind", "Chain", "Rule", "Action", "Jumps to", "Match", "Packets/s", "Packets in range",
+                   "Bytes in range", "Total packets", "Total bytes"])],
+        overrides=[cell("Action", "color-background"), override("Action", {"mappings": ACTION_MAP, "custom.width": 100}),
+                   override("Match", {"mappings": MATCH_MAP, "custom.minWidth": 280}),
+                   override("Family", {"custom.width": 70}), override("Kind", {"custom.width": 70}),
+                   override("Chain", {"custom.width": 140}), override("Rule", {"custom.width": 110}),
+                   override("Jumps to", {"custom.width": 130}),
                    override("Packets/s", {"unit": "pps", "decimals": 2}),
                    override("Packets in range", {"decimals": 0, "custom.cellOptions": {"type": "gauge", "mode": "basic",
                                                                                        "valueDisplayMode": "text"},
                                                  "color": {"mode": "continuous-BlPu"}}),
                    override("Bytes in range|Total bytes", {"unit": "decbytes"}, regex=True),
                    override("Total packets", {"decimals": 0})],
-        sort="Packets in range", desc_sort=True), 24, 16)
+        sort="Packets in range", desc_sort=True), 24, 18)
     b.add(bargauge("Top rules in range", [
-        q(f"topk(12, {keyed(f'increase(nftables_pkts{{{FW}}}[$__range])')} > 0)", "{{chain}} #{{ruleid}} · {{action}}"),
+        q(f"topk(12, {fw('increase', window='$__range')} > 0)", "{{chain}} #{{rule}} · {{verdict}}"),
     ], decimals=0, mode="gradient", color={"mode": "continuous-BlPu"}, thresholds=BLUE,
-        desc="Packets per rule in the selected time range."), 8, 10)
-    b.add(timeseries("Drops and rejects per rule", [
-        q(f"sum by (chain, ruleid) ({only(nft_rate(), 'action', 'drop', 'reject')}) > 0", "{{chain}} #{{ruleid}}"),
-    ], unit="pps", fill=10, calcs=("mean", "max"), placement="right", no_value="No drops or rejects in range",
-        desc="Only rules (and default actions) that drop or reject, and only while they match."), 16, 10)
-    defaults = keyed(f'increase(nftables_pkts{{{FW}, ruleid="default-action"}}[$__range])')
+        desc="Packets per rule in the selected time range (jumps included)."), 12, 10)
     b.add(bargauge("Default actions hit in range", [
-        q(f"sum by (chain, action) ({defaults})", "{{chain}} · {{action}}"),
-    ], decimals=0, thresholds=GREEN, desc="Packets that fell through every rule of a chain (to its default action).",
-        overrides=[override(f".*· {a}$", {"color": {"mode": "fixed", "fixedColor": c}}, regex=True)
-                   for a, c in ACTION_COLORS.items()]), 12, 10)
-    b.add(timeseries("Traffic dropped or rejected", [
-        q(f"sum by (chain) ({only(nft_rate('nftables_bytes'), 'action', 'drop', 'reject')}) * 8 > 0", "{{chain}}"),
-    ], unit="bps", fill=10, stack=True, calcs=("mean", "max"), no_value="No drops or rejects in range"), 12, 10)
+        q(f"sum by (family, chain, verdict) ({fw('increase', window='$__range', **DEFAULT)})",
+          "{{chain}} ({{family}}) · {{verdict}}"),
+    ], decimals=0, thresholds=GREEN, desc="Packets that fell through every rule of a chain to its default action.",
+        overrides=[override(f".*· {v}$", {"color": {"mode": "fixed", "fixedColor": c}}, regex=True)
+                   for v, c in VERDICT_COLORS.items()]), 12, 10)
+
+    b.row("NAT")
+    nlbl = "max without (instance, job, role, host)"
+    b.add(table("NAT rules", [
+        q(f"{nlbl} ({nat(window='5m')}) * 60", table=True),
+        q(f"{nlbl} ({nat('increase', window='$__range')})", table=True),
+        q(f"{nlbl} ({nat(None)})", table=True),
+    ], desc="NAT rules only see the first packet of a connection, so the counters are connections translated. "
+            "Match and translation from the config snapshot.",
+        transformations=[MERGE, organize(exclude=["Time"], rename={
+            "family": "Family", "type": "Type", "rule": "Rule", "key": "Match / translation",
+            "Value #A": "Connections/min", "Value #B": "Connections in range", "Value #C": "Total"},
+            order=["Family", "Type", "Rule", "Match / translation", "Connections/min", "Connections in range", "Total"])],
+        overrides=[override("Match / translation", {"mappings": NAT_MAP, "custom.minWidth": 320}),
+                   override("Connections/min", {"decimals": 1}),
+                   override("Connections in range", {"decimals": 0, "custom.cellOptions": {
+                       "type": "gauge", "mode": "basic", "valueDisplayMode": "text"}, "color": {"mode": "continuous-BlPu"}}),
+                   override("Total", {"decimals": 0})],
+        sort="Connections in range", desc_sort=True), 12, 10)
+    b.add(timeseries("NAT connections per rule", [
+        q(f"sum by (family, type, rule) ({nat()}) * 60 > 0", "{{type}} {{rule}} ({{family}})"),
+    ], unit="short", fill=10, stack=True, calcs=("mean", "max"), placement="right", no_value="No NAT matches in range",
+        desc="New connections per minute translated by each NAT rule (source NAT = masquerade to the WAN address)."),
+        12, 10)
 
     b.row("Conntrack")
     b.add(timeseries("Tracked connections", [
@@ -622,8 +732,9 @@ def firewall():
     b.add(rule_reference(), 24, 22)
 
     return dashboard(UIDS["firewall"], "fw-wan firewall",
-                     "fw-wan's named firewall chains: per-chain and per-rule counters, drops and rejects, conntrack, "
-                     "the firewall log.", b, tags=["fw-wan", "vyos", "firewall"], extra_links=[FW_LINK])
+                     "fw-wan's firewall: final verdicts, the input/forward/output filters and their default-action "
+                     "drops, every chain and rule, NAT, conntrack, the firewall log.",
+                     b, tags=["fw-wan", "vyos", "firewall"], extra_links=[FW_LINK])
 
 
 # --- fw-wan VPNs ----------------------------------------------------------------------
@@ -747,15 +858,16 @@ def vpn():
     ], decimals=0, fill=0, step=True, calcs=("min", "max", "lastNotNull"), desc="IPv4 + IPv6 zebra routes."), 8, 7)
 
     b.row("VPN firewall chains")
-    vpn_chains = 'chain=~"NAME_(ipsec|haystack.*|vpn_me_FW|wg70_fw|bgp_peers)"'
+    vpn_chains = dict(family="ipv4", chain=("ipsec", "haystack", "haystack_dns", "haystack_ssh", "haystack_vxlan",
+                                            "vpn_me_FW", "wg70_fw", "bgp_peers"))
     b.add(timeseries("Matches per chain", [
-        q(f"sum by (chain) ({nft_rate(extra=', ' + vpn_chains)})", "{{chain}}"),
+        q(f"sum by (chain) ({fw(**vpn_chains)})", "{{chain}}"),
     ], unit="pps", fill=10, calcs=("mean", "max"),
         desc="ipsec (IKE/ESP to fw-wan, input filter 500-502), haystack* (forwarded from vpn_hay), vpn_me_FW "
              "(from vpn_me), wg70_fw and bgp_peers.", links=[go("fw-wan firewall", "firewall")]), 12, 8)
     b.add(timeseries("Drops and rejects", [
-        q(f"sum by (chain, ruleid) ({only(nft_rate(extra=', ' + vpn_chains), 'action', 'drop', 'reject')})",
-          "{{chain}} #{{ruleid}}"),
+        q(f"sum by (chain, rule) ({only(fw(**vpn_chains), 'action', 'drop', 'reject')})",
+          "{{chain}} #{{rule}}"),
     ], unit="pps", fill=10, calcs=("mean", "max"),
         desc="ipsec default-action: IKE/ESP from addresses that aren't configured peers."), 12, 8)
 
