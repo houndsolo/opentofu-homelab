@@ -43,6 +43,20 @@
       "url": ""
     },
     {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
       "asDropdown": false,
       "icon": "external link",
       "includeVars": false,
@@ -8470,6 +8484,7 @@
   "style": "dark",
   "tags": [
     "Mikrotik",
+    "lylat",
     "prometheus",
     "snmp",
     "snmp v3",

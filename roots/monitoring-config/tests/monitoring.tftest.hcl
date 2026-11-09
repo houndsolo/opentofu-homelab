@@ -63,16 +63,47 @@ run "inventory_targets" {
       strcontains(module.monitoring.dashboard_providers_config, "\"path\": \"/etc/grafana/provisioning/dashboards/files\"") &&
       strcontains(module.monitoring.dashboard_providers_config, "\"foldersFromFilesStructure\": true") &&
       strcontains(module.monitoring.dashboard_providers_config, "\"allowUiUpdates\": false") &&
-      toset(keys(module.monitoring.dashboards)) == toset([
-        "Network/mikrotik-snmp.json",
-        "Network/snmp-device-summary.json",
-        "Network/snmp-interface-detail.json",
-      ]) &&
-      alltrue([for rel, content in module.monitoring.dashboards : contains(
-        ["mikrotik-snmp", "snmp-device-summary", "snmp-interface-detail"], jsondecode(content).uid
-      )])
+      { for rel, content in module.monitoring.dashboards : rel => jsondecode(content).uid } == {
+        "Hosts/node-exporter-full.json"      = "node-exporter-full"
+        "Monitoring/monitoring-stack.json"   = "monitoring-stack"
+        "Network/frr-evpn-fabric.json"       = "frr-evpn-fabric"
+        "Network/mikrotik-snmp.json"         = "mikrotik-snmp"
+        "Network/snmp-device-summary.json"   = "snmp-device-summary"
+        "Network/snmp-interface-detail.json" = "snmp-interface-detail"
+        "Overview/overview.json"             = "lylat-overview"
+        "Probes/blackbox-probes.json"        = "blackbox-probes"
+      }
     )
-    error_message = "Provision the SNMP dashboards from dashboards/<Folder>/*.json with a file provider that the UI can't save over."
+    error_message = "Provision the dashboards from dashboards/<Folder>/*.json, with fixed uids, through a file provider that the UI can't save over."
+  }
+
+  assert {
+    # Every dashboard is in the "Dashboards" dropdown (links to tag lylat), and the overview shows them as buttons.
+    condition = alltrue([for rel, content in module.monitoring.dashboards : (
+      contains(jsondecode(content).tags, "lylat") &&
+      length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "lylat")]) == 1
+      )]) && alltrue([for l in jsondecode(module.monitoring.dashboards["Overview/overview.json"]).links :
+      !l.asDropdown if l.type == "dashboards"
+    ])
+    error_message = "Every dashboard carries the lylat tag and a dashboard-links entry for it."
+  }
+
+  assert {
+    # Node Exporter Full serves both node_exporter jobs: pick the job, then a host by its "host" label.
+    condition = (
+      [for v in jsondecode(module.monitoring.dashboards["Hosts/node-exporter-full.json"]).templating.list : v.name] == ["job", "node"] &&
+      strcontains(module.monitoring.dashboards["Hosts/node-exporter-full.json"], "query_result(count by (host, instance) (node_uname_info{job=\\\"$job\\\"}))") &&
+      !strcontains(module.monitoring.dashboards["Hosts/node-exporter-full.json"], "$nodename")
+    )
+    error_message = "Node Exporter Full must offer a job picker and a host picker (host label, instance value)."
+  }
+
+  assert {
+    condition = alltrue([for name in ["graf01", "graf02"] : strcontains(
+      module.monitoring.units[name].grafana,
+      "Environment=GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/files/Overview/overview.json\n"
+    )])
+    error_message = "The provisioned overview dashboard is Grafana's home page."
   }
 
   assert {
@@ -93,6 +124,10 @@ run "inventory_targets" {
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "prune '/etc/grafana-container/provisioning/dashboards/files'") &&
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/Network' '0755' 'root'") &&
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/files/Network/snmp-device-summary.json' '0644' 'root' '' ''") &&
+      alltrue([for dir in ["Hosts", "Monitoring", "Overview", "Probes"] : strcontains(
+        nonsensitive(module.monitoring.grafana_deployments[name]),
+        "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/${dir}' '0755' 'root'"
+      )]) &&
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/dashboards.yml' '0644' 'root' 'grafana' ''")
     )]) && !strcontains(nonsensitive(module.monitoring.backend_deployment), "\nprune '")
     error_message = "Grafana VMs install the dashboards without a restart (the provider polls), restart only for the provider file, and prune removed dashboards."

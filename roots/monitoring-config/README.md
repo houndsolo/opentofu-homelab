@@ -128,27 +128,59 @@ Each subdirectory becomes a Grafana folder. A file provider loads them, so:
 - Both Grafanas provision the same files into the shared database. Grafana
   compares checksums, so they don't overwrite each other.
 
+Grafana's **home page** is the overview (`GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH`
+points at its provisioned file), until a user, team or org preference picks
+another. Grafana serves that copy as `/d/default-home-dashboard`; the one in the
+Overview folder (`lylat-overview`) is the same JSON. Every dashboard has a **Dashboards** dropdown in the top bar listing all
+of them (they share the `lylat` tag); the overview shows them as buttons.
+
 | Folder | Dashboard (uid) | Source | Shows |
 | --- | --- | --- | --- |
+| Overview | lylat.space overview (`lylat-overview`) | custom | Targets up/down (stats, per job, per target), firing alerts, probe status, BGP established/total and BFD up/total across the fabric, EVPN totals, a host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full), top 10 interfaces from node_exporter and SNMP |
+| Hosts | Node Exporter Full (`node-exporter-full`) | [grafana.com 1860](https://grafana.com/grafana/dashboards/1860) rev 46 | Everything node_exporter collects, for one host. Pick the job (`node` for the VMs, `vyos-node` for the VyOS routers), then the host |
+| Network | FRR / EVPN fabric (`frr-evpn-fabric`) | custom | BGP peer table (router, VRF, AFI/SAFI, peer, hostname, ASNs, state, uptime, prefixes rx/tx, message rates), session state timeline, established sessions per router, flaps in the time range, BFD peers, EVPN remote VTEPs/MACs/ARP-ND per router and per L2 VNI, routes per VRF, RIB vs FIB, BGP RIB, frr_exporter health. Router and VRF pickers |
 | Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
 | Network | SNMP Interface Detail (`snmp-interface-detail`) | [grafana.com 12492](https://grafana.com/grafana/dashboards/12492) rev 4 | Per interface: status, speed, traffic, unicast/multicast/broadcast packets, errors, discards |
 | Network | Mikrotik monitoring (`mikrotik-snmp`) | [grafana.com 14420](https://grafana.com/grafana/dashboards/14420) rev 9 | MikroTik `mikrotik` module: board/firmware, CPU temperature, per-interface traffic and Ethernet error counters, interface table, neighbors (MNDP/LLDP) |
+| Probes | Blackbox probes (`blackbox-probes`) | custom | ICMP/HTTP/DNS SOA probes: status, availability over the time range, duration, ICMP RTT and hop limit, HTTP status/phases (no TLS)/size, DNS query time, SOA serial and drift between the DNS servers |
+| Monitoring | Monitoring stack (`monitoring-stack`) | custom | Component status and versions, config reloads; Prometheus targets per job, scrape duration, samples, head series, TSDB size, ingestion, rule evaluation, query latency; Alertmanager alerts, silences, notifications; Grafana requests, latency, datasource queries, DB connections, alerting; SNMP/FRR/node exporter scrape times; process memory and CPU |
 
-The first two need only `if_mib`, so they work for every SNMP job. A dropdown in
-the top bar ("SNMP dashboards") switches between them and keeps the selected
-device and time range. The device picker shows each target's `host` label.
+The SNMP dashboards need only `if_mib`, so they work for every SNMP job. A dropdown
+in the top bar ("SNMP dashboards") switches between them and keeps the selected
+device and time range. The device and host pickers show each target's `host` label.
 
-Some Mikrotik monitoring panels stay empty here. CPU load, RAM, disk, uptime,
-model and identity need the `hrDevice`, `hrStorage` and `system` modules, which
-the MikroTik jobs in `snmp_targets` don't include. The Wi-Fi, CAPsMAN, 60 GHz,
-PoE and queue panels don't apply to CRS switches.
+Panels that stay empty, and why:
 
-To update or add a community dashboard, edit the list in
-[`dashboards/update.py`](../../modules/services/monitoring/dashboards/update.py)
-and run `python3 -I modules/services/monitoring/dashboards/update.py`. The script
-downloads the pinned revision and points every query at the provisioned
-Prometheus datasource (uid `prometheus`). It also drops the import-time
-datasource inputs and variables, and sets the device picker, uid, tag and links.
+- **Node Exporter Full:** swap (none configured), zswap, processes/PIDs/threads,
+  systemd, TCP connection states, IRQ detail, CPU frequency and throttling,
+  EDAC, power supply, fans and cooling. These need node_exporter collectors that
+  aren't enabled (`processes`, `systemd`, `tcpstat`, `interrupts`) or hardware a VM
+  doesn't have. On VyOS, "Root FS" is empty because the overlay root isn't
+  reported; the persistence partition shows under the filesystem panels.
+  Temperatures show only for the bare-metal leaves (leaf-18, leaf-19, leaf-42);
+  the other routers are VMs without hwmon sensors.
+- **Mikrotik monitoring:** CPU load, RAM, disk, uptime, model and identity need the
+  `hrDevice`, `hrStorage` and `system` modules, which the MikroTik jobs in
+  `snmp_targets` don't include. The Wi-Fi, CAPsMAN, 60 GHz, PoE and queue panels
+  don't apply to CRS switches.
+- **FRR / EVPN fabric:** "Flaps per session in range" says "No BGP flaps in range"
+  when there were none.
+- Hosts without an exporter yet (DNS VMs, Proxmox nodes, fw-wan) show as DOWN in
+  the target tables and are left out of everything else.
+
+### Changing the dashboards
+
+- **Community dashboards:** edit the list in
+  [`dashboards/update.py`](../../modules/services/monitoring/dashboards/update.py)
+  and run `python3 -I modules/services/monitoring/dashboards/update.py`. The script
+  downloads the pinned revision and points every query at the provisioned
+  Prometheus datasource (uid `prometheus`). It also drops the import-time
+  datasource inputs and variables, and sets the host picker, uid, tags and links.
+- **Custom dashboards:** edit
+  [`dashboards/custom.py`](../../modules/services/monitoring/dashboards/custom.py)
+  and run `python3 -I modules/services/monitoring/dashboards/custom.py`. It writes
+  the JSON offline. Don't edit the generated JSON by hand.
+
 Review the diff, then apply. File and folder names must not contain spaces.
 
 ## Inputs
@@ -219,8 +251,8 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
    (services-config).
 2. Proxmox metric server → InfluxDB.
 3. keepalived VIP for Grafana on the backend VLAN.
-4. More dashboards (node exporter, VyOS/FRR, blackbox, Proxmox) under
-   `modules/services/monitoring/dashboards/`.
+4. A Proxmox dashboard once pve-exporter has a token (and node_exporter on the
+   nodes, which Node Exporter Full then shows as job `node`).
 
 ## Tests
 
@@ -228,10 +260,12 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
 `random` provider. It checks the derived targets and URLs, that pve-exporter
 appears only with a token (and the token stays out of `prometheus.yml`), the
 unit contents (Postgres bound to the backend VLAN, Grafana HA peers), the
-Postgres/InfluxDB data-directory owners, the dashboard provider and files (every
-query uses the provisioned Prometheus datasource, no import-time placeholders,
-no restart for JSON changes, stale files pruned), and that a missing backend NIC
-fails the plan.
+Postgres/InfluxDB data-directory owners, the dashboard provider and files (the
+expected files and uids per folder, every query uses the provisioned Prometheus
+datasource, no import-time placeholders, every dashboard in the `lylat` links
+dropdown, Node Exporter Full's job and host pickers, the overview as home
+dashboard, no restart for JSON changes, stale files pruned), and that a missing
+backend NIC fails the plan.
 
 ```sh
 nix-shell --run 'tofu -chdir=roots/monitoring-config test'

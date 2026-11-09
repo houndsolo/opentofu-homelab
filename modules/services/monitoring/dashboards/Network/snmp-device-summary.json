@@ -38,6 +38,20 @@
       "targetBlank": false,
       "tooltip": "",
       "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
     }
   ],
   "liveNow": false,
@@ -594,6 +608,7 @@
   "schemaVersion": 35,
   "style": "dark",
   "tags": [
+    "lylat",
     "snmp"
   ],
   "templating": {

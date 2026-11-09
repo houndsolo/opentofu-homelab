@@ -211,6 +211,10 @@ locals {
     rel => jsonencode(jsondecode(file("${path.module}/dashboards/${rel}")))
   }
   dashboard_dirs = sort(distinct([for rel in keys(local.dashboards) : dirname(rel) if dirname(rel) != "."]))
+  # Grafana's home page (until a user, team or org preference overrides it). Left
+  # unset if the file is gone, so Grafana falls back to its own home page.
+  home_dashboard      = "Overview/overview.json"
+  home_dashboard_path = contains(keys(local.dashboards), local.home_dashboard) ? "/etc/grafana/provisioning/dashboards/files/${local.home_dashboard}" : null
 
   dashboard_providers_yml = yamlencode({
     apiVersion = 1
@@ -462,7 +466,7 @@ locals {
         # UI on every address, so a future keepalived VIP works wherever it lands.
         publish = ["3000:3000", "${g.backend_address}:9094:9094/tcp", "${g.backend_address}:9094:9094/udp"]
         volumes = ["${local.grafana_conf}/provisioning:/etc/grafana/provisioning:ro", "${local.grafana_data}:/var/lib/grafana"]
-        env = {
+        env = merge({
           GF_SERVER_ROOT_URL                       = var.settings.grafana_root_url
           GF_SECURITY_ADMIN_USER                   = "admin"
           GF_DATABASE_TYPE                         = "postgres"
@@ -475,7 +479,9 @@ locals {
           GF_METRICS_ENABLED                       = "true"
           GF_ANALYTICS_REPORTING_ENABLED           = "false"
           GF_ANALYTICS_CHECK_FOR_UPDATES           = "false"
-        }
+          }, local.home_dashboard_path == null ? {} : {
+          GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = local.home_dashboard_path
+        })
         env_files   = ["${local.grafana_conf}/grafana.env"]
         exec        = []
         user        = null

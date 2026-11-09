@@ -17,8 +17,10 @@ root runs the scripts over SSH and documents the behaviour.
   checks the JSON, and installed on every Grafana VM under
   `provisioning/dashboards/files`, with a file provider (`dashboards.yml`) that
   makes each subdirectory a folder. `dashboards/update.py` downloads the pinned
-  grafana.com revisions and adapts them to the provisioned datasource. See the
-  root README's [Dashboards](../../../roots/monitoring-config/README.md#dashboards).
+  grafana.com revisions and adapts them to the provisioned datasource;
+  `dashboards/custom.py` generates the custom ones (overview, FRR/EVPN, probes,
+  monitoring stack). `Overview/overview.json` is set as Grafana's home dashboard.
+  See the root README's [Dashboards](../../../roots/monitoring-config/README.md#dashboards).
 
 Outputs: `backend_deployment` and `grafana_deployments` (sensitive: they embed
 secrets), plus `prometheus_config`, `datasources_config`, `dashboard_providers_config`,
