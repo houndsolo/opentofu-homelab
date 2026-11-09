@@ -19,7 +19,7 @@ passwords file exists. --no-secrets uses your existing TF_VAR_* environment.
 Set TOFU_BIN to select an OpenTofu executable.
 Example: TF_VAR_ssh_private_key_path=~/.ssh/id_ed25519 tooling/walk-roots.sh services-config
 
-proxmox-settings is incomplete; proxmox-virtual-hosts is empty. Both are excluded.
+proxmox-virtual-hosts is empty and excluded.
 EOF
 }
 use_secrets=true

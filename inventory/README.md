@@ -60,8 +60,6 @@ root will silently stop seeing your changes.
 | `vnis.auto.tfvars` | `vnis` | VRFs (L3VNIs), VLANs (L2VNIs), route-targets, DHCP scopes | fabric-leaves, services-vms, services-config |
 | `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Your own DNS records in `lylat.space` | services-config |
 
-`proxmox-settings.auto.tfvars` and `schema/proxmox-settings.tf` are empty
-placeholders.
 
 ### nodes.auto.tfvars: Proxmox hosts
 
@@ -103,7 +101,8 @@ Which roots act on which hosts:
 
 | Root | Cluster hosts | The standalone host |
 | --- | --- | --- |
-| proxmox-network, proxmox-settings | yes | no |
+| proxmox-network | yes | no |
+| monitoring-config (metric servers) | yes | yes, through `proxmox.greatfox` |
 | fabric-vms | yes, through the cluster provider | yes, through `proxmox.greatfox` |
 | fabric-leaves, fabric-spines, services-config (DNS records) | yes | yes |
 

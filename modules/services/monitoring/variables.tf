@@ -89,7 +89,8 @@ variable "settings" {
     prometheus_retention_time = optional(string, "90d")
     prometheus_retention_size = optional(string, "120GB")
     influxdb_org              = optional(string, "lylat")
-    influxdb_bucket           = optional(string, "proxmox")
+    influxdb_bucket           = optional(string, "proxmox") # created by InfluxDB setup on first start only
+    influxdb_grafana_bucket   = optional(string, "pve_cluster") # default bucket of the Grafana InfluxDB datasource
     influxdb_retention        = optional(string, "90d")
     grafana_root_url          = optional(string, "http://grafana.lylat.space:3000/")
     dns_probe_zone            = optional(string, "lylat.space")

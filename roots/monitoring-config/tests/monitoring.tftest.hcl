@@ -4,8 +4,25 @@ mock_provider "random" {
   }
 }
 
+mock_provider "influxdb" {
+  mock_data "influxdb_organization" {
+    defaults = { id = "0123456789abcdef" }
+  }
+  mock_resource "influxdb_bucket" {
+    defaults = { id = "fedcba9876543210" }
+  }
+}
+
+mock_provider "proxmox" {}
+
+mock_provider "proxmox" {
+  alias = "greatfox"
+}
+
 variables {
   ssh_private_key_path = "/dev/null"
+  pve_api_token        = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
+  greatfox_api_token   = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
 }
 
 run "inventory_targets" {
@@ -218,5 +235,23 @@ run "snmp_v3_auths" {
   assert {
     condition     = !strcontains(module.monitoring.prometheus_config, "authsecret123") && !strcontains(module.monitoring.units.mon01["snmp-exporter"], "authsecret123")
     error_message = "SNMPv3 secrets must not end up in prometheus.yml or the unit."
+  }
+}
+
+run "pve_metric_servers" {
+  command = plan
+
+  assert {
+    condition = (
+      output.pve_metric_buckets == { cluster = "pve_cluster", greatfox = "pve_greatfox" } &&
+      influxdb_bucket.pve["cluster"].retention_period == 90 * 86400 &&
+      proxmox_metrics_server.cluster.server == "10.5.11.30" &&
+      proxmox_metrics_server.cluster.influx_bucket == "pve_cluster" &&
+      proxmox_metrics_server.cluster.influx_db_proto == "http" &&
+      !proxmox_metrics_server.cluster.disable &&
+      proxmox_metrics_server.standalone["greatfox"].influx_bucket == "pve_greatfox" &&
+      alltrue([for a in influxdb_authorization.pve : length(a.permissions) == 1 && a.permissions[0].action == "write"])
+    )
+    error_message = "The cluster and greatfox each push over HTTP to mon01, into their own bucket, with a write-only token."
   }
 }

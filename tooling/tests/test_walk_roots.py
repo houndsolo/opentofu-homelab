@@ -69,7 +69,7 @@ if command == 'plan': sys.exit(2)
         result, calls = self.run_walk('\n', 'services-vms')
         self.assertEqual(result.returncode, 0)
         self.assertEqual(calls, [])
-        result, calls = self.run_walk('', 'proxmox-settings')
+        result, calls = self.run_walk('', 'proxmox-virtual-hosts')
         self.assertEqual(result.returncode, 2)
         self.assertEqual(calls, [])
 

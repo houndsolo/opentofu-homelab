@@ -212,7 +212,7 @@ locals {
         type           = "influxdb"
         access         = "proxy"
         url            = "http://${local.back}:8086"
-        jsonData       = { version = "Flux", organization = var.settings.influxdb_org, defaultBucket = var.settings.influxdb_bucket }
+        jsonData       = { version = "Flux", organization = var.settings.influxdb_org, defaultBucket = var.settings.influxdb_grafana_bucket }
         secureJsonData = { token = "$INFLUXDB_TOKEN" } # Expanded by Grafana from grafana.env.
       },
     ]

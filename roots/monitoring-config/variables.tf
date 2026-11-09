@@ -50,7 +50,8 @@ variable "settings" {
     prometheus_retention_time = optional(string, "90d")
     prometheus_retention_size = optional(string, "120GB")
     influxdb_org              = optional(string, "lylat")
-    influxdb_bucket           = optional(string, "proxmox")
+    influxdb_bucket           = optional(string, "proxmox")     # created by InfluxDB setup on first start only
+    influxdb_grafana_bucket   = optional(string, "pve_cluster") # default bucket of the Grafana InfluxDB datasource
     influxdb_retention        = optional(string, "90d")
     grafana_root_url          = optional(string, "http://grafana.lylat.space:3000/")
     dns_probe_zone            = optional(string, "lylat.space")
@@ -168,4 +169,33 @@ variable "snmp_v3_auths" {
   }))
   sensitive = true
   default   = {}
+}
+
+variable "pve_api_token" {
+  description = "Proxmox cluster API token (proxmox.secret.auto.tfvars, linked from inventory/auto.tfvars.secret/). Used for the cluster's metric server."
+  type        = string
+  sensitive   = true
+}
+
+variable "greatfox_api_token" {
+  description = "API token of the standalone Proxmox host (proxmox.secret.auto.tfvars). Used for its metric server."
+  type        = string
+  sensitive   = true
+}
+
+variable "pve_api_node" {
+  description = "Cluster node whose API manages the cluster-wide metric server. null uses nodes.cluster_api_node; set another node when that one is unreachable."
+  type        = string
+  default     = null
+}
+
+variable "pve_metrics" {
+  description = "Proxmox external metric servers (pvestatd, every ~10 s) writing to InfluxDB on mon01 over HTTP: one bucket and one write-only token for the cluster (\"<cluster_bucket>\") and one per standalone host (\"<standalone_bucket_prefix><host>\")."
+  type = object({
+    enabled                  = optional(bool, true) # false keeps the config but stops pvestatd sending
+    cluster_bucket           = optional(string, "pve_cluster")
+    standalone_bucket_prefix = optional(string, "pve_")
+    retention_days           = optional(number, 90)
+  })
+  default = {}
 }

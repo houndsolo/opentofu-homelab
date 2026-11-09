@@ -240,7 +240,10 @@ Review the diff, then apply. File and folder names must not contain spaces.
 | `monitoring_bridge` | `vmbr100` | Bridge of the backend's monitoring-network NIC |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
 | `images` | pinned tags | Container images; override one key at a time |
-| `settings` | see `variables.tf` | Prometheus retention (90d / 120GB), InfluxDB org/bucket/retention, Grafana root URL, DNS probe zone |
+| `settings` | see `variables.tf` | Prometheus retention (90d / 120GB), InfluxDB org/initial bucket/retention, the Grafana InfluxDB datasource's default bucket (`pve_cluster`), Grafana root URL, DNS probe zone |
+| `pve_api_token`, `greatfox_api_token` | required | Proxmox API tokens for the metric servers, from the linked `proxmox.secret.auto.tfvars` |
+| `pve_api_node` | `null` (`nodes.cluster_api_node`) | Cluster node whose API manages the cluster's metric server; set another node if that one is unreachable |
+| `pve_metrics` | see `variables.tf` | Proxmox metric servers: `enabled`, bucket names (`pve_cluster`, `pve_<standalone host>`), `retention_days` (90) |
 | `pve_exporter_token` | `null` | PVE API token; `null` leaves pve-exporter out |
 | `grafana_admin_password`, `influxdb_admin_password` | `null` (generated) | Fixed UI passwords; set them in a git-ignored `*.secret.auto.tfvars`. Only used when Grafana/InfluxDB first initialise. InfluxDB needs 8+ characters |
 | `snmp_v3_auths` | `{}` | SNMPv3 credentials for snmp_exporter (git-ignored `*.secret.auto.tfvars`); written to `/etc/monitoring/snmp-exporter/auths.yml` and loaded as a second exporter config file. The WLCs' `lylat_v3` lives here |
@@ -285,21 +288,28 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
 - **Alertmanager routes everything to a `null` receiver.** Alerts are visible in
   Alertmanager and Grafana but not sent anywhere until you add a receiver.
 - **Postgres is reachable only on the backend VLAN**, which no other VRF routes to.
-- **The Proxmox metric server isn't configured here.** Point it at
-  `influxdb_url` (InfluxDB, HTTP, org `lylat`, bucket `proxmox`, token from
-  `influxdb_admin_token`).
+- **The Proxmox metric servers are managed here** ([`pve-metrics.tf`](pve-metrics.tf)).
+  The cluster and the standalone greatfox each have a PVE metric server called
+  `influxdb` (`/etc/pve/status.cfg`) that `pvestatd` uses to push node, guest (VM/LXC)
+  and storage stats every ~10 s over HTTP to InfluxDB on mon01's monitoring
+  address. Each writes to its own bucket (`pve_cluster`, `pve_greatfox`; 90-day
+  retention) with its own write-only token. Buckets and tokens are created through
+  the InfluxDB API by the `komminarlabs/influxdb` provider, so mon01 must be
+  deployed before they can be planned; the metric servers go through the bpg
+  provider (cluster API and the `proxmox.greatfox` alias), which needs
+  `proxmox.secret.auto.tfvars` linked into this root:
+  `ln -s ../../inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars roots/monitoring-config/`.
+  The InfluxDB setup's initial bucket (`proxmox`) is unused.
 
 ## Next steps
 
-1. Exporters on the remaining targets: `prometheus-node-exporter` on the
-   Proxmox nodes and DNS VMs, and node/frr exporters on fw-wan (not managed by
+1. Exporters on the remaining targets: `prometheus-node-exporter` on greatfox
+   and the DNS VMs, and node/frr exporters on fw-wan (not managed by
    this repo). The leaves get theirs from `fabric.settings.leaf_prometheus_exporters`
    (fabric-leaves) and the DHCP VMs from `dhcp_prometheus_exporters`
    (services-config).
-2. Proxmox metric server → InfluxDB.
-3. keepalived VIP for Grafana on the backend VLAN.
-4. A Proxmox dashboard once pve-exporter has a token (and node_exporter on the
-   nodes, which Node Exporter Full then shows as job `node`).
+2. keepalived VIP for Grafana on the backend VLAN.
+3. A pve-exporter token, for VM/HA state in Prometheus.
 
 ## Tests
 

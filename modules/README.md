@@ -11,7 +11,6 @@ The only exception is tests (see [Tests](#tests)).
 | --- | --- | --- | --- |
 | [proxmox/network](#proxmoxnetwork) | proxmox-network | NIC settings, bonds, bridges, VLANs on one node | proxmox |
 | [proxmox/vm](#proxmoxvm) | fabric-vms, services-vms, workloads | One VM | proxmox |
-| [proxmox/settings](#proxmoxsettings) | proxmox-settings (unfinished) | An InfluxDB metrics server entry | proxmox |
 | [fabric/leaf](#fabricleaf) | fabric-leaves | One list of VyOS commands per leaf | vyoscmd |
 | [fabric/spines](#fabricspines) | fabric-spines | BGP, BFD and EVPN objects on one RouterOS spine | routeros |
 | [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, services-config | Nothing; it builds the shared list of leaves | none |
@@ -101,12 +100,6 @@ How the VM is put together (`main.tf`):
 
 `defaults/` is a calculator submodule. Its one output, `config`, holds the
 effective settings. It's tested on its own (`defaults/tests/`).
-
-### proxmox/settings
-
-**Unfinished.** It defines one `proxmox_metrics_server` called `influxdb`
-(disabled, port 8086). It reads `var.influxdb` (`ip`, `proto`, `org`, `bucket`,
-`token`), but that variable isn't declared anywhere, so it can't be used yet.
 
 ### fabric/leaf
 

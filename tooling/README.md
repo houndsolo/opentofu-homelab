@@ -160,8 +160,8 @@ Behaviour worth knowing:
   does.
 - **It only runs `tofu`.** It doesn't install images, enable APIs or create
   credentials.
-- **Unfinished roots are refused.** `proxmox-settings` and
-  `proxmox-virtual-hosts` aren't in its list; naming one exits with code 2.
+- **Unfinished roots are refused.** `proxmox-virtual-hosts` isn't in its list;
+  naming it exits with code 2.
 
 ## with-secrets
 

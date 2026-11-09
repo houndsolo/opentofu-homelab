@@ -9,7 +9,7 @@ output "alertmanager_url" {
 }
 
 output "influxdb_url" {
-  description = "InfluxDB UI/API; point the Proxmox metric server here (org/bucket from settings)."
+  description = "InfluxDB UI/API. The Proxmox metric servers (pve-metrics.tf) write here."
   value       = "http://${module.monitoring.backend_url_host}:8086"
 }
 
@@ -29,7 +29,7 @@ output "grafana_admin_password" {
 }
 
 output "influxdb_admin_token" {
-  description = "InfluxDB operator token (also used by the Proxmox metric server and Grafana for now)."
+  description = "InfluxDB operator token (also used by Grafana for now; the Proxmox metric servers have their own write-only tokens)."
   value       = random_password.influxdb_token.result
   sensitive   = true
 }
@@ -37,4 +37,9 @@ output "influxdb_admin_token" {
 output "prometheus_config" {
   description = "Rendered prometheus.yml."
   value       = module.monitoring.prometheus_config
+}
+
+output "pve_metric_buckets" {
+  description = "InfluxDB bucket per Proxmox metric server: cluster and each standalone host."
+  value       = local.pve_metric_buckets
 }

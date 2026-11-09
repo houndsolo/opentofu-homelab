@@ -41,7 +41,7 @@ configured until its VM has booted and its API answers.
 | 5 | [fabric-leaves](fabric-leaves/README.md) | The EVPN/VXLAN config on every leaf | Leaf VMs booted with their HTTPS API enabled | `vyos.secret.auto.tfvars` |
 | 6 | [services-vms](services-vms/README.md) | The DNS, DHCP and monitoring VMs | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
 | 7 | [services-config](services-config/README.md) | BIND (over SSH), DNS records (RFC 2136), DHCP HA and pools (VyOS API) | DNS VMs have Podman and passwordless sudo; the fabric routes VLAN 8 | `vyos.secret.auto.tfvars` (plus `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
-| 8 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, InfluxDB, Postgres and Grafana as Podman Quadlets (over SSH) | Monitoring/Grafana VMs have Podman and passwordless sudo; VLAN 13 (`lylat_monitor`) on the leaves | none (optional `pve.secret.auto.tfvars`; `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
+| 8 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, InfluxDB, Postgres and Grafana as Podman Quadlets (over SSH) | Monitoring/Grafana VMs have Podman and passwordless sudo; VLAN 13 (`lylat_monitor`) on the leaves | `proxmox.secret.auto.tfvars` (Proxmox metric servers; optional `pve.secret.auto.tfvars`; `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
 | 9 | [workloads](workloads/README.md) | Ordinary VMs (`owner = "workloads"`) | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
 
 Why this order:
@@ -115,9 +115,8 @@ credentials. If you keep everything in one file instead, put
 
 ## Unfinished roots
 
-Two roots aren't usable yet, and the runner refuses to run them:
+One root isn't usable yet, and the runner refuses to run it:
 
 | Root | State |
 | --- | --- |
-| `proxmox-settings` | Meant to manage a Proxmox InfluxDB metrics server through `modules/proxmox/settings`. The module reads `var.influxdb`, which isn't declared anywhere, so the root doesn't validate. |
 | `proxmox-virtual-hosts` | An empty `main.tf` |
