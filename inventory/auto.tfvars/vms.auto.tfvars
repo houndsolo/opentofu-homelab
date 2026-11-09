@@ -16,7 +16,7 @@ vms = {
     config = {
       tags         = ["debian", "dns", "opentofu"]
       cpu_cores    = 2
-      memory_mb    = 2048
+      memory_mb    = 3072
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
@@ -38,7 +38,7 @@ vms = {
     config = {
       tags         = ["debian", "dns", "opentofu"]
       cpu_cores    = 2
-      memory_mb    = 2048
+      memory_mb    = 3072
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
@@ -129,7 +129,7 @@ vms = {
     config = {
       tags         = ["debian", "monitoring", "opentofu"]
       cpu_cores    = 2
-      memory_mb    = 2048
+      memory_mb    = 4096
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
@@ -159,7 +159,7 @@ vms = {
     config = {
       tags         = ["debian", "monitoring", "opentofu"]
       cpu_cores    = 2
-      memory_mb    = 2048
+      memory_mb    = 4096
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
