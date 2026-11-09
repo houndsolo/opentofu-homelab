@@ -160,20 +160,14 @@ def only(expr, label, *values):
     return f"({expr}) and on ({label}) ({rhs})"
 
 
-def normalized(expr):
-    """nft-metrics.py (063f533) labels the IPv6 base filters by their nft names, as named chains, and
-    also reports the raw (notrack) chains: map the former to input/forward/output (kind base). The
-    raw chains are dropped in fw()."""
-    for c in BASE_CHAINS:
-        expr = f'label_replace({expr}, "chain", "{c}", "chain", "VYOS_IPV6_{c.upper()}_filter")'
-    return f'label_replace({expr}, "kind", "base", "chain", "{"|".join(BASE_CHAINS)}")'
-
-
 def fw(fn="rate", what="packets", window="$__rate_interval", **match):
     """keyed(fn(counter[window])) for the firewall rule counters (fn=None: the counter itself).
     match={label: value or tuple of values} filters on the normalized labels (family, kind, chain, rule)."""
-    sel = f'{FWR.format(what)}{{{FW}, chain!~"VYOS_.*_raw"}}'
-    e = normalized(f"{fn}({sel}[{window}])" if fn else sel)
+    # nft-metrics.py names base chains input/forward/output and named chains without NAME_; nft
+    # chain names (VYOS_*) only appear in series from its first runs (before eb180b3), which labelled
+    # the IPv6 base filters and raw chains that way. Leave them out.
+    sel = f'{FWR.format(what)}{{{FW}, chain!~"VYOS_.*"}}'
+    e = f"{fn}({sel}[{window}])" if fn else sel
     for label, values in match.items():
         e = only(e, label, *((values,) if isinstance(values, str) else values))
     return keyed(e)
