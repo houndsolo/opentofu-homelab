@@ -29,6 +29,9 @@ dns_hosts = {
   prometheus   = { A = "10.5.11.30" }
   alertmanager = { A = "10.5.11.30" }
   influxdb     = { A = "10.5.11.30" }
+  # Loki/Alloy VIP (keepalived on log01-03) on the monitoring network: syslog
+  # TCP/UDP 514 from devices and PVE nodes.
+  logs = { A = "10.5.11.40" }
 }
 
 # Use this list for multiple records with the same owner/type or custom TTLs.

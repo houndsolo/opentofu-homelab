@@ -23,6 +23,7 @@ DNS records, and the DHCP high-availability pair.
 - [DNS records](#dns-records)
 - [The TSIG key](#the-tsig-key)
 - [DHCP](#dhcp)
+- [Logs to Loki](#logs-to-loki)
 - [Checking that it works](#checking-that-it-works)
 - [Tests](#tests)
 
@@ -63,6 +64,7 @@ transfers.
 | `dns_tsig_secret` | `null` (generate one) | Supply an existing TSIG key; see [The TSIG key](#the-tsig-key) |
 | `dhcp_prometheus_exporters` | `{ vrf = "mgmt" }` | VyOS node-exporter (:9100) and frr-exporter (:9342) on each DHCP VM's management address, in that VRF; scraped by [monitoring-config](../monitoring-config/README.md). `null` leaves them unmanaged. |
 | `dhcp_syslog` | `{ host = "10.20.11.40", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
+| `dns_syslog` | `{ host = "10.20.11.40" }` | rsyslog on each DNS VM forwards its journal (BIND included) to this receiver over TCP; also takes `port` (514) and `level` (`info`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
 | `dhcp_ha_prefix` | `"10.6.67.0/24"` | Where the DHCP HA pair talks: the lower VM ID uses host `.1`, the higher `.2`. See [The HA pair](#the-ha-pair). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
 
@@ -343,6 +345,28 @@ for today's inventory.
   addresses.
 - **Subnets must fit the address scheme.** Every DHCP VLAN's subnet must contain
   `10.<VLAN>.67.1` and `.2`.
+
+## Logs to Loki
+
+Everything here sends its logs as syslog to the Loki/Alloy VIP on the management network,
+`10.20.11.40` (keepalived on log01–log03, [monitoring-config](../monitoring-config/README.md)):
+TCP 514, RFC 5424, octet-counted framing.
+
+- **DNS VMs** (`dns-syslog.tf`, `terraform_data.dns_syslog`): `templates/rsyslog-loki.sh.tftpl`
+  writes `/etc/rsyslog.d/50-loki.conf` (from `templates/rsyslog-loki.conf.tftpl`), then installs
+  `rsyslog` from Debian if it's missing and restarts it. journald forwards to rsyslog
+  (`ForwardToSyslog=yes`, Debian's default), so the whole journal goes out at `info` and up,
+  including BIND: Podman logs the `bind9` container to the journal with
+  `SYSLOG_IDENTIFIER=bind9`, which arrives as the syslog app name. The rule ends in `stop`,
+  so rsyslog writes nothing to `/var/log`; the journal stays the local copy. A disk-assisted
+  queue (128 MB) holds messages while the receiver is down. This is a separate resource from
+  `terraform_data.bind9`, so changing it never restarts BIND. The VMs reach the VIP directly
+  on the management network (`eth0`).
+- **DHCP VMs** (`dhcp_syslog`): VyOS `system syslog remote 10.20.11.40` from the `mgmt` VRF,
+  the same commands as the leaves (`fabric.settings.leaf_syslog`).
+
+Check from a DNS VM: `systemctl status rsyslog`, and `logger -t test hello`, which should
+show up in Grafana Explore as `{host="dns01", app="test"}`.
 
 ## Checking that it works
 

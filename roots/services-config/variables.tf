@@ -135,3 +135,20 @@ variable "dhcp_syslog" {
   })
   default = { host = "10.20.11.40", vrf = "mgmt" }
 }
+
+variable "dns_syslog" {
+  description = "Forward each DNS VM's journal (BIND included) with rsyslog to this syslog receiver over TCP (RFC 5424, octet-counted), from the management network. Default: the Loki/Alloy VIP (monitoring-config). null = don't install it."
+  type = object({
+    host  = string
+    port  = optional(number, 514)
+    level = optional(string, "info")
+  })
+  default = { host = "10.20.11.40" }
+  validation {
+    condition = var.dns_syslog == null || (
+      can(regex("^[A-Za-z0-9.:-]+$", try(var.dns_syslog.host, ""))) &&
+      contains(["debug", "info", "notice", "warning", "err", "crit", "alert", "emerg"], try(var.dns_syslog.level, ""))
+    )
+    error_message = "dns_syslog.host must be a plain host name or address and level a syslog severity."
+  }
+}

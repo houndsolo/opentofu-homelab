@@ -160,3 +160,30 @@ run "preserve_ha_peer_configuration" {
     error_message = "Keep the supplied active-passive HA roles, opposite source/remote addresses and real peer names on both peers."
   }
 }
+
+run "dns_journal_to_loki" {
+  command = plan
+  assert {
+    condition = (
+      length(terraform_data.dns_syslog) == 2 &&
+      strcontains(local.dns_syslog_script, base64encode(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.40", port = 514, level = "info" }))) &&
+      strcontains(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.40", port = 514, level = "info" }), "target=\"10.20.11.40\"")
+    )
+    error_message = "Forward both DNS VMs' journals to the mgmt Loki VIP over TCP by default."
+  }
+}
+
+run "dns_syslog_disabled" {
+  command = plan
+  variables { dns_syslog = null }
+  assert {
+    condition     = length(terraform_data.dns_syslog) == 0 && length(terraform_data.bind9) == 2
+    error_message = "dns_syslog = null skips the forwarder but still deploys BIND."
+  }
+}
+
+run "reject_bad_dns_syslog_level" {
+  command = plan
+  variables { dns_syslog = { host = "10.20.11.40", level = "verbose" } }
+  expect_failures = [var.dns_syslog]
+}

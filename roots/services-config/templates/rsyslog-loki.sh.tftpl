@@ -1,0 +1,17 @@
+#!/bin/bash
+# Install rsyslog as a journal-to-Loki forwarder. The config goes in before the package,
+# so rsyslog never starts with Debian's default file rules active.
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+install -d -m 0755 /etc/rsyslog.d
+printf '%s' '${conf_b64}' | base64 -d > /etc/rsyslog.d/50-loki.conf.new
+chmod 0644 /etc/rsyslog.d/50-loki.conf.new
+mv /etc/rsyslog.d/50-loki.conf.new /etc/rsyslog.d/50-loki.conf
+if ! dpkg-query -W -f='$${Status}' rsyslog 2>/dev/null | grep -q 'ok installed'; then
+  apt-get update -q
+  apt-get install -y -q --no-install-recommends rsyslog
+fi
+rsyslogd -N1 >/dev/null
+systemctl enable rsyslog.service
+systemctl restart rsyslog.service
+systemctl is-active --quiet rsyslog.service
