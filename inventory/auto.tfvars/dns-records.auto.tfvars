@@ -40,9 +40,7 @@ dns_records = [
   # { name = "app", type = "A", data = "10.8.10.2", ttl = 60 },
   # { name = "@", type = "TXT", data = "another text value" },
 
-  # Grafana :3000 on VLAN 2, round-robin over graf01/graf02 (shared Postgres,
-  # so sessions work on either). Matches grafana_root_url. Swap for the
-  # keepalived VIP once it exists.
-  { name = "grafana", type = "A", data = "10.2.11.31" },
-  { name = "grafana", type = "A", data = "10.2.11.32" },
+  # Grafana :3000 on VLAN 2: the keepalived VIP held by graf01 or graf02
+  # (monitoring-config grafana_vrrp). Matches grafana_root_url.
+  { name = "grafana", type = "A", data = "10.2.11.40" },
 ]
