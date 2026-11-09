@@ -2,7 +2,8 @@
 
 This root deploys the monitoring stack onto the VMs that
 [services-vms](../services-vms/README.md) creates with `role = "monitoring"`
-(one backend) and `role = "grafana"` (any number of front ends). It uses the
+(one backend), `role = "grafana"` (any number of front ends) and `role = "logging"`
+([Loki HA](#logging-loki-ha), log01-03). It uses the
 same mechanism as BIND in [services-config](../services-config/README.md#how-bind-is-deployed):
 OpenTofu SSHes to each VM and runs a generated `deploy.sh`, which installs
 **Podman Quadlet** units, so every container is an ordinary systemd service.
@@ -22,6 +23,12 @@ generates the secrets and does the SSH deployment.
 | | `node-exporter` | `10.5.11.30:9100` |
 | | `monitoring-network` | the Podman bridge network itself |
 | grafana VMs (graf01/02) | `grafana` | 3000 on every address (VLAN 2 for users; a future VIP), 9094 (alerting HA gossip) on the backend VLAN |
+| | `node-exporter` | backend VLAN address, port 9100 |
+| backend and grafana VMs | `alloy` (journal -> Loki VIP) | backend VLAN address, port 12345 (metrics) |
+| logging VMs (log01-03) | `loki` | 3100 (HTTP) on every address, limited by `logging-guard` to loopback and the backend VLAN; ring (gRPC 9095, memberlist 7946) on the HA VLAN 214 |
+| | `alloy` (syslog receiver + journal) | syslog on every address (VIPs included): TCP 514 (RFC 5424), UDP 514 (RFC 3164), UDP 1514 (raw); 12345 on the backend VLAN |
+| | `haproxy` (S3 to the Ceph RGWs) | `127.0.0.1:7480`; stats/metrics on the backend VLAN, 8405 |
+| | `keepalived` (Debian package), `logging-guard` (nftables) | VRRP over the HA VLAN; VIPs `10.13.11.40`, `10.5.11.40`, `10.20.11.40` |
 | | `node-exporter` | backend VLAN address, port 9100 |
 
 The **backend VLAN** (VLAN 13, 10.13.0.0/16, VRF `lylat_monitor`) is isolated:
@@ -92,6 +99,12 @@ part of the rendered files, but they're generated once and kept in state.
 | `/etc/grafana-container/provisioning/dashboards/files/<Folder>/*.json` | Provisioned dashboards (graf VMs) |
 | `/etc/grafana-container/grafana.env` | Grafana secrets (mode 0600) |
 | `/var/lib/grafana-container` | Grafana plugins/cache; real state is in Postgres |
+| `/etc/alloy/config.alloy`, `/var/lib/alloy` | Alloy config and positions (every VM) |
+| `/etc/logging/loki/loki.yaml`, `loki/rules/fake/*.yaml`, `/etc/logging/loki.env` | Loki config, ruler rules, S3 keys (mode 0600) (logging VMs) |
+| `/var/lib/logging/loki` | Loki WAL, TSDB index cache, compactor and ruler state (chunks are in S3) |
+| `/etc/logging/haproxy/haproxy.cfg` | haproxy (S3 -> RGWs) |
+| `/etc/keepalived/keepalived.conf` | VRRP (mode 0600: the VRRP password) |
+| `/etc/logging/guard.nft`, `/etc/systemd/system/logging-guard.service` | nftables table `inet logging_guard` for Loki's ports |
 
 Logs: `journalctl -u prometheus` (and so on). Status: `systemctl status prometheus`.
 
@@ -349,6 +362,148 @@ IPv4 and IPv6) and NAT (`vyos_firewall_rule_{packets,bytes}_total{family,kind,ch
 `vyos_nat_rule_{packets,bytes}_total{family,type,rule}`); Telegraf's VyOS script only
 covers the named IPv4 chains. Telegraf's `syslog_*` series are dropped at scrape time.
 
+## Logging (Loki HA)
+
+Logs from the whole lab go to **Loki** on log01-03 (`role = "logging"`, zoness/titania/fortuna),
+through **Grafana Alloy**, and are queried from Grafana (datasource `Loki`, uid `loki`).
+`terraform_data.logging["<vm>"]` deploys each VM like the others (generated `deploy.sh`, Quadlets).
+
+```
+devices / VyOS / PVE / DNS --syslog--> VIP 10.5.11.40 | 10.20.11.40 --> alloy (VIP holder)
+mon01, graf01/02 alloy --journal----------> VIP 10.13.11.40:3100 ---------\
+                                                                          v
+alloy (each log VM, journal + syslog) --> local loki --(ring, RF 3, VLAN 214)--> all 3 lokis
+                                          loki --S3--> 127.0.0.1:7480 haproxy --> RGW on macbeth/titania/venom (10.27.0.x)
+Grafana --> VIP 10.13.11.40:3100 ;  Loki ruler --> Alertmanager on mon01 (10.13.11.30:9093)
+```
+
+**Networks on each log VM** (interface names from the NIC order: mgmt `eth0`, `network_devices[i]` = `eth<i+1>`):
+
+| Network | log01/02/03 | Used for |
+| --- | --- | --- |
+| mgmt (`eth0`) | 10.20.11.33-35 | SSH; VIP `10.20.11.40` for syslog from the VyOS leaves, DHCP and DNS VMs (mgmt VRF) |
+| VLAN 2 (`eth1`) | 10.2.11.33-35 | default route: image and package pulls |
+| VLAN 13 (`eth2`) | 10.13.11.33-35 | backend: Loki HTTP API, Alloy/haproxy/node_exporter metrics; VIP `10.13.11.40` (Grafana datasource, Alloy pushes from mon01/graf) |
+| vmbr100 (`eth3`) | 10.5.11.33-35 | monitoring network: VIP `10.5.11.40` for syslog from switches, WLCs, fw-wan and the PVE nodes |
+| vmbr27 (`eth4`) | 10.27.11.33-35 | Ceph public network: haproxy -> RGWs |
+| VLAN 214 (`eth5`, L2VNI `ha_logging`) | 10.21.12.33-35 | HA: Loki memberlist and ingester gRPC (the ring), keepalived adverts |
+
+### Loki
+
+- **Monolithic** (`-target=all`) on each VM; the three form one ring over **memberlist** on the HA
+  VLAN (`instance_addr`, `advertise_addr`, `join_members` = the VLAN 214 addresses, `cluster_label
+  lylat-loki`). **replication_factor 3**: every stream is written to all three ingesters and a write
+  needs two of them, so one VM can be down (or rebooting) without losing writes or queries.
+- **Storage**: TSDB index, schema v13 (from `logging_settings.schema_start`; never change an existing
+  period, add a new one), chunks and index in the S3 bucket `loki` on Ceph RGW. Each Loki talks to
+  `http://127.0.0.1:7480`, the local **haproxy**, which balances the three RGWs and health-checks them
+  (anonymous `GET /` must return 200), so any single RGW or PVE node can go down.
+- **Retention**: `logging_settings.retention_period` (90d), applied by the compactor. Every instance
+  runs a compactor, but they elect one through the ring (a single token), so only one compacts and
+  deletes. Delete requests are stored in S3.
+- **Ruler**: rules from `/etc/logging/loki/rules/fake/` (the same on all three), sharded over the ruler
+  ring so each group is evaluated once, alerts to Alertmanager on mon01. One rule for now:
+  `BGPSessionDownLogged` (an FRR `ADJCHANGE ... Down` in the syslog).
+- **Ports**: Loki runs with host networking and listens on every address, because the backend VIP
+  moves between the VMs. `logging-guard` (an nftables table `inet logging_guard`, loaded by its own
+  systemd unit) drops 3100 except from loopback and `logging_settings.loki_allowed_sources`
+  (`10.13.0.0/16`), and 7946/9095 except from the three HA addresses. Nothing else is filtered.
+- S3 keys live in `/etc/logging/loki.env` (0600) and are expanded by Loki (`-config.expand-env`);
+  `loki.yaml` itself (output `loki_configs`) has no secrets.
+- With RF 3 and no shared chunk cache, all three ingesters flush the same chunks (same object keys,
+  so S3 holds one copy, but three writes).
+
+### Alloy
+
+- **log VMs**: syslog on every address (the VIPs included), pushed to the *local* Loki:
+
+  | Listener | Format | Senders | Timestamp |
+  | --- | --- | --- | --- |
+  | TCP 514 | RFC 5424, octet-counted | VyOS leaves, DHCP VMs, fw-wan, PVE nodes and DNS VMs (rsyslog) | sender's |
+  | UDP 514 | RFC 3164 | MikroTik CRS317/CRS326, FS S3700 | receive time (no year/zone; switch-1 has no NTP) |
+  | UDP 1514 | raw (unparsed line) | Cisco C9800 WLCs (IOS-XE), FS S3910: RFC 3164 parsing drops their messages | receive time |
+
+  The `raw` format is experimental in Alloy, so the log VMs run it with `--stability.level=experimental`
+  (validation too: `alloy validate` doesn't check stability, `alloy run` refuses it).
+  Labels: `source="syslog"`, `host` (message hostname, else the sender's IP), `app`, `level` (severity),
+  `facility`. Known senders get a fixed `host` from their address, the same name Prometheus uses: every
+  `snmp_targets` address, plus `logging_settings.syslog_host_overrides`. That's what names the raw
+  lines and fixes generic hostnames ("Switch").
+- **Every VM** (mon01, graf01/02, log01-03): the journal, `source="journal"`, `host`=VM name, `unit`,
+  `container` (Podman's journald driver: every Quadlet container), `app`, `level`. mon01 and the
+  Grafana VMs push to the VIP `http://10.13.11.40:3100`.
+
+### VIPs and failover (keepalived)
+
+keepalived comes from the Debian package (installed by `deploy.sh`), not a container: it manages host
+addresses (it needs host networking and NET_ADMIN anyway), its check scripts run curl on the host,
+and Debian ships security updates for it. There's no trustworthy upstream keepalived image.
+
+- **One VRRP instance** (`virtual_router_id 40`, VRRPv2 with a generated 8-character PASS,
+  `random_password.vrrp`) with unicast adverts over the HA VLAN (`eth5`). It carries the three VIPs,
+  each on its client NIC (`10.13.11.40/16 dev eth2`, `10.5.11.40/16 dev eth3`, `10.20.11.40/16 dev eth0`),
+  so they always move together.
+- All three start `BACKUP` with **`nopreempt`**. Priorities 150/100/50 (log01/02/03) only decide the
+  first election. A recovered VM doesn't take the VIPs back, so there's no second interruption.
+- **Failover**: the holder goes to FAULT, and a peer takes the VIPs within ~15 s (checks every 5 s,
+  3 failures), when Loki's `/ready` fails, Alloy's `/-/ready` fails, a client NIC goes down
+  (`track_interface`), or the VM or keepalived stops (3 missed adverts, ~3 s). The new holder sends
+  gratuitous ARPs (and every 60 s while it holds them), which the EVPN fabric learns as a MAC move.
+- What senders see: UDP syslog sent during the switchover is lost. TCP senders (rsyslog, VyOS)
+  reconnect and resend their queue. Grafana and the Alloys on mon01/graf retry.
+- If all three fail their checks, nobody holds the VIPs (alert `LoggingVIPNotHeldOnce`).
+
+### Adding a log sender
+
+- Send syslog to `10.5.11.40` (monitoring network) or `10.20.11.40` (mgmt): **TCP 514 RFC 5424
+  octet-counted** if the device can (rsyslog: `omfwd` with `RSYSLOG_SyslogProtocol23Format`,
+  `TCP_Framing="octet-counted"`), otherwise **UDP 514 RFC 3164**, and **UDP 1514** if the device's
+  format doesn't parse as RFC 3164 (it shows in `loki_source_syslog_parsing_errors_total`).
+- If its messages carry no useful hostname, add its address to `snmp_targets` (if it's scraped) or
+  `logging_settings.syslog_host_overrides`.
+- A Linux VM with Podman: give it Alloy like mon01 (journal -> VIP 10.13.11.40) if it has a VLAN 13
+  NIC, otherwise forward its journal as syslog.
+- The hand-configured senders are in [log-senders](log-senders/README.md).
+
+### Ceph RGW on the PVE nodes
+
+The S3 endpoint is Ceph's RGW (`radosgw` from the PVE Ceph repo, pinned to the cluster version
+20.2.2-pve1), one daemon each on macbeth, titania and venom (`client.rgw.<node>`, beast on the
+node's Ceph public address `10.27.0.<id>:7480`, sections in `/etc/pve/ceph.conf`). It's not managed
+by OpenTofu. The S3 user and bucket are both `loki`; their keys go into
+`roots/monitoring-config/logging.secret.auto.tfvars` (git-ignored, mode 600):
+
+```hcl
+loki_s3 = { bucket = "loki", access_key = "...", secret_key = "..." }
+```
+
+`logging_settings.rgw_endpoints` lists the RGWs haproxy uses (default `10.27.0.12/13/17:7480`).
+
+<!-- The exact install commands (radosgw, keyrings, pools, S3 user) are added here by the main session. -->
+
+### Runbook
+
+- **Which VM holds the VIPs:** `ip -br a | grep -E '\.40/'` on each log VM, or
+  `node_network_address_info{address=~".*\\.40"}` in Prometheus. Logs: `journalctl -u keepalived`.
+- **Move the VIPs off a VM** (maintenance): `sudo systemctl stop keepalived` there (they don't come
+  back on start, `nopreempt`).
+- **Ring state:** `curl -s http://10.13.11.33:3100/ring` (ingesters), `/memberlist`, `/compactor/ring`,
+  `/ruler/ring`; ready: `/ready`. Each must show three ACTIVE members.
+- **S3 path:** `curl -s http://10.13.11.33:8405/stats` (haproxy: which RGWs are UP);
+  from a log VM, `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7480/` should be 200.
+- **Is syslog arriving?** `sum by (host) (rate(loki_source_syslog_entries_total[5m]))` (job `alloy`),
+  parse errors in `loki_source_syslog_parsing_errors_total`; in Grafana Explore: `{source="syslog"}`.
+- **Rolling restart** of Loki after a config change: apply with `-parallelism=1`, so the log VMs
+  deploy one at a time and each waits for `/ready` before the next restarts. A normal (parallel)
+  apply restarts all three at once: writes fail for a minute and Alloy retries.
+- **Rebuilt log VM:** its WAL is gone, but the other two hold the data (RF 3). Bump `deploy_revision`
+  (or let the new VM ID trigger it) and apply. The ring forgets the old instance after its heartbeat
+  times out.
+- **Alerts** (Prometheus, group `logging`): `LokiRingUnhealthy`, `LokiRingMembersMissing`,
+  `LokiIngesterFlushFailures` (S3 writes failing), `SyslogIngestStopped`, `AlloyLokiWriteDrops`,
+  `RGWBackendDegraded`/`RGWBackendDown` (haproxy), `LoggingVIPNotHeldOnce` (per VIP, from
+  node_exporter's `--collector.netdev.address-info`).
+
 ## Inputs
 
 | Variable | Default | Purpose |
@@ -356,6 +511,9 @@ covers the named IPv4 chains. Telegraf's `syslog_*` series are dropped at scrape
 | `ssh_private_key_path` | `~/.ssh/id_rsa` | Key for `config.ssh_username` on the VMs (needs passwordless sudo) |
 | `deploy_revision` | `"1"` | Change to force a redeploy, e.g. after rebuilding a VM |
 | `backend_vlan_id` | `13` | VLAN whose NIC address Grafana and Postgres use |
+| `ha_vlan_id` | `214` | HA VLAN of the logging VMs (Loki ring, VRRP adverts); each logging VM needs one addressed NIC on it |
+| `logging_settings` | see `variables.tf` | VIPs, VRRP router id (40), RGW endpoints, Loki retention (90d) and replication (3), schema start, sources allowed to Loki's HTTP port, extra syslog sender IP => host names |
+| `loki_s3` | `null` (required with logging VMs) | Loki's S3 bucket and RGW keys, in the git-ignored `logging.secret.auto.tfvars` |
 | `monitoring_bridge` | `vmbr100` | Bridge of the backend's monitoring-network NIC |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
 | `images` | pinned tags | Container images; override one key at a time |
@@ -379,6 +537,12 @@ tofu -chdir=roots/monitoring-config output -raw grafana_admin_password
 
 Then open Grafana on `http://10.2.11.31:3000` (or `.32`) as `admin`, and
 Prometheus on `http://10.5.11.30:9090`.
+
+The logging VMs need `logging.secret.auto.tfvars` (see [Ceph RGW](#ceph-rgw-on-the-pve-nodes)) and
+their VLAN 214 NIC before they can be planned. To dry-run a VM's deployment without installing
+anything, copy its `deploy.sh` there and run `sudo bash deploy.sh check`: it pulls the images and
+validates every config (`loki -verify-config`, `alloy validate`, `haproxy -c`, `nft -c`, and
+`keepalived -t` once the package is installed).
 
 ### Optional: the PVE exporter token
 
@@ -441,8 +605,14 @@ datasource, no import-time placeholders, every dashboard in the `lylat` links
 dropdown, the Ceph dashboards' `ceph` tag and dropdown with no `$datasource` left, the Proxmox
 dashboards' `proxmox` tag and dropdown, InfluxDB datasource and PVE-only bucket picker, the fw-wan
 dashboards' `fw-wan` tag and dropdown and the routing one's fw-wan default, Node Exporter Full's job and host pickers, the overview as home
-dashboard, no restart for JSON changes, stale files pruned), and that a missing
-backend NIC fails the plan.
+dashboard, no restart for JSON changes, stale files pruned), that a missing
+backend NIC fails the plan, and the logging stack: Loki's ring on the HA VLAN, RF 3, S3 through the
+local haproxy, ruler to mon01, no S3 keys in `loki.yaml`; the exact keepalived config per VM
+(single instance over `eth5`, VIPs on the client NICs, priorities 150/100/50); Alloy's three syslog
+listeners, `raw` with the experimental flag, sender-address host names from `snmp_targets`, journal-only
+Alloy on mon01/graf pushing to the VIP; haproxy's RGW backends; the Loki/Alloy/haproxy/node scrape
+jobs and logging alerts; the Loki datasource; the validations in each logging `deploy.sh`; and that a
+missing `loki_s3` or VLAN 214 NIC fails the plan.
 
 ```sh
 nix-shell --run 'tofu -chdir=roots/monitoring-config test'

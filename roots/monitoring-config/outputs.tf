@@ -49,3 +49,18 @@ output "vyos_telegraf_token" {
   value       = influxdb_authorization.vyos.token
   sensitive   = true
 }
+
+output "loki_url" {
+  description = "Loki on the backend VIP (Grafana's Loki datasource; Alloy on mon01/graf pushes here)."
+  value       = module.monitoring.loki_url
+}
+
+output "logging_vips" {
+  description = "Logging VIPs per network (VRRP, all held by the same logging VM). Syslog senders use monitoring/mgmt (UDP 514 RFC 3164, TCP 514 RFC 5424)."
+  value       = var.logging_settings.vips
+}
+
+output "loki_urls" {
+  description = "Each Loki on its logging VM's backend-VLAN address (for debugging; use loki_url)."
+  value       = { for name, vm in local.logging_nic : name => "http://${try(vm.backend.address, "0.0.0.0")}:3100" }
+}

@@ -1,0 +1,36 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# S3 for Loki on ${host}: 127.0.0.1:7480 -> the Ceph RGWs on the PVE nodes (Ceph public
+# network). Any single RGW (or PVE node) can go down without Loki noticing.
+
+global
+  maxconn 2000
+
+defaults
+  mode http
+  timeout connect 3s
+  timeout client 5m
+  timeout server 5m
+  retries 2
+  option redispatch
+
+frontend s3
+  bind 127.0.0.1:7480
+  default_backend rgw
+
+backend rgw
+  balance roundrobin
+  # An anonymous GET / on RGW returns 200 (empty bucket list).
+  option httpchk GET /
+  http-check expect status 200
+  default-server check inter 5s fall 3 rise 2
+%{ for i, endpoint in endpoints ~}
+  server rgw${i + 1} ${endpoint}
+%{ endfor ~}
+
+# Prometheus metrics (job haproxy) and the stats page, on the backend VLAN.
+frontend stats
+  bind ${stats_address}:8405
+  http-request use-service prometheus-exporter if { path /metrics }
+  stats enable
+  stats uri /stats
+  stats refresh 10s

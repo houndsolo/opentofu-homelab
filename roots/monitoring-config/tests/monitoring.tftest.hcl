@@ -23,6 +23,7 @@ variables {
   ssh_private_key_path = "/dev/null"
   pve_api_token        = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
   greatfox_api_token   = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
+  loki_s3              = { bucket = "loki", access_key = "MOCKACCESSKEY", secret_key = "mocksecretkeymocksecretkey" }
 }
 
 run "inventory_targets" {
@@ -293,4 +294,172 @@ run "pve_metric_servers" {
     )
     error_message = "The cluster and greatfox each push over HTTP to mon01, into their own bucket, with a write-only token."
   }
+}
+
+run "logging" {
+  command = plan
+
+  assert {
+    condition = (
+      length(terraform_data.logging) == 3 &&
+      output.loki_url == "http://10.13.11.40:3100" &&
+      output.loki_urls == { log01 = "http://10.13.11.33:3100", log02 = "http://10.13.11.34:3100", log03 = "http://10.13.11.35:3100" }
+    )
+    error_message = "Deploy Loki on log01-03, reached through the backend VIP."
+  }
+
+  assert {
+    # The ring (memberlist, ingester gRPC) runs on the HA VLAN; S3 goes through the local haproxy.
+    condition = alltrue([for name, i in { log01 = 33, log02 = 34, log03 = 35 } : (
+      yamldecode(module.monitoring.loki_configs[name]).common.instance_addr == "10.21.12.${i}" &&
+      yamldecode(module.monitoring.loki_configs[name]).memberlist.advertise_addr == "10.21.12.${i}" &&
+      yamldecode(module.monitoring.loki_configs[name]).memberlist.join_members == ["10.21.12.33:7946", "10.21.12.34:7946", "10.21.12.35:7946"] &&
+      yamldecode(module.monitoring.loki_configs[name]).common.replication_factor == 3 &&
+      yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.endpoint == "127.0.0.1:7480" &&
+      yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.bucketnames == "loki" &&
+      yamldecode(module.monitoring.loki_configs[name]).ruler.alertmanager_url == "http://10.13.11.30:9093" &&
+      yamldecode(module.monitoring.loki_configs[name]).limits_config.retention_period == "90d" &&
+      yamldecode(module.monitoring.loki_configs[name]).compactor.retention_enabled &&
+      yamldecode(module.monitoring.loki_configs[name]).schema_config.configs[0].schema == "v13" &&
+      !strcontains(module.monitoring.loki_configs[name], "MOCKACCESSKEY") &&
+      !strcontains(module.monitoring.loki_configs[name], "mocksecretkey")
+    )])
+    error_message = "Loki: ring on the HA VLAN, RF 3, S3 via 127.0.0.1:7480, ruler to mon01's Alertmanager, 90d retention, no keys in loki.yaml."
+  }
+
+  assert {
+    # One VRRP instance: adverts over the HA NIC (eth5), the VIPs on the client NICs, nopreempt.
+    condition = alltrue([for name, p in { log01 = { i = 33, prio = 150 }, log02 = { i = 34, prio = 100 }, log03 = { i = 35, prio = 50 } } : (
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/keepalived/keepalived.conf' '0600' 'root' '' 'keepalived'") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), base64encode(templatefile("../../modules/services/monitoring/templates/keepalived.conf.tftpl", {
+        host          = name
+        router_id     = 40
+        priority      = p.prio
+        auth_pass     = "mockmockmockmockmockmockmockmock" # mocked random_password
+        alloy_address = "10.13.11.${p.i}"
+        ha_interface  = "eth5"
+        ha_address    = "10.21.12.${p.i}"
+        peers         = [for j in [33, 34, 35] : "10.21.12.${j}" if j != p.i]
+        vips = [
+          { cidr = "10.13.11.40/16", interface = "eth2" },
+          { cidr = "10.5.11.40/16", interface = "eth3" },
+          { cidr = "10.20.11.40/16", interface = "eth0" },
+        ]
+      })))
+    )])
+    error_message = "keepalived: vrid 40 over eth5 (HA VLAN), VIPs on eth2/eth3/eth0, priorities 150/100/50."
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.alloy_configs.log01, "syslog_format          = \"raw\"") &&
+      strcontains(module.monitoring.alloy_configs.log01, "address                = \"0.0.0.0:1514\"") &&
+      strcontains(module.monitoring.alloy_configs.log01, "url = \"http://127.0.0.1:3100/loki/api/v1/push\"") &&
+      # Sender address => host, from snmp_targets (the same host label Prometheus uses).
+      strcontains(module.monitoring.alloy_configs.log01, "replacement   = \"c9800-wlc-1\"") && strcontains(module.monitoring.alloy_configs.log01, "replacement   = \"m326-2\"") &&
+      strcontains(module.monitoring.units.log01.alloy, "--stability.level=experimental") &&
+      strcontains(module.monitoring.units.log01.alloy, "Network=host") &&
+      # The other VMs ship only their journal, to the VIP.
+      !strcontains(module.monitoring.alloy_configs.mon01, "loki.source.syslog") &&
+      strcontains(module.monitoring.alloy_configs.graf01, "url = \"http://10.13.11.40:3100/loki/api/v1/push\"") &&
+      !strcontains(module.monitoring.units.mon01.alloy, "stability.level") &&
+      strcontains(module.monitoring.units.graf02.alloy, "--server.http.listen-addr=10.13.11.32:12345") &&
+      contains(module.monitoring.backend_services, "alloy")
+    )
+    error_message = "Alloy: syslog (TCP/UDP 514, raw UDP 1514) on the logging VMs into the local Loki; journal-only on mon01/graf to the VIP."
+  }
+
+  assert {
+    condition = alltrue([for name in ["log01", "log02", "log03"] : (
+      strcontains(module.monitoring.haproxy_configs[name], "bind 127.0.0.1:7480") &&
+      strcontains(module.monitoring.haproxy_configs[name], "server rgw1 10.27.0.12:7480") &&
+      strcontains(module.monitoring.haproxy_configs[name], "server rgw3 10.27.0.17:7480") &&
+      strcontains(module.monitoring.haproxy_configs[name], "http-check expect status 200")
+    )])
+    error_message = "haproxy balances the three PVE RGWs behind 127.0.0.1:7480, with health checks."
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.prometheus_config, "\"job_name\": \"loki\"") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.33:3100") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.35:8405") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.30:12345") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.34:9100") &&
+      strcontains(module.monitoring.units.log02["node-exporter"], "--collector.netdev.address-info") &&
+      length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "logging"]) == 1 &&
+      length([for r in one([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules if g.name == "logging"]) : r if r.alert == "LoggingVIPNotHeldOnce"]) == 3 &&
+      strcontains(module.monitoring.prometheus_rules, "loki_ingester_chunks_flush_failures_total") &&
+      strcontains(module.monitoring.prometheus_rules, "loki_source_syslog_entries_total")
+    )
+    error_message = "Prometheus scrapes Loki, haproxy, Alloy and node_exporter on the logging VMs over the backend VLAN, with logging alerts (one VIP rule per VIP)."
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.datasources_config, "\"uid\": \"loki\"") &&
+      strcontains(module.monitoring.datasources_config, "\"url\": \"http://10.13.11.40:3100\"") &&
+      # $$ escapes Grafana's environment expansion of provisioning files.
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.jsonData.derivedFields[0].url if d.uid == "loki"]) == "up{host=\"$$${__value.raw}\"}"
+    )
+    error_message = "Grafana gets a Loki datasource (uid loki) on the backend VIP, linking the host label to Prometheus."
+  }
+
+  assert {
+    condition = alltrue([for name in ["log01", "log02", "log03"] : (
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "-verify-config") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "validate --stability.level=experimental /etc/alloy/config.alloy") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "haproxy -c") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "for pkg in keepalived; do") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/logging/loki.env' '0600' 'root' 'loki' ''") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "ensure_dir '/var/lib/logging/loki' '0750' 'runtime|docker.io/grafana/loki:3.7.9'")
+    )])
+    error_message = "Each logging deploy.sh validates Loki/Alloy/haproxy/nftables first, installs keepalived, and keeps the S3 keys in a 0600 env file."
+  }
+}
+
+run "logging_needs_s3_keys" {
+  command = plan
+
+  variables {
+    loki_s3 = null
+  }
+
+  expect_failures = [terraform_data.logging]
+}
+
+run "logging_ha_nic_required" {
+  command = plan
+
+  # The logging VMs without their HA VLAN (214) NIC.
+  variables {
+    vms = merge(
+      {
+        mon01 = {
+          owner              = "services-vms"
+          role               = "monitoring"
+          node               = "zoness"
+          vm_id              = 1130
+          management_address = "10.20.11.30/16"
+          network_devices = [
+            { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.30/16" },
+            { bridge = "vmbr100", ipv4_address = "10.5.11.30/16" },
+          ]
+        }
+      },
+      { for name, i in { log01 = 33, log02 = 34, log03 = 35 } : name => {
+        owner                  = "services-vms"
+        role                   = "logging"
+        node                   = "zoness"
+        vm_id                  = 1100 + i
+        management_address     = "10.20.11.${i}/16"
+        network_devices = [
+          { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.${i}/16" },
+          { bridge = "vmbr100", ipv4_address = "10.5.11.${i}/16" },
+        ]
+      } },
+    )
+  }
+
+  expect_failures = [terraform_data.logging]
 }

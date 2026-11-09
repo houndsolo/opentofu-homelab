@@ -1,0 +1,15 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Limit Loki's ports to loopback and the backend VLAN (nftables table logging_guard)
+Before=network-pre.target loki.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/logging/guard.nft
+ExecReload=/usr/sbin/nft -f /etc/logging/guard.nft
+ExecStop=/usr/sbin/nft delete table inet logging_guard
+
+[Install]
+WantedBy=multi-user.target

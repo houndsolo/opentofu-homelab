@@ -10,7 +10,8 @@ locals {
   grafana_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "grafana" }
   dns_vms        = { for name, vm in local.service_vms : name => vm if vm.role == "dns" }
   dhcp_vms       = { for name, vm in local.service_vms : name => vm if vm.role == "dhcp" }
-  deploy_vms     = merge(local.monitoring_vms, local.grafana_vms)
+  logging_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "logging" }
+  deploy_vms     = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
   mgmt = { for name, vm in local.service_vms : name => try(split("/", vm.management_address)[0], null) }
@@ -29,6 +30,35 @@ locals {
 
   backend_name = try(one(keys(local.monitoring_vms)), null)
 
+  # Logging VMs: address and interface name per network. The management NIC is eth0 and
+  # network_devices[i] is eth<i+1> (the order Proxmox attaches them; checked with ip -br a).
+  logging_nic = {
+    for name in keys(local.logging_vms) : name => {
+      ha = try(one([
+        for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
+        if nic.vlan_id == var.ha_vlan_id && nic.ipv4_address != null
+      ]), null)
+      backend = try(one([
+        for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
+        if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+      ]), null)
+      monitoring = try(one([
+        for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
+        if nic.bridge == var.monitoring_bridge && nic.ipv4_address != null
+      ]), null)
+      mgmt = local.mgmt[name] == null ? null : { address = local.mgmt[name], interface = "eth0" }
+    }
+  }
+  logging_ready = alltrue([for name, n in local.logging_nic : n.ha != null && n.backend != null && n.monitoring != null && n.mgmt != null])
+
+  # Syslog senders' address => host label, so logs and metrics share the host value:
+  # every SNMP target (switches, WLCs; they log from the same 10.5 address), then
+  # logging_settings.syslog_host_overrides.
+  syslog_host_overrides = merge(
+    merge([for job in var.snmp_targets : { for host, address in job.targets : address => host }]...),
+    var.logging_settings.syslog_host_overrides,
+  )
+
   pve_prefix = try(var.pve_network.bridges[var.pve_monitoring_bridge].ipv4.cidrhost_prefix, null)
   # Cluster nodes only: the standalone host would need its own API token.
   pve_nodes = {
@@ -41,6 +71,7 @@ locals {
       [for name in keys(local.monitoring_vms) : { host = name, address = coalesce(local.monitoring_address[name], "0.0.0.0"), labels = { role = "monitoring" } }],
       [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "grafana" } }],
       [for name in keys(local.dns_vms) : { host = name, address = local.mgmt[name], labels = { role = "dns" } }],
+      [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
       [for name, address in local.pve_nodes : { host = name, address = address, labels = { role = "proxmox" } }],
       [for host, address in var.node_extra_targets : { host = host, address = address, labels = {} }],
     )
@@ -62,8 +93,9 @@ locals {
       dns_soa = [
         for name in keys(local.dns_vms) : {
           host = name
+          # The service address: the NIC with the default gateway (the HA NIC has none).
           target = split("/", one([
-            for nic in local.nics[name] : nic.ipv4_address if nic.ipv4_address != null
+            for nic in local.nics[name] : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null
           ]))[0]
         }
       ]
@@ -96,6 +128,13 @@ resource "random_password" "grafana_secret_key" {
   special = false
 }
 
+# VRRPv2 PASS authentication: at most 8 characters, sent in clear (it only guards
+# against accidental peers, like another keepalived reusing router id 40).
+resource "random_password" "vrrp" {
+  length  = 8
+  special = false
+}
+
 module "monitoring" {
   source = "../../modules/services/monitoring"
 
@@ -119,6 +158,29 @@ module "monitoring" {
   }
   pve_exporter_token = var.pve_exporter_token
   snmp_auths         = var.snmp_v3_auths
+
+  # Unaddressed networks become 0.0.0.0 here and fail terraform_data.logging's precondition.
+  logging = {
+    for name, n in local.logging_nic : name => {
+      ha_address         = try(n.ha.address, "0.0.0.0")
+      backend_address    = try(n.backend.address, "0.0.0.0")
+      monitoring_address = try(n.monitoring.address, "0.0.0.0")
+      mgmt_address       = try(n.mgmt.address, "0.0.0.0")
+      interfaces = {
+        ha         = try(n.ha.interface, "none")
+        backend    = try(n.backend.interface, "none")
+        monitoring = try(n.monitoring.interface, "none")
+        mgmt       = try(n.mgmt.interface, "none")
+      }
+    }
+  }
+  logging_settings = merge(var.logging_settings, { syslog_host_overrides = local.syslog_host_overrides })
+  logging_secrets = var.loki_s3 == null ? null : {
+    s3_bucket     = var.loki_s3.bucket
+    s3_access_key = var.loki_s3.access_key
+    s3_secret_key = var.loki_s3.secret_key
+    vrrp_password = random_password.vrrp.result
+  }
 }
 
 resource "terraform_data" "backend" {
@@ -218,6 +280,62 @@ resource "terraform_data" "grafana" {
     inline = [
       # One command, so a failed deploy fails the apply (remote-exec reports the last exit status).
       "rc=0; sudo -n bash /tmp/tofu-grafana-${self.id}/deploy.sh deploy || rc=$?; rm -rf /tmp/tofu-grafana-${self.id}; exit $rc",
+    ]
+  }
+}
+
+# One per logging VM. They all deploy at once; for a rolling restart (one Loki at a
+# time, each waiting for /ready) apply with -parallelism=1. See the README.
+resource "terraform_data" "logging" {
+  for_each = local.logging_vms
+
+  # Alertmanager (ruler) and the backend VLAN must be up; Alloy on mon01/graf pushes to the VIP.
+  depends_on = [terraform_data.backend]
+
+  triggers_replace = [
+    sha256(module.monitoring.logging_deployments[each.key]),
+    each.value.management_address,
+    each.value.vm_id,
+    each.value.config.ssh_username,
+    var.deploy_revision,
+  ]
+
+  lifecycle {
+    precondition {
+      condition     = var.loki_s3 != null
+      error_message = "Set loki_s3 = { bucket, access_key, secret_key } (the RGW user for Loki) in roots/monitoring-config/logging.secret.auto.tfvars."
+    }
+    precondition {
+      condition     = local.logging_ready
+      error_message = "Every logging VM needs a management address and one addressed NIC each on the HA VLAN ${var.ha_vlan_id}, VLAN ${var.backend_vlan_id} and ${var.monitoring_bridge}."
+    }
+    precondition {
+      condition     = length(local.logging_vms) >= var.logging_settings.replication_factor
+      error_message = "Loki's replication_factor (${var.logging_settings.replication_factor}) needs at least that many logging VMs."
+    }
+  }
+
+  connection {
+    type        = "ssh"
+    host        = split("/", each.value.management_address)[0]
+    user        = each.value.config.ssh_username
+    private_key = file(pathexpand(var.ssh_private_key_path))
+    timeout     = "5m"
+  }
+
+  provisioner "remote-exec" {
+    inline = ["install -d -m 0700 /tmp/tofu-logging-${self.id}"]
+  }
+
+  provisioner "file" {
+    content     = module.monitoring.logging_deployments[each.key]
+    destination = "/tmp/tofu-logging-${self.id}/deploy.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      # One command, so a failed deploy fails the apply (remote-exec reports the last exit status).
+      "rc=0; sudo -n bash /tmp/tofu-logging-${self.id}/deploy.sh deploy || rc=$?; rm -rf /tmp/tofu-logging-${self.id}; exit $rc",
     ]
   }
 }

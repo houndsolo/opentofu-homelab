@@ -26,6 +26,9 @@ variable "images" {
     influxdb          = string
     postgres          = string
     grafana           = string
+    loki              = string
+    alloy             = string
+    haproxy           = string
   })
   validation {
     condition     = alltrue([for image in values(var.images) : can(regex("^[A-Za-z0-9][A-Za-z0-9._/:@-]*$", image))])
@@ -98,4 +101,56 @@ variable "settings" {
     ceph_cluster_name         = optional(string, "lylat") # cluster label on ceph metrics (ceph-mixin dashboards filter on it)
   })
   default = {}
+}
+
+variable "logging" {
+  description = "Logging VMs (Loki ring, Alloy syslog receiver, haproxy to the RGWs, keepalived), keyed by VM name. Name order sets the VRRP priority (150, 100, 50). Empty leaves logging out; Alloy (journal) still runs on the backend and Grafana VMs."
+  type = map(object({
+    backend_address    = string # backend VLAN: Loki HTTP API (Grafana, Alloy pushes), scrapes
+    ha_address         = string # HA VLAN: Loki ring (memberlist, ingester gRPC) and VRRP adverts
+    monitoring_address = string # monitoring network: syslog from devices and PVE nodes
+    mgmt_address       = string # management network: syslog from the VyOS leaves/DHCP VMs (mgmt VRF)
+    interfaces = object({       # the VM's interface name on each of those networks (VRRP)
+      ha         = string
+      backend    = string
+      monitoring = string
+      mgmt       = string
+    })
+  }))
+  default = {}
+}
+
+variable "logging_settings" {
+  description = "VIPs (CIDR, one per client network, all in one VRRP instance), VRRP router id, the Ceph RGW endpoints behind each VM's haproxy, Loki retention and replication, the schema's start date and which sources may reach Loki's ports."
+  type = object({
+    vips = optional(object({
+      backend    = optional(string, "10.13.11.40/16") # Grafana datasource, Alloy pushes from the other VMs
+      monitoring = optional(string, "10.5.11.40/16")  # syslog from devices and PVE nodes
+      mgmt       = optional(string, "10.20.11.40/16") # syslog from the VyOS leaves and DHCP VMs (mgmt VRF)
+    }), {})
+    vrrp_router_id        = optional(number, 40)
+    rgw_endpoints         = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
+    retention_period      = optional(string, "90d")
+    replication_factor    = optional(number, 3)
+    schema_start          = optional(string, "2026-11-01")           # never change once Loki has data; add a new period instead
+    loki_allowed_sources  = optional(list(string), ["10.13.0.0/16"]) # Loki HTTP (3100); the ring ports only accept the logging VMs
+    syslog_host_overrides = optional(map(string), {})                # sender IP => host label
+  })
+  default = {}
+  validation {
+    condition     = length(var.logging_settings.rgw_endpoints) > 0 && alltrue([for e in var.logging_settings.rgw_endpoints : can(regex("^[0-9.]+:[0-9]+$", e))])
+    error_message = "rgw_endpoints are \"IP:port\" strings, at least one."
+  }
+}
+
+variable "logging_secrets" {
+  description = "Loki's S3 bucket and keys (RGW user) and the VRRP password (8 characters at most, VRRPv2 PASS). Required when logging is non-empty."
+  sensitive   = true
+  type = object({
+    s3_bucket     = string
+    s3_access_key = string
+    s3_secret_key = string
+    vrrp_password = string
+  })
+  default = null
 }

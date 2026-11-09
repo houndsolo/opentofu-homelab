@@ -1,0 +1,105 @@
+// Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+// Grafana Alloy on ${host}: the host's journal (every Quadlet container logs to
+// it through Podman's journald driver)%{ if syslog } and the network syslog receiver%{ endif } -> Loki.
+
+loki.write "loki" {
+  endpoint {
+    url = "${loki_url}/loki/api/v1/push"
+  }
+}
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_container_name"]
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+}
+
+loki.source.journal "host" {
+  max_age       = "12h"
+  relabel_rules = loki.relabel.journal.rules
+  labels        = { host = "${host}", source = "journal" }
+  forward_to    = [loki.write.loki.receiver]
+}
+%{ if syslog ~}
+
+// Network syslog, received on every address (the VIPs included).
+//   TCP ${syslog_port}:  RFC 5424, octet-counted (VyOS, rsyslog on the PVE nodes and DNS VMs); sender's timestamp
+//   UDP ${syslog_port}:  RFC 3164 (MikroTik, FS S3700); no year/zone (and switch-1 has no NTP): receive time
+//   UDP ${raw_port}: raw lines, not parsed (Cisco C9800 IOS-XE and FS S3910 aren't RFC 3164, which
+//              drops them); labels come from the sender's address only. Needs --stability.level=experimental.
+loki.source.syslog "network" {
+  listener {
+    address                = "0.0.0.0:${syslog_port}"
+    protocol               = "tcp"
+    syslog_format          = "rfc5424"
+    use_incoming_timestamp = true
+    labels                 = { source = "syslog" }
+  }
+  listener {
+    address                = "0.0.0.0:${syslog_port}"
+    protocol               = "udp"
+    syslog_format          = "rfc3164"
+    use_incoming_timestamp = false
+    labels                 = { source = "syslog" }
+  }
+  listener {
+    address                = "0.0.0.0:${raw_port}"
+    protocol               = "udp"
+    syslog_format          = "raw"
+    use_incoming_timestamp = false
+    labels                 = { source = "syslog" }
+  }
+  relabel_rules = loki.relabel.syslog.rules
+  forward_to    = [loki.write.loki.receiver]
+}
+
+loki.relabel "syslog" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
+  }
+  // No hostname in the message: use the sender's address (then the known senders' names below).
+  rule {
+    source_labels = ["__syslog_message_hostname", "__syslog_connection_ip_address"]
+    regex         = ";(.+)"
+    target_label  = "host"
+  }
+%{ for ip in sort(keys(host_overrides)) ~}
+  rule {
+    source_labels = ["__syslog_connection_ip_address"]
+    regex         = "${replace(ip, ".", "\\\\.")}"
+    target_label  = "host"
+    replacement   = "${host_overrides[ip]}"
+  }
+%{ endfor ~}
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__syslog_message_facility"]
+    target_label  = "facility"
+  }
+}
+%{ endif ~}

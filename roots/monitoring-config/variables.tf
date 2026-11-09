@@ -16,6 +16,12 @@ variable "backend_vlan_id" {
   default     = 13
 }
 
+variable "ha_vlan_id" {
+  description = "HA VLAN of the logging VMs (L2VNI ha_logging): Loki's ring (memberlist, ingester gRPC) and keepalived's unicast adverts. Each logging VM needs one addressed NIC on it."
+  type        = number
+  default     = 214
+}
+
 variable "monitoring_bridge" {
   description = "Bridge of the monitoring network NIC on the role = \"monitoring\" VM (UIs, PVE metric pushes, node_exporter)."
   type        = string
@@ -40,6 +46,9 @@ variable "images" {
     influxdb          = optional(string, "docker.io/library/influxdb:2.8")
     postgres          = optional(string, "docker.io/library/postgres:17")
     grafana           = optional(string, "docker.io/grafana/grafana:13.2.5")
+    loki              = optional(string, "docker.io/grafana/loki:3.7.9")
+    alloy             = optional(string, "docker.io/grafana/alloy:v1.21.3")
+    haproxy           = optional(string, "docker.io/library/haproxy:3.2.26") # LTS branch
   })
   default = {}
 }
@@ -210,4 +219,34 @@ variable "vyos_telegraf_bucket" {
   description = "InfluxDB bucket that Telegraf on the VyOS routers (fw-wan) writes to. Same retention as pve_metrics."
   type        = string
   default     = "vyos"
+}
+
+variable "logging_settings" {
+  description = "Logging (role = \"logging\" VMs): VIPs, VRRP router id, Ceph RGW endpoints behind each VM's haproxy, Loki retention/replication, schema start date, sources allowed to reach Loki. See modules/services/monitoring."
+  type = object({
+    vips = optional(object({
+      backend    = optional(string, "10.13.11.40/16")
+      monitoring = optional(string, "10.5.11.40/16")
+      mgmt       = optional(string, "10.20.11.40/16")
+    }), {})
+    vrrp_router_id        = optional(number, 40)
+    rgw_endpoints         = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"]) # macbeth, titania, venom
+    retention_period      = optional(string, "90d")
+    replication_factor    = optional(number, 3)
+    schema_start          = optional(string, "2026-11-01")
+    loki_allowed_sources  = optional(list(string), ["10.13.0.0/16"])
+    syslog_host_overrides = optional(map(string), {}) # sender IP => host label, on top of the snmp_targets addresses
+  })
+  default = {}
+}
+
+variable "loki_s3" {
+  description = "Loki's S3 bucket and the RGW user's keys (logging.secret.auto.tfvars, git-ignored). Required when there are logging VMs."
+  type = object({
+    bucket     = string
+    access_key = string
+    secret_key = string
+  })
+  sensitive = true
+  default   = null
 }

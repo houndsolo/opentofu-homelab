@@ -1,0 +1,19 @@
+#!/usr/sbin/nft -f
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# Loki runs with host networking and has to answer on every address (the backend
+# VIP moves between the log VMs), so its ports are limited here:
+#   3100 (HTTP API)               loopback and ${join(", ", sources)}
+#   7946, 9095 (memberlist, gRPC) loopback and the logging VMs' HA addresses
+# Nothing else is filtered (syslog is open on purpose).
+table inet logging_guard
+delete table inet logging_guard
+
+table inet logging_guard {
+  chain input {
+    type filter hook input priority filter - 10; policy accept;
+    iif "lo" accept
+    tcp dport 3100 ip saddr { ${join(", ", sources)} } accept
+    tcp dport { 7946, 9095 } ip saddr { ${join(", ", ring_sources)} } accept
+    meta l4proto { tcp, udp } th dport { 3100, 7946, 9095 } drop
+  }
+}

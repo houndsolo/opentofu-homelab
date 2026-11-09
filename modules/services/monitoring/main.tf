@@ -115,6 +115,7 @@ locals {
       static_configs  = [for t in targets : { targets = [t.target], labels = { host = t.host } }]
       relabel_configs = local.proxy_relabel.blackbox
     }],
+    local.logging_scrape_configs, # logging.tf
   )
 
   prometheus_yml = yamlencode({
@@ -129,7 +130,7 @@ locals {
   })
 
   rules_yml = yamlencode({
-    groups = [{
+    groups = concat([{
       name = "basic"
       rules = [
         {
@@ -154,7 +155,7 @@ locals {
           annotations = { summary = "{{ $labels.instance }} {{ $labels.mountpoint }} has under 10% free" }
         },
       ]
-    }]
+    }], local.logging_rules) # logging.tf
   })
 
   # Placeholder routing: alerts are visible in Alertmanager/Grafana but not sent anywhere yet.
@@ -198,7 +199,7 @@ locals {
 
   datasources_yml = yamlencode({
     apiVersion = 1
-    datasources = [
+    datasources = concat([
       {
         name      = "Prometheus"
         uid       = "prometheus"
@@ -225,7 +226,7 @@ locals {
         jsonData       = { version = "Flux", organization = var.settings.influxdb_org, defaultBucket = var.settings.influxdb_grafana_bucket }
         secureJsonData = { token = "$INFLUXDB_TOKEN" } # Expanded by Grafana from grafana.env.
       },
-    ]
+    ], local.loki_datasource) # logging.tf
   })
 
   # Dashboards: dashboards/<Folder>/<name>.json becomes Grafana folder <Folder>.
@@ -415,6 +416,7 @@ locals {
       restart = ["pve-exporter"]
       reload  = []
     }] : [],
+    local.alloy_files[var.backend.name], # logging.tf
     local.snmp_auths_enabled ? [{
       # SNMPv3 credentials; the exporter image runs as root.
       path    = local.snmp_auths_path
@@ -448,12 +450,14 @@ locals {
     ],
     local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
     local.snmp_auths_enabled ? [{ path = "${local.backend_conf}/snmp-exporter", mode = "0755", owner = "root" }] : [],
+    local.alloy_dirs,
   )
 
   backend_validations = concat([
     "podman run --rm --network=none --user 0 --entrypoint promtool -v \"$root${local.backend_conf}/prometheus:/etc/prometheus:ro\" '${var.images.prometheus}' check config /etc/prometheus/prometheus.yml",
     "podman run --rm --network=none --user 0 --entrypoint amtool -v \"$root${local.backend_conf}/alertmanager:/etc/alertmanager:ro\" '${var.images.alertmanager}' check-config /etc/alertmanager/alertmanager.yml",
     "podman run --rm --network=none --user 0 -v \"$root${local.backend_conf}/blackbox:/etc/blackbox_exporter:ro\" '${var.images.blackbox_exporter}' --config.check --config.file=/etc/blackbox_exporter/config.yml",
+    local.alloy_validation[var.backend.name],
     ], local.snmp_auths_enabled ? [
     "podman run --rm --network=none -v \"$root${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro\" '${var.images.snmp_exporter}' --dry-run --config.file=/etc/snmp_exporter/snmp.yml --config.file=/etc/snmp_exporter/auths.yml",
   ] : [])
@@ -463,18 +467,21 @@ locals {
     "curl -fsS -o /dev/null --max-time 3 http://${local.back}:9093/-/ready",
     "curl -fsS -o /dev/null --max-time 3 http://${local.back}:8086/health",
     "podman exec postgres pg_isready -q -U grafana -d grafana",
+    local.alloy_health[var.backend.name],
   ]
 
   backend_deployment = templatefile("${path.module}/templates/deploy.sh.tftpl", {
-    host        = var.backend.name
-    state_file  = "${local.backend_conf}/.tofu-quadlets"
-    images      = distinct([for c in values(local.backend_containers) : c.image])
-    dirs        = local.backend_dirs
-    prune_dirs  = []
-    files       = local.backend_files
-    validations = local.backend_validations
-    services    = concat(["monitoring-network"], local.backend_order)
-    health      = local.backend_health
+    host         = var.backend.name
+    state_file   = "${local.backend_conf}/.tofu-quadlets"
+    images       = distinct(concat([for c in values(local.backend_containers) : c.image], [var.images.alloy]))
+    packages     = []
+    dirs         = local.backend_dirs
+    prune_dirs   = []
+    files        = local.backend_files
+    validations  = local.backend_validations
+    post_install = []
+    services     = concat(["monitoring-network"], local.backend_order, ["alloy"])
+    health       = local.backend_health
   })
 
   # Grafana front ends.
@@ -536,8 +543,9 @@ locals {
     for name, g in var.grafana : name => templatefile("${path.module}/templates/deploy.sh.tftpl", {
       host       = name
       state_file = "${local.grafana_conf}/.tofu-quadlets"
-      images     = [var.images.grafana, var.images.node_exporter]
-      dirs = concat([
+      images     = [var.images.grafana, var.images.node_exporter, var.images.alloy]
+      packages   = []
+      dirs = concat(local.alloy_dirs, [
         { path = local.quadlet_dir, mode = "0755", owner = "root" },
         { path = local.grafana_conf, mode = "0755", owner = "root" },
         { path = "${local.grafana_conf}/provisioning", mode = "0755", owner = "root" },
@@ -594,10 +602,12 @@ locals {
           restart = []
           reload  = []
         }],
+        local.alloy_files[name], # logging.tf
       )
-      validations = []
-      services    = ["grafana", "node-exporter"]
-      health      = ["curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health"]
+      validations  = [local.alloy_validation[name]]
+      post_install = []
+      services     = ["grafana", "node-exporter", "alloy"]
+      health       = ["curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health", local.alloy_health[name]]
     })
   }
 }
