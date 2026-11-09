@@ -22,6 +22,23 @@ variable "ha_vlan_id" {
   default     = 214
 }
 
+variable "grafana_ha_vlan_id" {
+  description = "HA VLAN of the Grafana VMs (L2VNI ha_grafana): unified alerting's gossip (9094) and keepalived's unicast adverts. Every Grafana VM needs one addressed NIC on it, or gossip stays on the backend and keepalived is skipped."
+  type        = number
+  default     = 213
+}
+
+variable "grafana_vrrp" {
+  description = "Grafana keepalived VIP (CIDR on the UI NIC, the one with the default gateway) and VRRP router id. The PASS password is generated. null = no keepalived/VIP."
+  type = object({
+    vip       = string
+    router_id = optional(number, 11)
+  })
+  default = {
+    vip = "10.2.11.40/16"
+  }
+}
+
 variable "monitoring_bridge" {
   description = "Bridge of the monitoring network NIC on the role = \"monitoring\" VM (UIs, PVE metric pushes, node_exporter)."
   type        = string

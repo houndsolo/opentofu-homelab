@@ -1,0 +1,51 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# VRRP for the Grafana VIP on ${host}: adverts go unicast over the HA VLAN (${ha_interface}),
+# the VIP sits on the UI NIC (${interface}).
+
+global_defs {
+  router_id ${host}
+  script_user nobody nogroup
+  enable_script_security
+  vrrp_garp_master_refresh 60
+}
+
+# No weight: a failing check puts the node in FAULT, which releases the VIP. (With
+# nopreempt a lowered priority would never move it.)
+vrrp_script chk_grafana {
+  script "/usr/bin/curl -fsS -m 2 -o /dev/null http://127.0.0.1:3000/api/health"
+  interval 5
+  timeout 3
+  fall 3
+  rise 2
+  init_fail
+}
+
+vrrp_instance grafana {
+  # Everyone starts BACKUP and nobody preempts: priority only decides the first election,
+  # and a recovered node doesn't pull the VIP back (no second interruption, fewer EVPN moves).
+  state BACKUP
+  nopreempt
+  interface ${ha_interface}
+  virtual_router_id ${router_id}
+  priority ${priority}
+  advert_int 1
+  unicast_src_ip ${ha_address}
+  unicast_peer {
+%{ for peer in peers ~}
+    ${peer}
+%{ endfor ~}
+  }
+  authentication {
+    auth_type PASS
+    auth_pass ${auth_pass}
+  }
+  virtual_ipaddress {
+    ${vip} dev ${interface}
+  }
+  track_interface {
+    ${interface}
+  }
+  track_script {
+    chk_grafana
+  }
+}

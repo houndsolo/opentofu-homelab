@@ -30,6 +30,20 @@ locals {
 
   backend_name = try(one(keys(local.monitoring_vms)), null)
 
+  # Grafana VMs: HA VLAN NIC (alerting gossip, VRRP) and the UI NIC (the one with the
+  # default gateway, VLAN 2) that holds the VIP. network_devices[i] is eth<i+1>.
+  grafana_nic = {
+    for name in keys(local.grafana_vms) : name => {
+      ha = try(one([
+        for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
+        if nic.vlan_id == var.grafana_ha_vlan_id && nic.ipv4_address != null
+      ]), null)
+      ui = try(one([
+        for i, nic in local.nics[name] : "eth${i + 1}" if nic.ipv4_address != null && nic.ipv4_gateway != null
+      ]), null)
+    }
+  }
+
   # Logging VMs: address and interface name per network. The management NIC is eth0 and
   # network_devices[i] is eth<i+1> (the order Proxmox attaches them; checked with ip -br a).
   logging_nic = {
@@ -135,6 +149,12 @@ resource "random_password" "vrrp" {
   special = false
 }
 
+# Grafana's VRRP instance (its own HA VLAN, router id 11): same 8-character PASS limit.
+resource "random_password" "grafana_vrrp" {
+  length  = 8
+  special = false
+}
+
 module "monitoring" {
   source = "../../modules/services/monitoring"
 
@@ -144,7 +164,16 @@ module "monitoring" {
     backend_address    = coalesce(try(local.backend_address[local.backend_name], null), "0.0.0.0")
   }
   grafana = {
-    for name in keys(local.grafana_vms) : name => { backend_address = coalesce(local.backend_address[name], "0.0.0.0") }
+    for name, n in local.grafana_nic : name => {
+      backend_address = coalesce(local.backend_address[name], "0.0.0.0")
+      ha_address      = try(n.ha.address, null)
+      interfaces      = n.ha == null || n.ui == null ? null : { ha = n.ha.interface, vip = n.ui }
+    }
+  }
+  grafana_vrrp = var.grafana_vrrp == null ? null : {
+    vip       = var.grafana_vrrp.vip
+    router_id = var.grafana_vrrp.router_id
+    auth_pass = random_password.grafana_vrrp.result
   }
   images   = var.images
   targets  = local.targets
@@ -256,6 +285,10 @@ resource "terraform_data" "grafana" {
     precondition {
       condition     = local.backend_address[each.key] != null
       error_message = "${each.key} needs one addressed NIC on VLAN ${var.backend_vlan_id}."
+    }
+    precondition {
+      condition     = var.grafana_vrrp == null || (local.grafana_nic[each.key].ha != null && local.grafana_nic[each.key].ui != null)
+      error_message = "${each.key} needs one addressed NIC on VLAN ${var.grafana_ha_vlan_id} (Grafana HA) and one with a default gateway (UI, holds the VIP) for grafana_vrrp."
     }
   }
 

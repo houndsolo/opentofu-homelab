@@ -8,10 +8,29 @@ variable "backend" {
 }
 
 variable "grafana" {
-  description = "Grafana front ends, keyed by VM name. backend_address is the VM's address on the backend VLAN."
+  description = "Grafana front ends, keyed by VM name. backend_address is the VM's address on the backend VLAN; ha_address on the Grafana HA VLAN (alerting gossip, VRRP), and interfaces the VM's NIC names for VRRP (ha, and vip: the UI NIC that holds grafana_vrrp.vip)."
   type = map(object({
     backend_address = string
+    ha_address      = optional(string) # null on any VM: gossip stays on the backend and no keepalived
+    interfaces = optional(object({
+      ha  = string
+      vip = string
+    }))
   }))
+}
+
+variable "grafana_vrrp" {
+  description = "keepalived VIP for Grafana (CIDR on the UI NIC), VRRP router id and PASS password (8 characters at most). Needs ha_address/interfaces on every Grafana VM and at least two VMs. null = no keepalived."
+  type = object({
+    vip       = string
+    router_id = optional(number, 11)
+    auth_pass = string
+  })
+  default = null
+  validation {
+    condition     = var.grafana_vrrp == null || try(can(cidrhost(var.grafana_vrrp.vip, 0)) && var.grafana_vrrp.router_id >= 1 && var.grafana_vrrp.router_id <= 255 && length(var.grafana_vrrp.auth_pass) <= 8, false)
+    error_message = "grafana_vrrp needs vip as an IPv4 CIDR, router_id 1..255 and auth_pass of at most 8 characters."
+  }
 }
 
 variable "images" {

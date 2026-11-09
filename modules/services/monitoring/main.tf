@@ -485,7 +485,8 @@ locals {
   })
 
   # Grafana front ends.
-  grafana_peers = join(",", [for name in sort(keys(var.grafana)) : "${var.grafana[name].backend_address}:9094"])
+  # Alerting HA gossip: over the HA VLAN when every VM has an address there (grafana-ha.tf).
+  grafana_peers = join(",", [for name in sort(keys(var.grafana)) : "${local.grafana_gossip[name]}:9094"])
 
   # Quadlet units per Grafana VM (no secrets; those live in grafana.env).
   grafana_units = {
@@ -495,8 +496,8 @@ locals {
         description = "Grafana"
         image       = var.images.grafana
         network     = null # Default podman bridge; reaches the backend through the host.
-        # UI on every address, so a future keepalived VIP works wherever it lands.
-        publish = ["3000:3000", "${g.backend_address}:9094:9094/tcp", "${g.backend_address}:9094:9094/udp"]
+        # UI on every address, so the keepalived VIP (grafana-ha.tf) works wherever it lands.
+        publish = ["3000:3000", "${local.grafana_gossip[name]}:9094:9094/tcp", "${local.grafana_gossip[name]}:9094:9094/udp"]
         volumes = ["${local.grafana_conf}/provisioning:/etc/grafana/provisioning:ro", "${local.grafana_data}:/var/lib/grafana"]
         env = merge({
           GF_SERVER_ROOT_URL                       = var.settings.grafana_root_url
@@ -506,7 +507,7 @@ locals {
           GF_DATABASE_NAME                         = "grafana"
           GF_DATABASE_USER                         = "grafana"
           GF_UNIFIED_ALERTING_HA_LISTEN_ADDRESS    = "0.0.0.0:9094"
-          GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS = "${g.backend_address}:9094"
+          GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS = "${local.grafana_gossip[name]}:9094"
           GF_UNIFIED_ALERTING_HA_PEERS             = local.grafana_peers
           GF_METRICS_ENABLED                       = "true"
           GF_ANALYTICS_REPORTING_ENABLED           = "false"
@@ -544,8 +545,8 @@ locals {
       host       = name
       state_file = "${local.grafana_conf}/.tofu-quadlets"
       images     = [var.images.grafana, var.images.node_exporter, var.images.alloy]
-      packages   = []
-      dirs = concat(local.alloy_dirs, [
+      packages   = local.grafana_ha_packages
+      dirs = concat(local.alloy_dirs, local.grafana_ha_dirs, [
         { path = local.quadlet_dir, mode = "0755", owner = "root" },
         { path = local.grafana_conf, mode = "0755", owner = "root" },
         { path = "${local.grafana_conf}/provisioning", mode = "0755", owner = "root" },
@@ -602,11 +603,12 @@ locals {
           restart = []
           reload  = []
         }],
-        local.alloy_files[name], # logging.tf
+        local.alloy_files[name],      # logging.tf
+        local.grafana_ha_files[name], # grafana-ha.tf
       )
-      validations  = [local.alloy_validation[name]]
-      post_install = []
-      services     = ["grafana", "node-exporter", "alloy"]
+      validations  = concat([local.alloy_validation[name]], local.grafana_ha_validations)
+      post_install = local.grafana_ha_post_install
+      services     = concat(["grafana", "node-exporter", "alloy"], local.grafana_ha_services)
       health       = ["curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health", local.alloy_health[name]]
     })
   }

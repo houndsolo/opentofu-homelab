@@ -79,3 +79,9 @@ output "loki_url" {
   description = "Loki on the backend VIP (Grafana datasource, Alloy pushes)."
   value       = local.loki_url
 }
+
+output "grafana_keepalived_configs" {
+  description = "Rendered keepalived.conf per Grafana VM (null when grafana_vrrp is off). Contains the VRRP password."
+  value       = local.grafana_keepalived_conf
+  sensitive   = true
+}

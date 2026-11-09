@@ -4,6 +4,12 @@ mock_provider "random" {
   }
 }
 
+# keepalived's PASS password is at most 8 characters (the shared mock result is longer).
+override_resource {
+  target = random_password.grafana_vrrp
+  values = { result = "mockvrrp" }
+}
+
 mock_provider "influxdb" {
   mock_data "influxdb_organization" {
     defaults = { id = "0123456789abcdef" }
@@ -65,7 +71,7 @@ run "inventory_targets" {
       strcontains(nonsensitive(module.monitoring.backend_deployment), "promtool") &&
       strcontains(module.monitoring.units.mon01.postgres, "PublishPort=10.13.11.30:5432:5432\n") &&
       !strcontains(module.monitoring.units.mon01.postgres, "10.5.11.30") &&
-      strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.13.11.31:9094,10.13.11.32:9094") &&
+      strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.21.11.31:9094,10.21.11.32:9094") &&
       strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.13.11.32:9100") &&
       strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus") &&
       # Data dirs of images that drop from root to a service user stay owned by that user,
@@ -462,4 +468,42 @@ run "logging_ha_nic_required" {
   }
 
   expect_failures = [terraform_data.logging]
+}
+
+run "grafana_ha" {
+  command = plan
+
+  assert {
+    # Alerting gossip on the Grafana HA VLAN (213), published only there.
+    condition = alltrue([for name, i in { graf01 = 31, graf02 = 32 } : (
+      strcontains(module.monitoring.units[name].grafana, "GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS=10.21.11.${i}:9094") &&
+      strcontains(module.monitoring.units[name].grafana, "PublishPort=10.21.11.${i}:9094:9094/udp") &&
+      !strcontains(module.monitoring.units[name].grafana, "10.13.11.${i}:9094")
+    )])
+    error_message = "Grafana alerting HA gossips over 10.21.11.31/.32:9094."
+  }
+
+  assert {
+    # VIP on the UI NIC (eth1, VLAN 2), adverts unicast on the HA NIC (eth3), router id 11.
+    condition = (
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.2.11.40/16 dev eth1") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "interface eth3") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip 10.21.11.31") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    10.21.11.32\n") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "priority 150") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "priority 100") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "virtual_router_id 11")
+    )
+    error_message = "keepalived on graf01/02: VIP 10.2.11.40 on eth1, unicast adverts over eth3, vrid 11, name-ordered priority."
+  }
+}
+
+run "grafana_vrrp_disabled" {
+  command = plan
+  variables { grafana_vrrp = null }
+
+  assert {
+    condition     = nonsensitive(module.monitoring.grafana_keepalived_configs.graf01) == null
+    error_message = "grafana_vrrp = null renders no keepalived config."
+  }
 }

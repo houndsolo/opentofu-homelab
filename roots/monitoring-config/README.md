@@ -22,7 +22,8 @@ generates the secrets and does the SSH deployment.
 | | `snmp-exporter`, `blackbox-exporter`, `pve-exporter` | not published; Prometheus reaches them by name on the `monitoring` Podman network |
 | | `node-exporter` | `10.5.11.30:9100` |
 | | `monitoring-network` | the Podman bridge network itself |
-| grafana VMs (graf01/02) | `grafana` | 3000 on every address (VLAN 2 for users; a future VIP), 9094 (alerting HA gossip) on the backend VLAN |
+| grafana VMs (graf01/02) | `grafana` | 3000 on every address (VLAN 2 for users, VIP `10.2.11.40` included), 9094 (alerting HA gossip) on the Grafana HA VLAN 213 |
+| | `keepalived` (Debian package) | VRRP (router id 11) unicast over VLAN 213 (`10.21.11.31/.32`); VIP `10.2.11.40/16` on the VLAN 2 NIC |
 | | `node-exporter` | backend VLAN address, port 9100 |
 | backend and grafana VMs | `alloy` (journal -> Loki VIP) | backend VLAN address, port 12345 (metrics) |
 | logging VMs (log01-03) | `loki` | 3100 (HTTP) on every address, limited by `logging-guard` to loopback and the backend VLAN; ring (gRPC 9095, memberlist 7946) on the HA VLAN 214 |
@@ -40,8 +41,12 @@ nodes push metrics.
 Both Grafana VMs share one Postgres database, so users, sessions, dashboards
 and alert state are the same on either. Datasources and [dashboards](#dashboards)
 are provisioned from files, so a rebuilt VM comes back identical. Grafana's unified alerting peers over the
-backend VLAN, so an alert isn't sent twice. There is no VIP yet (keepalived is a
-later step).
+Grafana HA VLAN (213, L2VNI `ha_grafana`, `10.21.11.31/.32:9094`), so an alert isn't sent twice.
+keepalived (`grafana_vrrp`, router id 11) holds the VIP `10.2.11.40/16` (`grafana.lylat.space`) on the
+VLAN 2 NIC: adverts go unicast over VLAN 213, both VMs start BACKUP with `nopreempt` (graf01 wins the
+first election), and a failing `/api/health` check puts a VM in FAULT, which releases the VIP. If a Grafana
+VM has no addressed NIC on `grafana_ha_vlan_id`, gossip falls back to the backend VLAN and the plan
+fails while `grafana_vrrp` is set.
 
 ## How a deployment works
 
