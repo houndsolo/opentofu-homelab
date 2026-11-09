@@ -5,7 +5,8 @@
 
 The JSON files it writes are committed and provisioned like the community ones,
 so edit this script and re-run it rather than editing them by hand. It needs no
-network access. Each dashboard:
+network access. The Proxmox dashboards (InfluxDB) are built by pve.py, which
+this script imports. Each dashboard:
 
 - queries the provisioned Prometheus datasource (uid "prometheus") directly;
 - uses the scrape targets' "host" label for names and pickers;
@@ -18,6 +19,7 @@ there; `... or vector(0)` keeps the "down"/"failing" stats at 0 rather than
 """
 import json
 import pathlib
+import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 DS = {"type": "prometheus", "uid": "prometheus"}
@@ -390,6 +392,10 @@ def overview():
                text_mode="value_and_name", thresholds=ORANGE_IF_ANY,
                overrides=[override("OSDs down", {"thresholds": RED_IF_ANY})], links=ceph_link,
                desc="OSDs down and placement groups that aren't active+clean."), 4, 5)
+
+    b.row("Proxmox")
+    import pve  # pve.py imports its helpers from this module; main() makes that possible
+    pve.overview_row(b)
 
     b.row("Targets and alerts")
     b.add(targets_by_job_table(), 7, 10)
@@ -1692,7 +1698,11 @@ DASHBOARDS = {
 
 
 def main():
-    for rel, build in DASHBOARDS.items():
+    sys.modules.setdefault("custom", sys.modules[__name__])  # for pve.py's "from custom import ..."
+    sys.path.insert(0, str(HERE))
+    sys.dont_write_bytecode = True
+    import pve
+    for rel, build in {**DASHBOARDS, **pve.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = build()

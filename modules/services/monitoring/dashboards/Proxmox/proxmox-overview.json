@@ -1,0 +1,2321 @@
+{
+  "id": null,
+  "uid": "proxmox-overview",
+  "title": "Proxmox overview",
+  "description": "The PVE nodes, guests and storages at a glance, from the PVE metric server data in InfluxDB.",
+  "tags": [
+    "lylat",
+    "proxmox"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "proxmox"
+      ],
+      "asDropdown": true,
+      "title": "Proxmox dashboards",
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Cluster",
+        "type": "custom",
+        "hide": 0,
+        "query": "lylat cluster : pve_cluster,greatfox : pve_greatfox",
+        "description": "InfluxDB bucket: pve_cluster (the lylat cluster) or pve_greatfox (the standalone greatfox).",
+        "multi": false,
+        "includeAll": false,
+        "options": [
+          {
+            "text": "lylat cluster",
+            "value": "pve_cluster",
+            "selected": true
+          },
+          {
+            "text": "greatfox",
+            "value": "pve_greatfox",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "lylat cluster",
+          "value": "pve_cluster",
+          "selected": true
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Cluster",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Nodes",
+      "description": "Nodes that reported to InfluxDB within the last minute of the time range (Up) and nodes seen earlier in the range that stopped reporting (Down).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r._field == \"avg1\")\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({r with fresh: int(v: v.timeRangeStop) - int(v: r._time) < 60000000000}))\n  |> reduce(identity: {up: 0, down: 0}, fn: (r, accumulator) => ({\n       up: accumulator.up + (if r.fresh then 1 else 0), down: accumulator.down + (if r.fresh then 0 else 1)}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "up"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Up"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "down"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Down"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Guests",
+      "description": "Running VMs and containers, stopped guests (templates not counted) and templates.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and true and (r._field == \"status\" or r._field == \"template\"))\n  |> last()\n  |> map(fn: (r) => ({vmid: r.vmid, nodename: r.nodename, object: r.object, _field: r._field, _value: string(v: r._value)}))\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"nodename\", \"object\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> reduce(identity: {vms: 0, cts: 0, stopped: 0, templates: 0}, fn: (r, accumulator) => ({\n       vms: accumulator.vms + (if r.status == \"running\" and r.object == \"qemu\" then 1 else 0),\n       cts: accumulator.cts + (if r.status == \"running\" and r.object == \"lxc\" then 1 else 0),\n       stopped: accumulator.stopped + (if r.status != \"running\" and not exists r.template then 1 else 0),\n       templates: accumulator.templates + (if exists r.template then 1 else 0)}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vms"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VMs running"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cts"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "CTs running"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stopped"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Stopped"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "templates"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Templates"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Proxmox guests",
+          "url": "/d/proxmox-guest/proxmox-guest?var-bucket=${bucket}&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "h": 5,
+        "w": 7,
+        "x": 4,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "CPU",
+      "description": "Busy share of all node cores (pvestatd's cpu, weighted by cores).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and true and (r._field == \"cpu\" or r._field == \"cpus\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group(columns: [\"_time\"])\n  |> reduce(identity: {used: 0.0, cpus: 0.0}, fn: (r, accumulator) => ({used: accumulator.used + r.cpu * r.cpus, cpus: accumulator.cpus + r.cpus}))\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.used / r.cpus}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 11,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Memory",
+      "description": "Used / total memory over all nodes (used = total - available).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"memory\" and r.object == \"nodes\" and true and (r._field == \"memused\" or r._field == \"memtotal\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group(columns: [\"_time\"])\n  |> reduce(identity: {used: 0.0, total: 0.0}, fn: (r, accumulator) => ({used: accumulator.used + r.memused, total: accumulator.total + r.memtotal}))\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.used / r.total}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 14,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Allocated to running guests",
+      "description": "vCPUs and configured memory of the running guests, against the nodes' cores and RAM. Above 1x vCPUs is normal overcommit; memory near 100% leaves no room for an HA failover.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nguests = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"cpus\" or r._field == \"maxmem\" or r._field == \"uptime\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => r.uptime > 0.0)\n  |> reduce(identity: {vcpus: 0.0, vmem: 0.0}, fn: (r, accumulator) => ({vcpus: accumulator.vcpus + r.cpus, vmem: accumulator.vmem + r.maxmem}))\n  |> map(fn: (r) => ({r with k: 1}))\nnodes = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.object == \"nodes\" and ((r._measurement == \"cpustat\" and r._field == \"cpus\") or (r._measurement == \"memory\" and r._field == \"memtotal\")))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> reduce(identity: {cores: 0.0, mem: 0.0}, fn: (r, accumulator) => ({cores: accumulator.cores + r.cpus, mem: accumulator.mem + r.memtotal}))\n  |> map(fn: (r) => ({r with k: 1}))\njoin(tables: {g: guests, n: nodes}, on: [\"k\"])\n  |> map(fn: (r) => ({vCPUs: r.vcpus / r.cores, memory: r.vmem / r.mem}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vCPUs"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "x"
+              },
+              {
+                "id": "displayName",
+                "value": "vCPUs / cores"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 2
+                    },
+                    {
+                      "color": "red",
+                      "value": 4
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "displayName",
+                "value": "Memory / RAM"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 5,
+        "w": 7,
+        "x": 17,
+        "y": 1
+      }
+    },
+    {
+      "type": "row",
+      "title": "Nodes",
+      "collapsed": false,
+      "id": 7,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Nodes",
+      "description": "Last values in the time range. State is DOWN when the node stopped reporting. Network is the current rate summed over the physical NICs. Click a node for its dashboard.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "data = from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.object == \"nodes\" and true and (\n       (r._measurement == \"cpustat\" and (r._field == \"cpu\" or r._field == \"cpus\" or r._field == \"wait\" or r._field == \"avg5\")) or\n       (r._measurement == \"memory\" and (r._field == \"memused\" or r._field == \"memtotal\" or r._field == \"swapused\" or r._field == \"swaptotal\")) or\n       (r._measurement == \"blockstat\" and r._field == \"per\") or\n       (r._measurement == \"system\" and r._field == \"uptime\")))\n  |> last()\n  |> map(fn: (r) => ({host: r.host, _field: r._field, _value: float(v: r._value), _time: r._time}))\nage = data\n  |> filter(fn: (r) => r._field == \"uptime\")\n  |> map(fn: (r) => ({host: r.host, _field: \"age\", _value: float(v: int(v: v.timeRangeStop) - int(v: r._time)) / 1000000000.0, _time: r._time}))\nunion(tables: [data, age])\n  |> group()\n  |> pivot(rowKey: [\"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({host: r.host, up: if r.age < 60.0 then 1 else 0, uptime: r.uptime, cpu: r.cpu,\n       cores: r.cpus, load: r.avg5 / r.cpus, iowait: r.wait, mem: r.memused / r.memtotal, memtotal: r.memtotal,\n       swap: if r.swaptotal > 0.0 then r.swapused / r.swaptotal else 0.0, rootfs: r.per / 100.0}))",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"status\")\n  |> last()\n  |> group(columns: [\"nodename\"])\n  |> reduce(identity: {running: 0, guests: 0}, fn: (r, accumulator) => ({\n       running: accumulator.running + (if r._value == \"running\" then 1 else 0), guests: accumulator.guests + 1}))\n  |> group()\n  |> rename(columns: {nodename: \"host\"})",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"nics\" and r.object == \"nodes\" and r.instance =~ /^(eth|en|wl)/ and (r._field == \"receive\" or r._field == \"transmit\"))\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> group(columns: [\"host\", \"_field\"])\n  |> sum()\n  |> map(fn: (r) => ({r with _value: r._value * 8.0}))\n  |> group()\n  |> pivot(rowKey: [\"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "DOWN",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "UP",
+                        "color": "green",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Uptime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.75
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.75
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Swap"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.75
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Root FS"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.75
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Load 5m / core"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "red",
+                      "value": 1.5
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "IO wait"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.05
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.2
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RAM"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net in"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net out"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Node"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Proxmox node",
+                    "url": "/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=${__data.fields.host}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Node",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "host",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "host": "Node",
+              "up": "State",
+              "uptime": "Uptime",
+              "cpu": "CPU",
+              "cores": "Cores",
+              "load": "Load 5m / core",
+              "iowait": "IO wait",
+              "mem": "Memory",
+              "memtotal": "RAM",
+              "swap": "Swap",
+              "rootfs": "Root FS",
+              "running": "Guests running",
+              "guests": "Guests",
+              "receive": "Net in",
+              "transmit": "Net out"
+            },
+            "indexByName": {
+              "host": 0,
+              "up": 1,
+              "uptime": 2,
+              "cpu": 3,
+              "cores": 4,
+              "load": 5,
+              "iowait": 6,
+              "mem": 7,
+              "memtotal": 8,
+              "swap": 9,
+              "rootfs": 10,
+              "running": 11,
+              "guests": 12,
+              "receive": 13,
+              "transmit": 14
+            }
+          }
+        }
+      ],
+      "id": 8,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      }
+    },
+    {
+      "type": "row",
+      "title": "Node trends",
+      "collapsed": false,
+      "id": 9,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU per node",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r._field == \"cpu\")\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 17
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory per node",
+      "description": "Used = total - available.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"memory\" and r.object == \"nodes\" and (r._field == \"memused\" or r._field == \"memtotal\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n        |> map(fn: (r) => ({r with _value: r.memused / r.memtotal}))\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 17
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load (5m) per core",
+      "description": "5-minute load average divided by the node's cores; above 1 means runnable tasks are waiting.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and (r._field == \"avg5\" or r._field == \"cpus\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n        |> map(fn: (r) => ({r with _value: r.avg5 / r.cpus}))\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 2,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 17
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Network per node (physical NICs)",
+      "description": "Summed over each node's physical NICs (bond members and uplinks); inbound up, outbound down.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"nics\" and r.object == \"nodes\" and r.instance =~ /^(eth|en|wl)/ and (r._field == \"receive\" or r._field == \"transmit\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n        |> group(columns: [\"host\", \"_field\"])\n        |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n        |> map(fn: (r) => ({r with _value: r._value * 8.0}))\n        |> map(fn: (r) => ({r with series: r.host + (if r._field == \"receive\" then \" in\" else \" out\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bin$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bout$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "IO wait per node",
+      "description": "Share of CPU time spent waiting for I/O.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r._field == \"wait\")\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      }
+    },
+    {
+      "type": "row",
+      "title": "Guests",
+      "collapsed": false,
+      "id": 15,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Top guests by CPU",
+      "description": "Share of each guest's own vCPUs in use.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"cpu\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({guest: r.host, _value: r.cpu}))\n  |> filter(fn: (r) => r._value > 0.0)\n  |> top(n: 10)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "limit": 50
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 18,
+        "minVizWidth": 8,
+        "maxVizHeight": 18,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        }
+      },
+      "links": [
+        {
+          "title": "Proxmox guests",
+          "url": "/d/proxmox-guest/proxmox-guest?var-bucket=${bucket}&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 16,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 0,
+        "y": 35
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top guests by memory",
+      "description": "Host memory used by the guest (memhost for VMs, mem for containers).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"mem\" or r._field == \"memhost\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({guest: r.host, _value: if exists r.memhost then r.memhost else r.mem}))\n  |> filter(fn: (r) => r._value > 0.0)\n  |> top(n: 10)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "limit": 50
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 18,
+        "minVizWidth": 8,
+        "maxVizHeight": 18,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        }
+      },
+      "links": [
+        {
+          "title": "Proxmox guests",
+          "url": "/d/proxmox-guest/proxmox-guest?var-bucket=${bucket}&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 17,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 6,
+        "y": 35
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top guests by disk I/O",
+      "description": "Read + write throughput, now.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"diskread\" or r._field == \"diskwrite\"))\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({guest: r.host, _value: r.diskread + r.diskwrite}))\n  |> filter(fn: (r) => r._value > 0.0)\n  |> top(n: 10)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "Bps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "limit": 50
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 18,
+        "minVizWidth": 8,
+        "maxVizHeight": 18,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        }
+      },
+      "links": [
+        {
+          "title": "Proxmox guests",
+          "url": "/d/proxmox-guest/proxmox-guest?var-bucket=${bucket}&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 18,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 35
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top guests by network",
+      "description": "In + out, now.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"netin\" or r._field == \"netout\"))\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({guest: r.host, _value: (r.netin + r.netout) * 8.0}))\n  |> filter(fn: (r) => r._value > 0.0)\n  |> top(n: 10)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "limit": 50
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 18,
+        "minVizWidth": 8,
+        "maxVizHeight": 18,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        }
+      },
+      "links": [
+        {
+          "title": "Proxmox guests",
+          "url": "/d/proxmox-guest/proxmox-guest?var-bucket=${bucket}&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 19,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 35
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Running guests",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"status\")\n        |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n        |> map(fn: (r) => ({_time: r._time, object: r.object, _value: if r._value == \"running\" then 1 else 0}))\n        |> group(columns: [\"object\"])\n        |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n        |> map(fn: (r) => ({r with series: if r.object == \"qemu\" then \"VMs\" else \"CTs\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "VMs"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CTs"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Guest CPU by node (cores)",
+      "description": "Cores busy running guests, per node.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"cpu\" or r._field == \"cpus\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n        |> map(fn: (r) => ({_time: r._time, nodename: r.nodename, _value: r.cpu * r.cpus}))\n        |> group(columns: [\"nodename\"])\n        |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n        |> map(fn: (r) => ({r with series: r.nodename}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 21,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      }
+    },
+    {
+      "type": "row",
+      "title": "Storage",
+      "collapsed": false,
+      "id": 22,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 52
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Storage used",
+      "description": "Used / total. Shared storages once, local ones per node.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and true and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and true and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n  |> keep(columns: [\"storage\", \"pct\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^pct$/",
+          "limit": 50
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 20,
+        "minVizWidth": 8,
+        "maxVizHeight": 20,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        }
+      },
+      "links": [
+        {
+          "title": "Proxmox storage",
+          "url": "/d/proxmox-storage/proxmox-storage?var-bucket=${bucket}&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 23,
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 0,
+        "y": 53
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Storage used over time",
+      "description": "Used / total per storage.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and true and\n       (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.used / r.total,\n       series: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\"}))\n  |> group(columns: [\"series\"])\n  |> unique(column: \"_time\")\n  |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 24,
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 10,
+        "y": 53
+      }
+    }
+  ]
+}

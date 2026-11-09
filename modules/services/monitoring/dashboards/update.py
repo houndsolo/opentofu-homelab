@@ -18,7 +18,11 @@ upstream JSON stays readable:
   dashboard with that tag; the SNMP ones also get an "snmp" tag and a dropdown
   that jumps between them keeping the selected device and time range, and the
   Ceph ones a "ceph" tag and a "Ceph dashboards" dropdown (shared with the
-  custom Ceph dashboards).
+  custom Ceph dashboards), the Proxmox one a "proxmox" tag and a "Proxmox
+  dashboards" dropdown (shared with pve.py's);
+- InfluxDB references point at the provisioned InfluxDB datasource (uid
+  "influxdb"), and the Proxmox bucket picker offers only pve_cluster and
+  pve_greatfox.
 
 The custom dashboards (overview, FRR, probes, monitoring stack, Ceph cluster and
 OSD) are built by custom.py instead.
@@ -79,6 +83,13 @@ DASHBOARDS = {
     "Storage/ceph-rbd-details.json": ceph_mixin("rbd-details", "ceph-rbd-details", "Ceph RBD details (mixin)"),
     "Storage/ceph-filesystem.json": ceph_mixin("cephfsdashboard", "ceph-filesystem", "Ceph filesystem (mixin)",
                                                reset_vars=("cluster", "name")),
+    # PVE external metric server in InfluxDB 2 (Flux). The most used one; the newer ones on
+    # grafana.com are forks of it. The custom Proxmox dashboards (pve.py) go further.
+    "Proxmox/proxmox-cluster-flux.json": {
+        "gnet_id": 15356, "revision": 14, "uid": "proxmox-cluster-flux", "group": "proxmox",
+        "title": "Proxmox cluster [Flux] (community)",
+        "bucket_var": "Bucket",  # upstream lists every bucket (buckets()); offer only the PVE ones
+    },
 }
 
 NAV_LINK = {
@@ -96,9 +107,16 @@ CEPH_LINK = {
     "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
     "tooltip": "", "url": "",
 }
-GROUP_LINKS = {"snmp": SNMP_LINK, "ceph": CEPH_LINK}
+PROXMOX_LINK = {
+    "type": "dashboards", "tags": ["proxmox"], "asDropdown": True, "title": "Proxmox dashboards",
+    "includeVars": True, "keepTime": True, "icon": "external link", "targetBlank": False,
+    "tooltip": "", "url": "",
+}
+GROUP_LINKS = {"snmp": SNMP_LINK, "ceph": CEPH_LINK, "proxmox": PROXMOX_LINK}
 
 PROMETHEUS = {"type": "prometheus", "uid": "prometheus"}
+INFLUXDB = {"type": "influxdb", "uid": "influxdb"}  # Flux, org lylat
+PVE_BUCKETS = "lylat cluster : pve_cluster,greatfox : pve_greatfox"
 UPSTREAM_DS_UIDS = {"${DS_PROMETHEUS}", "$DS_PROMETHEUS", "$source", "${source}", "PBFA97CFB590B2093",
                     "${ds_prometheus}", "$ds_prometheus", "$datasource", "${datasource}"}
 
@@ -106,7 +124,9 @@ UPSTREAM_DS_UIDS = {"${DS_PROMETHEUS}", "$DS_PROMETHEUS", "$source", "${source}"
 def fix_datasources(node):
     if isinstance(node, dict):
         ds = node.get("datasource")
-        if isinstance(ds, dict) and (ds.get("type") == "prometheus" or ds.get("uid") in UPSTREAM_DS_UIDS):
+        if isinstance(ds, dict) and ds.get("type") == "influxdb":
+            node["datasource"] = dict(INFLUXDB)
+        elif isinstance(ds, dict) and (ds.get("type") == "prometheus" or ds.get("uid") in UPSTREAM_DS_UIDS):
             node["datasource"] = dict(PROMETHEUS)
         elif isinstance(ds, str) and ds in UPSTREAM_DS_UIDS:
             node["datasource"] = dict(PROMETHEUS)
@@ -149,6 +169,11 @@ def adapt(dash, spec):
         elif v["name"] in spec.get("reset_vars", []):
             v["current"] = {}
             v.pop("options", None)
+        elif v["name"] == spec.get("bucket_var"):
+            for key in ("datasource", "definition", "regex", "sort"):
+                v.pop(key, None)
+            v.update({"type": "custom", "query": PVE_BUCKETS, "label": "Cluster", "options": [],
+                      "current": {"text": "lylat cluster", "value": "pve_cluster", "selected": True}})
     fix_datasources(dash)
 
     group = spec.get("group")

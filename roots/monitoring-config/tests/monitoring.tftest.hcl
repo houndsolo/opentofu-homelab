@@ -89,6 +89,11 @@ run "inventory_targets" {
         "Network/snmp-interface-detail.json"   = "snmp-interface-detail"
         "Overview/overview.json"               = "lylat-overview"
         "Probes/blackbox-probes.json"          = "blackbox-probes"
+        "Proxmox/proxmox-cluster-flux.json"    = "proxmox-cluster-flux"
+        "Proxmox/proxmox-guest.json"           = "proxmox-guest"
+        "Proxmox/proxmox-node.json"            = "proxmox-node"
+        "Proxmox/proxmox-overview.json"        = "proxmox-overview"
+        "Proxmox/proxmox-storage.json"         = "proxmox-storage"
         "Storage/ceph-cluster.json"            = "ceph-cluster"
         "Storage/ceph-osd.json"                = "ceph-osd"
         "Storage/ceph-cluster-advanced.json"   = "ceph-cluster-advanced"
@@ -145,8 +150,11 @@ run "inventory_targets" {
   }
 
   assert {
+    # The Proxmox dashboards read InfluxDB (the PVE metric server buckets); some add Prometheus panels.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
-      strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") &&
+      (strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") ||
+      (startswith(rel, "Proxmox/") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}"))) &&
+      !strcontains(content, "$${DS_") &&            # import-time placeholders
       !strcontains(content, "DS_PROMETHEUS") &&     # import-time placeholder
       !strcontains(content, "$source") &&           # datasource template variable
       !strcontains(content, "PBFA97CFB590B2093") && # upstream author's datasource uid
@@ -155,6 +163,21 @@ run "inventory_targets" {
       !can(jsondecode(content).__inputs)
     )])
     error_message = "Dashboards must use the provisioned Prometheus datasource (uid \"prometheus\") directly, with nothing to pick at import."
+  }
+
+  assert {
+    # The Proxmox dashboards (custom and community) query only the provisioned InfluxDB datasource,
+    # pick the bucket from the two PVE buckets (not buckets(), which lists InfluxDB's own too) and
+    # share a "Proxmox dashboards" dropdown.
+    condition = alltrue([for rel, content in module.monitoring.dashboards : (
+      contains(jsondecode(content).tags, "proxmox") &&
+      length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "proxmox")]) == 1 &&
+      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) > 0 &&
+      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) == length(regexall("\"type\":\"influxdb\",\"uid\":\"influxdb\"", content)) &&
+      length([for v in jsondecode(content).templating.list : v if lower(v.name) == "bucket" && v.type == "custom" && v.query == "lylat cluster : pve_cluster,greatfox : pve_greatfox"]) == 1 &&
+      !strcontains(content, "buckets()")
+    ) if startswith(rel, "Proxmox/")])
+    error_message = "Proxmox dashboards carry the proxmox tag and dropdown, use the provisioned InfluxDB datasource and offer only the PVE buckets."
   }
 
   assert {

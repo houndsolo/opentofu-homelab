@@ -1,0 +1,1371 @@
+{
+  "id": null,
+  "uid": "proxmox-storage",
+  "title": "Proxmox storage",
+  "description": "PVE storages: capacity, use, growth and when they fill up; Ceph-backed ones link to Ceph.",
+  "tags": [
+    "lylat",
+    "proxmox"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "proxmox"
+      ],
+      "asDropdown": true,
+      "title": "Proxmox dashboards",
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Cluster",
+        "type": "custom",
+        "hide": 0,
+        "query": "lylat cluster : pve_cluster,greatfox : pve_greatfox",
+        "description": "InfluxDB bucket: pve_cluster (the lylat cluster) or pve_greatfox (the standalone greatfox).",
+        "multi": false,
+        "includeAll": false,
+        "options": [
+          {
+            "text": "lylat cluster",
+            "value": "pve_cluster",
+            "selected": true
+          },
+          {
+            "text": "greatfox",
+            "value": "pve_greatfox",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "lylat cluster",
+          "value": "pve_cluster",
+          "selected": true
+        }
+      },
+      {
+        "name": "storage",
+        "label": "Storage",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"system\" and r.object == \"storages\",\n  start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"system\" and r.object == \"storages\",\n  start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Summary",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Storage used",
+      "description": "Used / total. Shared storages once, local ones per node.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n  |> keep(columns: [\"storage\", \"pct\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^pct$/",
+          "limit": 50
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 20,
+        "minVizWidth": 8,
+        "maxVizHeight": 20,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 14
+        }
+      },
+      "links": [
+        {
+          "title": "Proxmox storage",
+          "url": "/d/proxmox-storage/proxmox-storage?var-bucket=${bucket}&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "h": 10,
+        "w": 10,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Storages",
+      "description": "Storages (shared ones once), inactive ones (PVE can't reach them) and the fullest one.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n|> reduce(identity: {storages: 0, inactive: 0, fullest: 0.0}, fn: (r, accumulator) => ({\n     storages: accumulator.storages + 1, inactive: accumulator.inactive + (if r.active == 1.0 then 0 else 1),\n     fullest: if r.pct > accumulator.fullest then r.pct else accumulator.fullest}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "storages"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Storages"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "inactive"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Inactive"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fullest"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Fullest"
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.85
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.95
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {},
+            "indexByName": {
+              "storages": 0,
+              "inactive": 1,
+              "fullest": 2
+            }
+          }
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "h": 10,
+        "w": 5,
+        "x": 10,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ceph health",
+      "description": "ceph_rbd and cephfs live on the PVE Ceph cluster (Prometheus, mgr exporter).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ceph_health_status",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "HEALTH_OK",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "HEALTH_WARN",
+                  "color": "orange",
+                  "index": 1
+                },
+                "2": {
+                  "text": "HEALTH_ERR",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "noValue": "no ceph metrics"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Ceph cluster",
+          "url": "/d/ceph-cluster/ceph-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 4,
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 15,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ceph raw used",
+      "description": "Raw used / raw capacity over all OSDs (replication included); PVE's ceph_rbd/cephfs numbers are per pool, after replication.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ceph_cluster_total_used_raw_bytes / ceph_cluster_total_bytes",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Ceph cluster",
+          "url": "/d/ceph-cluster/ceph-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 5,
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 15,
+        "y": 6
+      }
+    },
+    {
+      "type": "table",
+      "title": "Storages",
+      "description": "Now, shared storages once. Growth is the change of used space over the time range, per day; Full in extrapolates it (blank when not growing). Click a storage: Ceph storages open the Ceph cluster dashboard, local ones their node.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\ncur = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nused = from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and r._field == \"used\")\ngrowth = join(tables: {f: used |> first(), l: used |> last()}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({host: r.host, nodename: r.nodename,\n       rate: if r._time_l > r._time_f then (r._value_l - r._value_f) / (float(v: int(v: r._time_l) - int(v: r._time_f)) / 1000000000.0) else 0.0}))\njoin(tables: {a: join(tables: {n: cur, s: strs}, on: [\"host\", \"nodename\"]), g: growth}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({\n       storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       nodename: if r.shared == 1.0 then \"all\" else r.nodename,\n       type: r.type, content: r.content, shared: r.shared, active: r.active, enabled: r.enabled,\n       used: r.used, avail: r.avail, total: r.total, pct: if r.total > 0.0 then r.used / r.total else 0.0,\n       day: r.rate * 86400.0,\n       full: if r.rate > 0.0 then r.avail / r.rate else -1.0,\n       link: if r.type == \"rbd\" or r.type == \"cephfs\" then \"/d/ceph-cluster/ceph-cluster?orgId=1\"\n             else if r.shared == 1.0 then \"/d/proxmox-storage/proxmox-storage?var-bucket=${bucket}&var-storage=\" + r.host\n             else \"/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=\" + r.nodename}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "link"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Enabled"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Storage"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "${__data.fields.Storage}",
+                    "url": "${__data.fields.link}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Shared"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Shared"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "local",
+                        "color": "text",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "shared",
+                        "color": "blue",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Available"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 0.7
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.85
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.95
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Growth / day"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Full in"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "range",
+                    "options": {
+                      "from": -1e+18,
+                      "to": 0,
+                      "result": {
+                        "text": "not filling up",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 604800
+                    },
+                    {
+                      "color": "green",
+                      "value": 2592000
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Used %",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "storage": "Storage",
+              "nodename": "Node",
+              "type": "Type",
+              "content": "Content",
+              "shared": "Shared",
+              "active": "Active",
+              "enabled": "Enabled",
+              "used": "Used",
+              "avail": "Available",
+              "total": "Total",
+              "pct": "Used %",
+              "day": "Growth / day",
+              "full": "Full in"
+            },
+            "indexByName": {
+              "storage": 0,
+              "nodename": 1,
+              "type": 2,
+              "shared": 3,
+              "content": 4,
+              "used": 5,
+              "avail": 6,
+              "total": 7,
+              "pct": 8,
+              "day": 9,
+              "full": 10,
+              "active": 11,
+              "enabled": 12,
+              "link": 13
+            }
+          }
+        }
+      ],
+      "id": 6,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      }
+    },
+    {
+      "type": "row",
+      "title": "Trends",
+      "collapsed": false,
+      "id": 7,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Used",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.used,\n       series: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\"}))\n  |> group(columns: [\"series\"])\n  |> unique(column: \"_time\")\n  |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 22
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Used %",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.used / r.total,\n       series: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\"}))\n  |> group(columns: [\"series\"])\n  |> unique(column: \"_time\")\n  |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 22
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Free",
+      "description": "Total - used.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.total - r.used,\n       series: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\"}))\n  |> group(columns: [\"series\"])\n  |> unique(column: \"_time\")\n  |> sort(columns: [\"_time\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 22
+      }
+    },
+    {
+      "type": "row",
+      "title": "Local storages per node",
+      "collapsed": true,
+      "id": 11,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "panels": [
+        {
+          "type": "table",
+          "title": "Local storage used per node",
+          "description": "Used share of each node-local storage.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb"
+              },
+              "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => r.shared == 0.0)\n  |> map(fn: (r) => ({nodename: r.nodename, host: r.host, pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> pivot(rowKey: [\"nodename\"], columnKey: [\"host\"], valueColumn: \"pct\")",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byType",
+                  "options": "number"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percentunit"
+                  },
+                  {
+                    "id": "min",
+                    "value": 0
+                  },
+                  {
+                    "id": "max",
+                    "value": 1
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 0.7
+                        },
+                        {
+                          "color": "orange",
+                          "value": 0.85
+                        },
+                        {
+                          "color": "red",
+                          "value": 0.95
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "gauge",
+                      "mode": "basic",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Node"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "title": "Proxmox node",
+                        "url": "/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=${__data.fields.nodename}&${__url_time_range}"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "auto"
+                    }
+                  },
+                  {
+                    "id": "unit",
+                    "value": "none"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "countRows": false,
+              "fields": ""
+            },
+            "sortBy": [
+              {
+                "displayName": "Node",
+                "desc": false
+              }
+            ]
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "renameByName": {
+                  "nodename": "Node"
+                },
+                "indexByName": {}
+              }
+            }
+          ],
+          "id": 12,
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 32
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1203,7 +1203,7 @@
     },
     {
       "type": "row",
-      "title": "Targets and alerts",
+      "title": "Proxmox",
       "collapsed": false,
       "id": 14,
       "gridPos": {
@@ -1211,6 +1211,513 @@
         "w": 24,
         "x": 0,
         "y": 12
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "PVE nodes",
+      "description": "The lylat cluster and greatfox: nodes reporting to InfluxDB in the last minute (Up) and nodes that stopped reporting (Down).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "union(tables: [from(bucket: \"pve_cluster\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r._field == \"avg1\"), from(bucket: \"pve_greatfox\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r._field == \"avg1\")])\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({r with fresh: int(v: v.timeRangeStop) - int(v: r._time) < 60000000000}))\n  |> reduce(identity: {up: 0, down: 0}, fn: (r, accumulator) => ({\n       up: accumulator.up + (if r.fresh then 1 else 0), down: accumulator.down + (if r.fresh then 0 else 1)}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "up"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Up"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "down"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Down"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Proxmox overview",
+          "url": "/d/proxmox-overview/proxmox-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 13
+      }
+    },
+    {
+      "type": "stat",
+      "title": "PVE guests",
+      "description": "Both PVE setups: running VMs and containers, stopped guests (templates not counted).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nunion(tables: [from(bucket: \"pve_cluster\") |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"status\" or r._field == \"template\")), from(bucket: \"pve_greatfox\") |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and (r._field == \"status\" or r._field == \"template\"))])\n  |> last()\n  |> map(fn: (r) => ({vmid: r.vmid, nodename: r.nodename, object: r.object, _field: r._field, _value: string(v: r._value)}))\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"nodename\", \"object\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> reduce(identity: {vms: 0, cts: 0, stopped: 0}, fn: (r, accumulator) => ({\n       vms: accumulator.vms + (if r.status == \"running\" and r.object == \"qemu\" then 1 else 0),\n       cts: accumulator.cts + (if r.status == \"running\" and r.object == \"lxc\" then 1 else 0),\n       stopped: accumulator.stopped + (if r.status != \"running\" and not exists r.template then 1 else 0)}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vms"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VMs running"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cts"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "CTs running"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stopped"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Stopped"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "templates"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Templates"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Proxmox overview",
+          "url": "/d/proxmox-overview/proxmox-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 16,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 4,
+        "y": 13
+      }
+    },
+    {
+      "type": "stat",
+      "title": "lylat CPU",
+      "description": "Busy share of all cores of the lylat cluster.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"pve_cluster\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and true and (r._field == \"cpu\" or r._field == \"cpus\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group(columns: [\"_time\"])\n  |> reduce(identity: {used: 0.0, cpus: 0.0}, fn: (r, accumulator) => ({used: accumulator.used + r.cpu * r.cpus, cpus: accumulator.cpus + r.cpus}))\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.used / r.cpus}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Proxmox overview",
+          "url": "/d/proxmox-overview/proxmox-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 17,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 10,
+        "y": 13
+      }
+    },
+    {
+      "type": "stat",
+      "title": "lylat memory",
+      "description": "Used / total memory of the lylat cluster.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"pve_cluster\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"memory\" and r.object == \"nodes\" and true and (r._field == \"memused\" or r._field == \"memtotal\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group(columns: [\"_time\"])\n  |> reduce(identity: {used: 0.0, total: 0.0}, fn: (r, accumulator) => ({used: accumulator.used + r.memused, total: accumulator.total + r.memtotal}))\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> map(fn: (r) => ({_time: r._time, _value: r.used / r.total}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Proxmox overview",
+          "url": "/d/proxmox-overview/proxmox-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 18,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 14,
+        "y": 13
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Fullest PVE storage",
+      "description": "The lylat cluster's fullest storage (shared ones once, local ones per node).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nnums = from(bucket: \"pve_cluster\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and true and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"pve_cluster\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and true and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n|> top(n: 1, columns: [\"pct\"])\n|> keep(columns: [\"storage\", \"pct\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^pct$/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Proxmox storage",
+          "url": "/d/proxmox-storage/proxmox-storage?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 19,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 13
+      }
+    },
+    {
+      "type": "row",
+      "title": "Targets and alerts",
+      "collapsed": false,
+      "id": 20,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
       },
       "panels": []
     },
@@ -1367,12 +1874,12 @@
           }
         }
       ],
-      "id": 15,
+      "id": 21,
       "gridPos": {
         "h": 10,
         "w": 7,
         "x": 0,
-        "y": 13
+        "y": 19
       }
     },
     {
@@ -1498,12 +2005,12 @@
           }
         }
       ],
-      "id": 16,
+      "id": 22,
       "gridPos": {
         "h": 10,
         "w": 9,
         "x": 7,
-        "y": 13
+        "y": 19
       }
     },
     {
@@ -1595,24 +2102,24 @@
           }
         }
       ],
-      "id": 17,
+      "id": 23,
       "gridPos": {
         "h": 10,
         "w": 8,
         "x": 16,
-        "y": 13
+        "y": 19
       }
     },
     {
       "type": "row",
       "title": "Probes and fabric",
       "collapsed": false,
-      "id": 18,
+      "id": 24,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 29
       },
       "panels": []
     },
@@ -1699,12 +2206,12 @@
           "targetBlank": false
         }
       ],
-      "id": 19,
+      "id": 25,
       "gridPos": {
         "h": 8,
         "w": 10,
         "x": 0,
-        "y": 24
+        "y": 30
       }
     },
     {
@@ -1796,12 +2303,12 @@
           "targetBlank": false
         }
       ],
-      "id": 20,
+      "id": 26,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 10,
-        "y": 24
+        "y": 30
       }
     },
     {
@@ -1903,24 +2410,24 @@
           "targetBlank": false
         }
       ],
-      "id": 21,
+      "id": 27,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 17,
-        "y": 24
+        "y": 30
       }
     },
     {
       "type": "row",
       "title": "Hosts and routers",
       "collapsed": false,
-      "id": 22,
+      "id": 28,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 38
       },
       "panels": []
     },
@@ -2449,24 +2956,24 @@
           }
         }
       ],
-      "id": 23,
+      "id": 29,
       "gridPos": {
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 39
       }
     },
     {
       "type": "row",
       "title": "Traffic",
       "collapsed": false,
-      "id": 24,
+      "id": 30,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 47
+        "y": 53
       },
       "panels": []
     },
@@ -2540,12 +3047,12 @@
           "sort": "desc"
         }
       },
-      "id": 25,
+      "id": 31,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 54
       }
     },
     {
@@ -2625,12 +3132,12 @@
           "targetBlank": false
         }
       ],
-      "id": 26,
+      "id": 32,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 54
       }
     }
   ]

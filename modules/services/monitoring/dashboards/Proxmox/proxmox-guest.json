@@ -1,0 +1,3184 @@
+{
+  "id": null,
+  "uid": "proxmox-guest",
+  "title": "Proxmox guests",
+  "description": "Every VM and container, and one in depth: state, CPU, memory, balloon, pressure, disk and network.",
+  "tags": [
+    "lylat",
+    "proxmox"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "proxmox"
+      ],
+      "asDropdown": true,
+      "title": "Proxmox dashboards",
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Cluster",
+        "type": "custom",
+        "hide": 0,
+        "query": "lylat cluster : pve_cluster,greatfox : pve_greatfox",
+        "description": "InfluxDB bucket: pve_cluster (the lylat cluster) or pve_greatfox (the standalone greatfox).",
+        "multi": false,
+        "includeAll": false,
+        "options": [
+          {
+            "text": "lylat cluster",
+            "value": "pve_cluster",
+            "selected": true
+          },
+          {
+            "text": "greatfox",
+            "value": "pve_greatfox",
+            "selected": false
+          }
+        ],
+        "current": {
+          "text": "lylat cluster",
+          "value": "pve_cluster",
+          "selected": true
+        }
+      },
+      {
+        "name": "node",
+        "label": "Node",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"cpustat\", start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"cpustat\", start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "guest",
+        "label": "Guest",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb"
+        },
+        "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"uptime\" and r.nodename =~ /^${node:regex}$/)\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({_value: r.vmid + \"|\" + r.host + \" (\" + r.vmid + \")\"}))\n  |> distinct()",
+        "definition": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"uptime\" and r.nodename =~ /^${node:regex}$/)\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({_value: r.vmid + \"|\" + r.host + \" (\" + r.vmid + \")\"}))\n  |> distinct()",
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "sort": 1,
+        "regex": "/^(?<value>[^|]+)\\|(?<text>.*)$/",
+        "hide": 0,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "All guests",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Guests",
+      "description": "Now (end of the time range). Memory is what the guest uses on the host (VM: memhost, CT: mem); Configured is its maximum. CPU is the share of its own vCPUs. Click a name for the guest's dashboard.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename =~ /^${node:regex}$/ and\n       (r._field == \"cpu\" or r._field == \"cpus\" or r._field == \"mem\" or r._field == \"memhost\" or r._field == \"maxmem\" or r._field == \"uptime\" or r._field == \"maxdisk\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({vmid: r.vmid, cpu: r.cpu, cpus: r.cpus, used: if exists r.memhost then r.memhost else r.mem,\n       maxmem: r.maxmem, mempct: if r.maxmem > 0.0 then (if exists r.memhost then r.memhost else r.mem) / r.maxmem else 0.0,\n       uptime: r.uptime, maxdisk: r.maxdisk}))",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename =~ /^${node:regex}$/ and (r._field == \"status\" or r._field == \"tags\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"host\", \"nodename\", \"object\"], columnKey: [\"_field\"], valueColumn: \"_value\")",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename =~ /^${node:regex}$/ and\n       (r._field == \"diskread\" or r._field == \"diskwrite\" or r._field == \"netin\" or r._field == \"netout\"))\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({r with netin: r.netin * 8.0, netout: r.netout * 8.0}))",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "running": {
+                        "text": "running",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "stopped": {
+                        "text": "stopped",
+                        "color": "text",
+                        "index": 1
+                      },
+                      "paused": {
+                        "text": "paused",
+                        "color": "orange",
+                        "index": 2
+                      },
+                      "prelaunch": {
+                        "text": "prelaunch",
+                        "color": "blue",
+                        "index": 3
+                      },
+                      "suspended": {
+                        "text": "suspended",
+                        "color": "orange",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Type"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Type"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "qemu": {
+                        "text": "VM",
+                        "color": "blue",
+                        "index": 0
+                      },
+                      "lxc": {
+                        "text": "CT",
+                        "color": "purple",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Uptime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.75
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.75
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.9
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Configured"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk size"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk read"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk write"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net in"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net out"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Name"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Proxmox guest",
+                    "url": "/d/proxmox-guest/proxmox-guest?var-bucket=${bucket}&var-guest=${__data.fields.vmid}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Node"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Proxmox node",
+                    "url": "/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=${__data.fields.nodename}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Name",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "vmid",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "host": "Name",
+              "vmid": "VMID",
+              "object": "Type",
+              "nodename": "Node",
+              "status": "Status",
+              "uptime": "Uptime",
+              "cpus": "vCPUs",
+              "cpu": "CPU",
+              "used": "Memory",
+              "maxmem": "Configured",
+              "mempct": "Memory %",
+              "maxdisk": "Disk size",
+              "diskread": "Disk read",
+              "diskwrite": "Disk write",
+              "netin": "Net in",
+              "netout": "Net out",
+              "tags": "Tags"
+            },
+            "indexByName": {
+              "host": 0,
+              "vmid": 1,
+              "object": 2,
+              "nodename": 3,
+              "status": 4,
+              "uptime": 5,
+              "cpus": 6,
+              "cpu": 7,
+              "used": 8,
+              "maxmem": 9,
+              "mempct": 10,
+              "maxdisk": 11,
+              "diskread": 12,
+              "diskwrite": 13,
+              "netin": 14,
+              "netout": 15,
+              "tags": 16
+            }
+          }
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "row",
+      "title": "Guest ${guest:text}",
+      "collapsed": false,
+      "id": 3,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Status",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"status\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "running": {
+                  "text": "running",
+                  "color": "green",
+                  "index": 0
+                },
+                "stopped": {
+                  "text": "stopped",
+                  "color": "text",
+                  "index": 1
+                },
+                "paused": {
+                  "text": "paused",
+                  "color": "orange",
+                  "index": 2
+                },
+                "prelaunch": {
+                  "text": "prelaunch",
+                  "color": "blue",
+                  "index": 3
+                },
+                "suspended": {
+                  "text": "suspended",
+                  "color": "orange",
+                  "index": 4
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 22
+        }
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 12
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Type",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"uptime\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r.object}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "qemu": {
+                  "text": "VM",
+                  "color": "blue",
+                  "index": 0
+                },
+                "lxc": {
+                  "text": "CT",
+                  "color": "purple",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 22
+        }
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 3,
+        "y": 12
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Node",
+      "description": "The node the guest runs on (the newest one if it migrated). Click for its dashboard.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and r._field == \"uptime\")\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r.nodename}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "links": [
+            {
+              "title": "Proxmox node",
+              "url": "/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=${__value.raw}&${__url_time_range}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 22
+        }
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 5,
+        "y": 12
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Uptime",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"uptime\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 3600
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "not running",
+                  "color": "text",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "unit": "dtdurations",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 22
+        }
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 8,
+        "y": 12
+      }
+    },
+    {
+      "type": "stat",
+      "title": "vCPUs",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"cpus\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 22
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 11,
+        "y": 12
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Memory",
+      "description": "Configured memory.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"maxmem\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 22
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 13,
+        "y": 12
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Disk size",
+      "description": "Size of the boot disk (CT: root filesystem).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"maxdisk\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 22
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 16,
+        "y": 12
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tags",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"strings\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"tags\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: strings.replaceAll(v: r._value, t: \";\", u: \" · \")}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 16
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 12
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "CPU",
+      "description": "Share of the guest's vCPUs in use.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"cpu\"))\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: r._value}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Memory used",
+      "description": "Host memory the guest uses (VM: memhost, CT: mem) / configured memory. VMs with PCI passthrough pin all their memory, so they sit at 100%.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"mem\" or r._field == \"memhost\" or r._field == \"maxmem\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n  |> last(column: \"_time\")\n  |> map(fn: (r) => ({_time: r._time, _value: (if exists r.memhost then r.memhost else r.mem) / r.maxmem}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 4,
+        "y": 16
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Balloon",
+      "description": "VMs with the balloon driver: current balloon size / maximum. Below 100% means PVE took memory back from the guest.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"ballooninfo\" and r.vmid == \"${guest}\" and (r._field == \"actual\" or r._field == \"max_mem\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n  |> last(column: \"_time\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.actual / r.max_mem}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.999
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 0,
+          "min": 0,
+          "max": 1,
+          "noValue": "no balloon"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 8,
+        "y": 16
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Root disk (CT)",
+      "description": "Containers only: used / size of the root filesystem. PVE doesn't know how full a VM's disk is (always 0).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"disk\" or r._field == \"maxdisk\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n  |> last(column: \"_time\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.disk / r.maxdisk}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "max": 1,
+          "noValue": "n/a"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 12,
+        "y": 16
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Pressure (avg10)",
+      "description": "Pressure stall information of the guest's cgroup: share of time some task waited for CPU, I/O or memory (10 s average).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"pressurecpusome\" or r._field == \"pressureiosome\" or r._field == \"pressurememorysome\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n  |> last(column: \"_time\")\n  |> map(fn: (r) => ({cpu: r.pressurecpusome, io: r.pressureiosome, memory: r.pressurememorysome}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 40
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percent",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 16,
+        "y": 16
+      }
+    },
+    {
+      "type": "stat",
+      "title": "QEMU",
+      "description": "QEMU version and machine type the VM runs with (a VM keeps them until it restarts).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"running-qemu\" or r._field == \"running-machine\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n  |> last(column: \"_time\")\n  |> map(fn: (r) => ({version: r[\"running-qemu\"], machine: r[\"running-machine\"]}))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "not a running VM"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/"
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "vertical",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 11,
+          "valueSize": 14
+        }
+      },
+      "id": 17,
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 20,
+        "y": 16
+      }
+    },
+    {
+      "type": "row",
+      "title": "CPU and memory",
+      "collapsed": false,
+      "id": 18,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "Share of the guest's vCPUs in use.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"cpu\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n            |> map(fn: (r) => ({r with series: \"CPU\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "opacity"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory",
+      "description": "used: what the guest reports in use (VM: via the balloon driver, else the same as host); host: memory the VM process holds on the node; configured: the maximum; balloon target: what PVE asks the balloon to give back to; swap: CT swap.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"mem\" or r._field == \"memhost\" or r._field == \"maxmem\" or r._field == \"balloon\" or r._field == \"swap\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n            |> map(fn: (r) => ({r with series: (if r._field == \"memhost\" then \"host\" else if r._field == \"mem\" then \"used\" else if r._field == \"maxmem\" then \"configured\" else if r._field == \"balloon\" then \"balloon target\" else \"swap\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "host"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "swap"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "configured"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "balloon target"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    4,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Pressure",
+      "description": "Pressure stall information (10 s averages): some = at least one task waited, full = all tasks waited.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"strings\"\nfrom(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"pressurecpusome\" or r._field == \"pressurecpufull\" or r._field == \"pressureiosome\" or r._field == \"pressureiofull\" or r._field == \"pressurememorysome\" or r._field == \"pressurememoryfull\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n            |> map(fn: (r) => ({r with series: strings.trimPrefix(v: strings.replaceAll(v: strings.replaceAll(v: r._field, t: \"some\", u: \" some\"), t: \"full\", u: \" full\"), prefix: \"pressure\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percent",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".* full$"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 21,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      }
+    },
+    {
+      "type": "row",
+      "title": "Disk",
+      "collapsed": false,
+      "id": 22,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Disk throughput",
+      "description": "All disks of the guest; reads up, writes down.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"diskread\" or r._field == \"diskwrite\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> map(fn: (r) => ({r with series: if r._field == \"diskread\" then \"read\" else \"write\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bread$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bwrite$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 23,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 33
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "IOPS per disk (VM)",
+      "description": "QEMU block statistics per virtual disk (VMs only).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"blockstat\" and r.vmid == \"${guest}\" and (r._field == \"rd_operations\" or r._field == \"wr_operations\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> map(fn: (r) => ({r with series: r.instance + (if r._field == \"rd_operations\" then \" read\" else \" write\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "iops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bread$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bwrite$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 24,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency per disk (VM)",
+      "description": "Average time per completed read and write, per virtual disk.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"blockstat\" and r.vmid == \"${guest}\" and (r._field == \"rd_total_time_ns\" or r._field == \"rd_operations\"))\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n            |> filter(fn: (r) => r.rd_operations > 0.0)\n            |> map(fn: (r) => ({r with _value: r.rd_total_time_ns / r.rd_operations / 1000000000.0}))\n            |> map(fn: (r) => ({r with series: r.instance + \" read\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"blockstat\" and r.vmid == \"${guest}\" and (r._field == \"wr_total_time_ns\" or r._field == \"wr_operations\"))\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n            |> filter(fn: (r) => r.wr_operations > 0.0)\n            |> map(fn: (r) => ({r with _value: r.wr_total_time_ns / r.wr_operations / 1000000000.0}))\n            |> map(fn: (r) => ({r with series: r.instance + \" write\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*read$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*write$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 25,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Throughput per disk (VM)",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"blockstat\" and r.vmid == \"${guest}\" and (r._field == \"rd_bytes\" or r._field == \"wr_bytes\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> map(fn: (r) => ({r with series: r.instance + (if r._field == \"rd_bytes\" then \" read\" else \" write\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bread$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bwrite$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 26,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 41
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Root disk used (CT)",
+      "description": "Containers only; PVE doesn't see inside a VM's disks.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"disk\" or r._field == \"maxdisk\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n            |> map(fn: (r) => ({r with series: if r._field == \"disk\" then \"used\" else \"size\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "size"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 27,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 41
+      }
+    },
+    {
+      "type": "stat",
+      "title": "I/O errors (VM)",
+      "description": "Failed and invalid operations per virtual disk since the VM started (should be 0).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nimport \"strings\"\nfrom(bucket: \"${bucket}\")\n        |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"blockstat\" and r.vmid == \"${guest}\" and (strings.hasPrefix(v: r._field, prefix: \"failed_\") or strings.hasPrefix(v: r._field, prefix: \"invalid_\")))\n        |> last()\n        |> group(columns: [\"instance\"])\n        |> sum()\n        |> map(fn: (r) => ({r with series: r.instance}))\n|> group(columns: [\"series\"])\n|> keep(columns: [\"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "no VM disks",
+          "displayName": "${__field.labels.series}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 28,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 41
+      }
+    },
+    {
+      "type": "row",
+      "title": "Network",
+      "collapsed": false,
+      "id": 29,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Network",
+      "description": "All NICs of the guest; inbound up, outbound down.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"netin\" or r._field == \"netout\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with _value: r._value * 8.0}))\n            |> map(fn: (r) => ({r with series: if r._field == \"netin\" then \"in\" else \"out\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bin$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bout$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 30,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Per NIC (VM)",
+      "description": "Per tap interface (VMs only; container veths are on the node dashboard).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"nics\" and r.vmid == \"${guest}\" and (r._field == \"netin\" or r._field == \"netout\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with _value: r._value * 8.0}))\n            |> map(fn: (r) => ({r with series: r.instance + (if r._field == \"netin\" then \" in\" else \" out\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bin$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(?i).*\\bout$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 31,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 50
+      }
+    },
+    {
+      "type": "row",
+      "title": "Balloon and guest memory (VM)",
+      "collapsed": true,
+      "id": 32,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Balloon",
+          "description": "From the balloon driver: balloon size (memory the guest may use), maximum, and the guest's own view of total and free memory.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb"
+              },
+              "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"ballooninfo\" and r.vmid == \"${guest}\" and (r._field == \"actual\" or r._field == \"max_mem\" or r._field == \"total_mem\" or r._field == \"free_mem\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n            |> map(fn: (r) => ({r with series: (if r._field == \"actual\" then \"balloon size\" else if r._field == \"max_mem\" then \"maximum\" else if r._field == \"total_mem\" then \"guest total\" else \"guest free\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "unit": "bytes",
+              "min": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "axisPlacement": "auto",
+                "gradientMode": "none"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ],
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 33,
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 59
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Page faults",
+          "description": "Per second, as the guest reports them. Major faults read from disk.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb"
+              },
+              "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"ballooninfo\" and r.vmid == \"${guest}\" and (r._field == \"major_page_faults\" or r._field == \"minor_page_faults\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> map(fn: (r) => ({r with series: if r._field == \"major_page_faults\" then \"major\" else \"minor\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "axisPlacement": "auto",
+                "gradientMode": "none"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ],
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 34,
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 59
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Guest swap",
+          "description": "Swapped in / out inside the guest.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb"
+              },
+              "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"ballooninfo\" and r.vmid == \"${guest}\" and (r._field == \"mem_swapped_in\" or r._field == \"mem_swapped_out\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> map(fn: (r) => ({r with series: if r._field == \"mem_swapped_in\" then \"in\" else \"out\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "unit": "Bps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "spanNulls": false,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "mode": "none",
+                  "group": "A"
+                },
+                "axisPlacement": "auto",
+                "gradientMode": "none"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "(?i).*\\bin$"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "green"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "(?i).*\\bout$"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "yellow"
+                    }
+                  },
+                  {
+                    "id": "custom.transform",
+                    "value": "negative-Y"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "max",
+                "lastNotNull"
+              ],
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "id": 35,
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 59
+          }
+        }
+      ]
+    }
+  ]
+}

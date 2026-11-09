@@ -136,7 +136,7 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 
 | Folder | Dashboard (uid) | Source | Shows |
 | --- | --- | --- | --- |
-| Overview | lylat.space overview (`lylat-overview`) | custom | Targets up/down (stats, per job, per target), firing alerts, Ceph health / raw used / client IOPS and throughput / OSDs down and PGs not clean (click through to Ceph cluster), probe status, BGP established/total and BFD up/total across the fabric, EVPN totals, a host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full), top 10 interfaces from node_exporter and SNMP |
+| Overview | lylat.space overview (`lylat-overview`) | custom | Targets up/down (stats, per job, per target), firing alerts, Ceph health / raw used / client IOPS and throughput / OSDs down and PGs not clean (click through to Ceph cluster), probe status, BGP established/total and BFD up/total across the fabric, EVPN totals, a Proxmox row (PVE nodes up/down and guests over the cluster and greatfox, lylat CPU and memory, fullest storage; click through to Proxmox overview), a host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full), top 10 interfaces from node_exporter and SNMP |
 | Hosts | Node Exporter Full (`node-exporter-full`) | [grafana.com 1860](https://grafana.com/grafana/dashboards/1860) rev 46 | Everything node_exporter collects, for one host. Pick the job (`node` for the VMs, `vyos-node` for the VyOS routers), then the host |
 | Network | FRR / EVPN fabric (`frr-evpn-fabric`) | custom | BGP peer table (router, VRF, AFI/SAFI, peer, hostname, ASNs, state, uptime, prefixes rx/tx, message rates), session state timeline, established sessions per router, flaps in the time range, BFD peers, EVPN remote VTEPs/MACs/ARP-ND per router and per L2 VNI, routes per VRF, RIB vs FIB, BGP RIB, frr_exporter health. Router and VRF pickers |
 | Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
@@ -154,11 +154,25 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Storage | Ceph RBD overview (mixin) (`ceph-rbd-overview`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | RBD IOPS/throughput/latency totals and the top images |
 | Storage | Ceph RBD details (mixin) (`ceph-rbd-details`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | One image: IOPS, throughput, latency |
 | Storage | Ceph filesystem (mixin) (`ceph-filesystem`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | CephFS: metadata/data pool usage and I/O, MDS requests, sessions, caps, cache, journal, reply latency |
+| Proxmox | Proxmox overview (`proxmox-overview`) | custom (InfluxDB) | **Cluster:** nodes up/down, guests (running VMs/CTs, stopped, templates), CPU and memory over all nodes (sparklines), vCPUs and memory allocated to running guests vs the nodes' cores and RAM. **Nodes:** table (state, uptime, CPU, cores, load per core, IO wait, memory, RAM, swap, root FS, guests, physical NIC in/out; click for Proxmox node). **Node trends:** CPU, memory, load per core, physical NIC traffic, IO wait per node. **Guests:** top 10 by CPU, memory, disk I/O and network, running guests over time, guest CPU per node. **Storage:** used % per storage (shared ones once) and over time |
+| Proxmox | Proxmox node (`proxmox-node`) | custom (InfluxDB + Prometheus) | One node (picker): state, uptime, CPU/memory/swap/root FS gauges, load per core, guests, cores/RAM/swap/disk, node_exporter state (click for Node Exporter Full); CPU and IO wait, load averages vs cores; memory (used/available, ZFS ARC where there is one), swap, root FS; physical NICs, bridges and bonds, interface table; its guests (table, click for Proxmox guests; stacked CPU, memory, disk I/O and network); its storages; collapsed: temperatures and disk busy from node_exporter |
+| Proxmox | Proxmox guests (`proxmox-guest`) | custom (InfluxDB) | Every guest on the selected nodes (table: type, node, status, uptime, vCPUs, CPU, memory used/configured, disk size, disk and net rates, tags), then one guest (picker by name, value = vmid): status, type, node, uptime, vCPUs, memory, disk size, tags, CPU/memory/balloon/CT root disk gauges, pressure (PSI), QEMU version and machine; CPU, memory (used, host, configured, balloon target), pressure; disk throughput, per-disk IOPS, latency and throughput, CT root disk, I/O errors; network total and per NIC; collapsed: balloon, guest page faults and swap |
+| Proxmox | Proxmox storage (`proxmox-storage`) | custom (InfluxDB + Prometheus) | Used % per storage (shared ones once, local ones per node), count/inactive/fullest, Ceph health and raw used (click for Ceph cluster); storage table (type, shared, content, used, available, total, %, growth per day over the time range, when it's full at that rate; click: Ceph storages open Ceph cluster, local ones their node); used, used % and free over time; collapsed: local storage used per node. Storage picker |
+| Proxmox | Proxmox cluster [Flux] (community) (`proxmox-cluster-flux`) | [grafana.com 15356](https://grafana.com/grafana/dashboards/15356) rev 14 | The most used PVE/InfluxDB 2 dashboard: per-node summary rows (repeated per server: CPU, cores, memory, swap, load, IO wait, storage pools), running VMs/LXCs, host CPU and memory, VM and LXC CPU, memory, disk I/O and traffic. Cluster (bucket) and server pickers |
 
 The SNMP dashboards need only `if_mib`, so they work for every SNMP job. A dropdown
 in the top bar ("SNMP dashboards") switches between them and keeps the selected
 device and time range. The device and host pickers show each target's `host` label.
 The Ceph dashboards (`ceph` tag) likewise share a "Ceph dashboards" dropdown.
+
+The Proxmox dashboards (`proxmox` tag) read what `pvestatd` pushes to InfluxDB (see
+[Things to know](#things-to-know)) through the provisioned InfluxDB datasource (uid
+`influxdb`, Flux). A **Cluster** picker selects the bucket: `pve_cluster` (the lylat
+cluster) or `pve_greatfox` (the standalone greatfox). They share a "Proxmox dashboards"
+dropdown that carries the selected cluster, node and guest along (the community one
+calls its picker `Bucket`, so it starts on the lylat cluster). Values shown "now" are the
+newest sample within the last 2 minutes of the time range, so deleted or migrated guests
+drop out; a node counts as down once it hasn't reported for a minute.
 
 The Ceph dashboards read the mgr prometheus module (job `ceph`) plus node_exporter on the
 PVE nodes. Neither is managed by OpenTofu; this was done by hand on the cluster (2026-11-08):
@@ -213,6 +227,17 @@ Panels that stay empty, and why:
   the OSD size buckets skip 10-12 TB, where these 10.9 TiB OSDs fall.
 - Hosts without an exporter yet (DNS VMs, the standalone greatfox, fw-wan) show as DOWN in
   the target tables and are left out of everything else.
+- **Proxmox dashboards:** the PVE metric servers started writing on 2026-11-09, so trends,
+  growth and "Full in" need a few days of history to mean much. PVE reports no disk usage
+  inside VMs (`disk` is 0 without a guest agent query), so "Root disk (CT)" and "Root disk
+  used (CT)" are containers only, and the per-disk IOPS/latency, per-NIC, QEMU, balloon and
+  "I/O errors" panels are VMs only (container NICs are veths on the node). Latency and the
+  top-guest disk/network bars are empty while nothing does I/O. The balloon page-fault and
+  swap panels need the guest's balloon driver to report stats (empty for the C9800 WLCs).
+  There is no KSM or per-node pressure data in pvestatd's output, and no ZFS on the cluster
+  nodes (ARC stays hidden). node_exporter panels on the node dashboard are empty for
+  greatfox (no exporter). In the community dashboard, the LXC panels are empty for nodes
+  without running containers.
 
 ### Changing the dashboards
 
@@ -221,12 +246,15 @@ Panels that stay empty, and why:
   and run `python3 -I modules/services/monitoring/dashboards/update.py`. The script
   downloads the pinned revision (grafana.com revision, or the ceph-mixin commit
   `CEPH_MIXIN_COMMIT` on the tentacle branch) and points every query at the provisioned
-  Prometheus datasource (uid `prometheus`). It also drops the import-time
+  Prometheus datasource (uid `prometheus`; InfluxDB ones at uid `influxdb`, with the
+  bucket picker limited to the PVE buckets). It also drops the import-time
   datasource inputs and variables, and sets the host picker, uid, tags and links.
 - **Custom dashboards:** edit
   [`dashboards/custom.py`](../../modules/services/monitoring/dashboards/custom.py)
   and run `python3 -I modules/services/monitoring/dashboards/custom.py`. It writes
-  the JSON offline. Don't edit the generated JSON by hand.
+  the JSON offline. Don't edit the generated JSON by hand. The Proxmox dashboards' builders
+  (Flux queries) live in [`dashboards/pve.py`](../../modules/services/monitoring/dashboards/pve.py),
+  which `custom.py` imports and runs.
 
 Review the diff, then apply. File and folder names must not contain spaces.
 
@@ -365,7 +393,8 @@ unit contents (Postgres bound to the backend VLAN, Grafana HA peers), the
 Postgres/InfluxDB data-directory owners, the dashboard provider and files (the
 expected files and uids per folder, every query uses the provisioned Prometheus
 datasource, no import-time placeholders, every dashboard in the `lylat` links
-dropdown, the Ceph dashboards' `ceph` tag and dropdown with no `$datasource` left, Node Exporter Full's job and host pickers, the overview as home
+dropdown, the Ceph dashboards' `ceph` tag and dropdown with no `$datasource` left, the Proxmox
+dashboards' `proxmox` tag and dropdown, InfluxDB datasource and PVE-only bucket picker, Node Exporter Full's job and host pickers, the overview as home
 dashboard, no restart for JSON changes, stale files pruned), and that a missing
 backend NIC fails the plan.
 
