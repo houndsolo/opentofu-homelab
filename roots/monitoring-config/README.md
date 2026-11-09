@@ -136,7 +136,7 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 
 | Folder | Dashboard (uid) | Source | Shows |
 | --- | --- | --- | --- |
-| Overview | lylat.space overview (`lylat-overview`) | custom | Targets up/down (stats, per job, per target), firing alerts, probe status, BGP established/total and BFD up/total across the fabric, EVPN totals, a host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full), top 10 interfaces from node_exporter and SNMP |
+| Overview | lylat.space overview (`lylat-overview`) | custom | Targets up/down (stats, per job, per target), firing alerts, Ceph health / raw used / client IOPS and throughput / OSDs down and PGs not clean (click through to Ceph cluster), probe status, BGP established/total and BFD up/total across the fabric, EVPN totals, a host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full), top 10 interfaces from node_exporter and SNMP |
 | Hosts | Node Exporter Full (`node-exporter-full`) | [grafana.com 1860](https://grafana.com/grafana/dashboards/1860) rev 46 | Everything node_exporter collects, for one host. Pick the job (`node` for the VMs, `vyos-node` for the VyOS routers), then the host |
 | Network | FRR / EVPN fabric (`frr-evpn-fabric`) | custom | BGP peer table (router, VRF, AFI/SAFI, peer, hostname, ASNs, state, uptime, prefixes rx/tx, message rates), session state timeline, established sessions per router, flaps in the time range, BFD peers, EVPN remote VTEPs/MACs/ARP-ND per router and per L2 VNI, routes per VRF, RIB vs FIB, BGP RIB, frr_exporter health. Router and VRF pickers |
 | Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
@@ -144,10 +144,25 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Network | Mikrotik monitoring (`mikrotik-snmp`) | [grafana.com 14420](https://grafana.com/grafana/dashboards/14420) rev 9 | MikroTik `mikrotik` module: board/firmware, CPU temperature, per-interface traffic and Ethernet error counters, interface table, neighbors (MNDP/LLDP) |
 | Probes | Blackbox probes (`blackbox-probes`) | custom | ICMP/HTTP/DNS SOA probes: status, availability over the time range, duration, ICMP RTT and hop limit, HTTP status/phases (no TLS)/size, DNS query time, SOA serial and drift between the DNS servers |
 | Monitoring | Monitoring stack (`monitoring-stack`) | custom | Component status and versions, config reloads; Prometheus targets per job, scrape duration, samples, head series, TSDB size, ingestion, rule evaluation, query latency; Alertmanager alerts, silences, notifications; Grafana requests, latency, datasource queries, DB connections, alerting; SNMP/FRR/node exporter scrape times; process memory and CPU |
+| Storage | Ceph cluster (`ceph-cluster`) | custom | The PVE Ceph cluster at a glance. **Status:** health, active health checks and their history, raw used gauge, OSDs up/in/down/out, mons in quorum, active/standby mgr and MDS, PGs not clean, sparkline stats for client read/write IOPS, throughput and latency, recovery and objects at risk. **Capacity:** raw total/used/available, pool usage bars, data per pool (donut), fullest OSD and when it reaches nearfull, raw used forecast in 30 days, pool table (PGs, objects, stored, raw, % used, max available, 30-day forecast, IOPS), raw capacity with nearfull line and forecast. **Client I/O:** IOPS/throughput (reads up, writes down), OSD op latency, per pool. **PGs and recovery:** non-zero PG states, PGs not clean by state, scrubbing, recovery/backfill rate, degraded/misplaced/unfound objects, OSD flags. **OSDs:** colour status grid (host · OSD), OSD hosts table, OSD table (host, disk, model, state, reweight, PGs, size, used, apply/commit/read/write latency, IOPS, slow ops; click for Ceph OSD), state history, per-OSD commit/read/write latency, utilization, PGs, IOPS, throughput. **Slow ops and BlueStore:** BLUESTORE_SLOW_OP_ALERT, daemons with slow ops, slow ops per daemon, BlueStore slow ops per OSD (24 h, the alert's window), kv commit latency, BlueStore latency breakdown, fragmentation, onode cache hits, RocksDB size. Collapsed rows: **Monitors and managers** (quorum, sessions, elections, mgr roles and modules, daemon versions, paxos latency, mgr scrape targets), **CephFS** (active/standby MDS, clients, caps, files, requests, reply latency by op, cache, journal, pools), **OSD hosts** (node_exporter: CPU, memory, load, OSD disk busy % and await). **RBD images:** per-image IOPS/throughput/latency over the time range with the VM id parsed from the image name, top 10 images by IOPS, throughput and latency |
+| Storage | Ceph OSD (`ceph-osd`) | custom | One OSD (picker): state, host, disk and model, class, used, size/PGs/reweight, apply/commit/read/write latency, slow ops; IOPS, throughput, op latency (total vs processing), ops in flight, recovery; BlueStore latency breakdown, slow-op counters, space, onode cache, fragmentation; scrubs; the disk from node_exporter |
+| Storage | Ceph cluster advanced (mixin) (`ceph-cluster-advanced`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | The official cluster dashboard: health, capacity, throughput and IOPS, OSD/mgr/mon counts, firing alerts, per-pool usage, objects and quotas, PG states and stuck PGs, recovery, OSD apply/commit/read/write latency distributions (heatmaps), versions |
+| Storage | Ceph OSDs overview (mixin) (`ceph-osds-overview`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | Read/write latency (avg, max, p95) and the slowest OSDs, OSD types and sizes, PGs per OSD, onode hit ratio, read/write profile, top slow ops |
+| Storage | Ceph OSD device details (mixin) (`ceph-osd-device-details`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | One OSD: op latency and IOPS/throughput (the physical-device panels need node_exporter, see below) |
+| Storage | Ceph pools overview (mixin) (`ceph-pools-overview`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | Pool count, raw capacity and consumption, logical stored, compression savings, pool table, top pools by client IOPS and bandwidth, raw usage per pool |
+| Storage | Ceph pool details (mixin) (`ceph-pool-details`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | One pool: capacity used, time till full, object ingress/egress, client IOPS and throughput, objects |
+| Storage | Ceph RBD overview (mixin) (`ceph-rbd-overview`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | RBD IOPS/throughput/latency totals and the top images |
+| Storage | Ceph RBD details (mixin) (`ceph-rbd-details`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | One image: IOPS, throughput, latency |
+| Storage | Ceph filesystem (mixin) (`ceph-filesystem`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | CephFS: metadata/data pool usage and I/O, MDS requests, sessions, caps, cache, journal, reply latency |
 
 The SNMP dashboards need only `if_mib`, so they work for every SNMP job. A dropdown
 in the top bar ("SNMP dashboards") switches between them and keeps the selected
 device and time range. The device and host pickers show each target's `host` label.
+The Ceph dashboards (`ceph` tag) likewise share a "Ceph dashboards" dropdown.
+
+The Ceph dashboards read the mgr prometheus module (job `ceph`, `exclude_perf_counters=false`
+for the per-daemon perf counters, `rbd_stats_pools=ceph_rbd` for per-image RBD stats). They stay
+empty until that job is applied and Prometheus has scraped it.
 
 Panels that stay empty, and why:
 
@@ -165,6 +180,23 @@ Panels that stay empty, and why:
   don't apply to CRS switches.
 - **FRR / EVPN fabric:** "Flaps per session in range" says "No BGP flaps in range"
   when there were none.
+- **Ceph cluster / Ceph OSD:** PG states, "PGs not clean, by state", slow ops per
+  daemon, BlueStore slow ops and scrub bars only show something when it's non-zero.
+  The forecasts (fullest OSD nearfull in, raw used in 30 days, pool "Stored in 30 d")
+  use 7 days of history and are rough until Prometheus has that much; "Fullest OSD
+  nearfull in" says "not filling up" when the fullest OSD isn't growing. CephFS
+  reply latency and per-op request latency are empty while the MDS is idle.
+  "OSD hosts", "OSD disk utilization/await" and the Ceph OSD "Disk" row need
+  node_exporter on the PVE nodes (job `node`, role `proxmox`); they join it on
+  `host` = PVE hostname and `device` = the OSD's disk from `ceph_disk_occupation`,
+  and fill in once it's installed.
+- **Ceph mixin dashboards:** the physical-device panels of "OSD device details" join
+  node_exporter on `instance` (ours is `host:port`), so they stay empty even with
+  node_exporter; use the Ceph OSD dashboard instead. Compression panels are empty
+  (no pool uses compression); "PGs State" Unclean/Backfill and the filesystem's
+  "Pool storage" raw used query metrics Ceph 20 no longer exports; MDS CPU/open
+  requests need the mgr `stats` module (disabled); RGW versions are empty (no RGW);
+  the OSD size buckets skip 10-12 TB, where these 10.9 TiB OSDs fall.
 - Hosts without an exporter yet (DNS VMs, Proxmox nodes, fw-wan) show as DOWN in
   the target tables and are left out of everything else.
 
@@ -173,7 +205,8 @@ Panels that stay empty, and why:
 - **Community dashboards:** edit the list in
   [`dashboards/update.py`](../../modules/services/monitoring/dashboards/update.py)
   and run `python3 -I modules/services/monitoring/dashboards/update.py`. The script
-  downloads the pinned revision and points every query at the provisioned
+  downloads the pinned revision (grafana.com revision, or the ceph-mixin commit
+  `CEPH_MIXIN_COMMIT` on the tentacle branch) and points every query at the provisioned
   Prometheus datasource (uid `prometheus`). It also drops the import-time
   datasource inputs and variables, and sets the host picker, uid, tags and links.
 - **Custom dashboards:** edit
@@ -263,7 +296,7 @@ unit contents (Postgres bound to the backend VLAN, Grafana HA peers), the
 Postgres/InfluxDB data-directory owners, the dashboard provider and files (the
 expected files and uids per folder, every query uses the provisioned Prometheus
 datasource, no import-time placeholders, every dashboard in the `lylat` links
-dropdown, Node Exporter Full's job and host pickers, the overview as home
+dropdown, the Ceph dashboards' `ceph` tag and dropdown with no `$datasource` left, Node Exporter Full's job and host pickers, the overview as home
 dashboard, no restart for JSON changes, stale files pruned), and that a missing
 backend NIC fails the plan.
 

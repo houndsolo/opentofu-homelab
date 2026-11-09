@@ -2,7 +2,7 @@
   "id": null,
   "uid": "lylat-overview",
   "title": "lylat.space overview",
-  "description": "Landing page: target and alert status, probes, the EVPN fabric, hosts and top talkers.",
+  "description": "Landing page: target and alert status, Ceph, probes, the EVPN fabric, hosts and top talkers.",
   "tags": [
     "lylat",
     "overview"
@@ -661,7 +661,7 @@
     },
     {
       "type": "row",
-      "title": "Targets and alerts",
+      "title": "Ceph storage",
       "collapsed": false,
       "id": 8,
       "gridPos": {
@@ -669,6 +669,548 @@
         "w": 24,
         "x": 0,
         "y": 6
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Ceph health",
+      "description": "ceph health of the PVE cluster. The Ceph cluster dashboard lists the checks behind a warning.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ceph_health_status",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "HEALTH_OK",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "HEALTH_WARN",
+                  "color": "orange",
+                  "index": 1
+                },
+                "2": {
+                  "text": "HEALTH_ERR",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "noValue": "no ceph metrics"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Ceph cluster",
+          "url": "/d/ceph-cluster/ceph-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 9,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ceph raw used",
+      "description": "Raw used / raw capacity over all OSDs (3x replication included).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "ceph_cluster_total_used_raw_bytes / ceph_cluster_total_bytes",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "orange",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Ceph cluster",
+          "url": "/d/ceph-cluster/ceph-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 10,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 4,
+        "y": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ceph client IOPS",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ceph_pool_rd[$__rate_interval]))",
+          "legendFormat": "read",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ceph_pool_wr[$__rate_interval]))",
+          "legendFormat": "write",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "iops",
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Ceph cluster",
+          "url": "/d/ceph-cluster/ceph-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 11,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 8,
+        "y": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ceph client throughput",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ceph_pool_rd_bytes[$__rate_interval]))",
+          "legendFormat": "read",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(ceph_pool_wr_bytes[$__rate_interval]))",
+          "legendFormat": "write",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "Bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Ceph cluster",
+          "url": "/d/ceph-cluster/ceph-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 12,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 14,
+        "y": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ceph OSDs / PGs",
+      "description": "OSDs down and placement groups that aren't active+clean.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(ceph_osd_up == 0) or vector(0)",
+          "legendFormat": "OSDs down",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(sum(ceph_pg_total) - sum(ceph_pg_clean)) or vector(0)",
+          "legendFormat": "PGs not clean",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "OSDs down"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Ceph cluster",
+          "url": "/d/ceph-cluster/ceph-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 13,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 7
+      }
+    },
+    {
+      "type": "row",
+      "title": "Targets and alerts",
+      "collapsed": false,
+      "id": 14,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
       },
       "panels": []
     },
@@ -825,12 +1367,12 @@
           }
         }
       ],
-      "id": 9,
+      "id": 15,
       "gridPos": {
         "h": 10,
         "w": 7,
         "x": 0,
-        "y": 7
+        "y": 13
       }
     },
     {
@@ -936,7 +1478,8 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true
+              "Time": true,
+              "cluster": true
             },
             "renameByName": {
               "job": "Job",
@@ -955,12 +1498,12 @@
           }
         }
       ],
-      "id": 10,
+      "id": 16,
       "gridPos": {
         "h": 10,
         "w": 9,
         "x": 7,
-        "y": 7
+        "y": 13
       }
     },
     {
@@ -1052,24 +1595,24 @@
           }
         }
       ],
-      "id": 11,
+      "id": 17,
       "gridPos": {
         "h": 10,
         "w": 8,
         "x": 16,
-        "y": 7
+        "y": 13
       }
     },
     {
       "type": "row",
       "title": "Probes and fabric",
       "collapsed": false,
-      "id": 12,
+      "id": 18,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 23
       },
       "panels": []
     },
@@ -1156,12 +1699,12 @@
           "targetBlank": false
         }
       ],
-      "id": 13,
+      "id": 19,
       "gridPos": {
         "h": 8,
         "w": 10,
         "x": 0,
-        "y": 18
+        "y": 24
       }
     },
     {
@@ -1253,12 +1796,12 @@
           "targetBlank": false
         }
       ],
-      "id": 14,
+      "id": 20,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 10,
-        "y": 18
+        "y": 24
       }
     },
     {
@@ -1360,24 +1903,24 @@
           "targetBlank": false
         }
       ],
-      "id": 15,
+      "id": 21,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 17,
-        "y": 18
+        "y": 24
       }
     },
     {
       "type": "row",
       "title": "Hosts and routers",
       "collapsed": false,
-      "id": 16,
+      "id": 22,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 32
       },
       "panels": []
     },
@@ -1906,24 +2449,24 @@
           }
         }
       ],
-      "id": 17,
+      "id": 23,
       "gridPos": {
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 33
       }
     },
     {
       "type": "row",
       "title": "Traffic",
       "collapsed": false,
-      "id": 18,
+      "id": 24,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 47
       },
       "panels": []
     },
@@ -1997,12 +2540,12 @@
           "sort": "desc"
         }
       },
-      "id": 19,
+      "id": 25,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 42
+        "y": 48
       }
     },
     {
@@ -2082,12 +2625,12 @@
           "targetBlank": false
         }
       ],
-      "id": 20,
+      "id": 26,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 42
+        "y": 48
       }
     }
   ]

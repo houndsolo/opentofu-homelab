@@ -29,6 +29,14 @@ FRR_DASH = "/d/frr-evpn-fabric/frr-evpn-fabric"
 PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
 STACK_DASH = "/d/monitoring-stack/monitoring-stack"
 SNMP_DASH = "/d/snmp-device-summary/snmp-device-summary"
+CEPH_DASH = "/d/ceph-cluster/ceph-cluster"
+CEPH_OSD_DASH = "/d/ceph-osd/ceph-osd"
+
+# Every dashboard tagged "ceph" (these and the ceph-mixin ones from update.py) gets
+# a "Ceph dashboards" dropdown.
+CEPH_LINK = {"type": "dashboards", "tags": ["ceph"], "asDropdown": True, "title": "Ceph dashboards",
+             "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
+             "tooltip": "", "url": ""}
 
 
 # --- building blocks -------------------------------------------------------
@@ -101,20 +109,40 @@ def panel(type_, title, targets, *, desc="", unit=None, decimals=None, min_=None
 REDUCE_LAST = {"calcs": ["lastNotNull"], "fields": "", "values": False}
 
 
-def stat(title, targets, *, color_mode="background", text_mode="auto", graph=False, **kw):
+def stat(title, targets, *, color_mode="background", text_mode="auto", graph=False, orientation="auto",
+         justify="auto", text_size=None, **kw):
+    """text_size=(title px, value px) fixes the font sizes instead of fitting them to the tile."""
     kw.setdefault("thresholds", GREEN)
-    return panel("stat", title, targets, options={
+    options = {
         "reduceOptions": REDUCE_LAST, "colorMode": color_mode, "graphMode": "area" if graph else "none",
-        "textMode": text_mode, "justifyMode": "auto", "orientation": "auto", "wideLayout": True,
-        "showPercentChange": False}, **kw)
+        "textMode": text_mode, "justifyMode": justify, "orientation": orientation, "wideLayout": True,
+        "showPercentChange": False}
+    if text_size:
+        options["text"] = {"titleSize": text_size[0], "valueSize": text_size[1]}
+    return panel("stat", title, targets, options=options, **kw)
+
+
+def gauge(title, targets, **kw):
+    return panel("gauge", title, targets, options={
+        "reduceOptions": REDUCE_LAST, "showThresholdMarkers": True, "showThresholdLabels": False,
+        "orientation": "auto", "minVizWidth": 75, "minVizHeight": 75, "sizing": "auto"}, **kw)
+
+
+def piechart(title, targets, *, donut=True, **kw):
+    kw.setdefault("color", {"mode": "palette-classic"})
+    return panel("piechart", title, targets, options={
+        "reduceOptions": REDUCE_LAST, "pieType": "donut" if donut else "pie",
+        "displayLabels": ["percent"], "tooltip": {"mode": "single", "sort": "none"},
+        "legend": {"displayMode": "table", "placement": "right", "showLegend": True, "values": ["value"]}}, **kw)
 
 
 def timeseries(title, targets, *, stack=False, fill=10, calcs=("mean", "max", "lastNotNull"),
-               legend="table", placement="bottom", draw="line", step=False, **kw):
-    custom = {"drawStyle": draw, "lineWidth": 1, "fillOpacity": fill, "showPoints": "never",
+               legend="table", placement="bottom", draw="line", step=False, gradient="none", line=1,
+               **kw):
+    custom = {"drawStyle": draw, "lineWidth": line, "fillOpacity": fill, "showPoints": "never",
               "spanNulls": False, "lineInterpolation": "stepAfter" if step else "linear",
               "stacking": {"mode": "normal" if stack else "none", "group": "A"},
-              "axisPlacement": "auto", "gradientMode": "none"}
+              "axisPlacement": "auto", "gradientMode": gradient}
     kw.setdefault("color", {"mode": "palette-classic"})
     return panel("timeseries", title, targets, custom=custom, options={
         "legend": {"displayMode": legend, "placement": placement, "calcs": list(calcs), "showLegend": True},
@@ -130,16 +158,20 @@ def table(title, targets, *, sort=None, desc_sort=False, **kw):
     return panel("table", title, targets, custom=custom, options=options, **kw)
 
 
-def bargauge(title, targets, *, mode="basic", **kw):
-    return panel("bargauge", title, targets, options={
+def bargauge(title, targets, *, mode="basic", bar_height=None, name_placement="left", **kw):
+    """bar_height fixes each bar's height (px) instead of stretching the bars to fill the panel."""
+    options = {
         "displayMode": mode, "orientation": "horizontal", "reduceOptions": REDUCE_LAST, "showUnfilled": True,
-        "valueMode": "color", "namePlacement": "left", "sizing": "auto", "minVizHeight": 16,
-        "minVizWidth": 8, "maxVizHeight": 300}, **kw)
+        "valueMode": "color", "namePlacement": name_placement, "sizing": "manual" if bar_height else "auto",
+        "minVizHeight": bar_height or 16, "minVizWidth": 8, "maxVizHeight": bar_height or 300}
+    if bar_height:
+        options["text"] = {"titleSize": 12, "valueSize": 14}
+    return panel("bargauge", title, targets, options=options, **kw)
 
 
-def state_timeline(title, targets, **kw):
+def state_timeline(title, targets, *, show_value="never", row_height=0.85, **kw):
     return panel("state-timeline", title, targets, custom={"fillOpacity": 80, "lineWidth": 0}, options={
-        "mergeValues": True, "showValue": "never", "alignValue": "left", "rowHeight": 0.85,
+        "mergeValues": True, "showValue": show_value, "alignValue": "left", "rowHeight": row_height,
         "legend": {"showLegend": False, "displayMode": "list", "placement": "bottom"},
         "tooltip": {"mode": "single", "sort": "none"}}, **kw)
 
@@ -191,35 +223,70 @@ def query_var(name, label, query, *, multi=True, include_all=True, all_value=".*
 
 
 class Board:
-    """Places panels left to right on Grafana's 24-column grid."""
+    """Places panels left to right on Grafana's 24-column grid.
+
+    A collapsed row keeps its panels inside the row object (Grafana's format), so
+    they're only queried once someone expands it.
+    """
 
     def __init__(self):
         self.panels, self.x, self.y, self.line_h, self.next_id = [], 0, 0, 0, 1
+        self.target = self.panels
 
     def _newline(self):
         self.y += self.line_h
         self.x, self.line_h = 0, 0
 
-    def row(self, title):
+    def row(self, title, collapsed=False):
         self._newline()
-        self.panels.append({"type": "row", "title": title, "collapsed": False, "id": self.next_id,
-                            "gridPos": {"h": 1, "w": 24, "x": 0, "y": self.y}, "panels": []})
+        r = {"type": "row", "title": title, "collapsed": collapsed, "id": self.next_id,
+             "gridPos": {"h": 1, "w": 24, "x": 0, "y": self.y}, "panels": []}
+        self.panels.append(r)
+        self.target = r["panels"] if collapsed else self.panels
         self.next_id += 1
         self.y += 1
+
+    def _place(self, p, x, y, w, h):
+        p["id"] = self.next_id
+        p["gridPos"] = {"h": h, "w": w, "x": x, "y": y}
+        self.next_id += 1
+        self.target.append(p)
 
     def add(self, p, w, h):
         if self.x + w > 24:
             self._newline()
-        p["id"] = self.next_id
-        p["gridPos"] = {"h": h, "w": w, "x": self.x, "y": self.y}
-        self.next_id += 1
-        self.panels.append(p)
+        self._place(p, self.x, self.y, w, h)
         self.x += w
         self.line_h = max(self.line_h, h)
 
+    def col(self, w, *items):
+        """Stacks (panel, height) pairs on top of each other in one column."""
+        if self.x + w > 24:
+            self._newline()
+        y = self.y
+        for p, h in items:
+            self._place(p, self.x, y, w, h)
+            y += h
+        self.x += w
+        self.line_h = max(self.line_h, y - self.y)
+
+    def grid(self, w, h, panels, per_row):
+        """A block of equally sized panels, per_row to a line, inside a w-wide column."""
+        cw = w // per_row
+        rows = [panels[i:i + per_row] for i in range(0, len(panels), per_row)]
+        if self.x + w > 24:
+            self._newline()
+        x0, y = self.x, self.y
+        for r in rows:
+            for i, p in enumerate(r):
+                self._place(p, x0 + i * cw, y, cw, h)
+            y += h
+        self.x += w
+        self.line_h = max(self.line_h, y - self.y)
+
 
 def dashboard(uid, title, description, board, *, tags=(), variables=(), nav_buttons=False,
-              time_from="now-6h"):
+              time_from="now-6h", extra_links=()):
     return {
         "id": None, "uid": uid, "title": title, "description": description,
         "tags": sorted(set(tags) | {"lylat"}), "editable": True, "graphTooltip": 1,
@@ -232,7 +299,8 @@ def dashboard(uid, title, description, board, *, tags=(), variables=(), nav_butt
             "type": "dashboard"}]},
         "links": [{"type": "dashboards", "tags": ["lylat"], "asDropdown": not nav_buttons,
                    "title": "Dashboards", "includeVars": False, "keepTime": True,
-                   "icon": "external link", "targetBlank": False, "tooltip": "", "url": ""}],
+                   "icon": "external link", "targetBlank": False, "tooltip": "", "url": ""}]
+                 + [dict(link) for link in extra_links],
         "templating": {"list": list(variables)},
         "panels": board.panels,
     }
@@ -301,11 +369,33 @@ def overview():
     b.add(bgp_summary(""), 6, 5)
     b.add(bfd_summary(""), 6, 5)
 
+    b.row("Ceph storage")
+    ceph_link = [("Ceph cluster", CEPH_DASH + "?${__url_time_range}")]
+    b.add(stat("Ceph health", [q("ceph_health_status")], mappings=HEALTH_MAP, thresholds=HEALTH_STEPS,
+               no_value="no ceph metrics", links=ceph_link,
+               desc="ceph health of the PVE cluster. The Ceph cluster dashboard lists the checks behind a warning."), 4, 5)
+    b.add(stat("Ceph raw used", [q("ceph_cluster_total_used_raw_bytes / ceph_cluster_total_bytes")], unit="percentunit",
+               decimals=1, thresholds=FILL, color_mode="value", graph=True, links=ceph_link,
+               desc="Raw used / raw capacity over all OSDs (3x replication included)."), 4, 5)
+    b.add(stat("Ceph client IOPS", [q("sum(rate(ceph_pool_rd[$__rate_interval]))", "read"),
+                                    q("sum(rate(ceph_pool_wr[$__rate_interval]))", "write")],
+               unit="iops", decimals=0, text_mode="value_and_name", color_mode="value", graph=True,
+               overrides=[fixed_color("read", READ), fixed_color("write", WRITE)], links=ceph_link), 6, 5)
+    b.add(stat("Ceph client throughput", [q("sum(rate(ceph_pool_rd_bytes[$__rate_interval]))", "read"),
+                                          q("sum(rate(ceph_pool_wr_bytes[$__rate_interval]))", "write")],
+               unit="Bps", text_mode="value_and_name", color_mode="value", graph=True,
+               overrides=[fixed_color("read", READ), fixed_color("write", WRITE)], links=ceph_link), 6, 5)
+    b.add(stat("Ceph OSDs / PGs", [q("count(ceph_osd_up == 0) or vector(0)", "OSDs down"),
+                                   q("(sum(ceph_pg_total) - sum(ceph_pg_clean)) or vector(0)", "PGs not clean")],
+               text_mode="value_and_name", thresholds=ORANGE_IF_ANY,
+               overrides=[override("OSDs down", {"thresholds": RED_IF_ANY})], links=ceph_link,
+               desc="OSDs down and placement groups that aren't active+clean."), 4, 5)
+
     b.row("Targets and alerts")
     b.add(targets_by_job_table(), 7, 10)
     b.add(table("Targets", [q("max without () (up)", table=True)],
                 desc="Every scrape target, down ones first.",
-                transformations=[organize(exclude=["Time"], rename={
+                transformations=[organize(exclude=["Time", "cluster"], rename={
                     "job": "Job", "host": "Host", "role": "Role", "instance": "Instance", "Value": "State"},
                     order=["Job", "Host", "Role", "Instance", "State"])],
                 mappings=UP_MAP, overrides=[cell("State", "color-background")], sort="State"), 9, 10)
@@ -383,7 +473,7 @@ def overview():
         links=[("SNMP Device Summary", SNMP_DASH + "?${__url_time_range}")]), 12, 9)
 
     return dashboard("lylat-overview", "lylat.space overview",
-                     "Landing page: target and alert status, probes, the EVPN fabric, hosts and top talkers.",
+                     "Landing page: target and alert status, Ceph, probes, the EVPN fabric, hosts and top talkers.",
                      b, tags=["overview"], nav_buttons=True, time_from="now-3h")
 
 
@@ -772,11 +862,832 @@ def stack():
                      b, tags=["prometheus", "alertmanager", "grafana"])
 
 
+# --- Ceph ----------------------------------------------------------------------
+#
+# The mgr prometheus module (job "ceph") exports cluster-wide series without a
+# host label (instance="ceph_cluster"); per-daemon series carry ceph_daemon
+# ("osd.3", "mon.zoness", "mds.fortuna"). Host names come from the *_metadata
+# series (hostname label). node_exporter on the PVE nodes would join on its
+# "host" label = PVE hostname; until it's installed those panels say so.
+
+HEALTH_MAP = mapping(**{"0": ("HEALTH_OK", "green"), "1": ("HEALTH_WARN", "orange"), "2": ("HEALTH_ERR", "red")})
+CHECK_MAP = mapping(**{"0": ("clear", "green"), "1": ("WARN", "orange"), "2": ("ERR", "red")})
+HEALTH_STEPS = steps(("green", None), ("orange", 1), ("red", 2))
+# ceph_osd_up * 2 + ceph_osd_in
+OSD_STATE_MAP = mapping(**{"3": ("up · in", "green"), "2": ("up · out", "blue"),
+                           "1": ("down · in", "red"), "0": ("down · out", "purple")})
+OSD_STATE_STEPS = steps(("purple", None), ("red", 1), ("blue", 2), ("green", 3))
+MGR_MAP = mapping(**{"0": ("standby", "blue"), "1": ("active", "green")})
+QUORUM_MAP = mapping(**{"0": ("out of quorum", "red"), "1": ("in quorum", "green")})
+FILL = steps(("green", None), ("yellow", 0.7), ("orange", 0.85), ("red", 0.95))  # nearfull 0.85, full 0.95
+LAT_S = steps(("green", None), ("yellow", 0.05), ("orange", 0.1), ("red", 0.5))
+LAT_MS = steps(("green", None), ("yellow", 50), ("orange", 100), ("red", 500))
+READ, WRITE, RECOVERY = "blue", "orange", "purple"
+NO_NODE = "No data: node_exporter isn't installed on the PVE nodes yet"
+
+POOL_META = "ceph_pool_metadata"
+
+
+def by_pool(expr, labels="name"):
+    return f"({expr}) * on (pool_id) group_left ({labels}) {POOL_META}"
+
+
+def by_osd_host(expr):
+    return f"({expr}) * on (ceph_daemon) group_left (hostname) ceph_osd_metadata"
+
+
+def lat(metric, window="$__rate_interval", by=None):
+    """Average of a Ceph latency pair (<metric>_sum / <metric>_count) over the window, idle (NaN) dropped.
+
+    metric may carry a selector ('ceph_osd_op_r_latency{ceph_daemon="osd.1"}'). by=None keeps the
+    series apart, by="" sums over all of them, by="label" sums by that label.
+    """
+    name, sel = (metric.split("{", 1) + [""])[:2]
+    sel = "{" + sel if sel else ""
+
+    def agg(e):
+        return e if by is None else f"sum({e})" if by == "" else f"sum by ({by}) ({e})"
+
+    return (f"({agg(f'rate({name}_sum{sel}[{window}])')} / "
+            f"{agg(f'rate({name}_count{sel}[{window}])')}) >= 0")
+
+
+def rw_overrides(read="Read", write="Write"):
+    """Reads above the axis in blue, writes mirrored below it in orange."""
+    return [override(f"(?i).*{read}.*", {"color": {"mode": "fixed", "fixedColor": READ}}, regex=True),
+            override(f"(?i).*{write}.*", {"color": {"mode": "fixed", "fixedColor": WRITE},
+                                          "custom.transform": "negative-Y"}, regex=True)]
+
+
+# One row per OSD for the tables: ceph_daemon, hostname, device_class, device (sda) and model.
+OSD_LABELS = "ceph_daemon, hostname, device_class, device, model"
+OSD_INFO = (
+    f"max by ({OSD_LABELS}) ("
+    "(ceph_osd_metadata * on (ceph_daemon) group_left (device, model) "
+    'label_replace(label_replace(max by (ceph_daemon, devices, device_ids) (ceph_disk_occupation), '
+    '"device", "$1", "devices", "(.*)"), "model", "$1", "device_ids", "[^=]*=(.*)_[^_]*")) '
+    "or on (ceph_daemon) ceph_osd_metadata)")
+
+
+def osd_col(expr):
+    return f"max by ({OSD_LABELS}) (({expr}) * on (ceph_daemon) group_left (hostname, device_class, device, model) {OSD_INFO})"
+
+
+# The disk under each OSD as node_exporter labels it: host = PVE hostname, device = sda.
+OSD_DISK = ('label_replace(label_replace(max by (ceph_daemon, instance, devices) (ceph_disk_occupation), '
+            '"host", "$1", "instance", "(.*)"), "device", "$1", "devices", "(.*)")')
+
+
+def osd_disk(expr):
+    return f'({expr}) * on (host, device) group_left (ceph_daemon) {OSD_DISK}'
+
+
+PG_PROBLEM_STATES = ["degraded", "undersized", "peering", "activating", "remapped", "recovering",
+                     "recovery_wait", "backfilling", "backfill_wait", "backfill_toofull",
+                     "recovery_toofull", "inconsistent", "incomplete", "stale", "down", "unknown",
+                     "laggy", "wait", "peered", "creating", "repair", "failed_repair",
+                     "backfill_unfound", "recovery_unfound", "snaptrim_error"]
+PG_BUSY_STATES = ["scrubbing", "deep", "snaptrim", "snaptrim_wait", "premerge", "forced_backfill",
+                  "forced_recovery"]
+OSD_FLAGS = ["noout", "noin", "nodown", "noup", "nobackfill", "norecover", "norebalance", "noscrub",
+             "nodeep_scrub"]
+MDS_OPS = ["getattr", "lookup", "open", "readdir", "create", "mkdir", "setattr", "unlink", "rename",
+           "rmdir", "symlink", "setxattr"]
+BLUESTORE_SLOW = {"committed kv": "ceph_bluestore_slow_committed_kv_count",
+                  "aio wait": "ceph_bluestore_slow_aio_wait_count",
+                  "read onode meta": "ceph_bluestore_slow_read_onode_meta_count",
+                  "read wait aio": "ceph_bluestore_slow_read_wait_aio_count"}
+# BLUESTORE_SLOW_OP_ALERT counts slow ops over bluestore_slow_ops_warn_lifetime (default 24 h), so
+# the BlueStore slow-op panels use the same window rather than the dashboard's time range.
+BLUESTORE_SLOW_ALL = " + ".join(f"increase({m}[24h])" for m in BLUESTORE_SLOW.values())
+VMID = 'label_replace({}, "vmid", "$1", "image", "(?:vm|base)-([0-9]+)-.*")'
+
+
+def health_checks(expr_filter=""):
+    """Active health checks, value 1 = HEALTH_WARN, 2 = HEALTH_ERR."""
+    return (f'max by (name) (ceph_health_detail{{severity="HEALTH_WARN"{expr_filter}}}) '
+            f'or 2 * max by (name) (ceph_health_detail{{severity="HEALTH_ERR"{expr_filter}}})')
+
+
+def ceph():
+    b = Board()
+    osd_link = [("Ceph OSD", CEPH_OSD_DASH + "?${__url_time_range}")]
+
+    # Status ---------------------------------------------------------------------
+    b.row("Status")
+    b.add(stat("Health", [q("ceph_health_status")], mappings=HEALTH_MAP, thresholds=HEALTH_STEPS,
+               no_value="no ceph metrics", graph=False,
+               desc="Overall cluster health (ceph health). The checks behind a WARN/ERR are listed next to it."), 4, 8)
+    b.col(7,
+          (stat("Active health checks", [q(f"({health_checks()}) > 0", "{{name}}")], text_mode="name",
+                mappings=CHECK_MAP, thresholds=HEALTH_STEPS, no_value="No active health checks",
+                desc="Health checks currently raised (ceph health detail): orange = HEALTH_WARN, red = HEALTH_ERR. "
+                     "BLUESTORE_SLOW_OP_ALERT means OSDs saw BlueStore operations slower than "
+                     "bluestore_slow_ops_warn_threshold; see Slow ops and BlueStore below."), 4),
+          (state_timeline("Health history", [
+              q("ceph_health_status", "cluster"),
+              q(health_checks(), "{{name}}"),
+          ], mappings=CHECK_MAP, thresholds=HEALTH_STEPS, row_height=0.8,
+              desc="Cluster health and every check the active mgr has seen since it started (green = clear)."), 4))
+    b.add(gauge("Raw capacity used", [q("ceph_cluster_total_used_raw_bytes / ceph_cluster_total_bytes")],
+                unit="percentunit", min_=0, max_=1, decimals=1, thresholds=FILL,
+                desc="Raw used / raw total over all OSDs (replication included). Ceph warns per OSD at "
+                     "nearfull (85%) and stops writes at full (95%); see Fullest OSD."), 4, 8)
+    b.grid(9, 4, [
+        stat("OSDs", [q("sum(ceph_osd_up)", "up"), q("sum(ceph_osd_in)", "in"),
+                      q("count(ceph_osd_metadata)", "total")],
+             text_mode="value_and_name", color_mode="value", desc="OSDs up and in, of all OSDs in the OSD map.",
+             overrides=[fixed_color("up", "green"), fixed_color("in", "green"), fixed_color("total", "text")],
+             links=osd_link),
+        stat("OSDs down / out", [q("count(ceph_osd_up == 0) or vector(0)", "down"),
+                                 q("count(ceph_osd_in == 0) or vector(0)", "out")],
+             text_mode="value_and_name", thresholds=RED_IF_ANY, desc="OSDs that are down or marked out."),
+        stat("Monitors", [q("sum(ceph_mon_quorum_status)", "quorum"), q("count(ceph_mon_metadata)", "total")],
+             text_mode="value_and_name", color_mode="value",
+             overrides=[fixed_color("quorum", "green"), fixed_color("total", "text")],
+             desc="Monitors in quorum / monitors in the monmap."),
+        stat("Managers", [q("ceph_mgr_status == 1 and on (ceph_daemon) ceph_mgr_metadata", "{{ceph_daemon}}"),
+                          q("count(ceph_mgr_status == 0) or vector(0)", "standby")],
+             text_mode="value_and_name", color_mode="value", mappings=[],
+             overrides=[fixed_color("standby", "blue"), override("mgr\\..*", {"color": {"mode": "fixed", "fixedColor": "green"}, "mappings": mapping(**{"1": ("active", "green")})}, regex=True)],
+             desc="The active mgr (serves the metrics) and the number of standbys."),
+        stat("MDS", [q('ceph_mds_metadata{rank!="-1"}', "{{ceph_daemon}}"),
+                     q('count(ceph_mds_metadata{rank="-1"}) or vector(0)', "standby")],
+             text_mode="value_and_name", color_mode="value",
+             overrides=[fixed_color("standby", "blue"), override("mds\\..*", {"color": {"mode": "fixed", "fixedColor": "green"}, "mappings": mapping(**{"1": ("active", "green")})}, regex=True)],
+             desc="Active MDS for CephFS (rank ≥ 0) and standbys."),
+        stat("PGs", [q("sum(ceph_pg_total)", "total"),
+                     q("sum(ceph_pg_total) - sum(ceph_pg_clean)", "not clean")],
+             text_mode="value_and_name", color_mode="value",
+             overrides=[fixed_color("total", "text"), override("not clean", {"thresholds": ORANGE_IF_ANY})],
+             desc="Placement groups, and how many aren't active+clean (recovering, degraded, peering, …)."),
+    ], per_row=3)
+
+    spark = dict(color_mode="value", graph=True)
+    b.add(stat("Read IOPS", [q("sum(rate(ceph_pool_rd[$__rate_interval]))")], unit="iops", decimals=0,
+               color=dict(mode="fixed", fixedColor=READ), desc="Client read operations per second, all pools.", **spark), 3, 5)
+    b.add(stat("Write IOPS", [q("sum(rate(ceph_pool_wr[$__rate_interval]))")], unit="iops", decimals=0,
+               color=dict(mode="fixed", fixedColor=WRITE), desc="Client write operations per second, all pools.", **spark), 3, 5)
+    b.add(stat("Read rate", [q("sum(rate(ceph_pool_rd_bytes[$__rate_interval]))")], unit="Bps",
+               color=dict(mode="fixed", fixedColor=READ), **spark), 3, 5)
+    b.add(stat("Write rate", [q("sum(rate(ceph_pool_wr_bytes[$__rate_interval]))")], unit="Bps",
+               color=dict(mode="fixed", fixedColor=WRITE), **spark), 3, 5)
+    b.add(stat("Read latency", [q(lat("ceph_osd_op_r_latency", by=""))], unit="s", thresholds=LAT_S,
+               desc="Average OSD client read latency (queue + processing) over all OSDs.", **spark), 3, 5)
+    b.add(stat("Write latency", [q(lat("ceph_osd_op_w_latency", by=""))], unit="s", thresholds=LAT_S,
+               desc="Average OSD client write latency over all OSDs. HDD OSDs without a flash DB/WAL "
+                    "usually sit in the tens of ms.", **spark), 3, 5)
+    b.add(stat("Recovery", [q("sum(rate(ceph_osd_recovery_bytes[$__rate_interval]))")], unit="Bps",
+               color=dict(mode="fixed", fixedColor=RECOVERY),
+               desc="Recovery and backfill traffic between OSDs.", **spark), 3, 5)
+    b.add(stat("Objects at risk", [
+        q("ceph_num_objects_degraded + ceph_num_objects_misplaced + ceph_num_objects_unfound")],
+        thresholds=steps(("green", None), ("orange", 1)), decimals=0, **spark,
+        desc="Object copies degraded (missing replicas) + misplaced (waiting to move) + unfound. "
+             "The breakdown is under Placement groups and recovery."), 3, 5)
+
+    # Capacity -------------------------------------------------------------------
+    b.row("Capacity")
+    b.add(stat("Raw capacity", [
+        q("ceph_cluster_total_bytes", "total"), q("ceph_cluster_total_used_raw_bytes", "used"),
+        q("ceph_cluster_total_bytes - ceph_cluster_total_used_raw_bytes", "available")],
+        unit="bytes", text_mode="value_and_name", color_mode="value", orientation="horizontal",
+        overrides=[fixed_color("total", "text"), fixed_color("used", "orange"), fixed_color("available", "green")],
+        desc="Raw bytes over all OSDs. Pools are 3× replicated, so usable space is about a third."), 4, 8)
+    b.add(bargauge("Pool usage", [q(by_pool("ceph_pool_percent_used"), "{{name}}")],
+                   mode="gradient", unit="percentunit", min_=0, max_=1, decimals=2, thresholds=FILL,
+                   desc="Stored / (stored + max available) per pool. Max available is what the fullest "
+                        "OSD in the pool's CRUSH rule still allows, so all pools share it."), 6, 8)
+    b.add(piechart("Data stored per pool", [q(by_pool("ceph_pool_stored"), "{{name}}")], unit="bytes",
+                   desc="Logical data per pool, before replication."), 6, 8)
+    used = "max(ceph_osd_stat_bytes_used / ceph_osd_stat_bytes)"
+    b.col(4,
+          (gauge("Fullest OSD", [q(used)], unit="percentunit", min_=0, max_=1, decimals=1, thresholds=FILL,
+                 desc="The most-used OSD. Ceph raises OSD_NEARFULL at 85% and blocks writes at 95%, "
+                      "whatever the cluster average."), 5),
+          (stat("Fullest OSD nearfull in", [q(
+              f"((max(ceph_osd_nearfull_ratio) - {used}) / (deriv({used}[7d:1h]) > 0)) or vector(-1)")],
+              unit="dtdurations", color_mode="value",
+              mappings=[{"type": "range", "options": {"from": -1, "to": -1, "result": {
+                  "text": "not filling up", "color": "green", "index": 0}}}],
+              thresholds=steps(("green", None), ("red", 0), ("orange", 7 * 86400), ("green", 30 * 86400)),
+              desc="Linear forecast from the last 7 days of the fullest OSD's growth. Empty when it isn't growing."), 3))
+    b.add(stat("Raw used in 30 days", [
+        q("predict_linear(ceph_cluster_total_used_raw_bytes[7d], 30 * 86400) / ceph_cluster_total_bytes", "forecast"),
+        q("ceph_cluster_total_used_raw_bytes / ceph_cluster_total_bytes", "now")],
+        unit="percentunit", decimals=1, text_mode="value_and_name", color_mode="value", thresholds=FILL,
+        orientation="horizontal",
+        desc="predict_linear over the last 7 days (or as much history as Prometheus has)."), 4, 8)
+
+    pool_labels = "pool_id, name, application, description"
+
+    def pool_col(expr):
+        return f"max by ({pool_labels}) ({by_pool(expr, 'name, application, description')})"
+
+    b.add(table("Pools", [
+        q(pool_col("ceph_pool_stored"), table=True),
+        q(pool_col("ceph_pool_stored_raw"), table=True),
+        q(pool_col("ceph_pool_percent_used"), table=True),
+        q(pool_col("ceph_pool_max_avail"), table=True),
+        q(pool_col("ceph_pool_objects"), table=True),
+        q(pool_col("sum by (pool_id) (ceph_pg_total)"), table=True),
+        q(pool_col("predict_linear(ceph_pool_stored[7d], 30 * 86400)"), table=True),
+        q(pool_col("rate(ceph_pool_rd[5m]) + rate(ceph_pool_wr[5m])"), table=True),
+    ], desc="Stored = logical data, Raw = with replication. Forecast = stored in 30 days, linear over the last 7 days.",
+        transformations=[MERGE, organize(exclude=["Time", "pool_id"], rename={
+            "name": "Pool", "application": "Application", "description": "Replication",
+            "Value #A": "Stored", "Value #B": "Raw", "Value #C": "Used", "Value #D": "Max available",
+            "Value #E": "Objects", "Value #F": "PGs", "Value #G": "Stored in 30 d", "Value #H": "IOPS"},
+            order=["Pool", "Application", "Replication", "PGs", "Objects", "Stored", "Raw", "Used",
+                   "Max available", "Stored in 30 d", "IOPS"])],
+        overrides=[override("Stored|Raw|Max available|Stored in 30 d", {"unit": "bytes"}, regex=True),
+                   override("Used", {"unit": "percentunit", "min": 0, "max": 1, "decimals": 2, "thresholds": FILL,
+                                     "custom.cellOptions": {"type": "gauge", "mode": "lcd", "valueDisplayMode": "text"}}),
+                   override("IOPS", {"unit": "iops", "decimals": 1}), override("Objects", {"unit": "short"})],
+        sort="Stored", desc_sort=True), 24, 7)
+    b.add(timeseries("Raw capacity and forecast", [
+        q("ceph_cluster_total_used_raw_bytes", "used"),
+        q("ceph_cluster_total_bytes * on () group_left max(ceph_osd_nearfull_ratio)", "nearfull (85%)"),
+        q("ceph_cluster_total_bytes", "total"),
+        q("predict_linear(ceph_cluster_total_used_raw_bytes[7d], 30 * 86400)", "forecast for 30 days later"),
+    ], unit="bytes", fill=20, gradient="opacity", calcs=("lastNotNull",), min_=0,
+        overrides=[fixed_color("used", "orange"),
+                   override("total", {"color": {"mode": "fixed", "fixedColor": "text"}, "custom.fillOpacity": 0,
+                                      "custom.lineStyle": {"fill": "dash", "dash": [10, 10]}}),
+                   override("nearfull (85%)", {"color": {"mode": "fixed", "fixedColor": "red"}, "custom.fillOpacity": 0,
+                                               "custom.lineStyle": {"fill": "dash", "dash": [4, 6]}}),
+                   override("forecast for 30 days later", {"color": {"mode": "fixed", "fixedColor": "purple"},
+                                                           "custom.fillOpacity": 0,
+                                                           "custom.lineStyle": {"fill": "dash", "dash": [2, 4]}})],
+        desc="The forecast line shows, at each point, where raw usage would be 30 days later at the "
+             "growth rate of the 7 days before it."), 8, 9)
+    b.add(timeseries("Data stored per pool", [q(by_pool("ceph_pool_stored"), "{{name}}")], unit="bytes",
+                     stack=True, fill=30, gradient="opacity", calcs=("lastNotNull",)), 8, 9)
+    b.add(timeseries("Objects per pool", [q(by_pool("ceph_pool_objects"), "{{name}}")], unit="short",
+                     fill=0, calcs=("lastNotNull",)), 8, 9)
+
+    # Client I/O -----------------------------------------------------------------
+    b.row("Client I/O")
+    b.add(timeseries("Client IOPS", [
+        q("sum(rate(ceph_pool_rd[$__rate_interval]))", "Read"),
+        q("sum(rate(ceph_pool_wr[$__rate_interval]))", "Write"),
+    ], unit="iops", fill=25, gradient="opacity", overrides=rw_overrides(),
+        desc="Reads above the axis, writes below."), 8, 9)
+    b.add(timeseries("Client throughput", [
+        q("sum(rate(ceph_pool_rd_bytes[$__rate_interval]))", "Read"),
+        q("sum(rate(ceph_pool_wr_bytes[$__rate_interval]))", "Write"),
+    ], unit="Bps", fill=25, gradient="opacity", overrides=rw_overrides()), 8, 9)
+    b.add(timeseries("Client op latency (OSD average)", [
+        q(lat("ceph_osd_op_r_latency", by=""), "Read"),
+        q(lat("ceph_osd_op_w_latency", by=""), "Write"),
+        q(lat("ceph_osd_op_rw_latency", by=""), "Read-modify-write"),
+    ], unit="s", fill=0, line=2, min_=0,
+        overrides=[fixed_color("Read", READ), fixed_color("Write", WRITE), fixed_color("Read-modify-write", "purple")],
+        desc="Sum of OSD op latency / ops over all OSDs, including queueing."), 8, 9)
+    b.add(timeseries("IOPS per pool", [
+        q(by_pool("rate(ceph_pool_rd[$__rate_interval])"), "{{name}} read"),
+        q(by_pool("rate(ceph_pool_wr[$__rate_interval])"), "{{name}} write"),
+    ], unit="iops", fill=10, overrides=[override("(?i).* write", {"custom.transform": "negative-Y"}, regex=True)],
+        calcs=("mean", "max"), desc="Writes below the axis."), 12, 9)
+    b.add(timeseries("Throughput per pool", [
+        q(by_pool("rate(ceph_pool_rd_bytes[$__rate_interval])"), "{{name}} read"),
+        q(by_pool("rate(ceph_pool_wr_bytes[$__rate_interval])"), "{{name}} write"),
+    ], unit="Bps", fill=10, overrides=[override("(?i).* write", {"custom.transform": "negative-Y"}, regex=True)],
+        calcs=("mean", "max"), desc="Writes below the axis."), 12, 9)
+
+    # Recovery & PGs ------------------------------------------------------------
+    b.row("Placement groups and recovery")
+    pg_targets = [q("sum(ceph_pg_active)", "active"), q("sum(ceph_pg_clean)", "clean")]
+    pg_targets += [q(f"sum(ceph_pg_{s}) > 0", s.replace("_", " ")) for s in PG_BUSY_STATES + PG_PROBLEM_STATES]
+    b.add(bargauge("PG states", pg_targets, mode="gradient", min_=0, decimals=0, bar_height=22,
+                   name_placement="top",
+                   thresholds=steps(("orange", None)),
+                   overrides=[fixed_color("active", "green"), fixed_color("clean", "green"),
+                              *[fixed_color(s.replace("_", " "), "blue") for s in PG_BUSY_STATES],
+                              *[fixed_color(s.replace("_", " "), "red") for s in
+                                ("inconsistent", "incomplete", "stale", "down", "unknown", "failed_repair",
+                                 "backfill_unfound", "recovery_unfound", "snaptrim_error")]],
+                   desc="PGs per state (a PG is in several at once). Only non-zero states besides active and "
+                        "clean are listed: blue = routine (scrubbing, snap trimming), orange = recovering or "
+                        "degraded, red = needs attention."), 6, 10)
+    b.add(timeseries("PGs not clean, by state", [
+        q("sum(ceph_pg_total) - sum(ceph_pg_clean)", "not clean"),
+        *[q(f"sum(ceph_pg_{s}) > 0", s.replace("_", " ")) for s in PG_PROBLEM_STATES],
+    ], fill=0, decimals=0, step=True, calcs=("max", "lastNotNull"),
+        overrides=[override("not clean", {"color": {"mode": "fixed", "fixedColor": "orange"}, "custom.fillOpacity": 20})],
+        desc="Gaps mean zero."), 9, 10)
+    b.add(timeseries("Scrubbing PGs", [
+        q("sum(ceph_pg_scrubbing)", "scrubbing"), q("sum(ceph_pg_deep)", "deep scrubbing"),
+        q("sum(ceph_pg_snaptrim) + sum(ceph_pg_snaptrim_wait)", "snap trimming"),
+    ], fill=20, decimals=0, step=True, calcs=("max", "lastNotNull"),
+        overrides=[fixed_color("scrubbing", "light-blue"), fixed_color("deep scrubbing", "blue"),
+                   fixed_color("snap trimming", "purple")]), 9, 10)
+    b.add(timeseries("Recovery and backfill", [
+        q("sum(rate(ceph_osd_recovery_bytes[$__rate_interval]))", "OSD recovery bytes/s"),
+        q("sum(ceph_pool_recovering_bytes_per_sec)", "pool recovering bytes/s"),
+        q("sum(rate(ceph_osd_recovery_ops[$__rate_interval]))", "recovery ops/s"),
+    ], unit="Bps", fill=20, gradient="opacity",
+        overrides=[fixed_color("OSD recovery bytes/s", RECOVERY), fixed_color("pool recovering bytes/s", "light-purple"),
+                   override("recovery ops/s", {"unit": "ops", "custom.axisPlacement": "right", "custom.fillOpacity": 0,
+                                               "color": {"mode": "fixed", "fixedColor": "yellow"}})]), 8, 8)
+    b.add(timeseries("Degraded, misplaced and unfound objects", [
+        q("ceph_num_objects_degraded", "degraded"), q("ceph_num_objects_misplaced", "misplaced"),
+        q("ceph_num_objects_unfound", "unfound"),
+    ], fill=10, decimals=0, calcs=("max", "lastNotNull"),
+        overrides=[fixed_color("degraded", "orange"), fixed_color("misplaced", "yellow"), fixed_color("unfound", "red")]), 8, 8)
+    b.add(stat("OSD flags", [q(f"ceph_osd_flag_{f}", f) for f in OSD_FLAGS],
+               text_mode="value_and_name", mappings=mapping(**{"0": ("off", "green"), "1": ("SET", "orange")}),
+               thresholds=steps(("green", None), ("orange", 1)), color_mode="value", text_size=(12, 20),
+               desc="Cluster-wide OSD flags (ceph osd set …). noout is normal during maintenance; "
+                    "anything left set stops recovery or scrubbing."), 8, 8)
+
+    # OSDs -----------------------------------------------------------------------
+    b.row("OSDs")
+    state = "ceph_osd_up * 2 + ceph_osd_in"
+    b.add(stat("OSD status", [q(by_osd_host(state), "{{hostname}} · {{ceph_daemon}}")], text_mode="value_and_name",
+               mappings=OSD_STATE_MAP, thresholds=OSD_STATE_STEPS, justify="center",
+               desc="One tile per OSD: green = up and in, blue = up but out, red = down but still in "
+                    "(data is degraded), purple = down and out. Click for the OSD dashboard.",
+               links=[("Ceph OSD", CEPH_OSD_DASH + "?${__url_time_range}")]), 13, 9)
+    b.add(table("OSD hosts", [
+        q("count by (hostname) (ceph_osd_metadata)", table=True),
+        q(f"sum by (hostname) ({by_osd_host('ceph_osd_up')})", table=True),
+        q(f"sum by (hostname) ({by_osd_host('ceph_osd_in')})", table=True),
+        q(f"sum by (hostname) ({by_osd_host('ceph_osd_stat_bytes')})", table=True),
+        q(f"sum by (hostname) ({by_osd_host('ceph_osd_stat_bytes_used')}) / sum by (hostname) ({by_osd_host('ceph_osd_stat_bytes')})", table=True),
+        q(f"sum by (hostname) ({by_osd_host('ceph_osd_numpg')})", table=True),
+        q(f"sum by (hostname) ({by_osd_host('rate(ceph_osd_op_r[5m]) + rate(ceph_osd_op_w[5m])')})", table=True),
+    ], desc="OSDs per PVE node.",
+        transformations=[MERGE, organize(exclude=["Time"], rename={
+            "hostname": "Host", "Value #A": "OSDs", "Value #B": "Up", "Value #C": "In", "Value #D": "Raw size",
+            "Value #E": "Used", "Value #F": "PGs", "Value #G": "IOPS"},
+            order=["Host", "OSDs", "Up", "In", "Raw size", "Used", "PGs", "IOPS"])],
+        overrides=[override("Raw size", {"unit": "bytes"}),
+                   override("Used", {"unit": "percentunit", "min": 0, "max": 1, "decimals": 1, "thresholds": FILL,
+                                     "custom.cellOptions": {"type": "gauge", "mode": "lcd", "valueDisplayMode": "text"}}),
+                   override("IOPS", {"unit": "iops", "decimals": 1})],
+        sort="Host"), 11, 9)
+
+    b.add(table("OSD details", [
+        q(osd_col(state), table=True),
+        q(osd_col("ceph_osd_weight"), table=True),
+        q(osd_col("ceph_osd_numpg"), table=True),
+        q(osd_col("ceph_osd_stat_bytes"), table=True),
+        q(osd_col("ceph_osd_stat_bytes_used / ceph_osd_stat_bytes"), table=True),
+        q(osd_col("ceph_osd_apply_latency_ms"), table=True),
+        q(osd_col("ceph_osd_commit_latency_ms"), table=True),
+        q(osd_col(lat("ceph_osd_op_r_latency", "5m")), table=True),
+        q(osd_col(lat("ceph_osd_op_w_latency", "5m")), table=True),
+        q(osd_col("rate(ceph_osd_op_r[5m]) + rate(ceph_osd_op_w[5m])"), table=True),
+        q(osd_col("increase(ceph_trackedop_slow_ops_count[$__range])"), table=True),
+        q(osd_col(BLUESTORE_SLOW_ALL), table=True),
+    ], desc="Latencies are averages over the last 5 minutes. Slow ops = ops over 10 s in the time range; "
+            "BlueStore slow 24h = BlueStore operations over its slow-op threshold in the last 24 h (these "
+            "raise BLUESTORE_SLOW_OP_ALERT). Click an OSD for its dashboard.",
+        transformations=[MERGE, organize(exclude=["Time"], rename={
+            "ceph_daemon": "OSD", "hostname": "Host", "device_class": "Class", "device": "Disk", "model": "Model",
+            "Value #A": "State", "Value #B": "Reweight", "Value #C": "PGs", "Value #D": "Size", "Value #E": "Used",
+            "Value #F": "Apply", "Value #G": "Commit", "Value #H": "Read lat", "Value #I": "Write lat",
+            "Value #J": "IOPS", "Value #K": "Slow ops", "Value #L": "BlueStore slow 24h"},
+            order=["OSD", "Host", "Disk", "Model", "Class", "State", "Reweight", "PGs", "Size", "Used", "Apply",
+                   "Commit", "Read lat", "Write lat", "IOPS", "Slow ops", "BlueStore slow 24h"])],
+        overrides=[cell("State", "color-background"), override("State", {"mappings": OSD_STATE_MAP, "thresholds": OSD_STATE_STEPS}),
+                   override("Size", {"unit": "bytes"}), override("Reweight", {"decimals": 2}),
+                   override("Used", {"unit": "percentunit", "min": 0, "max": 1, "decimals": 1, "thresholds": FILL,
+                                     "custom.cellOptions": {"type": "gauge", "mode": "lcd", "valueDisplayMode": "text"}}),
+                   *[override(n, {"unit": "ms", "thresholds": LAT_MS, "custom.cellOptions": {"type": "color-text"}})
+                     for n in ("Apply", "Commit")],
+                   *[override(n, {"unit": "s", "thresholds": LAT_S, "custom.cellOptions": {"type": "color-text"}})
+                     for n in ("Read lat", "Write lat")],
+                   override("IOPS", {"unit": "iops", "decimals": 1}),
+                   *[override(n, {"decimals": 0, "thresholds": ORANGE_IF_ANY, "custom.cellOptions": {"type": "color-background", "mode": "basic"}})
+                     for n in ("Slow ops", "BlueStore slow 24h")],
+                   override("OSD", {"links": [{"title": "Ceph OSD",
+                                               "url": CEPH_OSD_DASH + "?var-osd=${__data.fields.ceph_daemon}&${__url_time_range}"}]}),
+                   *[override(n, {"custom.width": px}) for n, px in (
+                       ("OSD", 65), ("Host", 80), ("Disk", 50), ("Model", 170), ("Class", 55), ("State", 90),
+                       ("Reweight", 75), ("PGs", 50), ("Size", 80), ("Used", 130), ("Apply", 70), ("Commit", 70),
+                       ("Read lat", 85), ("Write lat", 85), ("IOPS", 80), ("Slow ops", 75))]],
+        sort="OSD"), 24, 17)
+    b.add(state_timeline("OSD state history", [q(by_osd_host(state), "{{ceph_daemon}} ({{hostname}})")],
+                         mappings=OSD_STATE_MAP, thresholds=OSD_STATE_STEPS, row_height=0.8,
+                         desc="Flaps show up as red/blue slivers."), 24, 9)
+
+    b.row("OSD performance")
+    b.add(timeseries("Commit latency per OSD", [q(by_osd_host("ceph_osd_commit_latency_ms"), "{{ceph_daemon}} ({{hostname}})")],
+                     unit="ms", fill=0, calcs=("mean", "max", "lastNotNull"), legend="table", placement="right",
+                     desc="BlueStore commit latency as reported by each OSD (ceph osd perf)."), 12, 10)
+    b.add(bargauge("Utilization per OSD", [q(by_osd_host("ceph_osd_stat_bytes_used / ceph_osd_stat_bytes"), "{{ceph_daemon}} ({{hostname}})")],
+                   mode="lcd", unit="percentunit", min_=0, max_=1, decimals=1, thresholds=FILL,
+                   desc="Uneven fill means uneven CRUSH weights or too few PGs; the balancer module evens it out."), 6, 10)
+    b.add(bargauge("PGs per OSD", [q(by_osd_host("ceph_osd_numpg"), "{{ceph_daemon}}")], mode="gradient",
+                   min_=0, decimals=0, thresholds=steps(("blue", None), ("orange", 250), ("red", 300)),
+                   desc="mon_max_pg_per_osd defaults to 250."), 6, 10)
+    b.add(timeseries("Read latency per OSD", [q(by_osd_host(lat("ceph_osd_op_r_latency", by="ceph_daemon")), "{{ceph_daemon}} ({{hostname}})")],
+                     unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right"), 12, 10)
+    b.add(timeseries("Write latency per OSD", [q(by_osd_host(lat("ceph_osd_op_w_latency", by="ceph_daemon")), "{{ceph_daemon}} ({{hostname}})")],
+                     unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right"), 12, 10)
+    b.add(timeseries("IOPS per OSD", [q(by_osd_host("rate(ceph_osd_op_r[$__rate_interval]) + rate(ceph_osd_op_w[$__rate_interval])"),
+                                        "{{ceph_daemon}} ({{hostname}})")],
+                     unit="iops", fill=0, calcs=("mean", "max"), legend="table", placement="right",
+                     desc="Client ops each OSD served as primary."), 12, 10)
+    b.add(timeseries("Throughput per OSD", [
+        q(by_osd_host("rate(ceph_osd_op_out_bytes[$__rate_interval]) + rate(ceph_osd_op_in_bytes[$__rate_interval])"),
+          "{{ceph_daemon}} ({{hostname}})")],
+        unit="Bps", fill=0, calcs=("mean", "max"), legend="table", placement="right",
+        desc="Client reads + writes per OSD."), 12, 10)
+
+    # Slow ops & BlueStore ------------------------------------------------------
+    b.row("Slow ops and BlueStore")
+    b.add(stat("BlueStore slow-op alert", [q('max(ceph_health_detail{name="BLUESTORE_SLOW_OP_ALERT"}) or vector(0)')],
+               mappings=mapping(**{"0": ("clear", "green"), "1": ("RAISED", "orange")}),
+               thresholds=ORANGE_IF_ANY,
+               desc="Health check BLUESTORE_SLOW_OP_ALERT: OSDs logged more than bluestore_slow_ops_warn_threshold "
+                    "slow BlueStore ops within bluestore_slow_ops_warn_lifetime. Common on busy HDDs without "
+                    "a flash DB device."), 6, 5)
+    b.add(stat("Daemons with slow ops now", [q('count(ceph_daemon_health_metrics{type="SLOW_OPS"} > 0) or vector(0)')],
+               thresholds=RED_IF_ANY, desc="Daemons currently reporting blocked ops (SLOW_OPS health check)."), 6, 5)
+    b.add(stat("Slow ops in range", [q("sum(increase(ceph_trackedop_slow_ops_count[$__range])) or vector(0)")],
+               decimals=0, thresholds=ORANGE_IF_ANY, graph=False,
+               desc="Ops that took over 10 s, on any daemon, in the selected time range."), 6, 5)
+    b.add(stat("BlueStore slow ops, last 24 h", [q(f"sum({BLUESTORE_SLOW_ALL}) or vector(0)")],
+               decimals=0, thresholds=ORANGE_IF_ANY,
+               desc="All four BlueStore slow-op counters, all OSDs, over the 24 h the health check looks back "
+                    "(bluestore_slow_ops_warn_lifetime). Needs 24 h of Prometheus history to be complete."), 6, 5)
+    b.add(bargauge("Slow ops per daemon in range", [
+        q("sort_desc(increase(ceph_trackedop_slow_ops_count[$__range]) > 0)", "{{ceph_daemon}}")],
+        mode="gradient", decimals=0, min_=0, thresholds=steps(("yellow", None), ("orange", 10), ("red", 100)),
+        no_value="No slow ops in range", desc="OSDs, monitors and the MDS (ops over 10 s)."), 8, 10)
+    b.add(table("BlueStore slow ops per OSD, last 24 h", [
+        q(f"max by (ceph_daemon, hostname) ({by_osd_host(f'increase({m}[24h])')})", table=True)
+        for m in BLUESTORE_SLOW.values()
+    ], desc="Each column is one BlueStore slow-op counter: committed kv = slow RocksDB commits, "
+            "aio wait = slow disk I/O, read onode meta / read wait aio = slow reads.",
+        transformations=[MERGE, organize(exclude=["Time"], rename={
+            "ceph_daemon": "OSD", "hostname": "Host",
+            **{f"Value #{chr(65 + i)}": name for i, name in enumerate(BLUESTORE_SLOW)}},
+            order=["OSD", "Host", *BLUESTORE_SLOW])],
+        overrides=[override(n, {"decimals": 0, "thresholds": ORANGE_IF_ANY, "custom.cellOptions": {"type": "color-text"}})
+                   for n in BLUESTORE_SLOW],
+        sort="committed kv", desc_sort=True), 8, 10)
+    b.add(timeseries("Slow ops per daemon", [
+        q("sum by (ceph_daemon) (increase(ceph_trackedop_slow_ops_count[$__rate_interval])) > 0", "{{ceph_daemon}}"),
+        q(f"sum by (ceph_daemon) (increase(ceph_bluestore_slow_committed_kv_count[$__rate_interval]) "
+          f"+ increase(ceph_bluestore_slow_aio_wait_count[$__rate_interval])) > 0", "{{ceph_daemon}} BlueStore"),
+    ], draw="bars", fill=80, decimals=0, stack=True, calcs=("sum",), legend="table", placement="right",
+        desc="Slow ops counted per interval; bars only where there were any."), 8, 10)
+    b.add(timeseries("BlueStore kv commit latency per OSD", [
+        q(by_osd_host(lat("ceph_bluestore_kv_commit_lat", by="ceph_daemon")), "{{ceph_daemon}} ({{hostname}})")],
+        unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right",
+        desc="Time to commit a RocksDB batch. On HDD-only OSDs the DB shares the spindle, so this tracks disk load."), 12, 9)
+    b.add(timeseries("BlueStore latency breakdown (all OSDs)", [
+        q(lat(f"ceph_bluestore_{m}", by=""), label) for m, label in (
+            ("kv_commit_lat", "kv commit"), ("kv_sync_lat", "kv sync"), ("kv_flush_lat", "kv flush"),
+            ("txc_commit_lat", "txc commit"), ("state_aio_wait_lat", "aio wait"), ("read_lat", "read"),
+            ("state_kv_queued_lat", "kv queued"))
+    ], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right",
+        desc="Average per operation over all OSDs."), 12, 9)
+    b.add(bargauge("BlueStore free-space fragmentation", [
+        q(by_osd_host("ceph_bluestore_fragmentation_micros / 1e6"), "{{ceph_daemon}}")],
+        mode="gradient", unit="percentunit", min_=0, max_=1, decimals=1,
+        thresholds=steps(("green", None), ("orange", 0.5), ("red", 0.8)),
+        desc="Allocator fragmentation score per OSD (0 = contiguous free space, 1 = fully fragmented)."), 8, 9)
+    b.add(timeseries("BlueStore onode cache hit ratio", [
+        q("sum(rate(ceph_bluestore_onode_hits[$__rate_interval])) / (sum(rate(ceph_bluestore_onode_hits[$__rate_interval])) "
+          "+ sum(rate(ceph_bluestore_onode_misses[$__rate_interval])))", "hit ratio")],
+        unit="percentunit", fill=20, gradient="opacity", min_=0, max_=1, calcs=("mean", "min"),
+        overrides=[fixed_color("hit ratio", "green")]), 8, 9)
+    b.add(timeseries("RocksDB (BlueFS DB) used per OSD", [
+        q(by_osd_host("ceph_bluefs_db_used_bytes"), "{{ceph_daemon}}")],
+        unit="bytes", fill=0, calcs=("lastNotNull",), legend="table", placement="right",
+        desc="No separate DB/WAL devices: the DB lives on the OSD's HDD."), 8, 9)
+
+    # Monitors & managers -------------------------------------------------------
+    b.row("Monitors and managers", collapsed=True)
+    mon = "ceph_daemon, hostname, rank"
+    b.add(table("Monitors", [
+        q(f"max by ({mon}) (ceph_mon_quorum_status * on (ceph_daemon) group_left (hostname, rank) ceph_mon_metadata)", table=True),
+        q(f"max by ({mon}) (ceph_mon_num_sessions * on (ceph_daemon) group_left (hostname, rank) ceph_mon_metadata)", table=True),
+        q(f"max by ({mon}) (increase(ceph_mon_num_elections[$__range]) * on (ceph_daemon) group_left (hostname, rank) ceph_mon_metadata)", table=True),
+        q(f'max by ({mon}) (ceph_daemon_health_metrics{{type="SLOW_OPS"}} * on (ceph_daemon) group_left (hostname, rank) ceph_mon_metadata)', table=True),
+    ], transformations=[MERGE, organize(exclude=["Time"], rename={
+        "ceph_daemon": "Monitor", "hostname": "Host", "rank": "Rank", "Value #A": "Quorum", "Value #B": "Sessions",
+        "Value #C": "Elections in range", "Value #D": "Slow ops"},
+        order=["Monitor", "Host", "Rank", "Quorum", "Sessions", "Elections in range", "Slow ops"])],
+        overrides=[cell("Quorum", "color-background"), override("Quorum", {"mappings": QUORUM_MAP}),
+                   override("Elections in range", {"decimals": 0, "thresholds": ORANGE_IF_ANY, "custom.cellOptions": {"type": "color-text"}}),
+                   override("Slow ops", {"thresholds": RED_IF_ANY, "custom.cellOptions": {"type": "color-text"}})],
+        sort="Rank"), 9, 7)
+    b.add(table("Managers", [
+        q("max by (ceph_daemon, hostname) (ceph_mgr_status * on (ceph_daemon) group_left (hostname) ceph_mgr_metadata)", table=True),
+    ], transformations=[organize(exclude=["Time"], rename={"ceph_daemon": "Manager", "hostname": "Host", "Value": "Role"},
+                                 order=["Manager", "Host", "Role"])],
+        overrides=[cell("Role", "color-background"), override("Role", {"mappings": MGR_MAP})],
+        desc="Only the active mgr serves metrics; Prometheus scrapes every mgr host so a failover needs no change.",
+        sort="Role", desc_sort=True), 7, 7)
+    b.add(stat("Mgr modules", [q("ceph_mgr_module_status > 0", "{{name}}")], text_mode="name",
+               mappings=mapping(**{"1": ("enabled", "blue"), "2": ("always on", "green")}),
+               thresholds=steps(("green", None)), color_mode="background",
+               desc="Enabled mgr modules: blue = enabled by an admin, green = always on."), 8, 7)
+    versions = ('count by (type, version) (label_replace(label_replace(ceph_osd_metadata or ceph_mon_metadata '
+                'or ceph_mgr_metadata or ceph_mds_metadata, "type", "$1", "ceph_daemon", "([a-z]+)\\\\..*"), '
+                '"version", "$1 $2", "ceph_version", "ceph version (\\\\S+) \\\\(\\\\S+\\\\) (\\\\S+).*"))')
+    b.add(table("Daemon versions", [q(versions, table=True)],
+                transformations=[organize(exclude=["Time"], rename={"type": "Daemon", "version": "Version", "Value": "Count"},
+                                          order=["Daemon", "Version", "Count"])],
+                desc="More than one version per daemon type means an upgrade is in progress.", sort="Daemon"), 10, 6)
+    b.add(timeseries("Monitor sessions", [q("ceph_mon_num_sessions", "{{ceph_daemon}}")], fill=0, decimals=0,
+                     calcs=("min", "max", "lastNotNull")), 7, 6)
+    b.add(timeseries("Paxos commit latency", [q(lat("ceph_paxos_commit_latency", by="ceph_daemon"), "{{ceph_daemon}}")],
+                     unit="s", fill=0, calcs=("mean", "max"), desc="How long the monitors take to commit a map change."), 7, 6)
+    b.add(table("Mgr exporter targets", [q('max by (host, instance) (up{job="ceph"})', table=True)],
+                transformations=[organize(exclude=["Time"], rename={"host": "Host", "instance": "Target", "Value": "Scrape"})],
+                mappings=UP_MAP, overrides=[cell("Scrape", "color-background")],
+                desc="Prometheus scrapes every mgr host; standbys answer with an empty page, so they're up but add no series.",
+                sort="Host"), 10, 6)
+    b.add(timeseries("Mgr prometheus module collection time", [
+        q("sum(rate(ceph_prometheus_collect_duration_seconds_sum[$__rate_interval])) by (method) "
+          "/ sum(rate(ceph_prometheus_collect_duration_seconds_count[$__rate_interval])) by (method)", "{{method}}")],
+        unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right"), 14, 6)
+
+    # CephFS ---------------------------------------------------------------------
+    b.row("CephFS", collapsed=True)
+    b.add(stat("Filesystem", [q("ceph_fs_metadata", "{{name}}")], text_mode="name", thresholds=BLUE,
+               color_mode="background", desc="CephFS filesystems."), 3, 4)
+    b.add(stat("Active MDS", [q('ceph_mds_metadata{rank!="-1"}', "{{ceph_daemon}} · rank {{rank}}")], text_mode="name",
+               thresholds=GREEN, no_value="no active MDS", desc="MDS daemons holding a rank."), 5, 4)
+    b.add(stat("Standby MDS", [q('ceph_mds_metadata{rank="-1"}', "{{ceph_daemon}}")], text_mode="name",
+               thresholds=BLUE, no_value="none", desc="Standby MDS daemons ready to take over a rank."), 4, 4)
+    b.add(stat("Clients", [q("sum(ceph_mds_sessions_session_count)")], color_mode="value", graph=True,
+               thresholds=BLUE, desc="Client sessions on the active MDS (kernel/fuse mounts, PVE nodes)."), 3, 4)
+    b.add(stat("Caps", [q("sum(ceph_mds_caps)")], color_mode="value", graph=True, thresholds=BLUE,
+               desc="Capabilities handed out to clients."), 2, 4)
+    b.add(stat("Files", [q("max(ceph_mds_root_rfiles)")], color_mode="value", thresholds=BLUE,
+               desc="Files in the filesystem (recursive count at /)."), 2, 4)
+    b.add(stat("Data", [q("max(ceph_mds_root_rbytes)")], unit="bytes", color_mode="value", thresholds=BLUE,
+               desc="Bytes in the filesystem (recursive size of /), before replication."), 3, 4)
+    b.add(stat("RSS", [q("sum(ceph_mds_mem_rss) * 1024")], unit="bytes", color_mode="value",
+               graph=True, thresholds=BLUE, desc="RSS of the active MDS (mds_cache_memory_limit caps the cache)."), 2, 4)
+    b.add(timeseries("MDS requests", [
+        q("sum by (ceph_daemon) (rate(ceph_mds_request[$__rate_interval]))", "{{ceph_daemon}} requests/s"),
+        q("sum by (ceph_daemon) (rate(ceph_mds_forward[$__rate_interval]))", "{{ceph_daemon}} forwarded/s"),
+        q("sum by (ceph_daemon) (rate(ceph_mds_slow_reply[$__rate_interval]))", "{{ceph_daemon}} slow replies/s"),
+    ], unit="reqps", fill=20, gradient="opacity",
+        overrides=[override(".*slow.*", {"color": {"mode": "fixed", "fixedColor": "red"}}, regex=True)]), 8, 8)
+    b.add(timeseries("MDS reply latency", [
+        q(lat("ceph_mds_reply_latency", by="ceph_daemon"), "{{ceph_daemon}} average")],
+        unit="s", fill=20, gradient="opacity", calcs=("mean", "max")), 8, 8)
+    b.add(timeseries("Request latency by operation", [
+        q(f"sum(rate(ceph_mds_server_req_{op}_latency_sum[$__rate_interval])) / "
+          f"sum(rate(ceph_mds_server_req_{op}_latency_count[$__rate_interval])) >= 0", op) for op in MDS_OPS
+    ], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right",
+        desc="Average MDS service time per request type; idle types drop out."), 8, 8)
+    b.add(timeseries("Sessions and caps", [
+        q("sum(ceph_mds_sessions_session_count)", "sessions"), q("sum(ceph_mds_caps)", "caps"),
+        q("sum(ceph_mds_inodes_with_caps)", "inodes with caps"),
+    ], fill=0, decimals=0, overrides=[override("caps|inodes with caps", {"custom.axisPlacement": "right"}, regex=True)]), 8, 8)
+    b.add(timeseries("Cap operations", [
+        q("sum(rate(ceph_mds_ceph_cap_op_grant[$__rate_interval]))", "grant"),
+        q("sum(rate(ceph_mds_ceph_cap_op_revoke[$__rate_interval]))", "revoke"),
+        q("sum(rate(ceph_mds_handle_client_cap_release[$__rate_interval]))", "release"),
+    ], unit="ops", fill=0), 8, 8)
+    b.add(timeseries("MDS cache", [
+        q("sum(ceph_mds_inodes)", "inodes"), q("sum(ceph_mds_mem_dn)", "dentries"),
+        q("sum(ceph_mds_mem_rss) * 1024", "RSS"),
+    ], fill=0, decimals=0, overrides=[override("RSS", {"unit": "bytes", "custom.axisPlacement": "right"})]), 8, 8)
+    b.add(timeseries("Journal and purge queue", [
+        q("sum(ceph_mds_log_ev)", "journal events"), q("sum(ceph_mds_log_seg)", "journal segments"),
+        q("sum(ceph_purge_queue_pq_executing)", "purges in flight"), q("sum(ceph_mds_cache_num_strays)", "strays"),
+    ], fill=0, decimals=0, desc="Strays are deleted files waiting for the purge queue."), 12, 7)
+    fs_pools = ('label_replace(ceph_fs_metadata, "pool_id", "$1", "data_pools", "(.*)") '
+                'or label_replace(ceph_fs_metadata, "pool_id", "$1", "metadata_pool", "(.*)")')
+    b.add(timeseries("CephFS pools", [
+        q(f"{by_pool('ceph_pool_stored')} and on (pool_id) ({fs_pools})", "{{name}} stored"),
+        q(f"{by_pool('ceph_pool_stored_raw')} and on (pool_id) ({fs_pools})", "{{name}} raw"),
+    ], unit="bytes", fill=10, calcs=("lastNotNull",),
+        desc="Data and metadata pool of each filesystem (one data pool each here)."), 12, 7)
+
+    # RBD ------------------------------------------------------------------------
+    b.row("RBD images")
+    rng = "$__range"
+    active = (f"(rate(ceph_rbd_read_ops[{rng}]) + rate(ceph_rbd_write_ops[{rng}])) > 0")
+
+    def rbd_col(expr):
+        return f"max by (pool, image, vmid) ({VMID.format(f'({expr}) and on (pool, namespace, image) ({active})')})"
+
+    b.add(table("RBD images (average over the time range)", [
+        q(rbd_col(f"rate(ceph_rbd_read_ops[{rng}])"), table=True),
+        q(rbd_col(f"rate(ceph_rbd_write_ops[{rng}])"), table=True),
+        q(rbd_col(f"rate(ceph_rbd_read_bytes[{rng}])"), table=True),
+        q(rbd_col(f"rate(ceph_rbd_write_bytes[{rng}])"), table=True),
+        q(rbd_col(f"(rate(ceph_rbd_read_latency_sum[{rng}]) / rate(ceph_rbd_read_latency_count[{rng}]) / 1e9) >= 0"), table=True),
+        q(rbd_col(f"(rate(ceph_rbd_write_latency_sum[{rng}]) / rate(ceph_rbd_write_latency_count[{rng}]) / 1e9) >= 0"), table=True),
+    ], desc="Images with any I/O in the selected time range (rbd_stats_pools = ceph_rbd). VM is the Proxmox VM id "
+            "from the image name (vm-<id>-disk-N, base-<id>-… for templates).",
+        transformations=[MERGE, organize(exclude=["Time"], rename={
+            "vmid": "VM", "image": "Image", "pool": "Pool", "Value #A": "Read IOPS", "Value #B": "Write IOPS",
+            "Value #C": "Read", "Value #D": "Write", "Value #E": "Read latency", "Value #F": "Write latency"},
+            order=["VM", "Image", "Pool", "Read IOPS", "Write IOPS", "Read", "Write", "Read latency", "Write latency"])],
+        overrides=[*[override(n, {"unit": "iops", "decimals": 2,
+                                  "custom.cellOptions": {"type": "gauge", "mode": "gradient", "valueDisplayMode": "text"},
+                                  "color": {"mode": "continuous-BlYlRd"}}) for n in ("Read IOPS", "Write IOPS")],
+                   *[override(n, {"unit": "Bps", "custom.cellOptions": {"type": "gauge", "mode": "gradient", "valueDisplayMode": "text"},
+                                  "color": {"mode": "continuous-BlPu"}}) for n in ("Read", "Write")],
+                   *[override(n, {"unit": "s", "thresholds": LAT_S, "custom.cellOptions": {"type": "color-text"}})
+                     for n in ("Read latency", "Write latency")]],
+        sort="Write IOPS", desc_sort=True), 24, 11)
+    img = VMID.format("{}")
+    b.add(timeseries("Top 10 images by IOPS", [
+        q(img.format("topk(10, sum by (pool, image) (rate(ceph_rbd_read_ops[$__rate_interval]) + rate(ceph_rbd_write_ops[$__rate_interval])))"),
+          "VM {{vmid}} · {{image}}")], unit="iops", fill=10, calcs=("mean", "max"), legend="table", placement="right"), 12, 9)
+    b.add(timeseries("Top 10 images by throughput", [
+        q(img.format("topk(10, sum by (pool, image) (rate(ceph_rbd_read_bytes[$__rate_interval]) + rate(ceph_rbd_write_bytes[$__rate_interval])))"),
+          "VM {{vmid}} · {{image}}")], unit="Bps", fill=10, calcs=("mean", "max"), legend="table", placement="right"), 12, 9)
+    b.add(timeseries("Top 10 images by write latency", [
+        q(img.format("topk(10, (sum by (pool, image) (rate(ceph_rbd_write_latency_sum[$__rate_interval])) / "
+                     "sum by (pool, image) (rate(ceph_rbd_write_latency_count[$__rate_interval])) / 1e9) >= 0)"),
+          "VM {{vmid}} · {{image}}")], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right",
+        desc="Latency seen by librbd (the VM), including the network and all replicas."), 12, 9)
+    b.add(timeseries("Top 10 images by read latency", [
+        q(img.format("topk(10, (sum by (pool, image) (rate(ceph_rbd_read_latency_sum[$__rate_interval])) / "
+                     "sum by (pool, image) (rate(ceph_rbd_read_latency_count[$__rate_interval])) / 1e9) >= 0)"),
+          "VM {{vmid}} · {{image}}")], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right"), 12, 9)
+
+    # Hosts (node_exporter) -----------------------------------------------------
+    b.row("OSD hosts (node_exporter)", collapsed=True)
+    node = 'job="node", role="proxmox"'
+    b.add(table("PVE nodes", [
+        q('count by (host) (label_replace(ceph_osd_metadata, "host", "$1", "hostname", "(.*)"))', table=True),
+        q(f"max by (host) (up{{{node}}})", table=True),
+        q(f'100 * (1 - avg by (host) (rate(node_cpu_seconds_total{{mode="idle", {node}}}[5m])))', table=True),
+        q(f"max by (host) (100 * (1 - node_memory_MemAvailable_bytes{{{node}}} / node_memory_MemTotal_bytes{{{node}}}))", table=True),
+        q(f'max by (host) (node_load5{{{node}}}) / count by (host) (node_cpu_seconds_total{{mode="idle", {node}}})', table=True),
+        q(f'max by (host) (100 * avg by (host) (rate(node_disk_io_time_seconds_total{{{node}}}[5m]) and on (host, device) {OSD_DISK}))', table=True),
+    ], desc="OSD count per host from Ceph; CPU, memory, load and OSD disk busy % from node_exporter "
+            "(job node, role proxmox), joined on the host label. node_exporter isn't installed on the PVE "
+            "nodes yet, so those columns stay empty and Exporter shows DOWN.",
+        transformations=[MERGE, organize(exclude=["Time"], rename={
+            "host": "Host", "Value #A": "OSDs", "Value #B": "Exporter", "Value #C": "CPU", "Value #D": "Memory",
+            "Value #E": "Load 5m / CPU", "Value #F": "OSD disks busy"},
+            order=["Host", "OSDs", "Exporter", "CPU", "Memory", "Load 5m / CPU", "OSD disks busy"])],
+        overrides=[cell("Exporter", "color-background"), override("Exporter", {"mappings": UP_MAP}),
+                   *[override(n, {"unit": "percent", "min": 0, "max": 100, "decimals": 1, "thresholds": PERCENT,
+                                  "custom.cellOptions": {"type": "gauge", "mode": "basic", "valueDisplayMode": "text"}})
+                     for n in ("CPU", "Memory", "OSD disks busy")],
+                   override("Load 5m / CPU", {"decimals": 2, "thresholds": steps(("green", None), ("orange", 0.8), ("red", 1.5)),
+                                              "custom.cellOptions": {"type": "color-text"}})],
+        sort="Host"), 24, 9)
+    b.add(timeseries("OSD disk utilization", [
+        q(osd_disk(f"rate(node_disk_io_time_seconds_total{{{node}}}[$__rate_interval])"), "{{ceph_daemon}} ({{host}} {{device}})")],
+        unit="percentunit", min_=0, max_=1, fill=0, calcs=("mean", "max"), legend="table", placement="right",
+        no_value=NO_NODE, desc="Share of time each OSD's disk was busy (node_exporter, joined via ceph_disk_occupation)."), 12, 9)
+    b.add(timeseries("OSD disk await", [
+        q(osd_disk(f"rate(node_disk_read_time_seconds_total{{{node}}}[$__rate_interval]) / rate(node_disk_reads_completed_total{{{node}}}[$__rate_interval])"),
+          "{{ceph_daemon}} read"),
+        q(osd_disk(f"rate(node_disk_write_time_seconds_total{{{node}}}[$__rate_interval]) / rate(node_disk_writes_completed_total{{{node}}}[$__rate_interval])"),
+          "{{ceph_daemon}} write"),
+    ], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right", no_value=NO_NODE,
+        desc="Average time per disk I/O as the kernel sees it."), 12, 9)
+
+    return dashboard("ceph-cluster", "Ceph cluster",
+                     "PVE Ceph cluster lylat: health, capacity and forecast, client I/O, PGs and recovery, OSDs, "
+                     "slow ops/BlueStore, monitors and managers, CephFS, RBD images and OSD hosts.",
+                     b, tags=["ceph", "storage"], extra_links=[CEPH_LINK])
+
+
+# --- Ceph OSD (drill-down) ------------------------------------------------------
+
+def ceph_osd():
+    o = 'ceph_daemon="$osd"'
+    b = Board()
+    b.row("OSD")
+    b.add(stat("State", [q(f"ceph_osd_up{{{o}}} * 2 + ceph_osd_in{{{o}}}")], mappings=OSD_STATE_MAP,
+               thresholds=OSD_STATE_STEPS), 3, 5)
+    b.add(stat("Host", [q(f"ceph_osd_metadata{{{o}}}", "{{hostname}}")], text_mode="name", thresholds=BLUE,
+               links=[("Ceph cluster", CEPH_DASH + "?${__url_time_range}")]), 3, 5)
+    b.add(stat("Disk", [q(f'label_replace(max by (devices, device_ids) (ceph_disk_occupation{{{o}}}), '
+                          f'"model", "$1", "device_ids", "[^=]*=(.*)")', "{{devices}} · {{model}}")],
+               text_mode="name", thresholds=BLUE, desc="Physical device(s) and model/serial under the OSD's LVM volume."), 6, 5)
+    b.add(stat("Class / objectstore", [q(f"ceph_osd_metadata{{{o}}}", "{{device_class}} · {{objectstore}}")],
+               text_mode="name", thresholds=BLUE), 3, 5)
+    b.add(gauge("Used", [q(f"ceph_osd_stat_bytes_used{{{o}}} / ceph_osd_stat_bytes{{{o}}}")], unit="percentunit",
+                min_=0, max_=1, decimals=1, thresholds=FILL), 3, 5)
+    b.add(stat("Size / PGs / reweight", [
+        q(f"ceph_osd_stat_bytes{{{o}}}", "size"), q(f"ceph_osd_numpg{{{o}}}", "PGs"),
+        q(f"ceph_osd_weight{{{o}}}", "reweight")],
+        text_mode="value_and_name", color_mode="value", thresholds=BLUE,
+        overrides=[override("size", {"unit": "bytes"}), override("reweight", {"decimals": 2})]), 6, 5)
+
+    b.add(stat("Apply latency", [q(f"ceph_osd_apply_latency_ms{{{o}}}")], unit="ms", thresholds=LAT_MS,
+               color_mode="value", graph=True), 4, 5)
+    b.add(stat("Commit latency", [q(f"ceph_osd_commit_latency_ms{{{o}}}")], unit="ms", thresholds=LAT_MS,
+               color_mode="value", graph=True), 4, 5)
+    b.add(stat("Read latency", [q(lat(f"ceph_osd_op_r_latency{{{o}}}", by=""))], unit="s", thresholds=LAT_S,
+               color_mode="value", graph=True), 4, 5)
+    b.add(stat("Write latency", [q(lat(f"ceph_osd_op_w_latency{{{o}}}", by=""))], unit="s", thresholds=LAT_S,
+               color_mode="value", graph=True), 4, 5)
+    b.add(stat("Slow ops in range", [q(f"sum(increase(ceph_trackedop_slow_ops_count{{{o}}}[$__range])) or vector(0)")],
+               decimals=0, thresholds=ORANGE_IF_ANY), 4, 5)
+    b.add(stat("BlueStore slow ops, 24 h", [
+        q(f"sum({' + '.join(f'increase({m}{{{o}}}[24h])' for m in BLUESTORE_SLOW.values())}) or vector(0)")],
+        decimals=0, thresholds=ORANGE_IF_ANY,
+        desc="The window BLUESTORE_SLOW_OP_ALERT looks at (bluestore_slow_ops_warn_lifetime)."), 4, 5)
+
+    b.row("Client I/O")
+    b.add(timeseries("IOPS", [
+        q(f"rate(ceph_osd_op_r{{{o}}}[$__rate_interval])", "Read"),
+        q(f"rate(ceph_osd_op_w{{{o}}}[$__rate_interval])", "Write"),
+        q(f"rate(ceph_osd_op_rw{{{o}}}[$__rate_interval])", "Read-modify-write"),
+    ], unit="iops", fill=25, gradient="opacity", overrides=rw_overrides()), 8, 9)
+    b.add(timeseries("Throughput", [
+        q(f"rate(ceph_osd_op_out_bytes{{{o}}}[$__rate_interval])", "Read"),
+        q(f"rate(ceph_osd_op_in_bytes{{{o}}}[$__rate_interval])", "Write"),
+    ], unit="Bps", fill=25, gradient="opacity", overrides=rw_overrides()), 8, 9)
+    b.add(timeseries("Op latency", [
+        q(lat(f"ceph_osd_op_r_latency{{{o}}}"), "Read"),
+        q(lat(f"ceph_osd_op_w_latency{{{o}}}"), "Write"),
+        q(lat(f"ceph_osd_op_r_process_latency{{{o}}}"), "Read (processing only)"),
+        q(lat(f"ceph_osd_op_w_process_latency{{{o}}}"), "Write (processing only)"),
+        q(lat(f"ceph_osd_op_before_queue_op_lat{{{o}}}"), "before queue"),
+    ], unit="s", fill=0, line=2, overrides=[fixed_color("Read", READ), fixed_color("Write", WRITE)],
+        desc="Total latency includes time in the OSD's op queue; processing excludes it."), 8, 9)
+    b.add(timeseries("Apply and commit latency", [
+        q(f"ceph_osd_apply_latency_ms{{{o}}}", "apply"), q(f"ceph_osd_commit_latency_ms{{{o}}}", "commit"),
+    ], unit="ms", fill=10), 8, 8)
+    b.add(timeseries("Ops in flight", [
+        q(f"ceph_osd_op_wip{{{o}}}", "replication ops in progress"),
+        q(f"ceph_objecter_op_active{{{o}}}", "objecter ops active"),
+    ], fill=10, decimals=0), 8, 8)
+    b.add(timeseries("Recovery", [
+        q(f"rate(ceph_osd_recovery_bytes{{{o}}}[$__rate_interval])", "bytes/s"),
+        q(f"rate(ceph_osd_recovery_ops{{{o}}}[$__rate_interval])", "ops/s"),
+    ], unit="Bps", fill=10, overrides=[override("ops/s", {"unit": "ops", "custom.axisPlacement": "right"}),
+                                       fixed_color("bytes/s", RECOVERY)]), 8, 8)
+
+    b.row("BlueStore")
+    b.add(timeseries("BlueStore latency breakdown", [
+        q(lat(f"ceph_bluestore_{m}{{{o}}}"), label) for m, label in (
+            ("kv_commit_lat", "kv commit"), ("kv_sync_lat", "kv sync"), ("kv_flush_lat", "kv flush"),
+            ("kv_final_lat", "kv final"), ("txc_commit_lat", "txc commit"), ("txc_submit_lat", "txc submit"),
+            ("txc_throttle_lat", "txc throttle"), ("state_aio_wait_lat", "aio wait"),
+            ("state_kv_queued_lat", "kv queued"), ("read_lat", "read"), ("write_lat", "write"))
+    ], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right"), 12, 10)
+    b.add(timeseries("BlueStore slow ops", [
+        q(f"increase({m}{{{o}}}[$__rate_interval]) > 0", name) for name, m in BLUESTORE_SLOW.items()
+    ] + [q(f"increase(ceph_trackedop_slow_ops_count{{{o}}}[$__rate_interval]) > 0", "tracked ops over 10 s")],
+        draw="bars", fill=80, stack=True, decimals=0, calcs=("sum",), legend="table", placement="right",
+        desc="Counted per interval; nothing drawn when there were none."), 12, 10)
+    b.add(timeseries("Space", [
+        q(f"ceph_bluestore_allocated{{{o}}}", "allocated"), q(f"ceph_bluestore_stored{{{o}}}", "stored"),
+        q(f"ceph_bluefs_db_used_bytes{{{o}}}", "RocksDB used"),
+    ], unit="bytes", fill=10, calcs=("lastNotNull",)), 8, 8)
+    b.add(timeseries("Onode cache hit ratio", [
+        q(f"rate(ceph_bluestore_onode_hits{{{o}}}[$__rate_interval]) / (rate(ceph_bluestore_onode_hits{{{o}}}[$__rate_interval]) "
+          f"+ rate(ceph_bluestore_onode_misses{{{o}}}[$__rate_interval]))", "hit ratio")],
+        unit="percentunit", min_=0, max_=1, fill=20, gradient="opacity", overrides=[fixed_color("hit ratio", "green")]), 8, 8)
+    b.add(timeseries("Fragmentation", [q(f"ceph_bluestore_fragmentation_micros{{{o}}} / 1e6", "fragmentation")],
+                     unit="percentunit", min_=0, fill=10, desc="Allocator fragmentation score (0–1)."), 8, 8)
+
+    b.row("Scrub")
+    b.add(timeseries("Scrubs", [
+        q(f"increase(ceph_osd_successful_scrubs_replicated{{{o}}}[$__rate_interval]) > 0", "successful"),
+        q(f"increase(ceph_osd_failed_scrubs_replicated{{{o}}}[$__rate_interval]) > 0", "failed"),
+    ], draw="bars", fill=80, decimals=0, calcs=("sum",),
+        overrides=[fixed_color("successful", "green"), fixed_color("failed", "red")]), 12, 7)
+    b.add(timeseries("Scrub reads", [
+        q(f"rate(ceph_osd_scrub_replicated_read_bytes{{{o}}}[$__rate_interval])", "scrub read bytes/s")],
+        unit="Bps", fill=20, gradient="opacity"), 12, 7)
+
+    b.row("Disk (node_exporter)", collapsed=True)
+    disk = 'job="node", role="proxmox"'
+
+    def one(expr):
+        return f'({expr}) * on (host, device) group_left (ceph_daemon) ({OSD_DISK.replace("ceph_disk_occupation", f"ceph_disk_occupation{{{o}}}")})'
+
+    b.add(timeseries("Disk busy", [q(one(f"rate(node_disk_io_time_seconds_total{{{disk}}}[$__rate_interval])"), "{{host}} {{device}}")],
+                     unit="percentunit", min_=0, max_=1, fill=20, no_value=NO_NODE), 8, 8)
+    b.add(timeseries("Disk IOPS", [
+        q(one(f"rate(node_disk_reads_completed_total{{{disk}}}[$__rate_interval])"), "Read"),
+        q(one(f"rate(node_disk_writes_completed_total{{{disk}}}[$__rate_interval])"), "Write"),
+    ], unit="iops", fill=20, overrides=rw_overrides(), no_value=NO_NODE), 8, 8)
+    b.add(timeseries("Disk await", [
+        q(one(f"rate(node_disk_read_time_seconds_total{{{disk}}}[$__rate_interval]) / rate(node_disk_reads_completed_total{{{disk}}}[$__rate_interval])"), "Read"),
+        q(one(f"rate(node_disk_write_time_seconds_total{{{disk}}}[$__rate_interval]) / rate(node_disk_writes_completed_total{{{disk}}}[$__rate_interval])"), "Write"),
+    ], unit="s", fill=0, overrides=[fixed_color("Read", READ), fixed_color("Write", WRITE)], no_value=NO_NODE), 8, 8)
+
+    osd_var = query_var("osd", "OSD", "label_values(ceph_osd_metadata, ceph_daemon)", multi=False, include_all=False)
+    osd_var["sort"] = 3  # numerical: osd.2 before osd.10
+    return dashboard("ceph-osd", "Ceph OSD", "One Ceph OSD: state, latency, I/O, BlueStore internals, slow ops and scrubs.",
+                     b, tags=["ceph", "storage"], variables=[osd_var], extra_links=[CEPH_LINK])
+
+
 DASHBOARDS = {
     "Overview/overview.json": overview,
     "Network/frr-evpn-fabric.json": frr,
     "Probes/blackbox-probes.json": probes,
     "Monitoring/monitoring-stack.json": stack,
+    "Storage/ceph-cluster.json": ceph,
+    "Storage/ceph-osd.json": ceph_osd,
 }
 
 
@@ -786,7 +1697,8 @@ def main():
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = build()
         out.write_text(json.dumps(dash, indent=2, ensure_ascii=False) + "\n")
-        print(f"{rel}: {dash['title']} ({len([p for p in dash['panels'] if p['type'] != 'row'])} panels)")
+        panels = [p for top in dash["panels"] for p in [top, *top.get("panels", [])] if p["type"] != "row"]
+        print(f"{rel}: {dash['title']} ({len(panels)} panels)")
 
 
 if __name__ == "__main__":

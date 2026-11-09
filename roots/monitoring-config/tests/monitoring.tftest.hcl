@@ -64,14 +64,24 @@ run "inventory_targets" {
       strcontains(module.monitoring.dashboard_providers_config, "\"foldersFromFilesStructure\": true") &&
       strcontains(module.monitoring.dashboard_providers_config, "\"allowUiUpdates\": false") &&
       { for rel, content in module.monitoring.dashboards : rel => jsondecode(content).uid } == {
-        "Hosts/node-exporter-full.json"      = "node-exporter-full"
-        "Monitoring/monitoring-stack.json"   = "monitoring-stack"
-        "Network/frr-evpn-fabric.json"       = "frr-evpn-fabric"
-        "Network/mikrotik-snmp.json"         = "mikrotik-snmp"
-        "Network/snmp-device-summary.json"   = "snmp-device-summary"
-        "Network/snmp-interface-detail.json" = "snmp-interface-detail"
-        "Overview/overview.json"             = "lylat-overview"
-        "Probes/blackbox-probes.json"        = "blackbox-probes"
+        "Hosts/node-exporter-full.json"        = "node-exporter-full"
+        "Monitoring/monitoring-stack.json"     = "monitoring-stack"
+        "Network/frr-evpn-fabric.json"         = "frr-evpn-fabric"
+        "Network/mikrotik-snmp.json"           = "mikrotik-snmp"
+        "Network/snmp-device-summary.json"     = "snmp-device-summary"
+        "Network/snmp-interface-detail.json"   = "snmp-interface-detail"
+        "Overview/overview.json"               = "lylat-overview"
+        "Probes/blackbox-probes.json"          = "blackbox-probes"
+        "Storage/ceph-cluster.json"            = "ceph-cluster"
+        "Storage/ceph-osd.json"                = "ceph-osd"
+        "Storage/ceph-cluster-advanced.json"   = "ceph-cluster-advanced"
+        "Storage/ceph-filesystem.json"         = "ceph-filesystem"
+        "Storage/ceph-osd-device-details.json" = "ceph-osd-device-details"
+        "Storage/ceph-osds-overview.json"      = "ceph-osds-overview"
+        "Storage/ceph-pool-details.json"       = "ceph-pool-details"
+        "Storage/ceph-pools-overview.json"     = "ceph-pools-overview"
+        "Storage/ceph-rbd-details.json"        = "ceph-rbd-details"
+        "Storage/ceph-rbd-overview.json"       = "ceph-rbd-overview"
       }
     )
     error_message = "Provision the dashboards from dashboards/<Folder>/*.json, with fixed uids, through a file provider that the UI can't save over."
@@ -86,6 +96,17 @@ run "inventory_targets" {
       !l.asDropdown if l.type == "dashboards"
     ])
     error_message = "Every dashboard carries the lylat tag and a dashboard-links entry for it."
+  }
+
+  assert {
+    # The Ceph dashboards (custom and ceph-mixin) share a "Ceph dashboards" dropdown, and the
+    # mixin's datasource picker is gone (no query may reference $datasource).
+    condition = alltrue([for rel, content in module.monitoring.dashboards : (
+      contains(jsondecode(content).tags, "ceph") &&
+      length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "ceph")]) == 1 &&
+      !strcontains(content, "$datasource") && !strcontains(content, "$${datasource}")
+    ) if startswith(rel, "Storage/")])
+    error_message = "Ceph dashboards carry the ceph tag, a Ceph dashboards dropdown, and no $datasource references."
   }
 
   assert {
@@ -124,7 +145,7 @@ run "inventory_targets" {
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "prune '/etc/grafana-container/provisioning/dashboards/files'") &&
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/Network' '0755' 'root'") &&
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/files/Network/snmp-device-summary.json' '0644' 'root' '' ''") &&
-      alltrue([for dir in ["Hosts", "Monitoring", "Overview", "Probes"] : strcontains(
+      alltrue([for dir in ["Hosts", "Monitoring", "Overview", "Probes", "Storage"] : strcontains(
         nonsensitive(module.monitoring.grafana_deployments[name]),
         "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/${dir}' '0755' 'root'"
       )]) &&
