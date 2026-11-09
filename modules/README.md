@@ -159,6 +159,9 @@ Configures one RouterOS spine.
     ports, and the EVPN filter rule
   - in `system.tf`: the NTP client (only when `fabric.settings.ntp_servers` isn't
     empty), and the built-in `memory` logging action with 10,000 lines
+  - in `syslog.tf`: the built-in `remote` logging action pointed at
+    `fabric.settings.spine_syslog.host` (UDP, BSD syslog) and one logging rule per topic
+    (only when `spine_syslog` is set)
 
 Each spine uses `fabric.settings.spine_as`, unless it sets its own `as` in
 `fabric.auto.tfvars`. The overlay templates and connections use

@@ -30,6 +30,15 @@ variable "fabric" {
         facility = optional(string, "all")
         level    = optional(string, "info")
       }))
+      # Remote syslog on the RouterOS spines: the built-in "remote" logging action
+      # (BSD/RFC 3164 over UDP, source address picked by the route) plus one logging
+      # rule per topic. null = don't manage it.
+      spine_syslog = optional(object({
+        host     = string
+        port     = optional(number, 514)
+        facility = optional(string, "daemon")
+        topics   = optional(list(string), ["info", "warning", "error", "critical"])
+      }))
     })
     leaves = map(object({
       role             = string

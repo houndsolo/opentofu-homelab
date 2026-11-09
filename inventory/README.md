@@ -124,6 +124,7 @@ fabric = {
     leaf_ntp_vrf             = "mgmt"              # the VRF the leaves' NTP client runs in (leave out = default VRF)
     leaf_prometheus_exporters = { vrf = "mgmt" }   # node/frr exporters on each leaf's mgmt address (leave out = unmanaged)
     leaf_syslog = { host = "10.20.11.40", vrf = "mgmt" } # remote syslog to the Loki VIP (leave out = unmanaged)
+    spine_syslog = { host = "10.5.11.40" }        # spines' remote syslog, UDP 514 (leave out = unmanaged)
     # vxlan_mtu = 9119                             # default; tenant side: vxlan0, br0 and its VLANs, the access port
     # outer_mtu = 9189                             # default; underlay side: the spine links and the loopback
   }
@@ -198,6 +199,13 @@ log01–log03), from the management VRF. It uses TCP 514 with RFC 5424 messages
 (514), `protocol` (`tcp` or `udp`; UDP drops the framing), `facility` (`all`),
 `level` (`info`). Leaving it out means "don't manage remote syslog". The DHCP VMs
 get the same commands from services-config's `dhcp_syslog`.
+
+`fabric.settings.spine_syslog = { host = "10.5.11.40" }` points the spines' built-in
+`remote` logging action at the Loki/Alloy VIP on the monitoring network: UDP 514,
+RouterOS's `syslog` format with BSD timestamps (RFC 3164), facility `daemon`, sent from
+the spine's VLAN 5 address (src-address stays automatic). One logging rule per topic in
+`topics` (default `info`, `warning`, `error`, `critical`; no debug) sends to it. Leaving it
+out means "don't manage it".
 
 ### fabric-vms.auto.tfvars: the leaf VMs
 

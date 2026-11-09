@@ -16,6 +16,9 @@ fabric = {
     # Syslog (TCP 514, RFC 5424) to the Loki/Alloy VIP on the management network
     # (monitoring-config, log01-03).
     leaf_syslog = { host = "10.20.11.40", vrf = "mgmt" }
+    # Spines: UDP 514 (RFC 3164) to the Loki/Alloy VIP on the monitoring network, sent
+    # from their VLAN 5 address (10.5.0.<n>).
+    spine_syslog = { host = "10.5.11.40" }
   }
   # Physical leaves. The fabric roots generate virtual Proxmox leaves from var.nodes.
   leaves = {
