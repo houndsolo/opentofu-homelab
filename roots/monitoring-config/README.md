@@ -328,7 +328,19 @@ set system task-scheduler task vpn-metrics interval '1m'
 set system task-scheduler task vpn-metrics executable path '/config/scripts/vpn-metrics.py'
 set system task-scheduler task nft-metrics interval '1m'
 set system task-scheduler task nft-metrics executable path '/config/scripts/nft-metrics.py'
+set system syslog remote 10.5.11.40 facility all level 'info'
+set system syslog remote 10.5.11.40 port '514'
+set system syslog remote 10.5.11.40 protocol 'tcp'
+set system syslog remote 10.5.11.40 format include-timezone
+set system syslog remote 10.5.11.40 format octet-counted
+set system syslog remote 10.5.11.40 vrf 'lylat_service'
+set system syslog remote 10.5.11.40 source-address '10.5.0.255'
 ```
+
+The `system syslog remote` lines send fw-wan's log (firewall `log` rules, strongSwan, FRR,
+`info` and up) to Loki through the Alloy VIP `10.5.11.40` (TCP 514, RFC 5424, octet-counted)
+from `lylat_service`. The other hand-configured log senders (PVE nodes, CRS317s, FS
+switches, WLCs) are in [log-senders](log-senders/README.md).
 
 Install the scripts with `sudo install -m 0755 vpn-metrics.py nft-metrics.py /config/scripts/`
 on the router. [`vyos/nft-metrics.py`](vyos/nft-metrics.py) adds per-rule counters for every
