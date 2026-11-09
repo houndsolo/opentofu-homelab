@@ -17,5 +17,6 @@ resource "vyoscmd_commands" "this" {
     local.dhcp_listen_commands,
     local.dhcp_pool_commands,
     local.monitoring_commands,
+    local.syslog_commands,
   ])
 }

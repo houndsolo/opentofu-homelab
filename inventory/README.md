@@ -123,6 +123,7 @@ fabric = {
     ntp_servers              = ["10.20.10.255"]    # NTP for spines AND leaves (fw-wan, on the management network)
     leaf_ntp_vrf             = "mgmt"              # the VRF the leaves' NTP client runs in (leave out = default VRF)
     leaf_prometheus_exporters = { vrf = "mgmt" }   # node/frr exporters on each leaf's mgmt address (leave out = unmanaged)
+    leaf_syslog = { host = "10.20.11.40", vrf = "mgmt" } # remote syslog to the Loki VIP (leave out = unmanaged)
     # vxlan_mtu = 9119                             # default; tenant side: vxlan0, br0 and its VLANs, the access port
     # outer_mtu = 9189                             # default; underlay side: the spine links and the loopback
   }
@@ -188,6 +189,15 @@ listening on its management address inside that VRF. frr-exporter also gets the
 `bgp peer-hostname` labels. [monitoring-config](../roots/monitoring-config/README.md)
 scrapes them (jobs `vyos-node`, `vyos-frr`). Leaving the setting out (null)
 means "don't manage the exporters"; it doesn't remove existing configuration.
+
+`fabric.settings.leaf_syslog = { host = "10.20.11.40", vrf = "mgmt" }` sends every
+leaf's syslog (facility `all`, level `info` and up) to the Loki/Alloy VIP on the
+management network ([monitoring-config](../roots/monitoring-config/README.md),
+log01–log03), from the management VRF. It uses TCP 514 with RFC 5424 messages
+(`format include-timezone`) and octet-counted framing. Optional fields: `port`
+(514), `protocol` (`tcp` or `udp`; UDP drops the framing), `facility` (`all`),
+`level` (`info`). Leaving it out means "don't manage remote syslog". The DHCP VMs
+get the same commands from services-config's `dhcp_syslog`.
 
 ### fabric-vms.auto.tfvars: the leaf VMs
 

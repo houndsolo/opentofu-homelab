@@ -13,6 +13,9 @@ fabric = {
     leaf_ntp_vrf             = "mgmt"
     # Scraped by monitoring-config (jobs vyos-node / vyos-frr).
     leaf_prometheus_exporters = { vrf = "mgmt" }
+    # Syslog (TCP 514, RFC 5424) to the Loki/Alloy VIP on the management network
+    # (monitoring-config, log01-03).
+    leaf_syslog = { host = "10.20.11.40", vrf = "mgmt" }
   }
   # Physical leaves. The fabric roots generate virtual Proxmox leaves from var.nodes.
   leaves = {

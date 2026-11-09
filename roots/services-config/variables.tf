@@ -122,3 +122,16 @@ variable "dhcp_prometheus_exporters" {
   })
   default = { vrf = "mgmt" }
 }
+
+variable "dhcp_syslog" {
+  description = "Remote syslog from each DHCP VM (RFC 5424 over TCP by default), sent from this VRF. Default: the Loki/Alloy VIP on the management network (monitoring-config). null = don't manage it."
+  type = object({
+    host     = string
+    vrf      = optional(string)
+    port     = optional(number, 514)
+    protocol = optional(string, "tcp")
+    facility = optional(string, "all")
+    level    = optional(string, "info")
+  })
+  default = { host = "10.20.11.40", vrf = "mgmt" }
+}

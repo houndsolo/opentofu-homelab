@@ -20,6 +20,16 @@ variable "fabric" {
       leaf_prometheus_exporters = optional(object({
         vrf = optional(string)
       }))
+      # Remote syslog on every leaf (`system syslog remote`), RFC 5424 with the timezone;
+      # TCP adds octet-counted framing. null = don't manage it.
+      leaf_syslog = optional(object({
+        host     = string           # the receiver, e.g. the Loki/Alloy VIP on the management network
+        vrf      = optional(string) # VRF the leaf sends from; null = default VRF
+        port     = optional(number, 514)
+        protocol = optional(string, "tcp") # tcp or udp
+        facility = optional(string, "all")
+        level    = optional(string, "info")
+      }))
     })
     leaves = map(object({
       role             = string
@@ -35,4 +45,11 @@ variable "fabric" {
       as               = optional(number) # Overrides settings.spine_as.
     }))
   })
+  validation {
+    condition = (
+      var.fabric.settings.leaf_syslog == null ||
+      contains(["tcp", "udp"], try(var.fabric.settings.leaf_syslog.protocol, ""))
+    )
+    error_message = "fabric.settings.leaf_syslog.protocol must be tcp or udp."
+  }
 }

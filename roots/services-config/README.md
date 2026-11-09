@@ -62,6 +62,7 @@ transfers.
 | `dns_deploy_revision` | `"1"` | Change it to force a redeploy, for example after rebuilding a DNS VM that kept its address and ID |
 | `dns_tsig_secret` | `null` (generate one) | Supply an existing TSIG key; see [The TSIG key](#the-tsig-key) |
 | `dhcp_prometheus_exporters` | `{ vrf = "mgmt" }` | VyOS node-exporter (:9100) and frr-exporter (:9342) on each DHCP VM's management address, in that VRF; scraped by [monitoring-config](../monitoring-config/README.md). `null` leaves them unmanaged. |
+| `dhcp_syslog` | `{ host = "10.20.11.40", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
 | `dhcp_ha_prefix` | `"10.6.67.0/24"` | Where the DHCP HA pair talks: the lower VM ID uses host `.1`, the higher `.2`. See [The HA pair](#the-ha-pair). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
 
