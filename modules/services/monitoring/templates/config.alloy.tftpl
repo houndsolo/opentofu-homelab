@@ -39,9 +39,10 @@ loki.source.journal "host" {
 
 // Network syslog, received on every address (the VIPs included).
 //   TCP ${syslog_port}:  RFC 5424, octet-counted (VyOS, rsyslog on the PVE nodes and DNS VMs); sender's timestamp
-//   UDP ${syslog_port}:  RFC 3164 (MikroTik, FS S3700); no year/zone (and switch-1 has no NTP): receive time
-//   UDP ${raw_port}: raw lines, not parsed (Cisco C9800 IOS-XE and FS S3910 aren't RFC 3164, which
-//              drops them); labels come from the sender's address only. Needs --stability.level=experimental.
+//   UDP ${syslog_port}:  RFC 3164 (MikroTik); no year/zone, so receive time
+//   UDP ${raw_port}: raw lines, not parsed (Cisco C9800 IOS-XE and FS S3910 aren't RFC 3164, and the FS S3700
+//              ends its messages with a NUL byte, which the RFC 3164 parser drops silently; switch-1 has no
+//              NTP either); labels come from the sender's address only. Needs --stability.level=experimental.
 loki.source.syslog "network" {
   listener {
     address                = "0.0.0.0:${syslog_port}"
