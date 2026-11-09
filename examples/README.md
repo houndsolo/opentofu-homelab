@@ -57,10 +57,10 @@ changes nothing. Use them as a reference when you edit the real files in
 - **tfvars files hold literal values only.** Refer to keys and images by name,
   as in `ssh_pubkeys = ["laptop"]` or `image = "debian13"`. You can't use
   `local.` or `var.` references in a tfvars file.
-- **The DHCP pair needs VLAN 6.** The `vnis` example includes VLAN 6 (the `ha`
-  entry, with `dhcp = {}`), because `services-config` peers the DHCP pair over
-  `dhcp_ha_prefix`, which defaults to `10.6.67.0/24`. `dhcp = {}` gives the DHCP
-  VMs a NIC and an address on the VLAN, without serving a pool there.
+- **The DHCP pair needs `l2vnis.ha_dhcp`.** `services-config` and `services-vms`
+  peer the DHCP pair over that standalone L2VNI (see `l2vnis.auto.tfvars`): the
+  DHCP VMs get one extra NIC on it, after the data NICs, with hosts `.1` and `.2`
+  of its `prefix`.
 - **The DVNI pair needs an `external_l2` leaf.** The `lan` VRF uses the
   `external_l2` role, so add a leaf with that role in `fabric.auto.tfvars` if you
   want it to actually appear on a device.

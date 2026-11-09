@@ -48,24 +48,9 @@ vnis = [
     #  connected = {}
     #}
 
+    # VLAN 6 (L2VNI 9006) carried only the DHCP HA link; that moved to the
+    # standalone L2VNI l2vnis.ha_dhcp (9211, 10.21.67.0/24).
     l2 = {
-      6 = {
-        vni                  = 9006
-        vlan_id              = 6
-        anycast_gw_ip        = "10.6.0.5"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:06:01"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
-        dhcp = {
-          scope = {
-            ranges = {
-              0 = { start = "10.6.5.1", stop = "10.6.5.99" }
-            }
-          }
-        }
-      }
       8 = {
         vni                  = 9008
         vlan_id              = 8

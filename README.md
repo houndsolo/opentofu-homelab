@@ -133,7 +133,7 @@ The VRFs in the inventory today (the source of truth is
 
 | VRF | L3VNI | Leaf roles | L2VNIs (VLAN: subnet, gateway) |
 | --- | --- | --- | --- |
-| `lylat_service` | 6600 | proxmox | 6: 10.6.0.0/16; 8: 10.8.0.0/16 (gateways .0.5) |
+| `lylat_service` | 6600 | proxmox | 8: 10.8.0.0/16 (gateway .0.5) |
 | `lylat_lan` | 6900 | proxmox, external_l2 | 9, 10, 11: 10.9/10.10/10.11.0.0/16 |
 | `lylat_infra` | 6200 | proxmox | 2: 10.2.0.0/16 |
 | `lylat_ai` | 6700 | proxmox, external_l2 | 12: 10.12.0.0/16 |

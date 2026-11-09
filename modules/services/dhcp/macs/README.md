@@ -26,16 +26,20 @@ that has a `dhcp` block. There's one NIC per DHCP-enabled VLAN:
 - **No addresses.** This module assigns no IP addresses.
 - **No management NIC.** `eth0` is created separately and isn't included here.
 
-With today's DHCP VLANs (2, 6, 8, 9, 10, 12):
+With today's DHCP VLANs (2, 8, 9, 10, 12) and the Kea HA NIC (`ha_vlan_id` 211):
 
 | Interface | VLAN | `dhcp01` (VM 6701) | `dhcp02` (VM 6702) |
 | --- | --- | --- | --- |
 | eth1 | 2 | `02:00:00:67:01:02` | `02:00:00:67:02:02` |
-| eth2 | 6 | `02:00:00:67:01:06` | `02:00:00:67:02:06` |
-| eth3 | 8 | `02:00:00:67:01:08` | `02:00:00:67:02:08` |
-| eth4 | 9 | `02:00:00:67:01:09` | `02:00:00:67:02:09` |
-| eth5 | 10 | `02:00:00:67:01:10` | `02:00:00:67:02:10` |
-| eth6 | 12 | `02:00:00:67:01:12` | `02:00:00:67:02:12` |
+| eth2 | 8 | `02:00:00:67:01:08` | `02:00:00:67:02:08` |
+| eth3 | 9 | `02:00:00:67:01:09` | `02:00:00:67:02:09` |
+| eth4 | 10 | `02:00:00:67:01:10` | `02:00:00:67:02:10` |
+| eth5 | 12 | `02:00:00:67:01:12` | `02:00:00:67:02:12` |
+| eth6 | 211 (Kea HA) | `02:00:00:67:01:ff` | `02:00:00:67:02:ff` |
+
+The Kea HA NIC (`ha_vlan_id`, from `l2vnis.ha_dhcp`) always comes last, with the
+MAC last octet `ff`. Outputs: `network_devices` (all NICs, for services-vms),
+`data_network_devices` (DHCP NICs only), `interface_macs` and `ha_interfaces`.
 
 **Limits** (checked during `plan`):
 
@@ -68,7 +72,7 @@ module "dhcp_macs" {
 ## Adding or removing a VLAN
 
 Each VLAN keeps its MAC forever, but the `ethN` numbers can shift. For example,
-adding VLAN 4 makes VLAN 6 move from `eth2` to `eth3`, and every VLAN above it
+adding VLAN 4 makes VLAN 8 move from `eth2` to `eth3`, and every VLAN above it
 moves up one as well. Because VyOS binds by MAC, the interfaces follow correctly.
 But plan and apply `services-vms` and `services-config` together, and check for
 old interface addresses afterwards. See

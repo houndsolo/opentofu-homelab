@@ -12,16 +12,6 @@ vnis = [{
   evpn_rt_imports = ["65000:10000", "65000:20000"]
   evpn_rt_exports = ["65000:10000"]
   l2 = {
-    # Current services-config HA peers use 10.6.67.1 and 10.6.67.2.
-    # dhcp = {} creates NICs/listen interfaces but no address pool.
-    ha = {
-      vni             = 9006
-      vlan_id         = 6
-      anycast_gw_ip   = "10.6.0.1"
-      anycast_gw_cidr = 16
-      anycast_mac     = "02:00:00:00:06:01"
-      dhcp            = {}
-    }
     services = {
       vni             = 9008
       vlan_id         = 8
