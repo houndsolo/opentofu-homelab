@@ -54,7 +54,7 @@ ok = 1
 rules = {}  # (metric, labels tuple) -> [pkts, bytes]
 for family, table, fam in TABLES:
     try:
-        out = subprocess.run(['nft', '-j', 'list', 'table', family, table], capture_output=True, text=True, check=True).stdout
+        out = subprocess.run(['/usr/sbin/nft', '-j', 'list', 'table', family, table], capture_output=True, text=True, check=True).stdout
     except (subprocess.CalledProcessError, FileNotFoundError):
         continue  # table not present (e.g. no IPv6 firewall)
     for obj in json.loads(out).get('nftables', []):
