@@ -425,8 +425,8 @@ Grafana --> VIP 10.13.11.40:3100 ;  Loki ruler --> Alertmanager on mon01 (10.13.
   | Listener | Format | Senders | Timestamp |
   | --- | --- | --- | --- |
   | TCP 514 | RFC 5424, octet-counted | VyOS leaves, DHCP VMs, fw-wan, PVE nodes and DNS VMs (rsyslog) | sender's |
-  | UDP 514 | RFC 3164 | MikroTik CRS317/CRS326, FS S3700 | receive time (no year/zone; switch-1 has no NTP) |
-  | UDP 1514 | raw (unparsed line) | Cisco C9800 WLCs (IOS-XE), FS S3910: RFC 3164 parsing drops their messages | receive time |
+  | UDP 514 | RFC 3164 | MikroTik CRS317/CRS326 | receive time (no year/zone) |
+  | UDP 1514 | raw (unparsed line) | Cisco C9800 WLCs (IOS-XE), FS S3910, FS S3700: RFC 3164 parsing silently drops their messages (the S3700's end in a NUL byte) | receive time (switch-1 has no NTP) |
 
   The `raw` format is experimental in Alloy, so the log VMs run it with `--stability.level=experimental`
   (validation too: `alloy validate` doesn't check stability, `alloy run` refuses it).

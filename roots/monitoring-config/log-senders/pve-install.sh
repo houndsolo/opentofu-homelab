@@ -5,7 +5,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 install -d -m 0755 /etc/rsyslog.d
-install -m 0644 pve-50-loki.conf /etc/rsyslog.d/50-loki.conf
+# 30-: before packages' own rules, e.g. FRR's 45-frr.conf, which writes /var/log/frr/frr.log
+# and stops its messages there.
+install -m 0644 pve-30-loki.conf /etc/rsyslog.d/30-loki.conf
+rm -f /etc/rsyslog.d/50-loki.conf
 if [ -f /var/log/ceph/ceph.log ]; then
   install -m 0644 pve-40-ceph-cluster-log.conf /etc/rsyslog.d/40-ceph-cluster-log.conf
 fi
@@ -16,4 +19,4 @@ rsyslogd -N1 >/dev/null
 systemctl enable rsyslog.service
 systemctl restart rsyslog.service
 systemctl is-active --quiet rsyslog.service
-rm -f pve-50-loki.conf pve-40-ceph-cluster-log.conf pve-install.sh
+rm -f pve-30-loki.conf pve-40-ceph-cluster-log.conf pve-install.sh
