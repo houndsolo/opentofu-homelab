@@ -32,6 +32,18 @@ locals {
     for l2vni in local.role_l2vnis_list :
     l2vni.vni => l2vni
   }
+  #
+  # Standalone L2VNIs (no VRF/SVI/gateway) for this node's role, keyed by VNI.
+  #
+  role_l2only_vnis = {
+    for name, l2 in var.l2vnis :
+    tostring(l2.vni) => merge(l2, { name = name })
+    if contains(l2.roles, var.leaf.role)
+  }
+
+  # Anything to put on the VXLAN fabric at all.
+  has_vnis = length(local.role_vrfs) + length(local.role_l2only_vnis) > 0
+
   # Key both maps by VNI to avoid collisions with VRF names.
   all_vnis = merge(
     local.l2vnis,

@@ -1,5 +1,5 @@
 locals {
-  policy_commands = length(local.role_vrfs) > 0 ? concat(
+  policy_commands = local.has_vnis ? concat(
     local.policy_base_commands,
     local.policy_vrf_commands
   ) : []

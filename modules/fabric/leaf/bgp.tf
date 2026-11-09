@@ -1,5 +1,5 @@
 locals {
-  bgp_commands = length(local.role_vrfs) > 0 ? concat(
+  bgp_commands = local.has_vnis ? concat(
     local.bgp_base_commands,
     local.bgp_evpn_commands,
     local.bgp_neighbor_commands,
@@ -17,7 +17,7 @@ locals {
     "set protocols bgp parameters fast-convergence",
   ]
   bgp_evpn_commands = [
-    for vni_id, l2vni in local.l2vnis :
+    for vni_id, l2vni in merge(local.l2vnis, local.role_l2only_vnis) :
     "set protocols bgp address-family l2vpn-evpn vni ${vni_id} rd '${local.router_id}:${vni_id}'"
   ]
 

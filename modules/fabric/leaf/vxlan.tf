@@ -1,9 +1,10 @@
 locals {
-  vxlan_commands = length(local.role_vrfs) > 0 ? flatten([
+  vxlan_commands = local.has_vnis ? flatten([
     local.vxlan_base_commands,
     local.bridge_base_commands,
     local.vni_commands,
     local.l2_vni_commands,
+    local.l2only_vni_commands,
   ]) : []
   bridge_base_commands = [
     "set interfaces bridge br0 enable-vlan",
@@ -43,4 +44,13 @@ locals {
       ]
     ])
   ]
+
+  # Standalone L2VNIs: VLAN<->VNI mapping and the access trunk only. VyOS adds the
+  # vxlan0 bridge VLAN, tunnel mapping and VNI filter from vlan-to-vni; no br0 vif/SVI.
+  l2only_vni_commands = flatten([
+    for vni in local.role_l2only_vnis : [
+      "set interfaces vxlan vxlan0 vlan-to-vni ${vni.vlan_id} vni '${vni.vni}'",
+      "set interfaces bridge br0 member interface ${var.leaf.access_interface} allowed-vlan '${vni.vlan_id}'",
+    ]
+  ])
 }
