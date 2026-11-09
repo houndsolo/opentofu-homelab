@@ -144,7 +144,7 @@
     {
       "type": "stat",
       "title": "Targets down",
-      "description": "Scrape targets not answering. DNS VMs and Proxmox nodes have no exporter yet and fw-wan isn't managed by this repo, so they count here.",
+      "description": "Scrape targets not answering. DNS VMs and Proxmox nodes have no exporter yet, so they count here.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1710,7 +1710,7 @@
     },
     {
       "type": "row",
-      "title": "Targets and alerts",
+      "title": "Edge (fw-wan)",
       "collapsed": false,
       "id": 20,
       "gridPos": {
@@ -1718,6 +1718,491 @@
         "w": 24,
         "x": 0,
         "y": 18
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "fw-wan",
+      "description": "UP when the ICMP probe and all three exporters (node, FRR, Telegraf) answer.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(up{host=\"fw-wan\"}) * min(probe_success{host=\"fw-wan\"})",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "fw-wan overview",
+          "url": "/d/fw-wan-overview/fw-wan-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 21,
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 0,
+        "y": 19
+      }
+    },
+    {
+      "type": "stat",
+      "title": "WAN",
+      "description": "fw-wan eth5 (Spectrum).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_bytes_total{host=\"fw-wan\", device=\"eth5\"}[$__rate_interval]) * 8",
+          "legendFormat": "in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"fw-wan\", device=\"eth5\"}[$__rate_interval]) * 8",
+          "legendFormat": "out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "in"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "out"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "fw-wan overview",
+          "url": "/d/fw-wan-overview/fw-wan-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 22,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 3,
+        "y": 19
+      }
+    },
+    {
+      "type": "stat",
+      "title": "VPN tunnels",
+      "description": "IPsec IKE SAs and WireGuard peers on fw-wan.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_ike_up{host=\"fw-wan\"}",
+          "legendFormat": "{{connection}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_wireguard_peer_up{host=\"fw-wan\"}",
+          "legendFormat": "wg {{peer}}",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "fw-wan VPNs",
+          "url": "/d/fw-wan-vpn/fw-wan-vpn?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 23,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 9,
+        "y": 19
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Firewall drops + rejects",
+      "description": "fw-wan's named chains.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 24,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 15,
+        "y": 19
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "fw-wan conntrack",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_nf_conntrack_entries{host=\"fw-wan\"} / node_nf_conntrack_entries_limit{host=\"fw-wan\"}",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 2,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "links": [
+        {
+          "title": "fw-wan overview",
+          "url": "/d/fw-wan-overview/fw-wan-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 25,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 19
+      }
+    },
+    {
+      "type": "row",
+      "title": "Targets and alerts",
+      "collapsed": false,
+      "id": 26,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
       },
       "panels": []
     },
@@ -1874,12 +2359,12 @@
           }
         }
       ],
-      "id": 21,
+      "id": 27,
       "gridPos": {
         "h": 10,
         "w": 7,
         "x": 0,
-        "y": 19
+        "y": 25
       }
     },
     {
@@ -2005,12 +2490,12 @@
           }
         }
       ],
-      "id": 22,
+      "id": 28,
       "gridPos": {
         "h": 10,
         "w": 9,
         "x": 7,
-        "y": 19
+        "y": 25
       }
     },
     {
@@ -2102,24 +2587,24 @@
           }
         }
       ],
-      "id": 23,
+      "id": 29,
       "gridPos": {
         "h": 10,
         "w": 8,
         "x": 16,
-        "y": 19
+        "y": 25
       }
     },
     {
       "type": "row",
       "title": "Probes and fabric",
       "collapsed": false,
-      "id": 24,
+      "id": 30,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 35
       },
       "panels": []
     },
@@ -2206,12 +2691,12 @@
           "targetBlank": false
         }
       ],
-      "id": 25,
+      "id": 31,
       "gridPos": {
         "h": 8,
         "w": 10,
         "x": 0,
-        "y": 30
+        "y": 36
       }
     },
     {
@@ -2303,12 +2788,12 @@
           "targetBlank": false
         }
       ],
-      "id": 26,
+      "id": 32,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 10,
-        "y": 30
+        "y": 36
       }
     },
     {
@@ -2410,24 +2895,24 @@
           "targetBlank": false
         }
       ],
-      "id": 27,
+      "id": 33,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 17,
-        "y": 30
+        "y": 36
       }
     },
     {
       "type": "row",
       "title": "Hosts and routers",
       "collapsed": false,
-      "id": 28,
+      "id": 34,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 44
       },
       "panels": []
     },
@@ -2956,24 +3441,24 @@
           }
         }
       ],
-      "id": 29,
+      "id": 35,
       "gridPos": {
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 45
       }
     },
     {
       "type": "row",
       "title": "Traffic",
       "collapsed": false,
-      "id": 30,
+      "id": 36,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 59
       },
       "panels": []
     },
@@ -3047,12 +3532,12 @@
           "sort": "desc"
         }
       },
-      "id": 31,
+      "id": 37,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 54
+        "y": 60
       }
     },
     {
@@ -3132,12 +3617,12 @@
           "targetBlank": false
         }
       ],
-      "id": 32,
+      "id": 38,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 54
+        "y": 60
       }
     }
   ]

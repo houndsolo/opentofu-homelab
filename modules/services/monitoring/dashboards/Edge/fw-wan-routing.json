@@ -1,0 +1,2861 @@
+{
+  "id": null,
+  "uid": "fw-wan-routing",
+  "title": "fw-wan VRFs & routing",
+  "description": "Routing tables, BGP sessions and interfaces per VRF. Router picker (default fw-wan; the VyOS leaves and DHCP VMs work too).",
+  "tags": [
+    "bgp",
+    "fw-wan",
+    "lylat",
+    "vyos"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "fw-wan"
+      ],
+      "asDropdown": true,
+      "title": "fw-wan dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "link",
+      "title": "FRR / EVPN fabric",
+      "url": "/d/frr-evpn-fabric/frr-evpn-fabric",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    },
+    {
+      "type": "link",
+      "title": "Node Exporter Full (fw-wan)",
+      "url": "/d/node-exporter-full/node-exporter-full?var-job=vyos-node&var-node=10.20.10.255:9100",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "label": "Router",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(frr_route_total, host)",
+        "query": {
+          "query": "label_values(frr_route_total, host)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "current": {
+          "selected": true,
+          "text": "fw-wan",
+          "value": "fw-wan"
+        }
+      },
+      {
+        "name": "vrf",
+        "label": "VRF",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(frr_route_total{host=\"$host\"}, vrf)",
+        "query": {
+          "query": "label_values(frr_route_total{host=\"$host\"}, vrf)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Summary",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "BGP sessions",
+      "description": "BGP sessions reported by frr_exporter (underlay IPv6 unicast, EVPN to the spines, external peerings). A router whose exporter is down drops out of the total.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"$host\"} == 1) or vector(0)",
+          "legendFormat": "Established",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"$host\"}) or vector(0)",
+          "legendFormat": "Total",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"$host\"} != 1) or vector(0)",
+          "legendFormat": "Not established",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Established"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Not established"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "FRR / EVPN fabric",
+          "url": "/d/frr-evpn-fabric/frr-evpn-fabric?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "BFD peers",
+      "description": "BFD sessions reported by frr_exporter.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bfd_peer_state{host=\"$host\"} == 1) or vector(0)",
+          "legendFormat": "Up",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bfd_peer_state{host=\"$host\"}) or vector(0)",
+          "legendFormat": "Total",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bfd_peer_state{host=\"$host\"} != 1) or vector(0)",
+          "legendFormat": "Down",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Up"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Down"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "FRR / EVPN fabric",
+          "url": "/d/frr-evpn-fabric/frr-evpn-fabric?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 6,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Routes",
+      "description": "Zebra RIB routes over all VRFs.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(frr_route_total{host=\"$host\", afi=\"ipv4\"})",
+          "legendFormat": "IPv4",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(frr_route_total{host=\"$host\", afi=\"ipv6\"})",
+          "legendFormat": "IPv6",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 11,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "VRFs",
+      "description": "VRFs with a routing table (default not counted).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (vrf) (frr_route_total{host=\"$host\", vrf!=\"default\"}))",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 5,
+        "w": 2,
+        "x": 16,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Route changes in range",
+      "description": "Times a VRF's route count changed in the selected time range (scrape resolution).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(changes(frr_route_total{host=\"$host\"}[$__range])) or vector(0)",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 18,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "RIB not in FIB",
+      "description": "Zebra routes that aren't installed in the kernel (inactive or rejected).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(frr_route_total{host=\"$host\"}) - sum(frr_route_total_fib{host=\"$host\"})",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      }
+    },
+    {
+      "type": "row",
+      "title": "Routes per VRF",
+      "collapsed": false,
+      "id": 8,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Routing tables",
+      "description": "Per VRF: zebra RIB and kernel FIB routes per address family, route count changes in range, IPv4 BGP RIB entries and established BGP sessions.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vrf) (frr_route_total{host=\"$host\", vrf=~\"$vrf\", afi=\"ipv4\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vrf) (frr_route_total_fib{host=\"$host\", vrf=~\"$vrf\", afi=\"ipv4\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vrf) (frr_route_total{host=\"$host\", vrf=~\"$vrf\", afi=\"ipv6\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vrf) (frr_route_total_fib{host=\"$host\", vrf=~\"$vrf\", afi=\"ipv6\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf) (changes(frr_route_total{host=\"$host\", vrf=~\"$vrf\"}[$__range]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vrf) (frr_bgp_rib_count_total{host=\"$host\", vrf=~\"$vrf\", afi=\"ipv4\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count by (vrf) (frr_bgp_peer_state{host=\"$host\", vrf=~\"$vrf\"} == 1)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "G"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "IPv4 RIB|IPv6 RIB"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Changes in range"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "VRF",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "vrf": "VRF",
+              "Value #A": "IPv4 RIB",
+              "Value #B": "IPv4 FIB",
+              "Value #C": "IPv6 RIB",
+              "Value #D": "IPv6 FIB",
+              "Value #E": "Changes in range",
+              "Value #F": "BGP RIB (IPv4)",
+              "Value #G": "BGP sessions up"
+            },
+            "indexByName": {
+              "vrf": 0,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "Value #F": 5,
+              "Value #G": 6,
+              "Value #E": 7
+            }
+          }
+        }
+      ],
+      "id": 9,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Routes per VRF",
+      "description": "IPv4 + IPv6 zebra routes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf) (frr_route_total{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "{{vrf}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Route changes",
+      "description": "Route count changes per interval and VRF (a flapping route shows as a column of bars).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf) (changes(frr_route_total{host=\"$host\", vrf=~\"$vrf\"}[$__rate_interval])) > 0",
+          "legendFormat": "{{vrf}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "No route changes in range",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "RIB routes not in the FIB",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf) (frr_route_total{host=\"$host\", vrf=~\"$vrf\"}) - sum by (vrf) (frr_route_total_fib{host=\"$host\", vrf=~\"$vrf\"}) > 0",
+          "legendFormat": "{{vrf}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "All RIB routes are in the FIB",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      }
+    },
+    {
+      "type": "row",
+      "title": "BGP",
+      "collapsed": false,
+      "id": 13,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "BGP peers",
+      "description": "One row per session (VRF, address family, peer). Interface peers (eth1.1000/eth2.1000 on fw-wan) are BGP unnumbered; the hostname comes from the peer's BGP hostname capability.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_state{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_uptime_seconds{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_prefixes_received_count_total{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_prefixes_advertised_count_total{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (rate(frr_bgp_peer_message_received_total{host=\"$host\", vrf=~\"$vrf\"}[5m]) + rate(frr_bgp_peer_message_sent_total{host=\"$host\", vrf=~\"$vrf\"}[5m]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (resets(frr_bgp_peer_uptime_seconds{host=\"$host\", vrf=~\"$vrf\"}[$__range]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Down",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "Established",
+                        "color": "green",
+                        "index": 1
+                      },
+                      "2": {
+                        "text": "Admin down",
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Uptime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Msgs/s"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Flaps in range"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Prefixes rx"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Prefixes tx"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "VRF",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "vrf": "VRF",
+              "afi": "AFI",
+              "safi": "SAFI",
+              "peer": "Peer",
+              "peer_hostname": "Hostname",
+              "peer_desc": "Description",
+              "peer_type": "Type",
+              "peer_as": "Peer AS",
+              "local_as": "Local AS",
+              "Value #A": "State",
+              "Value #B": "Uptime",
+              "Value #C": "Prefixes rx",
+              "Value #D": "Prefixes tx",
+              "Value #E": "Msgs/s",
+              "Value #F": "Flaps in range"
+            },
+            "indexByName": {
+              "vrf": 0,
+              "afi": 1,
+              "safi": 2,
+              "peer": 3,
+              "peer_hostname": 4,
+              "peer_desc": 5,
+              "peer_type": 6,
+              "peer_as": 7,
+              "local_as": 8,
+              "Value #A": 9,
+              "Value #B": 10,
+              "Value #C": 11,
+              "Value #D": 12,
+              "Value #E": 13,
+              "Value #F": 14
+            }
+          }
+        }
+      ],
+      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "BGP session state",
+      "description": "Gaps mean frr_exporter wasn't scraped.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, local_as, peer_as, peer_hostname, peer_desc, peer_type) (frr_bgp_peer_state{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "{{vrf}} · {{peer}} {{afi}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "orange",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Down",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Established",
+                  "color": "green",
+                  "index": 1
+                },
+                "2": {
+                  "text": "Admin down",
+                  "color": "orange",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "BGP RIB entries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vrf, afi, safi) (frr_bgp_rib_count_total{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "{{vrf}} {{afi}}/{{safi}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Prefixes received",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf, peer, peer_hostname) (frr_bgp_peer_prefixes_received_count_total{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "{{vrf}} · {{peer}} {{peer_hostname}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 17,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 41
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Prefixes advertised",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf, peer, peer_hostname) (frr_bgp_peer_prefixes_advertised_count_total{host=\"$host\", vrf=~\"$vrf\"})",
+          "legendFormat": "{{vrf}} · {{peer}} {{peer_hostname}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 41
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "BGP messages",
+      "description": "Messages per second (updates and keepalives), rx + tx.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf, peer) (rate(frr_bgp_peer_message_received_total{host=\"$host\", vrf=~\"$vrf\"}[$__rate_interval]) + rate(frr_bgp_peer_message_sent_total{host=\"$host\", vrf=~\"$vrf\"}[$__rate_interval]))",
+          "legendFormat": "{{vrf}} · {{peer}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 41
+      }
+    },
+    {
+      "type": "row",
+      "title": "Interfaces by VRF",
+      "collapsed": false,
+      "id": 20,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Traffic per VRF",
+      "description": "Counters of the VRF devices: traffic received on or sent from the VRF's interfaces (received above the axis, sent below).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_bytes_total{host=\"$host\"}[$__rate_interval]) * 8 and on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\", vrf=~\"$vrf\"}), \"device\", \"$1\", \"vrf\", \"(.+)\")",
+          "legendFormat": "{{device}} in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"$host\"}[$__rate_interval]) * 8 and on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\", vrf=~\"$vrf\"}), \"device\", \"$1\", \"vrf\", \"(.+)\")",
+          "legendFormat": "{{device}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 21,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Interface traffic (in + out)",
+      "description": "Interfaces with traffic, labelled with their VRF (fw-wan only; from the config snapshot).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval]) + rate(node_network_transmit_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\") * 8 > 0",
+          "legendFormat": "{{vrf}} · {{device}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 22,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 50
+      }
+    },
+    {
+      "type": "table",
+      "title": "Interfaces",
+      "description": "The router's interfaces (no VRF devices, loopback, dummies or PIM registers). The VRF column is filled in for fw-wan only, from the config snapshot (default = no VRF). Rates over the last 5 minutes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device, vrf) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(node_network_up{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}, \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\")) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device, ifalias, operstate) ((node_network_info{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device) ((node_network_mtu_bytes{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device) ((node_network_speed_bytes{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"} * 8 > 0) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device) ((rate(node_network_receive_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device) ((rate(node_network_transmit_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device) ((rate(node_network_receive_errs_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_errs_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, device) ((rate(node_network_receive_drop_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_drop_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "H"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Speed"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "In"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "lcd",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Out"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "lcd",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Errors/s|Drops/s"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.01
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Oper state"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "up": {
+                        "text": "up",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "down": {
+                        "text": "down",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "unknown": {
+                        "text": "unknown",
+                        "color": "text",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "VRF",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "host": true,
+              "Value #A": true,
+              "Value #B": true
+            },
+            "renameByName": {
+              "vrf": "VRF",
+              "device": "Interface",
+              "ifalias": "Description",
+              "operstate": "Oper state",
+              "Value #C": "MTU",
+              "Value #D": "Speed",
+              "Value #E": "In",
+              "Value #F": "Out",
+              "Value #G": "Errors/s",
+              "Value #H": "Drops/s"
+            },
+            "indexByName": {
+              "vrf": 0,
+              "device": 1,
+              "ifalias": 2,
+              "operstate": 3,
+              "Value #C": 4,
+              "Value #D": 5,
+              "Value #E": 6,
+              "Value #F": 7,
+              "Value #G": 8,
+              "Value #H": 9
+            }
+          }
+        }
+      ],
+      "id": 23,
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 60
+      }
+    },
+    {
+      "type": "row",
+      "title": "BFD",
+      "collapsed": true,
+      "id": 24,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "panels": [
+        {
+          "type": "table",
+          "title": "BFD peers",
+          "description": "",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max without (instance, job, role, host) (frr_bfd_peer_state{host=\"$host\"})",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max without (instance, job, role, host) (frr_bfd_peer_uptime{host=\"$host\"})",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "noValue": "No BFD peers on this router",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "State"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "State"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "Down",
+                            "color": "red",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "Up",
+                            "color": "green",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Uptime"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "dtdurations"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "countRows": false,
+              "fields": ""
+            }
+          },
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true
+                },
+                "renameByName": {
+                  "local": "Local",
+                  "peer": "Peer",
+                  "Value #A": "State",
+                  "Value #B": "Uptime"
+                },
+                "indexByName": {
+                  "local": 0,
+                  "peer": 1,
+                  "Value #A": 2,
+                  "Value #B": 3
+                }
+              }
+            }
+          ],
+          "id": 25,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 73
+          }
+        },
+        {
+          "type": "table",
+          "title": "frr_exporter collectors",
+          "description": "OSPF is collected but no router runs it, so there are no OSPF panels.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max without (instance, job, role, host) (frr_collector_up{host=\"$host\"})",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "State"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "State"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "DOWN",
+                            "color": "red",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "UP",
+                            "color": "green",
+                            "index": 1
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "red",
+                          "value": null
+                        },
+                        {
+                          "color": "green",
+                          "value": 1
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "countRows": false,
+              "fields": ""
+            }
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true
+                },
+                "renameByName": {
+                  "collector": "Collector",
+                  "Value": "State"
+                },
+                "indexByName": {}
+              }
+            }
+          ],
+          "id": 26,
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 73
+          }
+        }
+      ]
+    }
+  ]
+}

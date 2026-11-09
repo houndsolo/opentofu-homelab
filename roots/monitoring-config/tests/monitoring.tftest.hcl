@@ -81,6 +81,10 @@ run "inventory_targets" {
       strcontains(module.monitoring.dashboard_providers_config, "\"foldersFromFilesStructure\": true") &&
       strcontains(module.monitoring.dashboard_providers_config, "\"allowUiUpdates\": false") &&
       { for rel, content in module.monitoring.dashboards : rel => jsondecode(content).uid } == {
+        "Edge/fw-wan-firewall.json"            = "fw-wan-firewall"
+        "Edge/fw-wan-overview.json"            = "fw-wan-overview"
+        "Edge/fw-wan-routing.json"             = "fw-wan-routing"
+        "Edge/fw-wan-vpn.json"                 = "fw-wan-vpn"
         "Hosts/node-exporter-full.json"        = "node-exporter-full"
         "Monitoring/monitoring-stack.json"     = "monitoring-stack"
         "Network/frr-evpn-fabric.json"         = "frr-evpn-fabric"
@@ -129,6 +133,18 @@ run "inventory_targets" {
       !strcontains(content, "$datasource") && !strcontains(content, "$${datasource}")
     ) if startswith(rel, "Storage/")])
     error_message = "Ceph dashboards carry the ceph tag, a Ceph dashboards dropdown, and no $datasource references."
+  }
+
+  assert {
+    # The fw-wan dashboards (Edge folder) share a "fw-wan dashboards" dropdown; the VRFs & routing
+    # one has a router picker that starts on fw-wan.
+    condition = alltrue([for rel, content in module.monitoring.dashboards : (
+      contains(jsondecode(content).tags, "fw-wan") &&
+      length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "fw-wan")]) == 1
+      ) if startswith(rel, "Edge/")]) && (
+      [for v in jsondecode(module.monitoring.dashboards["Edge/fw-wan-routing.json"]).templating.list : v.current.value if v.name == "host"] == ["fw-wan"]
+    )
+    error_message = "The fw-wan dashboards carry the fw-wan tag and dropdown, and the routing one defaults to fw-wan."
   }
 
   assert {

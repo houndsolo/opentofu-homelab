@@ -587,7 +587,7 @@
     {
       "type": "stat",
       "title": "Exporter problems",
-      "description": "frr_exporter targets that don't answer (fw-wan has no exporter) and collectors that failed.",
+      "description": "frr_exporter targets that don't answer and collectors that failed.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

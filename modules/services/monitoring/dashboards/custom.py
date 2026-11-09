@@ -5,8 +5,8 @@
 
 The JSON files it writes are committed and provisioned like the community ones,
 so edit this script and re-run it rather than editing them by hand. It needs no
-network access. The Proxmox dashboards (InfluxDB) are built by pve.py, which
-this script imports. Each dashboard:
+network access. The Proxmox dashboards (InfluxDB) are built by pve.py and the
+fw-wan ones by fwwan.py, which this script imports. Each dashboard:
 
 - queries the provisioned Prometheus datasource (uid "prometheus") directly;
 - uses the scrape targets' "host" label for names and pickers;
@@ -360,8 +360,8 @@ def overview():
                desc="Scrape targets answering, across every job.",
                links=[("Monitoring stack", STACK_DASH + "?${__url_time_range}")]), 3, 5)
     b.add(stat("Targets down", [q("count(up == 0) or vector(0)")], thresholds=RED_IF_ANY,
-               desc="Scrape targets not answering. DNS VMs and Proxmox nodes have no exporter yet and "
-                    "fw-wan isn't managed by this repo, so they count here.",
+               desc="Scrape targets not answering. DNS VMs and Proxmox nodes have no exporter yet, "
+                    "so they count here.",
                links=[("Monitoring stack", STACK_DASH + "?${__url_time_range}")]), 3, 5)
     b.add(stat("Firing alerts", [q('count(ALERTS{alertstate="firing"}) or vector(0)')],
                thresholds=ORANGE_IF_ANY, desc="Prometheus alerts in state firing."), 3, 5)
@@ -396,6 +396,10 @@ def overview():
     b.row("Proxmox")
     import pve  # pve.py imports its helpers from this module; main() makes that possible
     pve.overview_row(b)
+
+    b.row("Edge (fw-wan)")
+    import fwwan  # fwwan.py imports its helpers from this module; main() makes that possible
+    fwwan.overview_row(b)
 
     b.row("Targets and alerts")
     b.add(targets_by_job_table(), 7, 10)
@@ -503,7 +507,7 @@ def frr():
         q(f'count(up{{job="vyos-frr", {h}}} == 0) or vector(0)', "Targets down"),
         q(f"count(frr_collector_up{{{h}}} == 0) or vector(0)", "Collectors failing"),
     ], text_mode="value_and_name", thresholds=RED_IF_ANY,
-        desc="frr_exporter targets that don't answer (fw-wan has no exporter) and collectors that failed."), 4, 5)
+        desc="frr_exporter targets that don't answer and collectors that failed."), 4, 5)
 
     b.row("BGP sessions")
     lbl = "max without (instance, job, role)"
@@ -1698,11 +1702,12 @@ DASHBOARDS = {
 
 
 def main():
-    sys.modules.setdefault("custom", sys.modules[__name__])  # for pve.py's "from custom import ..."
+    sys.modules.setdefault("custom", sys.modules[__name__])  # for pve.py's and fwwan.py's "from custom import ..."
     sys.path.insert(0, str(HERE))
     sys.dont_write_bytecode = True
+    import fwwan
     import pve
-    for rel, build in {**DASHBOARDS, **pve.DASHBOARDS}.items():
+    for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = build()

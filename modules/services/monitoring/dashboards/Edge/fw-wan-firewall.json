@@ -1,0 +1,2510 @@
+{
+  "id": null,
+  "uid": "fw-wan-firewall",
+  "title": "fw-wan firewall",
+  "description": "fw-wan's named firewall chains: per-chain and per-rule counters, drops and rejects, conntrack, the firewall log.",
+  "tags": [
+    "firewall",
+    "fw-wan",
+    "lylat",
+    "vyos"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "fw-wan"
+      ],
+      "asDropdown": true,
+      "title": "fw-wan dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Summary",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Rule matches",
+      "description": "Packets per second matching rules in the named chains, by the rule's action (from the config snapshot).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"accept\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "accept",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "drop",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "reject",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"return\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "return",
+          "range": true,
+          "instant": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"jump\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "jump",
+          "range": true,
+          "instant": false,
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "accept"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "drop"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reject"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "return"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jump"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 6,
+        "w": 10,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Drops + rejects in range",
+      "description": "Packets dropped or rejected by the named chains in the selected time range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(increase(nftables_pkts{host=\"fw-wan\"}[$__range]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 10,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Logged in range",
+      "description": "Firewall log lines in the syslog (rules with `log`).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/)\n  |> group()\n  |> count()\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 14,
+        "y": 1
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Conntrack table",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_nf_conntrack_entries{host=\"fw-wan\"} / node_nf_conntrack_entries_limit{host=\"fw-wan\"}",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 2,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 17,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Rules not in snapshot",
+      "description": "Rules with counters that fwwan_snapshot.py doesn't know. Re-run fwwan_config.py and custom.py (snapshot from 2026-11-09).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(nftables_pkts{host=\"fw-wan\"}, \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"unknown\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      }
+    },
+    {
+      "type": "row",
+      "title": "Chains",
+      "collapsed": false,
+      "id": 7,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "panels": []
+    },
+    {
+      "type": "state-timeline",
+      "title": "Chain activity",
+      "description": "Rule matches per second in each named chain. Colour steps: >0, 0.1, 1, 10, 100, 1000 pps.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "{{chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "dark-blue",
+                "value": 0.001
+              },
+              {
+                "color": "blue",
+                "value": 0.1
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.9,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Packets per chain",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "{{chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Traffic per chain",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_bytes{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) * 8",
+          "legendFormat": "{{chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      }
+    },
+    {
+      "type": "row",
+      "title": "Rules",
+      "collapsed": false,
+      "id": 11,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Rules",
+      "description": "Every rule and default action of the named chains. Action and match come from the config snapshot (2026-11-09); the counters reset when the firewall is reloaded (commit).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host, table) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[5m]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host, table) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(increase(nftables_pkts{host=\"fw-wan\"}[$__range]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host, table) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(increase(nftables_bytes{host=\"fw-wan\"}[$__range]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host, table) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(nftables_pkts{host=\"fw-wan\"}, \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host, table) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(nftables_bytes{host=\"fw-wan\"}, \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Action"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Action"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "accept": {
+                        "text": "accept",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "drop": {
+                        "text": "drop",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "reject": {
+                        "text": "reject",
+                        "color": "orange",
+                        "index": 2
+                      },
+                      "return": {
+                        "text": "return",
+                        "color": "blue",
+                        "index": 3
+                      },
+                      "jump": {
+                        "text": "jump",
+                        "color": "purple",
+                        "index": 4
+                      },
+                      "unknown": {
+                        "text": "not in snapshot",
+                        "color": "yellow",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Match"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "bgp_peers/1": {
+                        "text": "in vpn_hay",
+                        "index": 0
+                      },
+                      "bgp_peers/2": {
+                        "text": "in vpn_me",
+                        "index": 1
+                      },
+                      "bgp_peers/3": {
+                        "text": "in @INFRA",
+                        "index": 2
+                      },
+                      "bgp_peers/default-action": {
+                        "text": "default action",
+                        "index": 3
+                      },
+                      "conn_filter/10": {
+                        "text": "state established,related",
+                        "index": 4
+                      },
+                      "conn_filter/20": {
+                        "text": "state invalid",
+                        "index": 5
+                      },
+                      "conn_filter/default-action": {
+                        "text": "default action",
+                        "index": 6
+                      },
+                      "deny_data/22": {
+                        "text": "dst 10.22.0.0/16, log",
+                        "index": 7
+                      },
+                      "deny_data/23": {
+                        "text": "src 10.22.0.0/16, log",
+                        "index": 8
+                      },
+                      "deny_data/24": {
+                        "text": "dst 10.6.14.81, in vpn_hay",
+                        "index": 9
+                      },
+                      "deny_data/default-action": {
+                        "text": "default action",
+                        "index": 10
+                      },
+                      "deny_guest_vrf/5": {
+                        "text": "dst 10.4.0.0/24",
+                        "index": 11
+                      },
+                      "deny_guest_vrf/9": {
+                        "text": "dst @rfc1918",
+                        "index": 12
+                      },
+                      "deny_guest_vrf/10": {
+                        "text": "out eth5",
+                        "index": 13
+                      },
+                      "deny_guest_vrf/default-action": {
+                        "text": "default action",
+                        "index": 14
+                      },
+                      "dns_in/1": {
+                        "text": "dst 10.8.0.4",
+                        "index": 15
+                      },
+                      "dns_in/2": {
+                        "text": "dst 10.8.53.1-10.8.53.2",
+                        "index": 16
+                      },
+                      "dns_in/3": {
+                        "text": "dst 10.0.1.110",
+                        "index": 17
+                      },
+                      "dns_in/default-action": {
+                        "text": "default action",
+                        "index": 18
+                      },
+                      "haystack/2": {
+                        "text": "src 10.22.0.0/16",
+                        "index": 19
+                      },
+                      "haystack/3": {
+                        "text": "dst 10.22.0.0/16",
+                        "index": 20
+                      },
+                      "haystack/4": {
+                        "text": "state established,related",
+                        "index": 21
+                      },
+                      "haystack/5": {
+                        "text": "proto icmp",
+                        "index": 22
+                      },
+                      "haystack/6": {
+                        "text": "dst 10.69.69.254, dport 56969, proto udp",
+                        "index": 23
+                      },
+                      "haystack/22": {
+                        "text": "→ haystack_ssh; dport 22, proto tcp",
+                        "index": 24
+                      },
+                      "haystack/53": {
+                        "text": "→ haystack_dns; dport 53, proto tcp_udp",
+                        "index": 25
+                      },
+                      "haystack/60": {
+                        "text": "dst 10.12.0.10-10.12.0.19",
+                        "index": 26
+                      },
+                      "haystack/100": {
+                        "text": "→ haystack_vxlan; dst 10.240.0.0/16",
+                        "index": 27
+                      },
+                      "haystack/179": {
+                        "text": "dst 10.69.69.1",
+                        "index": 28
+                      },
+                      "haystack/180": {
+                        "text": "dst 10.71.71.1",
+                        "index": 29
+                      },
+                      "haystack/190": {
+                        "text": "dst @proxmox_hosts, dport 8006, proto tcp",
+                        "index": 30
+                      },
+                      "haystack/3000": {
+                        "text": "dst 10.2.11.31-10.2.11.32, dport 3000, proto tcp",
+                        "index": 31
+                      },
+                      "haystack/default-action": {
+                        "text": "default action",
+                        "index": 32
+                      },
+                      "haystack_dns/1": {
+                        "text": "dst 10.8.53.1-10.8.53.2",
+                        "index": 33
+                      },
+                      "haystack_dns/2": {
+                        "text": "dst 10.8.53.1-10.8.53.2",
+                        "index": 34
+                      },
+                      "haystack_dns/3": {
+                        "text": "dst 10.0.1.110",
+                        "index": 35
+                      },
+                      "haystack_dns/default-action": {
+                        "text": "default action",
+                        "index": 36
+                      },
+                      "haystack_ssh/1": {
+                        "text": "dst 10.8.53.1-10.8.53.2 (DNS)",
+                        "index": 37
+                      },
+                      "haystack_ssh/2": {
+                        "text": "dst 10.6.6.0/24 (factorio-debian-ct)",
+                        "index": 38
+                      },
+                      "haystack_ssh/3": {
+                        "text": "dst 10.12.0.10-10.12.0.19 (ai-bm-server)",
+                        "index": 39
+                      },
+                      "haystack_ssh/default-action": {
+                        "text": "default action",
+                        "index": 40
+                      },
+                      "haystack_vxlan/1": {
+                        "text": "dport bgp, proto tcp",
+                        "index": 41
+                      },
+                      "haystack_vxlan/100": {
+                        "text": "dst 10.240.0.0/16",
+                        "index": 42
+                      },
+                      "haystack_vxlan/default-action": {
+                        "text": "default action",
+                        "index": 43
+                      },
+                      "ipsec/1": {
+                        "text": "src 45.32.6.151",
+                        "index": 44
+                      },
+                      "ipsec/2": {
+                        "text": "src 217.155.226.47",
+                        "index": 45
+                      },
+                      "ipsec/default-action": {
+                        "text": "default action",
+                        "index": 46
+                      },
+                      "lylat_lan_forward/default-action": {
+                        "text": "default action",
+                        "index": 47
+                      },
+                      "outside-in/default-action": {
+                        "text": "default action",
+                        "index": 48
+                      },
+                      "vpn_me_FW/1": {
+                        "text": "icmp echo-request, proto icmp",
+                        "index": 49
+                      },
+                      "vpn_me_FW/22": {
+                        "text": "dst @ssh_jumphosts, dport 22, proto tcp",
+                        "index": 50
+                      },
+                      "vpn_me_FW/100": {
+                        "text": "dst @proxmox_hosts, dport 8006, proto tcp",
+                        "index": 51
+                      },
+                      "vpn_me_FW/101": {
+                        "text": "dst 10.2.0.40, dport 8000, proto tcp",
+                        "index": 52
+                      },
+                      "vpn_me_FW/default-action": {
+                        "text": "default action",
+                        "index": 53
+                      },
+                      "vyos_mgmt/22": {
+                        "text": "in mgmt",
+                        "index": 54
+                      },
+                      "vyos_mgmt/23": {
+                        "text": "in eth0",
+                        "index": 55
+                      },
+                      "vyos_mgmt/default-action": {
+                        "text": "default action",
+                        "index": 56
+                      },
+                      "wg70_fw/10": {
+                        "text": "→ conn_filter; any",
+                        "index": 57
+                      },
+                      "wg70_fw/53": {
+                        "text": "→ dns_in; dport 53, proto tcp_udp",
+                        "index": 58
+                      },
+                      "wg70_fw/default-action": {
+                        "text": "default action",
+                        "index": 59
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 300
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Chain"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rule"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Packets/s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "pps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Packets in range"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Bytes in range|Total bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total packets"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Packets in range",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "chain": "Chain",
+              "ruleid": "Rule",
+              "action": "Action",
+              "rule": "Match",
+              "Value #A": "Packets/s",
+              "Value #B": "Packets in range",
+              "Value #C": "Bytes in range",
+              "Value #D": "Total packets",
+              "Value #E": "Total bytes"
+            },
+            "indexByName": {
+              "chain": 0,
+              "ruleid": 1,
+              "action": 2,
+              "rule": 3,
+              "Value #A": 4,
+              "Value #B": 5,
+              "Value #C": 6,
+              "Value #D": 7,
+              "Value #E": 8
+            }
+          }
+        }
+      ],
+      "id": 12,
+      "gridPos": {
+        "h": 16,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top rules in range",
+      "description": "Packets per rule in the selected time range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "topk(12, label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(increase(nftables_pkts{host=\"fw-wan\"}[$__range]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\") > 0)",
+          "legendFormat": "{{chain}} #{{ruleid}} · {{action}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 44
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Drops and rejects per rule",
+      "description": "Only rules (and default actions) that drop or reject, and only while they match.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain, ruleid) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) > 0",
+          "legendFormat": "{{chain}} #{{ruleid}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "noValue": "No drops or rejects in range",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 8,
+        "y": 44
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Default actions hit in range",
+      "description": "Packets that fell through every rule of a chain (to its default action).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain, action) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(increase(nftables_pkts{host=\"fw-wan\", ruleid=\"default-action\"}[$__range]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "{{chain}} · {{action}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*· accept$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*· drop$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*· reject$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*· return$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*· jump$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*· unknown$"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Traffic dropped or rejected",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_bytes{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) * 8 > 0",
+          "legendFormat": "{{chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "noValue": "No drops or rejects in range",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      }
+    },
+    {
+      "type": "row",
+      "title": "Conntrack",
+      "collapsed": false,
+      "id": 17,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 64
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Tracked connections",
+      "description": "The limit (nf_conntrack_max) is hidden from the graph to keep the scale readable; it's in the legend.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_nf_conntrack_entries{host=\"fw-wan\"}",
+          "legendFormat": "entries",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_nf_conntrack_entries_limit{host=\"fw-wan\"}",
+          "legendFormat": "limit",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "entries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "limit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 65
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "New connections",
+      "description": "Conntrack entries created per second (new flows).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_nf_conntrack_stat_insert{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "inserted",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 65
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Conntrack problems",
+      "description": "Per second. drop/early_drop/insert_failed mean the table was full or racing; invalid packets are dropped by conn_filter rule 20 when they reach a chain that jumps there.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_nf_conntrack_stat_insert_failed{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "insert_failed",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_nf_conntrack_stat_drop{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "drop",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_nf_conntrack_stat_early_drop{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "early_drop",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_nf_conntrack_stat_invalid{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "invalid",
+          "range": true,
+          "instant": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_nf_conntrack_stat_search_restart{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "search_restart",
+          "range": true,
+          "instant": false,
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "insert_failed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "drop"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "early_drop"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "invalid"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "search_restart"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 65
+      }
+    },
+    {
+      "type": "row",
+      "title": "Firewall log",
+      "collapsed": false,
+      "id": 21,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Logged packets",
+      "description": "Firewall log lines per interval, per rule.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"regexp\"\n\nfrom(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/)\n  |> map(fn: (r) => ({r with _value: 1, rule: regexp.replaceAllString(r: /^\\[ipv[46]-[A-Z]+-(.+)-([^-]+)-[A-Z]\\].*$/, v: r._value, t: \"$1 #$2\")}))\n  |> group(columns: [\"rule\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          },
+          "displayName": "${__field.labels.rule}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 22,
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 0,
+        "y": 75
+      }
+    },
+    {
+      "type": "table",
+      "title": "Firewall log",
+      "description": "Rules with `log` write a kernel line ([ipv4-NAM-<chain>-<rule>-<D|A|R>] IN= OUT= SRC= DST= ...) to the syslog, which Telegraf stores in InfluxDB. Newest first, up to 500.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"regexp\"\n\nfield = (re, v) => if v =~ re then regexp.replaceAllString(r: re, v: v, t: \"$1\") else \"\"\n\nfrom(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/)\n  |> map(fn: (r) => {\n      a = field(re: /^\\[ipv[46]-[A-Z]+-.+-[^-]+-([A-Z])\\].*$/, v: r._value)\n      return {\n        _time: r._time,\n        Chain: field(re: /^\\[ipv[46]-[A-Z]+-(.+)-[^-]+-[A-Z]\\].*$/, v: r._value),\n        Rule: field(re: /^\\[ipv[46]-[A-Z]+-.+-([^-]+)-[A-Z]\\].*$/, v: r._value),\n        Action: if a == \"A\" then \"accept\" else if a == \"D\" then \"drop\" else if a == \"R\" then \"reject\" else a,\n        In: field(re: /^.*[\\] ]IN=([^ ]*).*$/, v: r._value),\n        Out: field(re: /^.* OUT=([^ ]*).*$/, v: r._value),\n        Proto: field(re: /^.* PROTO=([^ ]*).*$/, v: r._value),\n        Source: field(re: /^.* SRC=([^ ]*).*$/, v: r._value),\n        Sport: field(re: /^.* SPT=([^ ]*).*$/, v: r._value),\n        Destination: field(re: /^.* DST=([^ ]*).*$/, v: r._value),\n        Dport: field(re: /^.* DPT=([^ ]*).*$/, v: r._value),\n      }\n  })\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 500)\n",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No firewall log lines in range",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Action"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Action"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "accept": {
+                        "text": "accept",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "drop": {
+                        "text": "drop",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "reject": {
+                        "text": "reject",
+                        "color": "orange",
+                        "index": 2
+                      },
+                      "return": {
+                        "text": "return",
+                        "color": "blue",
+                        "index": 3
+                      },
+                      "jump": {
+                        "text": "jump",
+                        "color": "purple",
+                        "index": 4
+                      },
+                      "unknown": {
+                        "text": "not in snapshot",
+                        "color": "yellow",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "_time": "Time"
+            },
+            "indexByName": {
+              "_time": 0,
+              "Chain": 1,
+              "Rule": 2,
+              "Action": 3,
+              "In": 4,
+              "Out": 5,
+              "Proto": 6,
+              "Source": 7,
+              "Sport": 8,
+              "Destination": 9,
+              "Dport": 10
+            }
+          }
+        }
+      ],
+      "id": 23,
+      "gridPos": {
+        "h": 12,
+        "w": 16,
+        "x": 8,
+        "y": 75
+      }
+    },
+    {
+      "type": "row",
+      "title": "Rule reference",
+      "collapsed": true,
+      "id": 24,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 87
+      },
+      "panels": [
+        {
+          "type": "text",
+          "title": "Rule reference",
+          "options": {
+            "mode": "markdown",
+            "content": "Snapshot of fw-wan's named IPv4 chains taken 2026-11-09 by `fwwan_config.py`. Base chains (input/forward filter) have no per-rule counters in Telegraf.\n\n| Chain | Entered from | Rule | Action | Match |\n| --- | --- | --- | --- | --- |\n| bgp_peers | input filter 179 | 1 | accept | in vpn_hay |\n| bgp_peers |  | 2 | accept | in vpn_me |\n| bgp_peers |  | 3 | accept | in @INFRA |\n| bgp_peers |  | default | **drop** | |\n| conn_filter | forward filter 20, input filter 10, wg70_fw 10 | 10 | accept | state established,related |\n| conn_filter |  | 20 | drop | state invalid |\n| conn_filter |  | default | **return** | |\n| deny_data | forward filter 5 | 22 | drop | dst 10.22.0.0/16, log |\n| deny_data |  | 23 | drop | src 10.22.0.0/16, log |\n| deny_data |  | 24 | drop | dst 10.6.14.81, in vpn_hay |\n| deny_data |  | default | **return** | |\n| deny_guest_vrf | forward filter 140 | 5 | accept | dst 10.4.0.0/24 |\n| deny_guest_vrf |  | 9 | drop | dst @rfc1918 |\n| deny_guest_vrf |  | 10 | accept | out eth5 |\n| deny_guest_vrf |  | default | **drop** | |\n| dns_in | wg70_fw 53 | 1 | accept | dst 10.8.0.4 |\n| dns_in |  | 2 | accept | dst 10.8.53.1-10.8.53.2 |\n| dns_in |  | 3 | accept | dst 10.0.1.110 |\n| dns_in |  | default | **reject** | |\n| haystack | forward filter 69 | 2 | drop | src 10.22.0.0/16 |\n| haystack |  | 3 | reject | dst 10.22.0.0/16 |\n| haystack |  | 4 | accept | state established,related |\n| haystack |  | 5 | accept | proto icmp |\n| haystack |  | 6 | accept | dst 10.69.69.254, dport 56969, proto udp |\n| haystack |  | 22 | jump haystack_ssh | dport 22, proto tcp |\n| haystack |  | 53 | jump haystack_dns | dport 53, proto tcp_udp |\n| haystack |  | 60 | accept | dst 10.12.0.10-10.12.0.19 |\n| haystack |  | 100 | jump haystack_vxlan | dst 10.240.0.0/16 |\n| haystack |  | 179 | accept | dst 10.69.69.1 |\n| haystack |  | 180 | accept | dst 10.71.71.1 |\n| haystack |  | 190 | accept | dst @proxmox_hosts, dport 8006, proto tcp |\n| haystack |  | 3000 | accept | dst 10.2.11.31-10.2.11.32, dport 3000, proto tcp |\n| haystack |  | default | **reject** | |\n| haystack_dns | haystack 53 | 1 | accept | dst 10.8.53.1-10.8.53.2 |\n| haystack_dns |  | 2 | accept | dst 10.8.53.1-10.8.53.2 |\n| haystack_dns |  | 3 | accept | dst 10.0.1.110 |\n| haystack_dns |  | default | **reject** | |\n| haystack_ssh | haystack 22 | 1 | accept | dst 10.8.53.1-10.8.53.2 (DNS) |\n| haystack_ssh |  | 2 | accept | dst 10.6.6.0/24 (factorio-debian-ct) |\n| haystack_ssh |  | 3 | accept | dst 10.12.0.10-10.12.0.19 (ai-bm-server) |\n| haystack_ssh |  | default | **reject** | |\n| haystack_vxlan | haystack 100 | 1 | accept | dport bgp, proto tcp |\n| haystack_vxlan |  | 100 | accept | dst 10.240.0.0/16 |\n| haystack_vxlan |  | default | **reject** | |\n| ipsec | input filter 500, input filter 501, input filter 502 | 1 | accept | src 45.32.6.151 |\n| ipsec |  | 2 | accept | src 217.155.226.47 |\n| ipsec |  | default | **drop** | |\n| lylat_lan_forward | forward filter 151 | default | **accept** | |\n| outside-in | forward filter 100, forward filter 101, forward filter 99 | default | **drop** | |\n| vpn_me_FW | forward filter 70 | 1 | accept | icmp echo-request, proto icmp |\n| vpn_me_FW |  | 22 | accept | dst @ssh_jumphosts, dport 22, proto tcp |\n| vpn_me_FW |  | 100 | accept | dst @proxmox_hosts, dport 8006, proto tcp |\n| vpn_me_FW |  | 101 | accept | dst 10.2.0.40, dport 8000, proto tcp |\n| vpn_me_FW |  | default | **drop** | |\n| vyos_mgmt | input filter 22, input filter 443 | 22 | accept | in mgmt |\n| vyos_mgmt |  | 23 | accept | in eth0 |\n| vyos_mgmt |  | default | **return** | |\n| wg70_fw | (nothing) | 10 | jump conn_filter | any |\n| wg70_fw |  | 53 | jump dns_in | dport 53, proto tcp_udp |\n| wg70_fw |  | default | **drop** | |\n\n**NAT** (no counters exported; conntrack covers the translated flows)\n\n| Type | Rule | Match / translation |\n| --- | --- | --- |\n| source | 2 | out eth5, proto tcp_udp, src 10.4.0.28-10.4.0.30, sport 2626, to masquerade, to port 2626 |\n| source | 6 | out eth5, src 10.6.0.0/16, to masquerade |\n| source | 10 | out eth5, src 10.10.0.0/16, to masquerade |\n| source | 20 | out eth5, src 10.2.0.0/16, to masquerade |\n| source | 80 | out eth5, src 10.8.0.0/16, to masquerade |\n| source | 90 | out eth5, src 10.9.0.0/16, to masquerade |\n| source | 140 | out eth5, src 10.4.0.0/16, to masquerade |\n| source | 500 | out eth5, src 10.5.0.0/16, to masquerade |\n| source | 912 | out eth5, src 10.12.0.0/16, to masquerade (lylat_ai) |\n| source | 997 | out eth5, src 10.90.0.0-10.92.255.255, to masquerade |\n| source | 998 | out eth5, src 10.255.255.0/24, to masquerade |\n| source | 999 | out eth5, src 10.250.0.0/16, to masquerade (vyos-p2p-links) |"
+          },
+          "id": 25,
+          "gridPos": {
+            "h": 22,
+            "w": 24,
+            "x": 0,
+            "y": 88
+          }
+        }
+      ]
+    }
+  ]
+}

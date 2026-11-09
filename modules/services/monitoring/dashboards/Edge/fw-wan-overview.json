@@ -1,0 +1,3538 @@
+{
+  "id": null,
+  "uid": "fw-wan-overview",
+  "title": "fw-wan overview",
+  "description": "The VyOS edge router: health, WAN and VRF traffic, firewall verdicts, VPN tunnels, system.",
+  "tags": [
+    "fw-wan",
+    "lylat",
+    "vyos"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "fw-wan"
+      ],
+      "asDropdown": true,
+      "title": "fw-wan dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "link",
+      "title": "Node Exporter Full (fw-wan)",
+      "url": "/d/node-exporter-full/node-exporter-full?var-job=vyos-node&var-node=10.20.10.255:9100",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    },
+    {
+      "type": "link",
+      "title": "FRR / EVPN fabric",
+      "url": "/d/frr-evpn-fabric/frr-evpn-fabric",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Status",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Reachable (ICMP)",
+      "description": "Blackbox ICMP probe from mon01 to fw-wan's mgmt address.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "probe_success{job=\"blackbox-icmp\", host=\"fw-wan\"}",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Uptime",
+      "description": "Orange in the first hour after a reboot.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - node_boot_time_seconds{host=\"fw-wan\"}",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 3600
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "dtdurations"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Exporters",
+      "description": "node_exporter (vyos-node), frr_exporter (vyos-frr) and Telegraf (vyos-telegraf) on fw-wan.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "label_replace(up{host=\"fw-wan\", job=~\"vyos-.*\"}, \"job\", \"$1\", \"job\", \"vyos-(.*)\")",
+          "legendFormat": "{{job}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "WAN address",
+      "description": "eth5 (DHCP from Spectrum), from Telegraf.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "show_interfaces_state{host=\"fw-wan\", interface=\"eth5\"}",
+          "legendFormat": "{{ip_addresses}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "WAN in",
+      "description": "eth5 received.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_bytes_total{host=\"fw-wan\", device=\"eth5\"}[$__rate_interval]) * 8",
+          "legendFormat": "eth5",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 6,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "WAN out",
+      "description": "eth5 sent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"fw-wan\", device=\"eth5\"}[$__rate_interval]) * 8",
+          "legendFormat": "eth5",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 10,
+        "y": 1
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "CPU",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{host=\"fw-wan\", mode=\"idle\"}[$__rate_interval]))",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "links": [
+        {
+          "title": "Node Exporter Full",
+          "url": "/d/node-exporter-full/node-exporter-full?var-job=vyos-node&var-node=10.20.10.255:9100&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 8,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 14,
+        "y": 1
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Memory",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "1 - node_memory_MemAvailable_bytes{host=\"fw-wan\"} / node_memory_MemTotal_bytes{host=\"fw-wan\"}",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "links": [
+        {
+          "title": "Node Exporter Full",
+          "url": "/d/node-exporter-full/node-exporter-full?var-job=vyos-node&var-node=10.20.10.255:9100&${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 9,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 14,
+        "y": 5
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Conntrack table",
+      "description": "Tracked connections / nf_conntrack_max. New flows are dropped when it's full.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_nf_conntrack_entries{host=\"fw-wan\"} / node_nf_conntrack_entries_limit{host=\"fw-wan\"}",
+          "legendFormat": "__auto",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "decimals": 2,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 10,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Conntrack entries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_nf_conntrack_entries{host=\"fw-wan\"}",
+          "legendFormat": "entries",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 11,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "BGP sessions",
+      "description": "BGP sessions reported by frr_exporter (underlay IPv6 unicast, EVPN to the spines, external peerings). A router whose exporter is down drops out of the total.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"fw-wan\"} == 1) or vector(0)",
+          "legendFormat": "Established",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"fw-wan\"}) or vector(0)",
+          "legendFormat": "Total",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"fw-wan\"} != 1) or vector(0)",
+          "legendFormat": "Not established",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Established"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Not established"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "FRR / EVPN fabric",
+          "url": "/d/frr-evpn-fabric/frr-evpn-fabric?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 12,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 9
+      }
+    },
+    {
+      "type": "stat",
+      "title": "VPN tunnels",
+      "description": "IPsec IKE SAs established and WireGuard peers with a handshake in the last 3 minutes (vpn-metrics.py).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_ike_up{host=\"fw-wan\"}",
+          "legendFormat": "{{connection}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_wireguard_peer_up{host=\"fw-wan\"}",
+          "legendFormat": "wg {{peer}}",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "fw-wan VPNs",
+          "url": "/d/fw-wan-vpn/fw-wan-vpn?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 13,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 5,
+        "y": 9
+      }
+    },
+    {
+      "type": "stat",
+      "title": "VyOS services",
+      "description": "Daemons VyOS expects for its config (Telegraf vyos_services: zebra, staticd, bgpd, charon...).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "label_replace(vyos_services_status{host=\"fw-wan\"}, \"service\", \"$1\", \"service\", \"\\\"(.*)\\\"\")",
+          "legendFormat": "{{service}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 10,
+        "y": 9
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Units failed / restarting",
+      "description": "systemd units that failed, and units stuck activating (crash-looping with Restart=). See the table under System.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(systemd_units_active_code{host=\"fw-wan\", load=\"loaded\"} == 3) or vector(0)",
+          "legendFormat": "failed",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(systemd_units_active_code{host=\"fw-wan\", load=\"loaded\"} >= 4) or vector(0)",
+          "legendFormat": "(re)starting",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 9
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Firewall drops + rejects",
+      "description": "Packets hitting drop/reject rules and default actions of the named chains (Telegraf counters; the base input/forward chains have no per-rule counters).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
+          "legendFormat": "per second",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 50
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 16,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 9
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traffic",
+      "collapsed": false,
+      "id": 17,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "WAN (eth5)",
+      "description": "Received above the axis, sent below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_bytes_total{host=\"fw-wan\", device=\"eth5\"}[$__rate_interval]) * 8",
+          "legendFormat": "in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"fw-wan\", device=\"eth5\"}[$__rate_interval]) * 8",
+          "legendFormat": "out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "opacity"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "in"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "out"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Traffic per VRF",
+      "description": "Counters of the VRF devices: traffic received on or sent from the VRF's interfaces (received above the axis, sent below).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_bytes_total{host=\"fw-wan\"}[$__rate_interval]) * 8 and on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\")",
+          "legendFormat": "{{device}} in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"fw-wan\"}[$__rate_interval]) * 8 and on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\")",
+          "legendFormat": "{{device}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "fw-wan VRFs & routing",
+          "url": "/d/fw-wan-routing/fw-wan-routing?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 19,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top interfaces now (in + out)",
+      "description": "Physical, VLAN and tunnel interfaces over the last 5 minutes, with the VRF from the config snapshot.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "topk(12, label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_bytes_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_bytes_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\") * 8)",
+          "legendFormat": "{{device}} · {{vrf}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlPu"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Top interfaces (in + out)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "topk(8, label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_bytes_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval]) + rate(node_network_transmit_bytes_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\") * 8)",
+          "legendFormat": "{{device}} · {{vrf}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 21,
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 8,
+        "y": 24
+      }
+    },
+    {
+      "type": "row",
+      "title": "Firewall",
+      "collapsed": false,
+      "id": 22,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Rule matches by action",
+      "description": "Packets matching a rule (or default action) in the named chains, by the rule's action. A packet that jumps to a chain counts once for the jump and once in the target chain.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (action) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "{{action}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "accept"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "drop"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reject"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "return"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jump"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unknown"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 23,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Drops + rejects per chain",
+      "description": "Drop/reject rules and default actions, per named chain.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\")))",
+          "legendFormat": "{{chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 24,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      }
+    },
+    {
+      "type": "row",
+      "title": "VPNs",
+      "collapsed": false,
+      "id": 25,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "panels": []
+    },
+    {
+      "type": "state-timeline",
+      "title": "Tunnels",
+      "description": "IPsec SAs and WireGuard peers (vpn-metrics.py, every minute).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_ike_up{host=\"fw-wan\"}",
+          "legendFormat": "IKE {{connection}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_child_up{host=\"fw-wan\"}",
+          "legendFormat": "CHILD {{child}}",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_wireguard_peer_up{host=\"fw-wan\"}",
+          "legendFormat": "WG {{interface}} {{peer}}",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "links": [
+        {
+          "title": "fw-wan VPNs",
+          "url": "/d/fw-wan-vpn/fw-wan-vpn?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 26,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 45
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tunnel interface traffic",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_bytes_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "fw-wan VPNs",
+          "url": "/d/fw-wan-vpn/fw-wan-vpn?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 27,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      }
+    },
+    {
+      "type": "row",
+      "title": "System",
+      "collapsed": false,
+      "id": 28,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "Busy time by mode, as a share of all CPUs. softirq is where packet forwarding shows up.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (mode) (rate(node_cpu_seconds_total{host=\"fw-wan\", mode!=\"idle\"}[$__rate_interval])) / scalar(count(node_cpu_seconds_total{host=\"fw-wan\", mode=\"idle\"}))",
+          "legendFormat": "{{mode}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 29,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 54
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_memory_MemTotal_bytes{host=\"fw-wan\"} - node_memory_MemAvailable_bytes{host=\"fw-wan\"}",
+          "legendFormat": "used",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_memory_MemAvailable_bytes{host=\"fw-wan\"}",
+          "legendFormat": "available",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "available"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 30,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 54
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Temperatures",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_hwmon_temp_celsius{host=\"fw-wan\"} * on (host, chip, sensor) group_left (label) node_hwmon_sensor_label{host=\"fw-wan\"}",
+          "legendFormat": "{{label}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "celsius",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 31,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 54
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Softnet drops and squeezes",
+      "description": "Packets the kernel dropped because a CPU's backlog was full, and NAPI polls cut short (budget exhausted). Both should stay at 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(node_softnet_dropped_total{host=\"fw-wan\"}[$__rate_interval]))",
+          "legendFormat": "dropped",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(node_softnet_times_squeezed_total{host=\"fw-wan\"}[$__rate_interval]))",
+          "legendFormat": "squeezed",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dropped"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "squeezed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 32,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 62
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_load1{host=\"fw-wan\"}",
+          "legendFormat": "1m",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_load5{host=\"fw-wan\"}",
+          "legendFormat": "5m",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "node_load15{host=\"fw-wan\"}",
+          "legendFormat": "15m",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 33,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 62
+      }
+    },
+    {
+      "type": "table",
+      "title": "systemd units not active",
+      "description": "Loaded units that are failed, activating, reloading or deactivating (Telegraf systemd_units).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (name, active, sub) (systemd_units_active_code{host=\"fw-wan\", load=\"loaded\"} != 0 != 2)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "All loaded units are active or inactive",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "active",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "reloading",
+                        "color": "blue",
+                        "index": 1
+                      },
+                      "2": {
+                        "text": "inactive",
+                        "color": "text",
+                        "index": 2
+                      },
+                      "3": {
+                        "text": "failed",
+                        "color": "red",
+                        "index": 3
+                      },
+                      "4": {
+                        "text": "activating",
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "5": {
+                        "text": "deactivating",
+                        "color": "orange",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "name": "Unit",
+              "active": "Active",
+              "sub": "Sub",
+              "Value": "State"
+            },
+            "indexByName": {
+              "name": 0,
+              "active": 1,
+              "sub": 2,
+              "Value": 3
+            }
+          }
+        }
+      ],
+      "id": 34,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 62
+      }
+    },
+    {
+      "type": "row",
+      "title": "Interfaces",
+      "collapsed": true,
+      "id": 35,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 70
+      },
+      "panels": [
+        {
+          "type": "table",
+          "title": "Interfaces",
+          "description": "fw-wan's interfaces with the VRF from the config snapshot (default = no VRF; the VLAN parents eth1-3 are in the default VRF). Rates over the last 5 minutes.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device, vrf) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(node_network_up{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}, \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\")) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device, ifalias, operstate) ((node_network_info{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device) ((node_network_mtu_bytes{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device) ((node_network_speed_bytes{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"} * 8 > 0) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "D"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device) ((rate(node_network_receive_bytes_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "E"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device) ((rate(node_network_transmit_bytes_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "F"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device) ((rate(node_network_receive_errs_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_errs_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "G"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "max by (host, device) ((rate(node_network_receive_drop_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_drop_total{host=\"fw-wan\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"fw-wan\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
+              "refId": "H"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Speed"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "In"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bps"
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "green"
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "gauge",
+                      "mode": "lcd",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Out"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bps"
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "blue"
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "gauge",
+                      "mode": "lcd",
+                      "valueDisplayMode": "text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "Errors/s|Drops/s"
+                },
+                "properties": [
+                  {
+                    "id": "decimals",
+                    "value": 2
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "red",
+                          "value": 0.01
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Oper state"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "up": {
+                            "text": "up",
+                            "color": "green",
+                            "index": 0
+                          },
+                          "down": {
+                            "text": "down",
+                            "color": "red",
+                            "index": 1
+                          },
+                          "unknown": {
+                            "text": "unknown",
+                            "color": "text",
+                            "index": 2
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "countRows": false,
+              "fields": ""
+            },
+            "sortBy": [
+              {
+                "displayName": "VRF",
+                "desc": false
+              }
+            ]
+          },
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "host": true,
+                  "Value #A": true,
+                  "Value #B": true
+                },
+                "renameByName": {
+                  "vrf": "VRF",
+                  "device": "Interface",
+                  "ifalias": "Description",
+                  "operstate": "Oper state",
+                  "Value #C": "MTU",
+                  "Value #D": "Speed",
+                  "Value #E": "In",
+                  "Value #F": "Out",
+                  "Value #G": "Errors/s",
+                  "Value #H": "Drops/s"
+                },
+                "indexByName": {
+                  "vrf": 0,
+                  "device": 1,
+                  "ifalias": 2,
+                  "operstate": 3,
+                  "Value #C": 4,
+                  "Value #D": 5,
+                  "Value #E": 6,
+                  "Value #F": 7,
+                  "Value #G": 8,
+                  "Value #H": 9
+                }
+              }
+            }
+          ],
+          "id": 36,
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 71
+          }
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Router log",
+      "collapsed": true,
+      "id": 37,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      },
+      "panels": [
+        {
+          "type": "table",
+          "title": "Syslog (without firewall lines)",
+          "description": "fw-wan's syslog from Telegraf (InfluxDB bucket vyos), newest first. Firewall log lines are on the firewall dashboard.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb"
+              },
+              "query": "from(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => not (r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/))\n  |> map(fn: (r) => ({_time: r._time, Severity: r.severity, App: r.appname, Message: r._value}))\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 300)\n",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "noValue": "No log lines in range",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "emerg": {
+                            "text": "emerg",
+                            "color": "red",
+                            "index": 0
+                          },
+                          "alert": {
+                            "text": "alert",
+                            "color": "red",
+                            "index": 1
+                          },
+                          "crit": {
+                            "text": "crit",
+                            "color": "red",
+                            "index": 2
+                          },
+                          "err": {
+                            "text": "err",
+                            "color": "red",
+                            "index": 3
+                          },
+                          "warning": {
+                            "text": "warning",
+                            "color": "orange",
+                            "index": 4
+                          },
+                          "notice": {
+                            "text": "notice",
+                            "color": "blue",
+                            "index": 5
+                          },
+                          "info": {
+                            "text": "info",
+                            "color": "text",
+                            "index": 6
+                          },
+                          "debug": {
+                            "text": "debug",
+                            "color": "text",
+                            "index": 7
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 170
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 90
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "App"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "countRows": false,
+              "fields": ""
+            }
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "renameByName": {
+                  "_time": "Time"
+                },
+                "indexByName": {}
+              }
+            }
+          ],
+          "id": 38,
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 84
+          }
+        }
+      ]
+    }
+  ]
+}

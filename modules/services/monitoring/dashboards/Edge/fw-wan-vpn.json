@@ -1,0 +1,3114 @@
+{
+  "id": null,
+  "uid": "fw-wan-vpn",
+  "title": "fw-wan VPNs",
+  "description": "fw-wan's IPsec connections, VTI and WireGuard interfaces, WireGuard peers, BGP over the tunnels.",
+  "tags": [
+    "fw-wan",
+    "lylat",
+    "vpn",
+    "vyos"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "fw-wan"
+      ],
+      "asDropdown": true,
+      "title": "fw-wan dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "link",
+      "title": "FRR / EVPN fabric",
+      "url": "/d/frr-evpn-fabric/frr-evpn-fabric",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Status",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "IPsec connections",
+      "description": "IKE SA established per configured connection.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_ike_up{host=\"fw-wan\"}",
+          "legendFormat": "{{connection}} → {{remote}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "IKE state",
+      "description": "strongSwan's IKE SA state (CONNECTING while it keeps retrying an unreachable peer).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_ike_state_info{host=\"fw-wan\"}",
+          "legendFormat": "{{connection}}: {{state}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 6,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "CHILD SAs",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_child_up{host=\"fw-wan\"}",
+          "legendFormat": "{{child}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 11,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "WireGuard peers",
+      "description": "UP = handshake within the last 3 minutes. Road-warrior peers are DOWN while not connected.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_wireguard_peer_up{host=\"fw-wan\"}",
+          "legendFormat": "{{interface}} {{peer}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "BGP sessions",
+      "description": "BGP sessions reported by frr_exporter (underlay IPv6 unicast, EVPN to the spines, external peerings). A router whose exporter is down drops out of the total.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"fw-wan\", vrf=~\"vpn_.*\"} == 1) or vector(0)",
+          "legendFormat": "Established",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"fw-wan\", vrf=~\"vpn_.*\"}) or vector(0)",
+          "legendFormat": "Total",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(frr_bgp_peer_state{host=\"fw-wan\", vrf=~\"vpn_.*\"} != 1) or vector(0)",
+          "legendFormat": "Not established",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Established"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Not established"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "FRR / EVPN fabric",
+          "url": "/d/frr-evpn-fabric/frr-evpn-fabric?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 6,
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "vpn-metrics.py",
+      "description": "The textfile script could read IPsec (VICI) and WireGuard state, and how old its output is (it runs every minute).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_vpn_metrics_ipsec_ok{host=\"fw-wan\"}",
+          "legendFormat": "IPsec",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_vpn_metrics_wireguard_ok{host=\"fw-wan\"}",
+          "legendFormat": "WG",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - vyos_vpn_metrics_last_run_timestamp_seconds{host=\"fw-wan\"}",
+          "legendFormat": "age",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "FAILED",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "OK",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "age"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "mappings",
+                "value": []
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 180
+                    },
+                    {
+                      "color": "red",
+                      "value": 600
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 20,
+        "y": 4
+      }
+    },
+    {
+      "type": "row",
+      "title": "IPsec",
+      "collapsed": false,
+      "id": 8,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "panels": []
+    },
+    {
+      "type": "state-timeline",
+      "title": "SA state",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_ike_up{host=\"fw-wan\"}",
+          "legendFormat": "IKE {{connection}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_child_up{host=\"fw-wan\"}",
+          "legendFormat": "CHILD {{child}}",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "type": "stat",
+      "title": "SA age",
+      "description": "Since the IKE SA was established and the newest CHILD SA installed (rekeys replace the CHILD SA).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_ike_established_seconds{host=\"fw-wan\"} > 0",
+          "legendFormat": "IKE {{connection}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_ipsec_child_installed_seconds{host=\"fw-wan\"} > 0",
+          "legendFormat": "CHILD {{child}}",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "dtdurations",
+          "noValue": "no SA up"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Rekeys in range",
+      "description": "How often the SA age went back to 0: rekeys and re-establishments (a CHILD rekey every few hours is normal).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "resets(vyos_ipsec_ike_established_seconds{host=\"fw-wan\"}[$__range])",
+          "legendFormat": "IKE {{connection}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "resets(vyos_ipsec_child_installed_seconds{host=\"fw-wan\"}[$__range])",
+          "legendFormat": "CHILD {{child}}",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "CHILD SA traffic",
+      "description": "Decrypted traffic through each CHILD SA (counters restart at a rekey; rate() handles that).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(vyos_ipsec_child_received_bytes{host=\"fw-wan\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{child}} in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(vyos_ipsec_child_sent_bytes{host=\"fw-wan\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{child}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "CHILD SA packets",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(vyos_ipsec_child_received_packets{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "{{child}} in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(vyos_ipsec_child_sent_packets{host=\"fw-wan\"}[$__rate_interval])",
+          "legendFormat": "{{child}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      }
+    },
+    {
+      "type": "row",
+      "title": "Tunnel interfaces",
+      "collapsed": false,
+      "id": 14,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Traffic",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_bytes_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_transmit_bytes_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors and drops",
+      "description": "A VTI counts tx errors when it has no CHILD SA to send through (tunnel down).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_errs_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval]) + rate(node_network_transmit_errs_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval])",
+          "legendFormat": "{{device}} errors",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(node_network_receive_drop_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval]) + rate(node_network_transmit_drop_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[$__rate_interval])",
+          "legendFormat": "{{device}} drops",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 24
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "Link state",
+      "description": "From VyOS (Telegraf show_interfaces): admin down = disabled in the config.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (interface) (show_interfaces_link{host=\"fw-wan\", interface=~\"vti.*|wg.*\"}) + max by (interface) (show_interfaces_state{host=\"fw-wan\", interface=~\"vti.*|wg.*\"})",
+          "legendFormat": "{{interface}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              },
+              {
+                "color": "blue",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "up",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "down",
+                  "color": "red",
+                  "index": 1
+                },
+                "2": {
+                  "text": "admin down",
+                  "color": "blue",
+                  "index": 2
+                },
+                "3": {
+                  "text": "admin down",
+                  "color": "blue",
+                  "index": 3
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 17,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 24
+      }
+    },
+    {
+      "type": "table",
+      "title": "Tunnel interfaces",
+      "description": "VRF and tunnel from the config snapshot. Rates over the last 5 minutes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (interface) (show_interfaces_link{host=\"fw-wan\", interface=~\"vti.*|wg.*\"} + on (interface) show_interfaces_state{host=\"fw-wan\", interface=~\"vti.*|wg.*\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (interface, ip_addresses) (show_interfaces_state{host=\"fw-wan\", interface=~\"vti.*|wg.*\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (interface) (label_replace(node_network_mtu_bytes{host=\"fw-wan\", device=~\"vti.*|wg.*\"}, \"interface\", \"$1\", \"device\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (interface) (label_replace(rate(node_network_receive_bytes_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[5m]) * 8, \"interface\", \"$1\", \"device\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (interface) (label_replace(rate(node_network_transmit_bytes_total{host=\"fw-wan\", device=~\"vti.*|wg.*\"}[5m]) * 8, \"interface\", \"$1\", \"device\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "up",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "down",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "2": {
+                        "text": "admin down",
+                        "color": "blue",
+                        "index": 2
+                      },
+                      "3": {
+                        "text": "admin down",
+                        "color": "blue",
+                        "index": 3
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    },
+                    {
+                      "color": "blue",
+                      "value": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "In"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Out"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Interface"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "dum666": {
+                        "text": "dum666 · wan_vrf",
+                        "index": 0
+                      },
+                      "dum69": {
+                        "text": "dum69 · lylat_service",
+                        "index": 1
+                      },
+                      "eth0": {
+                        "text": "eth0 · mgmt",
+                        "index": 2
+                      },
+                      "eth1": {
+                        "text": "eth1 · default",
+                        "index": 3
+                      },
+                      "eth1.1000": {
+                        "text": "eth1.1000 · lylat_service",
+                        "index": 4
+                      },
+                      "eth2": {
+                        "text": "eth2 · default",
+                        "index": 5
+                      },
+                      "eth2.1000": {
+                        "text": "eth2.1000 · lylat_service",
+                        "index": 6
+                      },
+                      "eth3": {
+                        "text": "eth3 · default",
+                        "index": 7
+                      },
+                      "eth3.4": {
+                        "text": "eth3.4 · guest_vrf",
+                        "index": 8
+                      },
+                      "eth3.5": {
+                        "text": "eth3.5 · lylat_service",
+                        "index": 9
+                      },
+                      "eth4": {
+                        "text": "eth4 · default",
+                        "index": 10
+                      },
+                      "eth5": {
+                        "text": "eth5 · wan_vrf",
+                        "index": 11
+                      },
+                      "vti1": {
+                        "text": "vti1 · vpn_me",
+                        "index": 12
+                      },
+                      "vti69": {
+                        "text": "vti69 · vpn_hay",
+                        "index": 13
+                      },
+                      "wg77": {
+                        "text": "wg77 · vpn_me",
+                        "index": 14
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Interface",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value #B": true
+            },
+            "renameByName": {
+              "interface": "Interface",
+              "ip_addresses": "Address",
+              "Value #A": "State",
+              "Value #C": "MTU",
+              "Value #D": "In",
+              "Value #E": "Out"
+            },
+            "indexByName": {
+              "interface": 0,
+              "ip_addresses": 1,
+              "Value #A": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "Value #E": 5
+            }
+          }
+        }
+      ],
+      "id": 18,
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "type": "row",
+      "title": "WireGuard",
+      "collapsed": false,
+      "id": 19,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Last handshake",
+      "description": "Age of the latest handshake per peer (WireGuard re-handshakes every 2 minutes while traffic flows).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - vyos_wireguard_latest_handshake_timestamp_seconds{host=\"fw-wan\"}",
+          "legendFormat": "{{interface}} {{peer}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 180
+              },
+              {
+                "color": "red",
+                "value": 86400
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 1000000000.0,
+                "to": null,
+                "result": {
+                  "text": "never",
+                  "color": "text",
+                  "index": 0
+                }
+              }
+            }
+          ],
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(cpus|memtotal|swaptotal|blocks)$/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 0,
+        "y": 39
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Peer traffic",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(vyos_wireguard_received_bytes_total{host=\"fw-wan\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{peer}} in",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(vyos_wireguard_sent_bytes_total{host=\"fw-wan\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{peer}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(.* )?(out|tx)$"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 21,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 6,
+        "y": 39
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "Peer up",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "vyos_wireguard_peer_up{host=\"fw-wan\"}",
+          "legendFormat": "{{interface}} {{peer}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 22,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 39
+      }
+    },
+    {
+      "type": "row",
+      "title": "BGP over the tunnels",
+      "collapsed": false,
+      "id": 23,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 47
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "BGP peers",
+      "description": "One row per session (VRF, address family, peer). Interface peers (eth1.1000/eth2.1000 on fw-wan) are BGP unnumbered; the hostname comes from the peer's BGP hostname capability.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_state{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_uptime_seconds{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_prefixes_received_count_total{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (frr_bgp_peer_prefixes_advertised_count_total{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (rate(frr_bgp_peer_message_received_total{host=\"fw-wan\", vrf=~\"vpn_.*\"}[5m]) + rate(frr_bgp_peer_message_sent_total{host=\"fw-wan\", vrf=~\"vpn_.*\"}[5m]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, host) (resets(frr_bgp_peer_uptime_seconds{host=\"fw-wan\", vrf=~\"vpn_.*\"}[$__range]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Down",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "Established",
+                        "color": "green",
+                        "index": 1
+                      },
+                      "2": {
+                        "text": "Admin down",
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Uptime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Msgs/s"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Flaps in range"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Prefixes rx"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Prefixes tx"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "VRF",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "vrf": "VRF",
+              "afi": "AFI",
+              "safi": "SAFI",
+              "peer": "Peer",
+              "peer_hostname": "Hostname",
+              "peer_desc": "Description",
+              "peer_type": "Type",
+              "peer_as": "Peer AS",
+              "local_as": "Local AS",
+              "Value #A": "State",
+              "Value #B": "Uptime",
+              "Value #C": "Prefixes rx",
+              "Value #D": "Prefixes tx",
+              "Value #E": "Msgs/s",
+              "Value #F": "Flaps in range"
+            },
+            "indexByName": {
+              "vrf": 0,
+              "afi": 1,
+              "safi": 2,
+              "peer": 3,
+              "peer_hostname": 4,
+              "peer_desc": 5,
+              "peer_type": 6,
+              "peer_as": 7,
+              "local_as": 8,
+              "Value #A": 9,
+              "Value #B": 10,
+              "Value #C": 11,
+              "Value #D": 12,
+              "Value #E": 13,
+              "Value #F": 14
+            }
+          }
+        }
+      ],
+      "id": 24,
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "BGP session state",
+      "description": "Gaps mean frr_exporter wasn't scraped.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max without (instance, job, role, local_as, peer_as, peer_hostname, peer_desc, peer_type) (frr_bgp_peer_state{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "{{vrf}} · {{peer}} {{afi}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "orange",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Down",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Established",
+                  "color": "green",
+                  "index": 1
+                },
+                "2": {
+                  "text": "Admin down",
+                  "color": "orange",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "never",
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 25,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 54
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Prefixes received / advertised",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf, peer) (frr_bgp_peer_prefixes_received_count_total{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "{{peer}} rx",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf, peer) (frr_bgp_peer_prefixes_advertised_count_total{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "{{peer}} tx",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 26,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 54
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Routes in the VPN VRFs",
+      "description": "IPv4 + IPv6 zebra routes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (vrf) (frr_route_total{host=\"fw-wan\", vrf=~\"vpn_.*\"})",
+          "legendFormat": "{{vrf}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "min",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 27,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 54
+      }
+    },
+    {
+      "type": "row",
+      "title": "VPN firewall chains",
+      "collapsed": false,
+      "id": 28,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 61
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Matches per chain",
+      "description": "ipsec (IKE/ESP to fw-wan, input filter 500-502), haystack* (forwarded from vpn_hay), vpn_me_FW (from vpn_me), wg70_fw and bgp_peers.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain) (label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\", chain=~\"NAME_(ipsec|haystack.*|vpn_me_FW|wg70_fw|bgp_peers)\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\"))",
+          "legendFormat": "{{chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "fw-wan firewall",
+          "url": "/d/fw-wan-firewall/fw-wan-firewall?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 29,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Drops and rejects",
+      "description": "ipsec default-action: IKE/ESP from addresses that aren't configured peers.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain, ruleid) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(label_replace(rate(nftables_pkts{host=\"fw-wan\", chain=~\"NAME_(ipsec|haystack.*|vpn_me_FW|wg70_fw|bgp_peers)\"}[$__rate_interval]), \"chain\", \"$1\", \"chain\", \"NAME_(.+)\"), \"rule\", \"/\", \"chain\", \"ruleid\"), \"action\", \"unknown\", \"rule\", \".*\"), \"action\", \"accept\", \"rule\", \"bgp_peers/1|bgp_peers/2|bgp_peers/3|conn_filter/10|deny_guest_vrf/5|deny_guest_vrf/10|dns_in/1|dns_in/2|dns_in/3|haystack/4|haystack/5|haystack/6|haystack/60|haystack/179|haystack/180|haystack/190|haystack/3000|haystack_dns/1|haystack_dns/2|haystack_dns/3|haystack_ssh/1|haystack_ssh/2|haystack_ssh/3|haystack_vxlan/1|haystack_vxlan/100|ipsec/1|ipsec/2|lylat_lan_forward/default-action|vpn_me_FW/1|vpn_me_FW/22|vpn_me_FW/100|vpn_me_FW/101|vyos_mgmt/22|vyos_mgmt/23\"), \"action\", \"drop\", \"rule\", \"bgp_peers/default-action|conn_filter/20|deny_data/22|deny_data/23|deny_data/24|deny_guest_vrf/9|deny_guest_vrf/default-action|haystack/2|ipsec/default-action|outside-in/default-action|vpn_me_FW/default-action|wg70_fw/default-action\"), \"action\", \"jump\", \"rule\", \"haystack/22|haystack/53|haystack/100|wg70_fw/10|wg70_fw/53\"), \"action\", \"reject\", \"rule\", \"dns_in/default-action|haystack/3|haystack/default-action|haystack_dns/default-action|haystack_ssh/default-action|haystack_vxlan/default-action\"), \"action\", \"return\", \"rule\", \"conn_filter/default-action|deny_data/default-action|vyos_mgmt/default-action\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\")))",
+          "legendFormat": "{{chain}} #{{ruleid}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 30,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 62
+      }
+    },
+    {
+      "type": "row",
+      "title": "IPsec log",
+      "collapsed": true,
+      "id": 31,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 70
+      },
+      "panels": [
+        {
+          "type": "table",
+          "title": "charon",
+          "description": "strongSwan's log lines from the syslog (InfluxDB), newest first.",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "influxdb",
+                "uid": "influxdb"
+              },
+              "query": "from(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => r.appname =~ /charon/)\n  |> map(fn: (r) => ({_time: r._time, Severity: r.severity, App: r.appname, Message: r._value}))\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 300)\n",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "mappings": [],
+              "noValue": "No log lines in range",
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "emerg": {
+                            "text": "emerg",
+                            "color": "red",
+                            "index": 0
+                          },
+                          "alert": {
+                            "text": "alert",
+                            "color": "red",
+                            "index": 1
+                          },
+                          "crit": {
+                            "text": "crit",
+                            "color": "red",
+                            "index": 2
+                          },
+                          "err": {
+                            "text": "err",
+                            "color": "red",
+                            "index": 3
+                          },
+                          "warning": {
+                            "text": "warning",
+                            "color": "orange",
+                            "index": 4
+                          },
+                          "notice": {
+                            "text": "notice",
+                            "color": "blue",
+                            "index": 5
+                          },
+                          "info": {
+                            "text": "info",
+                            "color": "text",
+                            "index": 6
+                          },
+                          "debug": {
+                            "text": "debug",
+                            "color": "text",
+                            "index": 7
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 170
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 90
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "App"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false,
+              "reducer": [
+                "sum"
+              ],
+              "countRows": false,
+              "fields": ""
+            }
+          },
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "renameByName": {
+                  "_time": "Time"
+                },
+                "indexByName": {}
+              }
+            }
+          ],
+          "id": 32,
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 71
+          }
+        }
+      ]
+    }
+  ]
+}
