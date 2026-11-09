@@ -1,0 +1,1 @@
+../../inventory/schema/l2vnis.tf

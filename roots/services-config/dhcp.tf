@@ -2,6 +2,8 @@ module "dhcp_macs" {
   source = "../../modules/services/dhcp/macs"
   vms    = local.dhcp_vms
   vnis   = var.vnis
+  # Kea HA NIC on its own L2VNI, after the DHCP data NICs (same input as services-vms).
+  ha_vlan_id = var.l2vnis["ha_dhcp"].vlan_id
 }
 
 locals {
@@ -39,17 +41,24 @@ module "dhcp" {
   source   = "../../modules/services/dhcp"
   for_each = local.dhcp_ha
 
-  ha_prefix            = var.dhcp_ha_prefix
+  ha_prefix            = var.l2vnis["ha_dhcp"].prefix
   vnis                 = var.vnis
-  default_name_servers = values(local.dns_addresses)
+  default_name_servers = concat(local.dns_vip == null ? [] : [local.dns_vip], values(local.dns_addresses))
   interface_macs       = module.dhcp_macs.interface_macs[each.key]
   name                 = each.key
   management_ip        = each.value.local_management_ip
   prometheus_exporters = var.dhcp_prometheus_exporters
   syslog               = var.dhcp_syslog
   ha                   = each.value
-  interface_addresses = {
-    for index, nic in module.dhcp_macs.network_devices[each.key] :
-    "eth${index + 1}" => "10.${nic.vlan_id}.67.${each.value.address_slot}/${local.dhcp_prefix_lengths[tostring(nic.vlan_id)]}"
-  }
+  ha_interface         = module.dhcp_macs.ha_interfaces[each.key]
+  interface_addresses = merge(
+    {
+      for index, nic in module.dhcp_macs.data_network_devices[each.key] :
+      "eth${index + 1}" => "10.${nic.vlan_id}.67.${each.value.address_slot}/${local.dhcp_prefix_lengths[tostring(nic.vlan_id)]}"
+    },
+    # Kea HA peering: host .1 / .2 of l2vnis.ha_dhcp on the last NIC.
+    {
+      (module.dhcp_macs.ha_interfaces[each.key]) = "${cidrhost(var.l2vnis["ha_dhcp"].prefix, each.value.address_slot)}/${split("/", var.l2vnis["ha_dhcp"].prefix)[1]}"
+    },
+  )
 }

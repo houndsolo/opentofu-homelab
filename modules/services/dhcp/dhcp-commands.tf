@@ -13,6 +13,7 @@ locals {
   dhcp_listen_commands = [
     for interface in keys(var.interface_macs) :
     "set service dhcp-server listen-interface '${interface}'"
+    if interface != var.ha_interface # the Kea HA NIC serves no clients
   ]
 
   dhcp_networks = {

@@ -7,12 +7,20 @@ vms = {
     image              = "debian13"
     management_address = "10.20.53.1/16"
     # No OOB default gateway is configured here.
-    network_devices = [{
-      bridge       = "vmbr4000"
-      vlan_id      = 8
-      ipv4_address = "10.8.53.1/16"
-      ipv4_gateway = "10.8.0.5"
-    }]
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 8
+        ipv4_address = "10.8.53.1/16"
+        ipv4_gateway = "10.8.0.5"
+      },
+      {
+        # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
+        bridge       = "vmbr4000"
+        vlan_id      = 212
+        ipv4_address = "10.21.53.1/24"
+      },
+    ]
     config = {
       tags         = ["debian", "dns", "opentofu"]
       cpu_cores    = 2
@@ -29,12 +37,20 @@ vms = {
     image              = "debian13"
     management_address = "10.20.53.2/16"
     # No OOB default gateway is configured here.
-    network_devices = [{
-      bridge       = "vmbr4000"
-      vlan_id      = 8
-      ipv4_address = "10.8.53.2/16"
-      ipv4_gateway = "10.8.0.5"
-    }]
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 8
+        ipv4_address = "10.8.53.2/16"
+        ipv4_gateway = "10.8.0.5"
+      },
+      {
+        # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
+        bridge       = "vmbr4000"
+        vlan_id      = 212
+        ipv4_address = "10.21.53.2/24"
+      },
+    ]
     config = {
       tags         = ["debian", "dns", "opentofu"]
       cpu_cores    = 2
@@ -125,6 +141,12 @@ vms = {
         vlan_id      = 13
         ipv4_address = "10.13.11.31/16"
       },
+      {
+        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.40) and alerting HA (9094).
+        bridge       = "vmbr4000"
+        vlan_id      = 213
+        ipv4_address = "10.21.11.31/24"
+      },
     ]
     config = {
       tags         = ["debian", "monitoring", "opentofu"]
@@ -154,6 +176,12 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.11.32/16"
+      },
+      {
+        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.40) and alerting HA (9094).
+        bridge       = "vmbr4000"
+        vlan_id      = 213
+        ipv4_address = "10.21.11.32/24"
       },
     ]
     config = {
@@ -194,6 +222,12 @@ vms = {
         # Ceph public network: the local RGW (S3 for Loki) talks to the mons and OSDs.
         bridge       = "vmbr27"
         ipv4_address = "10.27.11.33/16"
+      },
+      {
+        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 214
+        ipv4_address = "10.21.12.33/24"
       },
     ]
     config = {
@@ -236,6 +270,12 @@ vms = {
         bridge       = "vmbr27"
         ipv4_address = "10.27.11.34/16"
       },
+      {
+        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 214
+        ipv4_address = "10.21.12.34/24"
+      },
     ]
     config = {
       tags         = ["debian", "logging", "opentofu"]
@@ -276,6 +316,12 @@ vms = {
         # Ceph public network: the local RGW (S3 for Loki) talks to the mons and OSDs.
         bridge       = "vmbr27"
         ipv4_address = "10.27.11.35/16"
+      },
+      {
+        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 214
+        ipv4_address = "10.21.12.35/24"
       },
     ]
     config = {

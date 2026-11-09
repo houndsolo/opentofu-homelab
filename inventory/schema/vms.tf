@@ -89,10 +89,10 @@ variable "vms" {
     condition = alltrue([
       for vm in values(var.vms) :
       vm.role != "dns" || length([
-        for nic in(vm.network_devices == null ? [] : vm.network_devices) : nic if nic.ipv4_address != null
+        for nic in(vm.network_devices == null ? [] : vm.network_devices) : nic if nic.ipv4_address != null && nic.ipv4_gateway != null
       ]) == 1
     ])
-    error_message = "DNS VMs need exactly one network device with ipv4_address; BIND listens on it."
+    error_message = "DNS VMs need exactly one network device with ipv4_address and ipv4_gateway; BIND listens on it (other NICs, such as the HA L2VNI, have no gateway)."
   }
   validation {
     condition = length([for vm in values(var.vms) : vm if vm.role == "dhcp"]) == 0 || (

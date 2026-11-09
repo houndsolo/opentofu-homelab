@@ -65,7 +65,7 @@ transfers.
 | `dhcp_prometheus_exporters` | `{ vrf = "mgmt" }` | VyOS node-exporter (:9100) and frr-exporter (:9342) on each DHCP VM's management address, in that VRF; scraped by [monitoring-config](../monitoring-config/README.md). `null` leaves them unmanaged. |
 | `dhcp_syslog` | `{ host = "10.20.11.40", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
 | `dns_syslog` | `{ host = "10.20.11.40" }` | rsyslog on each DNS VM forwards its journal (BIND included) to this receiver over TCP; also takes `port` (514) and `level` (`info`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
-| `dhcp_ha_prefix` | `"10.6.67.0/24"` | Where the DHCP HA pair talks: the lower VM ID uses host `.1`, the higher `.2`. See [The HA pair](#the-ha-pair). |
+| `dns_vrrp` | `{ vip = "10.8.53.53/16", router_id = 53 }` | keepalived VIP for the DNS pair: on BIND's service NIC, adverts unicast over the `ha_dns` L2VNI. BIND listens on it and DHCP hands it out first. `null` skips it. See [The DNS VIP](#the-dns-vip). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
 
 The root also reads `vms`, `vnis`, `nodes` and `fabric` from the inventory.
@@ -286,10 +286,10 @@ updates, the change notifications and the zone transfers between `dns01` and
   don't matter. The lower ID (`dhcp01`, 6701) is the **primary** in slot 1, and
   the higher (`dhcp02`, 6702) is the **secondary** in slot 2.
 - **Mode.** The pair runs **active-passive**.
-- **HA link.** The two servers talk over `dhcp_ha_prefix` (default
-  `10.6.67.0/24`) using its `.1` and `.2`, here `10.6.67.1` and `10.6.67.2` on
-  VLAN 6. Those must be the DHCP VMs' own addresses on a DHCP-enabled VLAN, so
-  with the default, VLAN 6 must stay DHCP-enabled.
+- **HA link.** The two servers talk over their own standalone L2VNI,
+  `l2vnis.ha_dhcp` (9211 / VLAN 211, `10.21.67.0/24`), using its `.1` and `.2`.
+  That NIC is always the last one (after the data NICs), has the MAC
+  `02:00:00:67:<VM ID % 100>:ff`, and Kea doesn't listen for clients on it.
 - **Only pairs.** Nothing is configured unless there are exactly two DHCP VMs.
 
 ### What each DHCP VM gets
@@ -309,7 +309,7 @@ Each DHCP VM gets one `vyoscmd_commands` resource (`<name>-dhcp`), with
    is never touched.
 5. **Pools.** One pool for each VLAN with a `dhcp.scope`. Each pool sets the
    default router (the anycast gateway), domain name, search list, name servers
-   (the DNS service addresses), lease time, ranges and `subnet-id` (the VNI). By
+   (the DNS VIP, then the DNS service addresses), lease time, ranges and `subnet-id` (the VNI). By
    default it also marks the pool authoritative. The defaults are listed in
    [inventory](../../inventory/README.md#vnisautotfvars-vrfs-vlans-and-dhcp-scopes).
 
@@ -320,12 +320,13 @@ set interfaces ethernet eth3 hw-id 02:00:00:67:01:08
 set interfaces ethernet eth3 address '10.8.67.1/16'
 set service dhcp-server high-availability mode 'active-passive'
 set service dhcp-server high-availability name 'dhcp02'
-set service dhcp-server high-availability source-address '10.6.67.1'
-set service dhcp-server high-availability remote '10.6.67.2'
+set service dhcp-server high-availability source-address '10.21.67.1'
+set service dhcp-server high-availability remote '10.21.67.2'
 set service dhcp-server high-availability status 'primary'
 set service dhcp-server listen-interface 'eth3'
 set service dhcp-server shared-network-name l2vni9008 authoritative
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option default-router '10.8.0.5'
+set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.53'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.1'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.2'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 range 0 start '10.8.5.1'
@@ -410,3 +411,18 @@ though: `vyoscmd` from the local mirror, the other two from the registry.
 tofu -chdir=roots/services-config init
 tofu -chdir=roots/services-config test
 ```
+
+## The DNS VIP
+
+`dns-keepalived.tf` runs keepalived on both DNS VMs (separate from BIND, so changing it never
+restarts BIND; redeploys reload keepalived, which keeps the current MASTER):
+
+- **VIP** `dns_vrrp.vip` (10.8.53.53/16) on BIND's service NIC (the one with the gateway). BIND's
+  `listen-on` includes the VIP; BIND binds it as soon as keepalived adds it.
+- **Adverts** go unicast over the NIC on `l2vnis.ha_dns` (9212 / VLAN 212, 10.21.53.1/.2), vrid 53,
+  PASS auth from `random_password.dns_vrrp`.
+- **Election.** Both start BACKUP with `nopreempt`; `dns_primary` gets priority 150 for the first
+  election only. A failed check (`dig` for the lylat.space SOA on the VM's own address) puts the node
+  in FAULT and releases the VIP.
+- **DHCP** hands out the VIP first, then both service addresses.
+

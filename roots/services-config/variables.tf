@@ -105,13 +105,25 @@ variable "dns_tsig_secret" {
   }
 }
 
-variable "dhcp_ha_prefix" {
-  description = "DHCP HA peering prefix; the lower VM ID uses host 1 and the higher uses host 2."
-  type        = string
-  default     = "10.6.67.0/24"
+variable "dns_vrrp" {
+  description = <<-EOT
+    keepalived VIP for the DNS pair. Adverts go unicast over the HA L2VNI (l2vnis.ha_dns, the NIC on
+    that VLAN); the VIP sits on BIND's service NIC (the one with the gateway). BIND also listens on the
+    VIP, and DHCP hands it out as the first name server. null = no keepalived/VIP.
+  EOT
+  type = object({
+    vip       = string
+    router_id = optional(number, 53)
+  })
+  default = {
+    vip = "10.8.53.53/16"
+  }
   validation {
-    condition     = can(cidrhost(var.dhcp_ha_prefix, 2))
-    error_message = "Use an IPv4 CIDR with at least two host addresses."
+    condition = var.dns_vrrp == null || try(
+      can(cidrhost(var.dns_vrrp.vip, 0)) && strcontains(var.dns_vrrp.vip, "/") &&
+      var.dns_vrrp.router_id >= 1 && var.dns_vrrp.router_id <= 255, false
+    )
+    error_message = "dns_vrrp.vip must be an IPv4 address with prefix length (e.g. 10.8.53.53/16), router_id 1..255."
   }
 }
 

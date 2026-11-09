@@ -58,6 +58,7 @@ root will silently stop seeing your changes.
 | `vm-config.auto.tfvars` | `vm_config`, `vm_images` | Shared VM defaults and named images | fabric-vms, services-vms, workloads |
 | `vms.auto.tfvars` | `vms` | Every individual VM: owner, role, placement, NICs, overrides | proxmox-download-files, fabric-vms, services-vms, services-config, workloads |
 | `vnis.auto.tfvars` | `vnis` | VRFs (L3VNIs), VLANs (L2VNIs), route-targets, DHCP scopes | fabric-leaves, services-vms, services-config |
+| `l2vnis.auto.tfvars` | `l2vnis` | Standalone L2VNIs for HA peer traffic (no VRF, no gateway, no DHCP): DHCP 9211, DNS 9212, Grafana 9213, logging 9214, all in `10.21.0.0/16` | fabric-leaves, services-vms, services-config |
 | `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Your own DNS records in `lylat.space` | services-config |
 
 
@@ -446,10 +447,9 @@ Not checked automatically, but required:
   DHCP MAC calculator rejects anything else during `plan`.
 - **DHCP-enabled subnets must contain `10.<VLAN>.67.1` and `.2`.** Those are the
   DHCP VMs' addresses, so follow the `10.<VLAN>.0.0/16` convention.
-- **The DHCP HA link must sit on one of those addresses.** The pair talks over
-  `dhcp_ha_prefix` in services-config (default `10.6.67.0/24`, on VLAN 6). Its
-  `.1` and `.2` must be the DHCP VMs' own addresses on a DHCP-enabled VLAN, so
-  with the default, VLAN 6 must stay DHCP-enabled.
+- **The DHCP HA link is not on a DHCP VLAN.** The pair talks over the standalone
+  L2VNI `l2vnis.ha_dhcp` (9211 / VLAN 211, `10.21.67.0/24`, hosts `.1`/`.2`); see
+  [`l2vnis.auto.tfvars`](auto.tfvars/l2vnis.auto.tfvars).
 
 The DHCP options and their defaults:
 
@@ -679,7 +679,7 @@ new names.
 | `owner` defaulting to `"services-vms"` | `owner` is required |
 | `gf_api_token` | `greatfox_api_token` (**rename it in your secrets file**) |
 | hard-coded RouterOS `admin` / `admin` | `routeros_username` (default `admin`), `routeros_password` |
-| hard-coded DHCP HA subnet `10.6.67.0/24` | services-config `dhcp_ha_prefix` (same default) |
+| hard-coded DHCP HA subnet `10.6.67.0/24` | `l2vnis.ha_dhcp.prefix` (`10.21.67.0/24`, its own L2VNI 9211) |
 | DHCP module `dhcp_ha_subnet` → `ha_subnet`, `fabric_macs` | `ha_prefix`, `interface_macs` |
 | DHCP MAC module input `dhcp_vlans`, output `fabric_macs` | input `vnis` (it picks the DHCP VLANs itself), output `interface_macs` |
 | one `passwords.secret.auto.tfvars` linked into roots | per-provider files in `inventory/auto.tfvars.secret/` (the single file still works with `with-secrets`) |

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Managed by OpenTofu (services-config). keepalived health check: BIND answers the
+# lylat.space SOA on this host's own service address.
+out=$(/usr/bin/dig +time=2 +tries=1 +norecurse +short @${address} lylat.space SOA) || exit 1
+[ -n "$out" ]

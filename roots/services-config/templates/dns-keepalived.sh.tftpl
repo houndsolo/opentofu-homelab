@@ -1,0 +1,29 @@
+#!/bin/bash
+# Managed by OpenTofu (services-config): keepalived for the DNS VIP.
+set -euo pipefail
+umask 022
+stage=$(mktemp -d /tmp/tofu-keepalived.XXXXXX)
+trap 'rm -rf "$stage"' EXIT
+printf '%s' '${conf_b64}' | base64 -d > "$stage/keepalived.conf"
+printf '%s' '${check_b64}' | base64 -d > "$stage/chk_bind.sh"
+
+if ! command -v keepalived >/dev/null || ! command -v dig >/dev/null; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -q
+  apt-get install -y -q --no-install-recommends keepalived bind9-dnsutils
+fi
+
+install -d -m 0755 /etc/keepalived
+# enable_script_security: the check must be root-owned and not writable by others.
+install -m 0755 -o root -g root "$stage/chk_bind.sh" /etc/keepalived/chk_bind.sh
+keepalived -t -f "$stage/keepalived.conf"
+install -m 0600 -o root -g root "$stage/keepalived.conf" /etc/keepalived/keepalived.conf
+
+systemctl enable --quiet keepalived.service
+# Reload keeps the VRRP state (no VIP move); start only when not running yet.
+if systemctl is-active --quiet keepalived.service; then
+  systemctl reload keepalived.service
+else
+  systemctl start keepalived.service
+fi
+systemctl is-active --quiet keepalived.service

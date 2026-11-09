@@ -9,10 +9,11 @@ locals {
     for name, vm in var.vms : name => vm
     if vm.owner == "services-vms" && vm.role == "dns"
   }
-  # BIND listens on the one data NIC with an address; the vms validation checks it.
+  # BIND listens on the one data NIC with an address and a gateway (the HA L2VNI NIC
+  # has no gateway); the vms validation checks it.
   dns_addresses = {
     for name, vm in local.dns_vms : name => split("/", one([
-      for nic in vm.network_devices : nic.ipv4_address if nic.ipv4_address != null
+      for nic in vm.network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null
     ]))[0]
   }
   zone_data = templatefile("${path.module}/templates/lylat.space.zone.tftpl", {
@@ -24,6 +25,7 @@ locals {
       image_b64 = base64encode(var.bind9_image)
       config_b64 = base64encode(templatefile("${path.module}/templates/named.conf.tftpl", {
         address             = local.dns_addresses[name]
+        vip                 = local.dns_vip # keepalived VIP; BIND binds it when it appears
         allowed_clients     = var.dns_allowed_clients
         primary             = name == var.dns_primary
         primary_address     = local.dns_addresses[var.dns_primary]

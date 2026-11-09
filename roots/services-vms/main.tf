@@ -7,6 +7,8 @@ module "dhcp_macs" {
   source = "../../modules/services/dhcp/macs"
   vms    = local.dhcp_vms
   vnis   = var.vnis
+  # Kea HA NIC on its own L2VNI, after the DHCP data NICs.
+  ha_vlan_id = var.l2vnis["ha_dhcp"].vlan_id
 }
 
 module "vm" {

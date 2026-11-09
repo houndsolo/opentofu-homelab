@@ -148,16 +148,48 @@ run "preserve_ha_peer_configuration" {
   assert {
     condition = (
       contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability mode 'active-passive'") &&
-      contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability source-address '10.6.67.1'") &&
-      contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability remote '10.6.67.2'") &&
+      contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability source-address '10.21.67.1'") &&
+      contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability remote '10.21.67.2'") &&
       contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability status 'primary'") &&
-      contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability source-address '10.6.67.2'") &&
-      contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability remote '10.6.67.1'") &&
+      contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability source-address '10.21.67.2'") &&
+      contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability remote '10.21.67.1'") &&
       contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability status 'secondary'") &&
       contains(module.dhcp["dhcp01"].commands, "set service dhcp-server high-availability name 'dhcp02'") &&
       contains(module.dhcp["dhcp02"].commands, "set service dhcp-server high-availability name 'dhcp01'")
     )
     error_message = "Keep the supplied active-passive HA roles, opposite source/remote addresses and real peer names on both peers."
+  }
+  assert {
+    condition = (
+      module.dhcp_macs.ha_interfaces.dhcp01 == "eth${length(module.dhcp_macs.data_network_devices.dhcp01) + 1}" &&
+      contains(module.dhcp["dhcp01"].commands, "set interfaces ethernet ${module.dhcp_macs.ha_interfaces.dhcp01} hw-id 02:00:00:67:01:ff") &&
+      contains(module.dhcp["dhcp01"].commands, "set interfaces ethernet ${module.dhcp_macs.ha_interfaces.dhcp01} address '10.21.67.1/24'") &&
+      contains(module.dhcp["dhcp02"].commands, "set interfaces ethernet ${module.dhcp_macs.ha_interfaces.dhcp02} address '10.21.67.2/24'") &&
+      !contains(module.dhcp["dhcp01"].commands, "set service dhcp-server listen-interface '${module.dhcp_macs.ha_interfaces.dhcp01}'")
+    )
+    error_message = "Kea HA runs on the last NIC (ha_dhcp L2VNI, MAC ..:ff, /24 hosts .1/.2), and Kea doesn't listen for clients there."
+  }
+}
+
+run "dns_vrrp" {
+  command = plan
+  assert {
+    condition = (
+      output.dns_vip == "10.8.53.53" &&
+      length(terraform_data.dns_keepalived) == 2 &&
+      local.dns_nics.dns01 == { service = "eth1", ha = { interface = "eth2", address = "10.21.53.1" } } &&
+      strcontains(local.dns_keepalived_scripts.dns01, base64encode(templatefile("${path.module}/templates/dns-keepalived-check.sh.tftpl", { address = "10.8.53.1" })))
+    )
+    error_message = "keepalived on both DNS VMs: VIP on the service NIC, adverts on the ha_dns NIC, health check on the own address."
+  }
+}
+
+run "dns_vrrp_disabled" {
+  command = plan
+  variables { dns_vrrp = null }
+  assert {
+    condition     = output.dns_vip == null && length(terraform_data.dns_keepalived) == 0 && length(random_password.dns_vrrp) == 0
+    error_message = "dns_vrrp = null deploys no keepalived and no VIP."
   }
 }
 

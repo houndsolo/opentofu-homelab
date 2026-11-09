@@ -11,7 +11,7 @@ acl trusted_clients {
 
 options {
     directory "/var/cache/bind";
-    listen-on port 53 { ${address}; };
+    listen-on port 53 { ${address};%{ if vip != null } ${vip};%{ endif } };
     listen-on-v6 { none; };
     recursion yes;
     allow-query { trusted_clients; key "tofu-lylat"; };

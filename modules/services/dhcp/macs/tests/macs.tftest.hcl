@@ -77,3 +77,26 @@ run "reject_duplicate_peer_ids" {
   variables { vms = { one = { vm_id = 6701 }, two = { vm_id = 6701 } } }
   expect_failures = [var.vms]
 }
+
+run "ha_nic_after_data_nics" {
+  command = plan
+  variables { ha_vlan_id = 211 }
+  assert {
+    condition = (
+      length(output.network_devices.dhcp01) == 4 &&
+      length(output.data_network_devices.dhcp01) == 3 &&
+      output.network_devices.dhcp01[3].vlan_id == 211 &&
+      output.interface_macs.dhcp01.eth4 == "02:00:00:67:01:ff" &&
+      output.interface_macs.dhcp02.eth4 == "02:00:00:67:02:ff" &&
+      output.interface_macs.dhcp01.eth3 == "02:00:00:67:01:12" &&
+      output.ha_interfaces.dhcp01 == "eth4"
+    )
+    error_message = "The Kea HA NIC comes after the data NICs with MAC ..:ff, without moving any data NIC."
+  }
+}
+
+run "reject_ha_vlan_that_serves_dhcp" {
+  command = plan
+  variables { ha_vlan_id = 8 }
+  expect_failures = [output.network_devices]
+}
