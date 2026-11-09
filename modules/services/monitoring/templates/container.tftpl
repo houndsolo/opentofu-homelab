@@ -39,8 +39,11 @@ Exec=${join(" ", exec)}
 Restart=always
 RestartSec=5
 TimeoutStartSec=300
-%{ if reload ~}
+%{ if reload == true ~}
 ExecReload=/usr/bin/podman kill --signal HUP ${name}
+%{ endif ~}
+%{ if reload != true && reload != false ~}
+ExecReload=${reload}
 %{ endif ~}
 
 [Install]

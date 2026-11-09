@@ -520,7 +520,9 @@ locals {
         user        = null
         caps        = []
         podman_args = []
-        reload      = false
+        # Grafana 13's file provisioner doesn't always pick up new dashboard folders by
+        # polling, so dashboard changes ask it to rescan through the admin API.
+        reload = "/usr/bin/podman exec grafana sh -c 'curl -fsS -X POST -u \"$$GF_SECURITY_ADMIN_USER:$$GF_SECURITY_ADMIN_PASSWORD\" http://127.0.0.1:3000/api/admin/provisioning/dashboards/reload'"
       })
       node-exporter = templatefile("${path.module}/templates/container.tftpl", {
         name        = "node-exporter"
@@ -594,14 +596,15 @@ locals {
             reload  = []
           },
         ],
-        # No restart: the provider polls the directory (updateIntervalSeconds).
+        # No restart: the provider polls the directory (updateIntervalSeconds), and a
+        # reload (ExecReload above) makes it rescan right away, new folders included.
         [for rel, content in local.dashboards : {
           path    = "${local.dashboards_dir}/${rel}"
           mode    = "0644"
           owner   = "root"
           content = content
           restart = []
-          reload  = []
+          reload  = ["grafana"]
         }],
         local.alloy_files[name],      # logging.tf
         local.grafana_ha_files[name], # grafana-ha.tf
