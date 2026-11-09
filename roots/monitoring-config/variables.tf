@@ -54,6 +54,7 @@ variable "settings" {
     influxdb_retention        = optional(string, "90d")
     grafana_root_url          = optional(string, "http://grafana.lylat.space:3000/")
     dns_probe_zone            = optional(string, "lylat.space")
+    ceph_cluster_name         = optional(string, "lylat") # cluster label on ceph metrics (ceph-mixin dashboards filter on it)
   })
   default = {}
 }
@@ -73,6 +74,12 @@ variable "vyos_extra_targets" {
   description = "VyOS routers outside the inventory: host => management IP. Scraped for node (:9100) and FRR (:9342) exporters."
   type        = map(string)
   default     = { "fw-wan" = "10.20.10.255" }
+}
+
+variable "ceph_mgr_nodes" {
+  description = "Proxmox nodes running a Ceph mgr. Prometheus scrapes the mgr prometheus module (:9283) on each one's monitoring address; only the active mgr returns metrics. Empty leaves the ceph job out."
+  type        = list(string)
+  default     = ["macbeth", "titania", "venom", "zoness"]
 }
 
 variable "node_extra_targets" {
