@@ -45,12 +45,20 @@ locals {
     ])
   ]
 
-  # Standalone L2VNIs: VLAN<->VNI mapping and the access trunk only. VyOS adds the
-  # vxlan0 bridge VLAN, tunnel mapping and VNI filter from vlan-to-vni; no br0 vif/SVI.
+  # Standalone L2VNIs: VLAN<->VNI mapping, the access trunk, and an address-less SVI.
+  # VyOS adds the vxlan0 bridge VLAN, tunnel mapping and VNI filter from vlan-to-vni.
+  # The SVI carries no IPv4 and no IPv6 link-local and sits in the default VRF; it
+  # exists only for FRR: zebra (10.6.1) sets an L2VNI's VLAN on VNI add only when it
+  # finds an SVI, otherwise the VNI shows "Vlan: 0" and local MACs aren't advertised
+  # (seen on 9214, the last VNI added). Bridge (priority 319) commits before vxlan (460),
+  # so at boot the SVI exists before the mapping.
   l2only_vni_commands = flatten([
     for vni in local.role_l2only_vnis : [
       "set interfaces vxlan vxlan0 vlan-to-vni ${vni.vlan_id} vni '${vni.vni}'",
       "set interfaces bridge br0 member interface ${var.leaf.access_interface} allowed-vlan '${vni.vlan_id}'",
+      "set interfaces bridge br0 vif ${vni.vlan_id} description 'HA L2VNI ${vni.vni} (no address; SVI so zebra maps the VLAN)'",
+      "set interfaces bridge br0 vif ${vni.vlan_id} ipv6 address no-default-link-local",
+      "set interfaces bridge br0 vif ${vni.vlan_id} mtu '${var.fabric.settings.vxlan_mtu}'",
     ]
   ])
 }
