@@ -18,7 +18,10 @@ OUT_DIR = '/run/node_exporter/collector'
 OUT = os.path.join(OUT_DIR, 'nft.prom')
 
 TABLES = [('ip', 'vyos_filter', 'ipv4'), ('ip6', 'vyos_filter', 'ipv6'), ('ip', 'vyos_nat', 'ipv4'), ('ip6', 'vyos_nat', 'ipv6')]
-BASE = {'VYOS_FORWARD_filter': 'forward', 'VYOS_INPUT_filter': 'input', 'VYOS_OUTPUT_filter': 'output'}
+BASE = {
+    'VYOS_FORWARD_filter': 'forward', 'VYOS_INPUT_filter': 'input', 'VYOS_OUTPUT_filter': 'output',
+    'VYOS_IPV6_FORWARD_filter': 'forward', 'VYOS_IPV6_INPUT_filter': 'input', 'VYOS_IPV6_OUTPUT_filter': 'output',
+}
 NAT = {'SRC': 'source', 'DST': 'destination'}
 
 lines = []
@@ -66,6 +69,8 @@ for family, table, fam in TABLES:
         if not found or not comment:
             continue
         nft_chain = rule['chain']
+        if nft_chain.endswith('_raw'):
+            continue  # conntrack-helper/notrack chains, not filtering verdicts
         if table == 'vyos_nat':
             m = re.match(r'(SRC|DST)-NAT(?:66)?-(\d+)$', comment)
             if not m:
