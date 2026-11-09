@@ -5,8 +5,9 @@
 
 The JSON files it writes are committed and provisioned like the community ones,
 so edit this script and re-run it rather than editing them by hand. It needs no
-network access. The Proxmox dashboards (InfluxDB) are built by pve.py and the
-fw-wan ones by fwwan.py, which this script imports. Each dashboard:
+network access. The Proxmox dashboards (InfluxDB) are built by pve.py, the
+fw-wan ones by fwwan.py and the log dashboards (Loki) by logs.py, which this script
+imports. Each dashboard:
 
 - queries the provisioned Prometheus datasource (uid "prometheus") directly;
 - uses the scrape targets' "host" label for names and pickers;
@@ -34,6 +35,7 @@ STACK_DASH = "/d/monitoring-stack/monitoring-stack"
 SNMP_DASH = "/d/snmp-device-summary/snmp-device-summary"
 CEPH_DASH = "/d/ceph-cluster/ceph-cluster"
 CEPH_OSD_DASH = "/d/ceph-osd/ceph-osd"
+LOGS_DASH = "/d/logs-overview/logs-overview"  # logs.py
 
 # Every dashboard tagged "ceph" (these and the ceph-mixin ones from update.py) gets
 # a "Ceph dashboards" dropdown.
@@ -454,7 +456,7 @@ def overview():
         q(f"100 * node_nf_conntrack_entries{{{sel}}} / node_nf_conntrack_entries_limit{{{sel}}}", table=True),
         q(f"time() - node_boot_time_seconds{{{sel}}}", table=True),
     ], desc="node_exporter on the hosts (job node) and VyOS routers (job vyos-node). Click a host for "
-            "Node Exporter Full. Disk is / (on VyOS, the persistence partition: the overlay root isn't "
+            "Node Exporter Full or its logs. Disk is / (on VyOS, the persistence partition: the overlay root isn't "
             "reported). Down targets have no exporter yet.",
         transformations=[MERGE, organize(exclude=["Time"], rename={
             "host": "Host", "role": "Role", "Value #A": "State", "Value #B": "CPU",
@@ -471,7 +473,9 @@ def overview():
                                        "custom.cellOptions": {"type": "color-text"}}),
             override("Uptime", {"unit": "dtdurations"}),
             override("Host", {"links": [{"title": "Node Exporter Full",
-                                         "url": NODE_DASH + "?var-job=${__data.fields.job}&var-node=${__data.fields.instance}&${__url_time_range}"}]}),
+                                         "url": NODE_DASH + "?var-job=${__data.fields.job}&var-node=${__data.fields.instance}&${__url_time_range}"},
+                                        {"title": "Logs of this host",
+                                         "url": LOGS_DASH + "?var-host=${__data.fields.host}&${__url_time_range}"}]}),
         ], sort="State", desc_sort=True), 24, 14)
 
     b.row("Traffic")
@@ -640,7 +644,10 @@ def frr():
     ]
     return dashboard("frr-evpn-fabric", "FRR / EVPN fabric",
                      "frr_exporter on the VyOS leaves and DHCP VMs: BGP, BFD, EVPN and routes.",
-                     b, tags=["frr", "bgp", "evpn"], variables=variables)
+                     b, tags=["frr", "bgp", "evpn"], variables=variables,
+                     extra_links=[{"type": "link", "title": "Network device logs", "icon": "doc",
+                                   "url": "/d/logs-network/logs-network", "includeVars": False, "keepTime": True,
+                                   "asDropdown": False, "targetBlank": False, "tags": [], "tooltip": ""}])
 
 
 # --- Probes --------------------------------------------------------------------
@@ -758,7 +765,8 @@ def stack():
         f'"component", "{name}", "", "")'
         for name, metric in (("Prometheus", "prometheus"), ("Alertmanager", "alertmanager"), ("Grafana", "grafana"),
                              ("blackbox_exporter", "blackbox_exporter"), ("snmp_exporter", "snmp_exporter"),
-                             ("node_exporter", "node_exporter"), ("frr_exporter", "frr_exporter")))
+                             ("node_exporter", "node_exporter"), ("frr_exporter", "frr_exporter"),
+                             ("Loki", "loki"), ("Alloy", "alloy")))
     b.add(table("Versions", [q(versions, table=True)],
                 transformations=[organize(exclude=["Time"], rename={
                     "component": "Component", "version": "Version", "Value": "Instances"},
@@ -852,6 +860,62 @@ def stack():
         q("rate(grafana_alerting_execution_time_milliseconds_count[$__rate_interval])", "{{host}} evaluations/s"),
     ], fill=0), 8, 8)
 
+    b.row("Loki and Alloy (logs)")
+    logs_link = [("Logs overview", LOGS_DASH + "?${__url_time_range}")]
+    b.add(stat("Loki / Alloy / haproxy", [q('up{job=~"loki|alloy|haproxy"}', "{{job}} {{host}}")],
+               text_mode="value_and_name", mappings=UP_MAP, thresholds=UP_STEPS,
+               desc="Loki and haproxy (S3 to the RGWs) on log01-03, Alloy on every VM that ships logs."), 8, 7)
+    b.add(stat("Ring members ACTIVE", [q('min by (name) (loki_ring_members{state="ACTIVE"})', "{{name}}")],
+               text_mode="value_and_name", thresholds=steps(("red", None), ("orange", 2), ("green", 3)),
+               desc="ACTIVE members of each Loki ring, as seen by the Loki that sees fewest. 3 = all log VMs."), 6, 7)
+    b.add(stat("Ring health", [
+        q('max(loki_ring_members{state="Unhealthy"}) or vector(0)', "Unhealthy members"),
+        q("min(loki_memberlist_client_cluster_members_count)", "memberlist members"),
+        q('min(sum by (host) (haproxy_server_status{proxy="rgw", state="UP"}))', "RGWs UP (worst VM)"),
+    ], text_mode="value_and_name", color_mode="value", decimals=0,
+        overrides=[override("Unhealthy members", {"thresholds": RED_IF_ANY}),
+                   override("memberlist members", {"thresholds": steps(("red", None), ("orange", 2), ("green", 3))}),
+                   override("RGWs UP (worst VM)", {"thresholds": steps(("red", None), ("orange", 2), ("green", 3))})],
+        desc="Unhealthy ring members (missed heartbeats), memberlist gossip members (VLAN 214), and the fewest "
+             "Ceph RGWs any log VM's haproxy sees UP."), 5, 7)
+    b.add(stat("Flush failures", [
+        q("sum(increase(loki_ingester_chunks_flush_failures_total[$__range])) or vector(0)", "chunk flushes"),
+        q("sum(increase(loki_write_dropped_entries_total[$__range])) or vector(0)", "Alloy drops"),
+        q("sum(increase(loki_source_syslog_parsing_errors_total[$__range])) or vector(0)", "syslog parse errors"),
+    ], text_mode="value_and_name", color_mode="value", decimals=0, thresholds=RED_IF_ANY,
+        desc="In the time range: chunk flushes to S3 that failed, entries Alloy gave up on, syslog lines Alloy "
+             "couldn't parse.", links=logs_link), 5, 7)
+    b.add(timeseries("Lines received (distributors)", [
+        q("sum by (host) (rate(loki_distributor_lines_received_total[$__rate_interval]))", "{{host}}")],
+        fill=10, stack=True, desc="Lines/s each Loki's distributor accepts (pushes land on the VIP holder, or the "
+                                  "local Loki for each log VM's own Alloy).", links=logs_link), 8, 8)
+    b.add(timeseries("Bytes received", [
+        q("sum by (host) (rate(loki_distributor_bytes_received_total[$__rate_interval]))", "{{host}}")],
+        unit="Bps", fill=10, stack=True), 8, 8)
+    b.add(timeseries("Alloy: entries sent / syslog received", [
+        q("sum by (host) (rate(loki_write_sent_entries_total[$__rate_interval]))", "{{host}} sent"),
+        q("sum by (host) (rate(loki_source_syslog_entries_total[$__rate_interval]))", "{{host}} syslog in"),
+        q("sum by (host) (rate(loki_write_dropped_entries_total[$__rate_interval])) > 0", "{{host}} dropped"),
+    ], fill=0, desc="Per Alloy: entries pushed to Loki, syslog lines received (log VMs; the VIP holder gets the "
+                    "devices), and drops."), 8, 8)
+    b.add(timeseries("Chunks flushed to S3 (RGW)", [
+        q("sum by (host, reason) (rate(loki_ingester_chunks_flushed_total[$__rate_interval]))", "{{host}} {{reason}}"),
+        q("sum by (host) (rate(loki_ingester_chunks_flush_failures_total[$__rate_interval])) > 0", "{{host}} failed"),
+    ], fill=0, desc="Chunk flushes by reason (idle, max_age, full, synced). With RF 3 every ingester flushes the "
+                    "same chunks."), 8, 8)
+    b.add(timeseries("S3 requests", [
+        q("sum by (operation, status_code) (rate(loki_s3_request_duration_seconds_count[$__rate_interval]))",
+          "{{operation}} {{status_code}}")], unit="reqps", fill=0,
+        desc="Requests to the RGWs through the local haproxy, by operation and HTTP status."), 8, 8)
+    b.add(timeseries("S3 latency (p95)", [
+        q("histogram_quantile(0.95, sum by (le, operation) (rate(loki_s3_request_duration_seconds_bucket[$__rate_interval])))",
+          "{{operation}}")], unit="s", fill=0), 8, 8)
+    b.add(timeseries("Ingester streams and flush queue", [
+        q("sum by (host) (loki_ingester_memory_streams)", "{{host}} streams"),
+        q("sum by (host) (loki_ingester_flush_queue_length)", "{{host}} flush queue"),
+    ], fill=0, decimals=0, desc="Streams held in memory, and chunks waiting to be flushed (should drain to 0)."),
+        8, 8)
+
     b.row("Exporters")
     b.add(timeseries("SNMP walk duration", [
         q("max by (host, module) (snmp_scrape_duration_seconds)", "{{host}} {{module}}")], unit="s", fill=0), 8, 8)
@@ -871,8 +935,9 @@ def stack():
         unit="percentunit", fill=0, desc="CPU seconds per second (1 = one core)."), 12, 8)
 
     return dashboard("monitoring-stack", "Monitoring stack",
-                     "Prometheus, Alertmanager, Grafana and the exporters running on mon01.",
-                     b, tags=["prometheus", "alertmanager", "grafana"])
+                     "Prometheus, Alertmanager, Grafana and the exporters running on mon01, and the logging stack "
+                     "(Loki rings, ingest, S3 flushes, Alloy).",
+                     b, tags=["prometheus", "alertmanager", "grafana", "loki"])
 
 
 # --- Ceph ----------------------------------------------------------------------
@@ -1705,12 +1770,13 @@ DASHBOARDS = {
 
 
 def main():
-    sys.modules.setdefault("custom", sys.modules[__name__])  # for pve.py's and fwwan.py's "from custom import ..."
+    sys.modules.setdefault("custom", sys.modules[__name__])  # for pve.py's, fwwan.py's and logs.py's "from custom import ..."
     sys.path.insert(0, str(HERE))
     sys.dont_write_bytecode = True
     import fwwan
+    import logs
     import pve
-    for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS}.items():
+    for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = build()

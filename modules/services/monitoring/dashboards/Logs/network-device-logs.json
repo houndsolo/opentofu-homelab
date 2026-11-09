@@ -1,0 +1,2001 @@
+{
+  "id": null,
+  "uid": "logs-network",
+  "title": "Network device logs",
+  "description": "Syslog of the VyOS leaves, fw-wan, MikroTik spines and CRS317s, FS switches and C9800 WLCs: BGP/BFD, interface, STP, login and config events, AP and client events, per-device timelines.",
+  "tags": [
+    "logs",
+    "lylat",
+    "network"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "logs"
+      ],
+      "asDropdown": true,
+      "title": "Logs dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "link",
+      "title": "FRR / EVPN fabric",
+      "url": "/d/frr-evpn-fabric/frr-evpn-fabric",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "device",
+        "label": "Device",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({source=\"syslog\", host=~\"LEAF-[0-9]+|fw-wan|m3[0-9]+-[0-9]+|switch-[0-9]+|c9800-wlc-[0-9]+\"}, host)",
+        "query": "label_values({source=\"syslog\", host=~\"LEAF-[0-9]+|fw-wan|m3[0-9]+-[0-9]+|switch-[0-9]+|c9800-wlc-[0-9]+\"}, host)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
+        "allValue": "LEAF-[0-9]+|fw-wan|m3[0-9]+-[0-9]+|switch-[0-9]+|c9800-wlc-[0-9]+",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "search",
+        "label": "Search (regex)",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "description": "Case-insensitive RE2 regex on the line; empty matches everything.",
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Events in range",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "BGP / BFD",
+      "description": "FRR's %ADJCHANGE (bgpd, log-neighbor-changes) on VyOS; RouterOS session state lines ('<session> {l_addr: .., r_addr: ..} Established/Idle') and 'BFD session was not established'. FRR logs BFD state changes only at debug level, so they don't show up here.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `ADJCHANGE|\\{l_addr: [^}]*\\} [A-Za-z]+|(?i:state-change|bfd session|\\bbgp\\b.*\\b(established|idle|notification|hold timer)\\b)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "BGP / BFD",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Interface up/down",
+      "description": "Kernel 'Link is Up/Down' (VyOS), RouterOS 'link up/down', Cisco/FS %LINK/%LINEPROTO UPDOWN.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:\\blink is (up|down)\\b|\\blink (up|down)\\b|updown|changed state to (up|down|administratively down)|carrier (lost|acquired))` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Interface up/down",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "STP",
+      "description": "Spanning tree: topology changes, port role/state changes (also Linux bridge port states on VyOS).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:spantree|\\bstp\\b|mstp|rstp|topology change|topo(logy)?[ _-]?change|entered (blocking|forwarding|disabled|listening|learning) state)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "STP",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Auth failures",
+      "description": "Failed SSH/console logins: sshd, RouterOS 'login failure', FS 'auth fail', IOS-XE %SEC_LOGIN-4-LOGIN_FAILED.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:failed password|invalid user|authentication failure|login failure|auth fail|login_failed|authentication failed|failed publickey|maximum authentication attempts|bad password)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Auth failures",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Logins",
+      "description": "Successful logins: sshd 'Accepted ...', RouterOS/FS 'logged in', IOS-XE %SEC_LOGIN-5-LOGIN_SUCCESS. The automation on a0-nix (10.20.250.255) logs in often.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:accepted (publickey|password|keyboard-interactive)|logged in|login_success)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Logins",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Config changes",
+      "description": "VyOS commits, RouterOS '... changed by user', FS/IOS-XE 'Configured from' and saves.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:successful change to active configuration|config_i\\b|%sys-\\d-config|configured from|startup-config is wrote|\\b(added|changed|removed|moved) by [a-z-]+:)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Config changes",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "AP join/leave",
+      "description": "C9800: access points joining or leaving the controller (%CAPWAPAC_SMGR_TRACE_MESSAGE-5-AP_JOIN_DISJOIN), AP reboots and AIR state.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:ap_join|disjoin|ap event|ap_air_state|\\bap\\b.*\\b(joined|disassociated|reboot)\\b|capwap.*\\b(join|down)\\b)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "AP join/leave",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Client failures",
+      "description": "C9800: wireless clients excluded, failing 802.1X/MAB/web auth or being rejected.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:client_exclusion|exclusionlist|dot1x.*fail|mab.*fail|webauth.*fail|client.*(fail|reject|exclu|deauth|timeout))` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Client failures",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      }
+    },
+    {
+      "type": "row",
+      "title": "Timelines",
+      "collapsed": false,
+      "id": 10,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "type": "status-history",
+      "title": "Events per device",
+      "description": "Every event of the categories above, per device and time bucket (darker = more). Only devices with events show up.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?:ADJCHANGE|\\{l_addr: [^}]*\\} [A-Za-z]+|(?i:state-change|bfd session|\\bbgp\\b.*\\b(established|idle|notification|hold timer)\\b))|(?:(?i:\\blink is (up|down)\\b|\\blink (up|down)\\b|updown|changed state to (up|down|administratively down)|carrier (lost|acquired)))|(?:(?i:spantree|\\bstp\\b|mstp|rstp|topology change|topo(logy)?[ _-]?change|entered (blocking|forwarding|disabled|listening|learning) state))|(?:(?i:failed password|invalid user|authentication failure|login failure|auth fail|login_failed|authentication failed|failed publickey|maximum authentication attempts|bad password))|(?:(?i:accepted (publickey|password|keyboard-interactive)|logged in|login_success))|(?:(?i:successful change to active configuration|config_i\\b|%sys-\\d-config|configured from|startup-config is wrote|\\b(added|changed|removed|moved) by [a-z-]+:))|(?:(?i:ap_join|disjoin|ap event|ap_air_state|\\bap\\b.*\\b(joined|disassociated|reboot)\\b|capwap.*\\b(join|down)\\b))|(?:(?i:client_exclusion|exclusionlist|dot1x.*fail|mab.*fail|webauth.*fail|client.*(fail|reject|exclu|deauth|timeout)))` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{host}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "",
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "rowHeight": 0.85,
+        "colWidth": 0.9,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Events by category",
+      "description": "One line can count in two categories (a 'login failure' line is also a login line on some devices).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `ADJCHANGE|\\{l_addr: [^}]*\\} [A-Za-z]+|(?i:state-change|bfd session|\\bbgp\\b.*\\b(established|idle|notification|hold timer)\\b)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "BGP / BFD",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:\\blink is (up|down)\\b|\\blink (up|down)\\b|updown|changed state to (up|down|administratively down)|carrier (lost|acquired))` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "Interface up/down",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:spantree|\\bstp\\b|mstp|rstp|topology change|topo(logy)?[ _-]?change|entered (blocking|forwarding|disabled|listening|learning) state)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "STP",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:failed password|invalid user|authentication failure|login failure|auth fail|login_failed|authentication failed|failed publickey|maximum authentication attempts|bad password)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "Auth failures",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:accepted (publickey|password|keyboard-interactive)|logged in|login_success)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "Logins",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:successful change to active configuration|config_i\\b|%sys-\\d-config|configured from|startup-config is wrote|\\b(added|changed|removed|moved) by [a-z-]+:)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "Config changes",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:ap_join|disjoin|ap event|ap_air_state|\\bap\\b.*\\b(joined|disassociated|reboot)\\b|capwap.*\\b(join|down)\\b)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "AP join/leave",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:client_exclusion|exclusionlist|dot1x.*fail|mab.*fail|webauth.*fail|client.*(fail|reject|exclu|deauth|timeout))` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "Client failures",
+          "refId": "H"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Lines per device",
+      "description": "All syslog lines of the selected devices. VyOS lines are sent twice (see Logs overview).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{host}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      }
+    },
+    {
+      "type": "row",
+      "title": "Routing: BGP and BFD",
+      "collapsed": false,
+      "id": 14,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "BGP session changes",
+      "description": "FRR's %ADJCHANGE (VyOS leaves, fw-wan: peer(hostname) in vrf X Up/Down reason) and RouterOS session states (spines, CRS317: session name, remote address, state).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `ADJCHANGE|\\{l_addr: ` | regexp `neighbor (?P<peer_a>[^\\s(]+)\\s?(?:\\((?P<name_a>[^)]*)\\))? in vrf (?P<vrf>\\S+) (?P<state_a>Up|Down)\\s*(?P<reason>[^\\n]*)` | regexp `(?P<name_b>\\S+) \\{l_addr: [^,]+, r_addr: (?P<peer_b>[^}]+)\\} (?P<state_b>[A-Za-z]+)` | label_format peer=`{{ or .peer_a .peer_b }}`, peer_name=`{{ or .name_a .name_b }}`, state=`{{ or .state_a .state_b }}`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 300,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No matching lines in range",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Router"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Peer"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Session / name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "VRF"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Up": {
+                        "text": "Up",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "Established": {
+                        "text": "Established",
+                        "color": "green",
+                        "index": 1
+                      },
+                      "Down": {
+                        "text": "Down",
+                        "color": "red",
+                        "index": 2
+                      },
+                      "Idle": {
+                        "text": "Idle",
+                        "color": "red",
+                        "index": 3
+                      },
+                      "Active": {
+                        "text": "Active",
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "Connect": {
+                        "text": "Connect",
+                        "color": "orange",
+                        "index": 5
+                      },
+                      "OpenSent": {
+                        "text": "OpenSent",
+                        "color": "orange",
+                        "index": 6
+                      },
+                      "OpenConfirm": {
+                        "text": "OpenConfirm",
+                        "color": "orange",
+                        "index": 7
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "format": "auto",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "Time",
+                "host",
+                "peer",
+                "peer_name",
+                "vrf",
+                "state",
+                "reason",
+                "Line"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "Line": "Message",
+              "host": "Router",
+              "peer": "Peer",
+              "peer_name": "Session / name",
+              "vrf": "VRF",
+              "state": "State",
+              "reason": "Reason"
+            },
+            "indexByName": {
+              "Time": 0,
+              "host": 1,
+              "peer": 2,
+              "peer_name": 3,
+              "vrf": 4,
+              "state": 5,
+              "reason": 6,
+              "Line": 7
+            }
+          }
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "type": "logs",
+      "title": "BGP / BFD log",
+      "description": "FRR's %ADJCHANGE (bgpd, log-neighbor-changes) on VyOS; RouterOS session state lines ('<session> {l_addr: .., r_addr: ..} Established/Idle') and 'BFD session was not established'. FRR logs BFD state changes only at debug level, so they don't show up here.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `ADJCHANGE|\\{l_addr: [^}]*\\} [A-Za-z]+|(?i:state-change|bfd session|\\bbgp\\b.*\\b(established|idle|notification|hold timer)\\b)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      }
+    },
+    {
+      "type": "row",
+      "title": "Interfaces and spanning tree",
+      "collapsed": false,
+      "id": 17,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Interface events per device",
+      "description": "Link up/down lines by device and the first 'up'/'down' in the line.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host, state) (count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:\\blink is (up|down)\\b|\\blink (up|down)\\b|updown|changed state to (up|down|administratively down)|carrier (lost|acquired))` | regexp `(?i)\\b(?P<state>up|down)\\b` | label_format state=`{{ lower .state }}` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{host}} {{state}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 35
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Interface up/down",
+      "description": "Kernel 'Link is Up/Down' (VyOS), RouterOS 'link up/down', Cisco/FS %LINK/%LINEPROTO UPDOWN.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:\\blink is (up|down)\\b|\\blink (up|down)\\b|updown|changed state to (up|down|administratively down)|carrier (lost|acquired))`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 35
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Spanning tree",
+      "description": "Spanning tree: topology changes, port role/state changes (also Linux bridge port states on VyOS).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:spantree|\\bstp\\b|mstp|rstp|topology change|topo(logy)?[ _-]?change|entered (blocking|forwarding|disabled|listening|learning) state)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 35
+      }
+    },
+    {
+      "type": "row",
+      "title": "Access and configuration",
+      "collapsed": false,
+      "id": 21,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "panels": []
+    },
+    {
+      "type": "logs",
+      "title": "Auth failures",
+      "description": "Failed SSH/console logins: sshd, RouterOS 'login failure', FS 'auth fail', IOS-XE %SEC_LOGIN-4-LOGIN_FAILED.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:failed password|invalid user|authentication failure|login failure|auth fail|login_failed|authentication failed|failed publickey|maximum authentication attempts|bad password)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 22,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 45
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Logins",
+      "description": "Successful logins: sshd 'Accepted ...', RouterOS/FS 'logged in', IOS-XE %SEC_LOGIN-5-LOGIN_SUCCESS. The automation on a0-nix (10.20.250.255) logs in often.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:accepted (publickey|password|keyboard-interactive)|logged in|login_success)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 23,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 8,
+        "y": 45
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Config changes",
+      "description": "VyOS commits, RouterOS '... changed by user', FS/IOS-XE 'Configured from' and saves.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |~ `(?i:successful change to active configuration|config_i\\b|%sys-\\d-config|configured from|startup-config is wrote|\\b(added|changed|removed|moved) by [a-z-]+:)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 24,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 45
+      }
+    },
+    {
+      "type": "row",
+      "title": "Wireless (C9800) and Cisco-style messages",
+      "collapsed": false,
+      "id": 25,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 55
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "AP join/leave",
+      "description": "C9800: access points joining or leaving the controller (%CAPWAPAC_SMGR_TRACE_MESSAGE-5-AP_JOIN_DISJOIN), AP reboots and AIR state.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"c9800-wlc-[0-9]+\"} |~ `(?i)$search` |~ `(?i:ap_join|disjoin|ap event|ap_air_state|\\bap\\b.*\\b(joined|disassociated|reboot)\\b|capwap.*\\b(join|down)\\b)` | regexp `AP Name: (?P<ap>\\S+) .*?\\b(?P<event>Joined|Disjoined)\\b\\s*(?P<reason>[^\\n]*)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 300,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No matching lines in range",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "WLC"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AP"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Event"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Event"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Joined": {
+                        "text": "Joined",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "Disjoined": {
+                        "text": "Disjoined",
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "format": "auto",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "Time",
+                "host",
+                "ap",
+                "event",
+                "reason",
+                "Line"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "Line": "Message",
+              "host": "WLC",
+              "ap": "AP",
+              "event": "Event",
+              "reason": "Reason / details"
+            },
+            "indexByName": {
+              "Time": 0,
+              "host": 1,
+              "ap": 2,
+              "event": 3,
+              "reason": 4,
+              "Line": 5
+            }
+          }
+        }
+      ],
+      "id": 26,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 56
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Client failures",
+      "description": "C9800: wireless clients excluded, failing 802.1X/MAB/web auth or being rejected.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"c9800-wlc-[0-9]+\"} |~ `(?i)$search` |~ `(?i:client_exclusion|exclusionlist|dot1x.*fail|mab.*fail|webauth.*fail|client.*(fail|reject|exclu|deauth|timeout))`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 27,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 8,
+        "y": 56
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Message types (range)",
+      "description": "IOS-XE and FS messages by %FACILITY-SEVERITY-MNEMONIC in the time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(20, sum by (host, mnemonic) (count_over_time({source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search` |= \"%\" | regexp `%(?P<mnemonic>[A-Z0-9_]+-[0-7]-[A-Z0-9_]+)` | mnemonic!=\"\" [$__range])))",
+          "queryType": "instant",
+          "legendFormat": "{{host}} {{mnemonic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 28,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 56
+      }
+    },
+    {
+      "type": "row",
+      "title": "All device logs",
+      "collapsed": false,
+      "id": 29,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 66
+      },
+      "panels": []
+    },
+    {
+      "type": "logs",
+      "title": "Device logs",
+      "description": "Everything the selected devices sent, newest first.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"${device:regex}\"} |~ `(?i)$search`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 1000,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 30,
+      "gridPos": {
+        "h": 20,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      }
+    }
+  ]
+}

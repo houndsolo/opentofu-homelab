@@ -1,0 +1,2267 @@
+{
+  "id": null,
+  "uid": "logs-fw-wan",
+  "title": "fw-wan firewall & VPN logs",
+  "description": "fw-wan's syslog in Loki: the firewall log parsed (chain, rule, action, interfaces, addresses, ports), top dropped sources/destinations/ports/rules, strongSwan IKE events and the rest of the router log.",
+  "tags": [
+    "fw-wan",
+    "logs",
+    "lylat"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "logs"
+      ],
+      "asDropdown": true,
+      "title": "Logs dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "link",
+      "title": "fw-wan firewall (metrics)",
+      "url": "/d/fw-wan-firewall/fw-wan-firewall",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    },
+    {
+      "type": "link",
+      "title": "fw-wan VPNs (metrics)",
+      "url": "/d/fw-wan-vpn/fw-wan-vpn",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "action",
+        "label": "Action",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "query": "drop,reject,accept",
+        "hide": 0,
+        "options": [],
+        "skipUrlSync": false,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "addr",
+        "label": "Address",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "description": "Only firewall lines containing this text (an address, port, interface).",
+        "options": []
+      },
+      {
+        "name": "search",
+        "label": "Search (regex)",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "description": "Case-insensitive RE2 regex on the line; empty matches everything.",
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Firewall log",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Logged packets",
+      "description": "Firewall rules with `log` enabled, in the time range (action and address pickers apply).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Logged packets",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Dropped",
+      "description": "Logged drops (address picker applies).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"drop\" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Dropped",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Rejected",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"reject\" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Rejected",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Accepted (logged)",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"accept\" [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "Accepted (logged)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Distinct sources",
+      "description": "Source addresses in the logged packets.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "count(sum by (src) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range]))) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "sources",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Distinct destination ports",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "count(sum by (proto, dpt) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range]))) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "ports",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Logged packets by rule",
+      "description": "Per chain and rule; the action is the rule's (accept/drop/reject).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (chain, rule, action) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{chain}} #{{rule}} {{action}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "By action",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (action) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{action}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "accept"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "drop"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "reject"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 5
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "By inbound interface",
+      "description": "IN= of the logged packet (a VRF device for routed traffic).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (in) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{in}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top sources (dropped/rejected)",
+      "description": "Logged drops and rejects in the time range (the action picker doesn't apply).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (src) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "queryType": "instant",
+          "legendFormat": "{{src}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 0,
+        "y": 14
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top destinations (dropped/rejected)",
+      "description": "Logged drops and rejects in the time range (the action picker doesn't apply).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (dst) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "queryType": "instant",
+          "legendFormat": "{{dst}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 6,
+        "y": 14
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top destination ports (dropped/rejected)",
+      "description": "Logged drops and rejects in the time range (the action picker doesn't apply).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (proto, dpt) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "queryType": "instant",
+          "legendFormat": "{{proto}} {{dpt}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 14
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Top rules (dropped/rejected)",
+      "description": "Logged drops and rejects in the time range (the action picker doesn't apply).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (chain, rule) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "queryType": "instant",
+          "legendFormat": "{{chain}} #{{rule}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 14
+      }
+    },
+    {
+      "type": "table",
+      "title": "Firewall log",
+      "description": "The newest 500 logged packets. The Message column has the full line.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\"",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No matching lines in range",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Chain"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rule"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Action"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "In"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Out"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Proto"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Source"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sport"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Destination"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Dport"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Action"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "accept": {
+                        "text": "accept",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "drop": {
+                        "text": "drop",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "reject": {
+                        "text": "reject",
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "format": "auto",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "Time",
+                "chain",
+                "rule",
+                "action",
+                "in",
+                "out",
+                "proto",
+                "src",
+                "spt",
+                "dst",
+                "dpt",
+                "Line"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "Line": "Message",
+              "chain": "Chain",
+              "rule": "Rule",
+              "action": "Action",
+              "in": "In",
+              "out": "Out",
+              "proto": "Proto",
+              "src": "Source",
+              "spt": "Sport",
+              "dst": "Destination",
+              "dpt": "Dport"
+            },
+            "indexByName": {
+              "Time": 0,
+              "chain": 1,
+              "rule": 2,
+              "action": 3,
+              "in": 4,
+              "out": 5,
+              "proto": 6,
+              "src": 7,
+              "spt": 8,
+              "dst": 9,
+              "dpt": 10,
+              "Line": 11
+            }
+          }
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      }
+    },
+    {
+      "type": "row",
+      "title": "IPsec (strongSwan)",
+      "collapsed": false,
+      "id": 16,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "IKE initiating",
+      "description": "charon lines matching `initiating (IKE|CHILD)_SA|establishing CHILD_SA` in the time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `initiating (IKE|CHILD)_SA|establishing CHILD_SA` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "IKE initiating",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 17,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 36
+      }
+    },
+    {
+      "type": "stat",
+      "title": "IKE established",
+      "description": "charon lines matching `(IKE|CHILD)_SA \\S+ established` in the time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `(IKE|CHILD)_SA \\S+ established` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "IKE established",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 36
+      }
+    },
+    {
+      "type": "stat",
+      "title": "IKE retransmits",
+      "description": "charon lines matching `retransmit \\d+ of` in the time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `retransmit \\d+ of` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "IKE retransmits",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 36
+      }
+    },
+    {
+      "type": "stat",
+      "title": "IKE failures",
+      "description": "charon lines matching `(?i:giving up|failed|no proposal chosen|authentication_failed|peer not responding|timed out|unable to|no IKE config)` in the time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `(?i:giving up|failed|no proposal chosen|authentication_failed|peer not responding|timed out|unable to|no IKE config)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "IKE failures",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 36
+      }
+    },
+    {
+      "type": "stat",
+      "title": "IKE deleted",
+      "description": "charon lines matching `deleting (IKE|CHILD)_SA|closing CHILD_SA|IKE_SA \\S+ (deleted|rekeyed)` in the time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `deleting (IKE|CHILD)_SA|closing CHILD_SA|IKE_SA \\S+ (deleted|rekeyed)` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "IKE deleted",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 21,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 36
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Lines (range)",
+      "description": "All charon lines, packet traces included.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "lines",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 22,
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 36
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "IKE events",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `initiating (IKE|CHILD)_SA|establishing CHILD_SA` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "initiating",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `(IKE|CHILD)_SA \\S+ established` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "established",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `retransmit \\d+ of` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "retransmits",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `(?i:giving up|failed|no proposal chosen|authentication_failed|peer not responding|timed out|unable to|no IKE config)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "failures",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `deleting (IKE|CHILD)_SA|closing CHILD_SA|IKE_SA \\S+ (deleted|rekeyed)` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "deleted",
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "established"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failures"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "retransmits"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "initiating"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "deleted"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 23,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Initiations by connection",
+      "description": "A connection that keeps initiating without 'established' is stuck CONNECTING (a peer that doesn't answer, like VPS-lylat-space).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (sa) (count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} |~ `initiating IKE_SA|establishing CHILD_SA` | regexp `(?:IKE|CHILD)_SA (?P<sa>[A-Za-z0-9][\\w.-]*)[\\[{]` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{sa}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 24,
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      }
+    },
+    {
+      "type": "logs",
+      "title": "strongSwan (without packet traces)",
+      "description": "charon's log minus 'sending/received packet' and message parse/generate lines.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=\"fw-wan\", app=~\"charon.*\"} !~ `sending packet|received packet|parsed \\S+ (request|response)|generating \\S+ (request|response)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 25,
+      "gridPos": {
+        "h": 12,
+        "w": 16,
+        "x": 0,
+        "y": 49
+      }
+    },
+    {
+      "type": "logs",
+      "title": "WireGuard",
+      "description": "The kernel's WireGuard module only logs with dynamic debug, so this is usually empty; handshakes and traffic are on the fw-wan VPNs dashboard (metrics).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=\"fw-wan\"} |~ `(?i)wireguard|\\bwg[0-9]+\\b`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 26,
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 16,
+        "y": 49
+      }
+    },
+    {
+      "type": "row",
+      "title": "Router log",
+      "collapsed": false,
+      "id": 27,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 61
+      },
+      "panels": []
+    },
+    {
+      "type": "logs",
+      "title": "Config commits",
+      "description": "VyOS 'Successful change to active configuration'.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=\"fw-wan\", app=\"commit\"}",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 28,
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 0,
+        "y": 62
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Everything else",
+      "description": "fw-wan's log without firewall, strongSwan and commit lines (search picker applies).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=\"fw-wan\", app!~\"charon.*|commit\"} !~ `^\\s*\\[ipv[46]-` |~ `(?i)$search`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 29,
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 8,
+        "y": 62
+      }
+    }
+  ]
+}

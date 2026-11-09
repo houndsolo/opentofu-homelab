@@ -41,6 +41,18 @@
       "url": ""
     },
     {
+      "type": "link",
+      "title": "Logs of this host",
+      "icon": "doc",
+      "tags": [],
+      "tooltip": "",
+      "url": "/d/logs-overview/logs-overview?var-host=${node:text}",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false
+    },
+    {
       "icon": "external link",
       "tags": [],
       "targetBlank": true,

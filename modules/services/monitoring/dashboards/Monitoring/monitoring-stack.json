@@ -2,10 +2,11 @@
   "id": null,
   "uid": "monitoring-stack",
   "title": "Monitoring stack",
-  "description": "Prometheus, Alertmanager, Grafana and the exporters running on mon01.",
+  "description": "Prometheus, Alertmanager, Grafana and the exporters running on mon01, and the logging stack (Loki rings, ingest, S3 flushes, Alloy).",
   "tags": [
     "alertmanager",
     "grafana",
+    "loki",
     "lylat",
     "prometheus"
   ],
@@ -279,7 +280,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "label_replace(label_replace(count by (version) (prometheus_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Prometheus\", \"\", \"\") or label_replace(label_replace(count by (version) (alertmanager_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Alertmanager\", \"\", \"\") or label_replace(label_replace(count by (version) (grafana_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Grafana\", \"\", \"\") or label_replace(label_replace(count by (version) (blackbox_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"blackbox_exporter\", \"\", \"\") or label_replace(label_replace(count by (version) (snmp_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"snmp_exporter\", \"\", \"\") or label_replace(label_replace(count by (version) (node_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"node_exporter\", \"\", \"\") or label_replace(label_replace(count by (version) (frr_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"frr_exporter\", \"\", \"\")",
+          "expr": "label_replace(label_replace(count by (version) (prometheus_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Prometheus\", \"\", \"\") or label_replace(label_replace(count by (version) (alertmanager_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Alertmanager\", \"\", \"\") or label_replace(label_replace(count by (version) (grafana_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Grafana\", \"\", \"\") or label_replace(label_replace(count by (version) (blackbox_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"blackbox_exporter\", \"\", \"\") or label_replace(label_replace(count by (version) (snmp_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"snmp_exporter\", \"\", \"\") or label_replace(label_replace(count by (version) (node_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"node_exporter\", \"\", \"\") or label_replace(label_replace(count by (version) (frr_exporter_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"frr_exporter\", \"\", \"\") or label_replace(label_replace(count by (version) (loki_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Loki\", \"\", \"\") or label_replace(label_replace(count by (version) (alloy_build_info), \"version\", \"not reported\", \"version\", \"\"), \"component\", \"Alloy\", \"\", \"\")",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2673,7 +2674,7 @@
     },
     {
       "type": "row",
-      "title": "Exporters",
+      "title": "Loki and Alloy (logs)",
       "collapsed": false,
       "id": 35,
       "gridPos": {
@@ -2681,6 +2682,1050 @@
         "w": 24,
         "x": 0,
         "y": 73
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Loki / Alloy / haproxy",
+      "description": "Loki and haproxy (S3 to the RGWs) on log01-03, Alloy on every VM that ships logs.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "up{job=~\"loki|alloy|haproxy\"}",
+          "legendFormat": "{{job}} {{host}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 36,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 74
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ring members ACTIVE",
+      "description": "ACTIVE members of each Loki ring, as seen by the Loki that sees fewest. 3 = all log VMs.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min by (name) (loki_ring_members{state=\"ACTIVE\"})",
+          "legendFormat": "{{name}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 3
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 37,
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 8,
+        "y": 74
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Ring health",
+      "description": "Unhealthy ring members (missed heartbeats), memberlist gossip members (VLAN 214), and the fewest Ceph RGWs any log VM's haproxy sees UP.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(loki_ring_members{state=\"Unhealthy\"}) or vector(0)",
+          "legendFormat": "Unhealthy members",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(loki_memberlist_client_cluster_members_count)",
+          "legendFormat": "memberlist members",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(sum by (host) (haproxy_server_status{proxy=\"rgw\", state=\"UP\"}))",
+          "legendFormat": "RGWs UP (worst VM)",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unhealthy members"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "memberlist members"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 2
+                    },
+                    {
+                      "color": "green",
+                      "value": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RGWs UP (worst VM)"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 2
+                    },
+                    {
+                      "color": "green",
+                      "value": 3
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 38,
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 14,
+        "y": 74
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Flush failures",
+      "description": "In the time range: chunk flushes to S3 that failed, entries Alloy gave up on, syslog lines Alloy couldn't parse.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(loki_ingester_chunks_flush_failures_total[$__range])) or vector(0)",
+          "legendFormat": "chunk flushes",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(loki_write_dropped_entries_total[$__range])) or vector(0)",
+          "legendFormat": "Alloy drops",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(loki_source_syslog_parsing_errors_total[$__range])) or vector(0)",
+          "legendFormat": "syslog parse errors",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Logs overview",
+          "url": "/d/logs-overview/logs-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 39,
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 19,
+        "y": 74
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Lines received (distributors)",
+      "description": "Lines/s each Loki's distributor accepts (pushes land on the VIP holder, or the local Loki for each log VM's own Alloy).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (rate(loki_distributor_lines_received_total[$__rate_interval]))",
+          "legendFormat": "{{host}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "Logs overview",
+          "url": "/d/logs-overview/logs-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 40,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 81
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Bytes received",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (rate(loki_distributor_bytes_received_total[$__rate_interval]))",
+          "legendFormat": "{{host}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 41,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 81
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Alloy: entries sent / syslog received",
+      "description": "Per Alloy: entries pushed to Loki, syslog lines received (log VMs; the VIP holder gets the devices), and drops.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (rate(loki_write_sent_entries_total[$__rate_interval]))",
+          "legendFormat": "{{host}} sent",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (rate(loki_source_syslog_entries_total[$__rate_interval]))",
+          "legendFormat": "{{host}} syslog in",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (rate(loki_write_dropped_entries_total[$__rate_interval])) > 0",
+          "legendFormat": "{{host}} dropped",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 42,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 81
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Chunks flushed to S3 (RGW)",
+      "description": "Chunk flushes by reason (idle, max_age, full, synced). With RF 3 every ingester flushes the same chunks.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host, reason) (rate(loki_ingester_chunks_flushed_total[$__rate_interval]))",
+          "legendFormat": "{{host}} {{reason}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (rate(loki_ingester_chunks_flush_failures_total[$__rate_interval])) > 0",
+          "legendFormat": "{{host}} failed",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 43,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 89
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "S3 requests",
+      "description": "Requests to the RGWs through the local haproxy, by operation and HTTP status.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (operation, status_code) (rate(loki_s3_request_duration_seconds_count[$__rate_interval]))",
+          "legendFormat": "{{operation}} {{status_code}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 44,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 89
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "S3 latency (p95)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(loki_s3_request_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{operation}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 45,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 89
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Ingester streams and flush queue",
+      "description": "Streams held in memory, and chunks waiting to be flushed (should drain to 0).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (loki_ingester_memory_streams)",
+          "legendFormat": "{{host}} streams",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host) (loki_ingester_flush_queue_length)",
+          "legendFormat": "{{host}} flush queue",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 46,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 97
+      }
+    },
+    {
+      "type": "row",
+      "title": "Exporters",
+      "collapsed": false,
+      "id": 47,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 105
       },
       "panels": []
     },
@@ -2755,12 +3800,12 @@
           "sort": "desc"
         }
       },
-      "id": 36,
+      "id": 48,
       "gridPos": {
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 74
+        "y": 106
       }
     },
     {
@@ -2845,12 +3890,12 @@
           "sort": "desc"
         }
       },
-      "id": 37,
+      "id": 49,
       "gridPos": {
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 74
+        "y": 106
       }
     },
     {
@@ -2923,24 +3968,24 @@
           "sort": "desc"
         }
       },
-      "id": 38,
+      "id": 50,
       "gridPos": {
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 74
+        "y": 106
       }
     },
     {
       "type": "row",
       "title": "Resources",
       "collapsed": false,
-      "id": 39,
+      "id": 51,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 82
+        "y": 114
       },
       "panels": []
     },
@@ -3015,12 +4060,12 @@
           "sort": "desc"
         }
       },
-      "id": 40,
+      "id": 52,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 83
+        "y": 115
       }
     },
     {
@@ -3094,12 +4139,12 @@
           "sort": "desc"
         }
       },
-      "id": 41,
+      "id": 53,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 83
+        "y": 115
       }
     }
   ]

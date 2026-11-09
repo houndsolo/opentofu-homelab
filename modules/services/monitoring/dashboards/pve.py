@@ -851,7 +851,10 @@ def node():
 
     return finish(dashboard("proxmox-node", "Proxmox node",
                             "One PVE node in depth: CPU, load, memory, swap, root disk, NICs, its guests and storages.",
-                            b, tags=["proxmox"], variables=[bucket_var(), node_var()], extra_links=[PVE_LINK]))
+                            b, tags=["proxmox"], variables=[bucket_var(), node_var()], extra_links=[PVE_LINK, {
+                                "type": "link", "title": "Logs of this node", "icon": "doc", "tags": [], "tooltip": "",
+                                "url": "/d/logs-proxmox/logs-proxmox?var-node=${node}", "includeVars": False,
+                                "keepTime": True, "asDropdown": False, "targetBlank": False}]))
 
 
 def storage_table(sel="true", title="Storages"):

@@ -2919,7 +2919,7 @@
     {
       "type": "table",
       "title": "Hosts and routers",
-      "description": "node_exporter on the hosts (job node) and VyOS routers (job vyos-node). Click a host for Node Exporter Full. Disk is / (on VyOS, the persistence partition: the overlay root isn't reported). Down targets have no exporter yet.",
+      "description": "node_exporter on the hosts (job node) and VyOS routers (job vyos-node). Click a host for Node Exporter Full or its logs. Disk is / (on VyOS, the persistence partition: the overlay root isn't reported). Down targets have no exporter yet.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -3378,6 +3378,10 @@
                   {
                     "title": "Node Exporter Full",
                     "url": "/d/node-exporter-full/node-exporter-full?var-job=${__data.fields.job}&var-node=${__data.fields.instance}&${__url_time_range}"
+                  },
+                  {
+                    "title": "Logs of this host",
+                    "url": "/d/logs-overview/logs-overview?var-host=${__data.fields.host}&${__url_time_range}"
                   }
                 ]
               }

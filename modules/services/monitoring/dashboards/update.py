@@ -11,6 +11,7 @@ upstream JSON stays readable:
 - every Prometheus datasource reference points at the provisioned datasource
   (uid "prometheus"); datasource template variables and the import-only
   __inputs/__requires sections are dropped, so no import dialog is needed;
+- extra top-bar links where a spec lists them (Node Exporter Full: the host's logs);
 - the device/node picker shows the scrape target's "host" label (value stays the
   instance the queries filter on) and lists only targets that have the
   dashboard's metrics;
@@ -67,6 +68,10 @@ DASHBOARDS = {
         "picker": {"var": "node", "metric": 'node_uname_info{job="$job"}', "label": "Host"},
         "drop_vars": ["nodename"],  # only fed the old instance picker; the host picker replaces both
         "reset_vars": ["job"],      # no saved selection from the upstream author
+        # The picked host's logs (logs.py; its host picker ignores case, Prometheus has leaf-11, Loki LEAF-11).
+        "links": [{"type": "link", "title": "Logs of this host", "icon": "doc", "tags": [], "tooltip": "",
+                   "url": "/d/logs-overview/logs-overview?var-host=${node:text}", "includeVars": False,
+                   "keepTime": True, "asDropdown": False, "targetBlank": False}],
     },
     # Official Ceph dashboards (the ones the Ceph dashboard embeds). The headline "Ceph
     # cluster" and "Ceph OSD" dashboards are custom.py's; these add depth. rgw, nvmeof,
@@ -179,7 +184,7 @@ def adapt(dash, spec):
     group = spec.get("group")
     dash["tags"] = sorted(set(dash.get("tags", [])) | {"lylat"} | ({group} if group else set()))
     links = [link for link in dash.get("links", []) if link.get("type") != "dashboards"]
-    dash["links"] = ([dict(GROUP_LINKS[group])] if group else []) + [dict(NAV_LINK)] + links
+    dash["links"] = ([dict(GROUP_LINKS[group])] if group else []) + [dict(NAV_LINK)] + spec.get("links", []) + links
     return dash
 
 

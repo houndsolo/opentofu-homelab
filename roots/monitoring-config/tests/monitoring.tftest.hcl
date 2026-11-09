@@ -93,6 +93,11 @@ run "inventory_targets" {
         "Edge/fw-wan-routing.json"             = "fw-wan-routing"
         "Edge/fw-wan-vpn.json"                 = "fw-wan-vpn"
         "Hosts/node-exporter-full.json"        = "node-exporter-full"
+        "Logs/fw-wan-logs.json"                = "logs-fw-wan"
+        "Logs/logs-overview.json"              = "logs-overview"
+        "Logs/network-device-logs.json"        = "logs-network"
+        "Logs/proxmox-ceph-logs.json"          = "logs-proxmox"
+        "Logs/services-logs.json"              = "logs-services"
         "Monitoring/monitoring-stack.json"     = "monitoring-stack"
         "Network/frr-evpn-fabric.json"         = "frr-evpn-fabric"
         "Network/mikrotik-snmp.json"           = "mikrotik-snmp"
@@ -174,9 +179,13 @@ run "inventory_targets" {
 
   assert {
     # The Proxmox dashboards read InfluxDB (the PVE metric server buckets); some add Prometheus panels.
+    # The log dashboards (Logs/) read Loki.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
-      (strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") ||
-      (startswith(rel, "Proxmox/") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}"))) &&
+      (
+        strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") ||
+        (startswith(rel, "Proxmox/") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}")) ||
+        (startswith(rel, "Logs/") && strcontains(content, "{\"type\":\"loki\",\"uid\":\"loki\"}"))
+      ) &&
       !strcontains(content, "$${DS_") &&            # import-time placeholders
       !strcontains(content, "DS_PROMETHEUS") &&     # import-time placeholder
       !strcontains(content, "$source") &&           # datasource template variable
@@ -186,6 +195,17 @@ run "inventory_targets" {
       !can(jsondecode(content).__inputs)
     )])
     error_message = "Dashboards must use the provisioned Prometheus datasource (uid \"prometheus\") directly, with nothing to pick at import."
+  }
+
+  assert {
+    # The log dashboards query only the provisioned Loki datasource and share a "Logs dashboards" dropdown.
+    condition = alltrue([for rel, content in module.monitoring.dashboards : (
+      contains(jsondecode(content).tags, "logs") &&
+      length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "logs")]) == 1 &&
+      length(regexall("\"type\":\"loki\",\"uid\":\"[^\"]*\"", content)) > 0 &&
+      length(regexall("\"type\":\"loki\",\"uid\":\"[^\"]*\"", content)) == length(regexall("\"type\":\"loki\",\"uid\":\"loki\"", content))
+    ) if startswith(rel, "Logs/")])
+    error_message = "Log dashboards carry the logs tag and dropdown and use the provisioned Loki datasource."
   }
 
   assert {
