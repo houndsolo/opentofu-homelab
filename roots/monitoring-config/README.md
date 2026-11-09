@@ -160,9 +160,24 @@ in the top bar ("SNMP dashboards") switches between them and keeps the selected
 device and time range. The device and host pickers show each target's `host` label.
 The Ceph dashboards (`ceph` tag) likewise share a "Ceph dashboards" dropdown.
 
-The Ceph dashboards read the mgr prometheus module (job `ceph`, `exclude_perf_counters=false`
-for the per-daemon perf counters, `rbd_stats_pools=ceph_rbd` for per-image RBD stats). They stay
-empty until that job is applied and Prometheus has scraped it.
+The Ceph dashboards read the mgr prometheus module (job `ceph`) plus node_exporter on the
+PVE nodes. Neither is managed by OpenTofu; this was done by hand on the cluster (2026-11-08):
+
+```sh
+# Once, on any PVE node: the mgr exporter (port 9283 on every mgr; only the active one
+# returns metrics, standbys answer with an empty 200).
+ceph mgr module enable prometheus
+ceph config set mgr mgr/prometheus/exclude_perf_counters false  # per-daemon perf counters (no ceph-exporter on PVE)
+ceph config set mgr mgr/prometheus/rbd_stats_pools ceph_rbd     # per-image (per VM disk) RBD stats
+
+# On each Ceph node: node_exporter (:9100, job `node`, role `proxmox`) with the SMART
+# textfile collector (prometheus-node-exporter-smartmon.timer, every 15 min).
+apt-get install -y --no-install-recommends prometheus-node-exporter prometheus-node-exporter-collectors
+```
+
+`ceph_mgr_nodes` lists the mgr hosts to scrape; update it if mgrs move. `ceph-exporter`
+is deliberately not used: the perf counters come from the mgr instead, and PVE's package
+crash-loops on the keyring path (PVE bug 6816).
 
 Panels that stay empty, and why:
 
@@ -188,8 +203,7 @@ Panels that stay empty, and why:
   reply latency and per-op request latency are empty while the MDS is idle.
   "OSD hosts", "OSD disk utilization/await" and the Ceph OSD "Disk" row need
   node_exporter on the PVE nodes (job `node`, role `proxmox`); they join it on
-  `host` = PVE hostname and `device` = the OSD's disk from `ceph_disk_occupation`,
-  and fill in once it's installed.
+  `host` = PVE hostname and `device` = the OSD's disk from `ceph_disk_occupation`.
 - **Ceph mixin dashboards:** the physical-device panels of "OSD device details" join
   node_exporter on `instance` (ours is `host:port`), so they stay empty even with
   node_exporter; use the Ceph OSD dashboard instead. Compression panels are empty
@@ -197,7 +211,7 @@ Panels that stay empty, and why:
   "Pool storage" raw used query metrics Ceph 20 no longer exports; MDS CPU/open
   requests need the mgr `stats` module (disabled); RGW versions are empty (no RGW);
   the OSD size buckets skip 10-12 TB, where these 10.9 TiB OSDs fall.
-- Hosts without an exporter yet (DNS VMs, Proxmox nodes, fw-wan) show as DOWN in
+- Hosts without an exporter yet (DNS VMs, the standalone greatfox, fw-wan) show as DOWN in
   the target tables and are left out of everything else.
 
 ### Changing the dashboards
