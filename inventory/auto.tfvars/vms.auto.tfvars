@@ -164,6 +164,130 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  log01 = {
+    owner              = "services-vms"
+    role               = "logging"
+    node               = "zoness"
+    vm_id              = 1133
+    image              = "debian13"
+    management_address = "10.20.11.33/16"
+    network_devices = [
+      {
+        # Internet (image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.33/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.33/16"
+      },
+      {
+        # Monitoring network: syslog and log pushes from devices and PVE nodes.
+        bridge       = "vmbr100"
+        ipv4_address = "10.5.11.33/16"
+      },
+      {
+        # Ceph public network: the local RGW (S3 for Loki) talks to the mons and OSDs.
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.33/16"
+      },
+    ]
+    config = {
+      tags         = ["debian", "logging", "opentofu"]
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  log02 = {
+    owner              = "services-vms"
+    role               = "logging"
+    node               = "titania"
+    vm_id              = 1134
+    image              = "debian13"
+    management_address = "10.20.11.34/16"
+    network_devices = [
+      {
+        # Internet (image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.34/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.34/16"
+      },
+      {
+        # Monitoring network: syslog and log pushes from devices and PVE nodes.
+        bridge       = "vmbr100"
+        ipv4_address = "10.5.11.34/16"
+      },
+      {
+        # Ceph public network: the local RGW (S3 for Loki) talks to the mons and OSDs.
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.34/16"
+      },
+    ]
+    config = {
+      tags         = ["debian", "logging", "opentofu"]
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  log03 = {
+    owner              = "services-vms"
+    role               = "logging"
+    node               = "fortuna"
+    vm_id              = 1135
+    image              = "debian13"
+    management_address = "10.20.11.35/16"
+    network_devices = [
+      {
+        # Internet (image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.35/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.35/16"
+      },
+      {
+        # Monitoring network: syslog and log pushes from devices and PVE nodes.
+        bridge       = "vmbr100"
+        ipv4_address = "10.5.11.35/16"
+      },
+      {
+        # Ceph public network: the local RGW (S3 for Loki) talks to the mons and OSDs.
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.35/16"
+      },
+    ]
+    config = {
+      tags         = ["debian", "logging", "opentofu"]
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+
   lab01 = {
     owner = "workloads"
     node  = "venom"
