@@ -231,11 +231,11 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 12,
-        "h": 8
+        "w": 6,
+        "h": 7
       },
       "repeatDirection": "h",
-      "maxPerRow": 2
+      "maxPerRow": 4
     }
   ]
 }

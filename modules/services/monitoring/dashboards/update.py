@@ -368,7 +368,8 @@ def migrate_singlestat(dash):
 
 def snmp_throughput_panel(panel):
     graph_to_timeseries()(panel)
-    panel.update(gridPos={"x": 0, "y": 0, "w": 12, "h": 8}, repeatDirection="h", maxPerRow=2)
+    # 4 per row (w=6): one panel per interface, sized for a wide screen
+    panel.update(gridPos={"x": 0, "y": 0, "w": 6, "h": 7}, repeatDirection="h", maxPerRow=4)
     panel.pop("span", None)
     panel["fieldConfig"]["defaults"]["unit"] = "bps"
     frame_colors(panel, [theme.ACCENT2, theme.ACCENT])
