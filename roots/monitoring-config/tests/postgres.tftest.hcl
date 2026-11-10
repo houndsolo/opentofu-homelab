@@ -104,9 +104,10 @@ run "postgres_cluster" {
       contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "hostssl grafana grafana ${local.backend_address.graf02}/32 scram-sha-256") &&
       contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "host replication replicator 10.21.15.42/32 scram-sha-256") &&
       length([for l in yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba : l if strcontains(l, "0.0.0.0/0")]) == 0 &&
-      length([for l in yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba : l if startswith(l, "host replication")]) == 3
+      contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "host replication replicator 127.0.0.1/32 scram-sha-256") &&
+      length([for l in yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba : l if startswith(l, "host replication")]) == 4
     )
-    error_message = "pg_hba allows Grafana from graf01/02 (hostssl) and replication/superuser only from pg01-03."
+    error_message = "pg_hba allows Grafana from graf01/02 (hostssl), replication/superuser only from pg01-03, and Patroni's local replication check on loopback."
   }
 
   assert {

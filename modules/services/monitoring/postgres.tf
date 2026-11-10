@@ -157,6 +157,10 @@ locals {
             "local all postgres peer",
             "local replication postgres peer",
             "host all pgmon 127.0.0.1/32 scram-sha-256", # postgres_exporter
+            # Patroni's own replication connection to the local Postgres (IDENTIFY_SYSTEM: local
+            # timeline/LSN for pg_rewind decisions). With listen 0.0.0.0 Patroni connects to
+            # 127.0.0.1; the Patroni docs require this loopback line for replication.
+            "host replication replicator 127.0.0.1/32 scram-sha-256",
           ],
           [for ip in local.pg_members : "host replication replicator ${ip}/32 scram-sha-256"],
           [for ip in local.pg_members : "host all postgres ${ip}/32 scram-sha-256"], # pg_rewind, Patroni
