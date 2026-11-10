@@ -21,6 +21,9 @@ options {
     forward only;
     forwarders { 1.1.1.1; 1.0.0.1; };
     dnssec-validation auto;
+    # haylett.lan is a forward zone under .lan, which the signed root proves doesn't exist:
+    # without this the forwarder's (unsigned) answers fail validation and every name SERVFAILs.
+    validate-except { "haylett.lan"; };
     pid-file "/run/named/named.pid";
 };
 
@@ -41,6 +44,31 @@ zone "lylat.space" {
 %{ else ~}
     type secondary;
     file "/var/lib/bind/secondary/lylat.space.zone";
+    primaries { ${primary_address} key "tofu-lylat"; };
+    allow-notify { key "tofu-lylat"; };
+    allow-update-forwarding { none; };
+    notify no;
+%{ endif ~}
+};
+
+# Reverse zone for 10.0.0.0/8, served locally: with global forward-only BIND creates no RFC 1918
+# empty zones, so PTR lookups went to the forwarders and SERVFAILed (DNSSEC: 10.in-addr.arpa is an
+# insecure delegation). PTRs are generated from the A records (dns-records.tf).
+zone "10.in-addr.arpa" {
+%{ if primary ~}
+    type primary;
+    file "/var/lib/bind/primary/10.in-addr.arpa.zone";
+    update-policy { grant tofu-lylat zonesub ANY; };
+    allow-transfer { key "tofu-lylat"; };
+    notify explicit;
+    also-notify {
+%{ for peer in secondary_addresses ~}
+        ${peer} key "tofu-lylat";
+%{ endfor ~}
+    };
+%{ else ~}
+    type secondary;
+    file "/var/lib/bind/secondary/10.in-addr.arpa.zone";
     primaries { ${primary_address} key "tofu-lylat"; };
     allow-notify { key "tofu-lylat"; };
     allow-update-forwarding { none; };

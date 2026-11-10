@@ -20,6 +20,10 @@ locals {
     addresses = local.dns_addresses
     primary   = var.dns_primary
   })
+  reverse_zone_data = templatefile("${path.module}/templates/reverse.zone.tftpl", {
+    addresses = local.dns_addresses
+    primary   = var.dns_primary
+  })
   deployments = {
     for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/deploy.sh.tftpl", {
       image_b64 = base64encode(var.bind9_image)
@@ -31,8 +35,9 @@ locals {
         primary_address     = local.dns_addresses[var.dns_primary]
         secondary_addresses = [for peer, address in local.dns_addresses : address if peer != var.dns_primary]
       }))
-      zone_b64 = base64encode(local.zone_data)
-      primary  = name == var.dns_primary
+      zone_b64    = base64encode(local.zone_data)
+      reverse_b64 = base64encode(local.reverse_zone_data)
+      primary     = name == var.dns_primary
       key_b64 = base64encode(templatefile("${path.module}/templates/tsig.key.tftpl", {
         secret = local.dns_tsig_secret
       }))

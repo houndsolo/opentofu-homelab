@@ -62,6 +62,24 @@ locals {
   }
 }
 
+locals {
+  # PTRs in 10.in-addr.arpa for every 10.0.0.0/8 address in the zone (A records + the DNS VMs'
+  # own seed records). Several names on one address: the shortest name wins (host over alias).
+  ptr_pairs = concat(
+    flatten([for key, record in local.record_sets : [
+      for ip in record.data : { ip = ip, name = record.name } if startswith(ip, "10.") && record.name != null
+    ] if record.type == "A"]),
+    [for name, ip in local.dns_addresses : { ip = ip, name = name }],
+  )
+  ptr_names = { for pair in local.ptr_pairs : pair.ip => format("%03d%s", length(pair.name), pair.name)... }
+  ptr_records = {
+    for ip, names in local.ptr_names : ip => {
+      owner  = join(".", reverse(slice(split(".", ip), 1, 4)))
+      target = "${substr(sort(names)[0], 3, -1)}.lylat.space."
+    }
+  }
+}
+
 provider "dns" {
   update {
     server        = local.dns_addresses[var.dns_primary]
@@ -165,6 +183,17 @@ resource "dns_srv_record_set" "records" {
       target   = regexall("\\S+", srv.value)[3]
     }
   }
+
+  depends_on = [terraform_data.bind9]
+}
+
+# Reverse zone (served by BIND as 10.in-addr.arpa, dns01 primary -> dns02).
+resource "dns_ptr_record" "reverse" {
+  for_each = local.ptr_records
+  zone     = "10.in-addr.arpa."
+  name     = each.value.owner
+  ptr      = each.value.target
+  ttl      = 300
 
   depends_on = [terraform_data.bind9]
 }

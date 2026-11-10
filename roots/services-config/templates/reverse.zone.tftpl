@@ -1,0 +1,11 @@
+$TTL 300
+@ IN SOA ${primary}.lylat.space. hostmaster.lylat.space. (
+    1  ; initial serial; RFC 2136 updates increment this automatically
+    300
+    120
+    604800
+    300
+)
+%{ for name, address in addresses ~}
+@ IN NS ${name}.lylat.space.
+%{ endfor ~}
