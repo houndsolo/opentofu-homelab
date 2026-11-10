@@ -741,7 +741,12 @@ def proxmox():
 # --- Services logs ---------------------------------------------------------------------
 
 DNS = '{source="syslog", host=~"dns0[0-9]", app="bind9"}'
-KEA = '{source="syslog", host=~"dhcp0[0-9]|fw-wan", app=~"kea-dhcp4|kea-vrf-helper"}'
+# Kea runs in two unrelated places: the cluster HA pair dhcp01/02 (kea-dhcp4) and fw-wan, which
+# serves the guest VRF on eth3.4 alone (kea-vrf-helper, no HA). Each gets its own panels.
+KEA_HA = '{source="syslog", host=~"dhcp0[12]", app=~"kea-dhcp4|kea-vrf-helper"}'
+KEA_FW = '{source="syslog", host="fw-wan", app=~"kea-dhcp4|kea-vrf-helper"}'
+KEA_HA_TITLE = "DHCP: cluster HA pair (dhcp01/02)"
+KEA_FW_TITLE = "DHCP: fw-wan (guest)"
 VRRP = '{app="Keepalived_vrrp"}'
 BIND_EVENTS = [
     ("zone transfers", "Transfer completed"),
@@ -792,27 +797,42 @@ def services():
                desc="dns01 and dns02, minus 'no valid signature' validation lines."), 24, 10)
 
     b.row("DHCP (Kea)")
-    for name, regex, thresholds in KEA_EVENTS:
-        b.add(range_stat(name.capitalize(), f"{KEA} |~ `{regex}`", thresholds=thresholds,
-                         desc=f"Kea lines matching `{regex}` (dhcp01, dhcp02 and fw-wan's guest DHCP)."), 4, 4)
-    b.add(range_stat("Lines (without heartbeats)", KEA + " != `'ha-heartbeat'`"), 4, 4)
-    kea_codes = KEA + r" != `'ha-heartbeat'` | regexp `^\s*(?P<sev>[A-Z]+)\s+(?P<code>[A-Z0-9_]+)`"
-    b.add(per_bucket("Kea messages by code (top 10)", [lq(f"topk(10, sum by (code) ({count(kea_codes)}))", "{{code}}")],
-                     desc="Kea's message IDs (DHCP4_LEASE_ALLOC, HA_STATE_TRANSITION, ...), heartbeats left out."),
-          8, 10)
-    b.add(log_table("Leases allocated", KEA + ' |= "DHCP4_LEASE_ALLOC" | regexp `\\[hwtype=\\d+ (?P<mac>[0-9a-f:]+)\\]'
-                                              '.*lease (?P<address>\\S+) has been allocated for (?P<seconds>\\d+) seconds`',
-                    ["host", "address", "mac", "seconds"],
-                    rename={"host": "Server", "address": "Address", "mac": "MAC", "seconds": "Lease (s)"},
-                    widths={"host": 80, "address": 110, "mac": 140, "seconds": 80}), 8, 10)
-    b.add(log_table("HA state transitions",
-                    KEA + ' |= "HA_STATE_TRANSITION" | regexp `HA_STATE_TRANSITION (?P<server>\\S+): server transitions '
-                          'from (?P<from>\\S+) to (?P<to>\\S+) state, partner state is (?P<partner>\\S+)`',
-                    ["server", "from", "to", "partner"],
-                    rename={"server": "Server", "from": "From", "to": "To", "partner": "Partner state"},
-                    widths={"server": 80, "from": 120, "to": 120}), 8, 10)
-    b.add(logs("Kea (without heartbeats)", KEA + search() + " != `'ha-heartbeat'` !~ `HA_HEARTBEAT|COMMAND_RECEIVED`",
-               desc="dhcp01, dhcp02 and fw-wan's Kea, minus the HA heartbeat commands."), 24, 10)
+    # Cluster pair on the left half, fw-wan on the right; fw-wan has no HA, so no HA panels there.
+    no_hb = " != `'ha-heartbeat'`"
+    kea_code = r" | regexp `^\s*(?P<sev>[A-Z]+)\s+(?P<code>[A-Z0-9_]+)`"
+    lease_re = (' |= "DHCP4_LEASE_ALLOC" | regexp `\\[hwtype=\\d+ (?P<mac>[0-9a-f:]+)\\]'
+                '.*lease (?P<address>\\S+) has been allocated for (?P<seconds>\\d+) seconds`')
+    lease_names = {"host": "Server", "address": "Address", "mac": "MAC", "seconds": "Lease (s)"}
+    lease_widths = {"host": 80, "address": 110, "mac": 140, "seconds": 80}
+
+    def kea_stats(sel, who, events, prefix):
+        return [range_stat(f"{prefix}: {name}", f"{sel} |~ `{regex}`", thresholds=thresholds,
+                           desc=f"Kea lines matching `{regex}` ({who}).") for name, regex, thresholds in events] \
+            + [range_stat(f"{prefix}: lines", sel + no_hb, desc=f"All Kea lines ({who}), HA heartbeats left out.")]
+
+    b.grid(12, 4, kea_stats(KEA_HA, "dhcp01 + dhcp02", KEA_EVENTS, "dhcp01/02"), 3)
+    b.grid(12, 4, kea_stats(KEA_FW, "fw-wan's guest DHCP", [e for e in KEA_EVENTS if not e[1].startswith("HA_")],
+                            "fw-wan"), 2)
+    for sel, title, who in ((KEA_HA, KEA_HA_TITLE, "dhcp01 + dhcp02"), (KEA_FW, KEA_FW_TITLE, "fw-wan")):
+        b.add(per_bucket(f"Kea messages by code (top 10): {title.removeprefix('DHCP: ')}",
+                         [lq(f"topk(10, sum by (code) ({count(sel + no_hb + kea_code)}))", "{{code}}")],
+                         desc=f"Kea's message IDs on {who} (DHCP4_LEASE_ALLOC, HA_STATE_TRANSITION, ...), "
+                              "heartbeats left out."), 12, 10)
+    b.add(log_table(f"Leases allocated: {KEA_HA_TITLE.removeprefix('DHCP: ')}", KEA_HA + lease_re,
+                    ["host", "address", "mac", "seconds"], rename=lease_names, widths=lease_widths), 12, 10)
+    b.add(log_table(f"Leases allocated: {KEA_FW_TITLE.removeprefix('DHCP: ')}", KEA_FW + lease_re,
+                    ["address", "mac", "seconds"], rename=lease_names, widths=lease_widths), 12, 10)
+    b.col(12,
+          (log_table("HA state transitions (dhcp01/02)",
+                     KEA_HA + ' |= "HA_STATE_TRANSITION" | regexp `HA_STATE_TRANSITION (?P<server>\\S+): server '
+                              'transitions from (?P<from>\\S+) to (?P<to>\\S+) state, partner state is (?P<partner>\\S+)`',
+                     ["server", "from", "to", "partner"],
+                     rename={"server": "Server", "from": "From", "to": "To", "partner": "Partner state"},
+                     widths={"server": 80, "from": 120, "to": 120}), 8),
+          (logs(KEA_HA_TITLE, KEA_HA + search() + no_hb + " !~ `HA_HEARTBEAT|COMMAND_RECEIVED`",
+                desc="Kea on dhcp01 and dhcp02, minus the HA heartbeat commands."), 12))
+    b.add(logs(KEA_FW_TITLE, KEA_FW + search(),
+               desc="Kea on fw-wan (the guest VRF's DHCP on eth3.4, kea-vrf-helper; no HA)."), 12, 20)
 
     b.row("keepalived (VIP moves)")
     states = VRRP + ' |~ `Entering (MASTER|BACKUP|FAULT) STATE` | regexp `\\((?P<instance>[^)]+)\\) Entering (?P<state>[A-Z]+) STATE`'

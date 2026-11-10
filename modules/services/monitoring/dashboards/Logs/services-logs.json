@@ -922,8 +922,8 @@
     },
     {
       "type": "stat",
-      "title": "Leases allocated",
-      "description": "Kea lines matching `DHCP4_LEASE_ALLOC` (dhcp01, dhcp02 and fw-wan's guest DHCP).",
+      "title": "dhcp01/02: leases allocated",
+      "description": "Kea lines matching `DHCP4_LEASE_ALLOC` (dhcp01 + dhcp02).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -935,9 +935,9 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `DHCP4_LEASE_ALLOC` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `DHCP4_LEASE_ALLOC` [$__range])) or vector(0)",
           "queryType": "instant",
-          "legendFormat": "Leases allocated",
+          "legendFormat": "dhcp01/02: leases allocated",
           "refId": "A"
         }
       ],
@@ -987,8 +987,8 @@
     },
     {
       "type": "stat",
-      "title": "Naks",
-      "description": "Kea lines matching `DHCP4_PACKET_NAK|DHCPNAK` (dhcp01, dhcp02 and fw-wan's guest DHCP).",
+      "title": "dhcp01/02: NAKs",
+      "description": "Kea lines matching `DHCP4_PACKET_NAK|DHCPNAK` (dhcp01 + dhcp02).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1000,9 +1000,9 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `DHCP4_PACKET_NAK|DHCPNAK` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `DHCP4_PACKET_NAK|DHCPNAK` [$__range])) or vector(0)",
           "queryType": "instant",
-          "legendFormat": "Naks",
+          "legendFormat": "dhcp01/02: NAKs",
           "refId": "A"
         }
       ],
@@ -1056,8 +1056,8 @@
     },
     {
       "type": "stat",
-      "title": "Allocation failures",
-      "description": "Kea lines matching `ALLOC_FAIL|DHCP4_.*_FAIL|no address available` (dhcp01, dhcp02 and fw-wan's guest DHCP).",
+      "title": "dhcp01/02: allocation failures",
+      "description": "Kea lines matching `ALLOC_FAIL|DHCP4_.*_FAIL|no address available` (dhcp01 + dhcp02).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1069,9 +1069,9 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `ALLOC_FAIL|DHCP4_.*_FAIL|no address available` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `ALLOC_FAIL|DHCP4_.*_FAIL|no address available` [$__range])) or vector(0)",
           "queryType": "instant",
-          "legendFormat": "Allocation failures",
+          "legendFormat": "dhcp01/02: allocation failures",
           "refId": "A"
         }
       ],
@@ -1125,8 +1125,8 @@
     },
     {
       "type": "stat",
-      "title": "Ha state changes",
-      "description": "Kea lines matching `HA_STATE_TRANSITION` (dhcp01, dhcp02 and fw-wan's guest DHCP).",
+      "title": "dhcp01/02: HA state changes",
+      "description": "Kea lines matching `HA_STATE_TRANSITION` (dhcp01 + dhcp02).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1138,9 +1138,9 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `HA_STATE_TRANSITION` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `HA_STATE_TRANSITION` [$__range])) or vector(0)",
           "queryType": "instant",
-          "legendFormat": "Ha state changes",
+          "legendFormat": "dhcp01/02: HA state changes",
           "refId": "A"
         }
       ],
@@ -1188,14 +1188,14 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 12,
-        "y": 25
+        "x": 0,
+        "y": 29
       }
     },
     {
       "type": "stat",
-      "title": "Ha comms problems",
-      "description": "Kea lines matching `HA_COMMUNICATION_INTERRUPTED|HA_HEARTBEAT_FAILED|HA_.*_FAILED|partner .* unavailable` (dhcp01, dhcp02 and fw-wan's guest DHCP).",
+      "title": "dhcp01/02: HA comms problems",
+      "description": "Kea lines matching `HA_COMMUNICATION_INTERRUPTED|HA_HEARTBEAT_FAILED|HA_.*_FAILED|partner .* unavailable` (dhcp01 + dhcp02).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1207,9 +1207,9 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `HA_COMMUNICATION_INTERRUPTED|HA_HEARTBEAT_FAILED|HA_.*_FAILED|partner .* unavailable` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `HA_COMMUNICATION_INTERRUPTED|HA_HEARTBEAT_FAILED|HA_.*_FAILED|partner .* unavailable` [$__range])) or vector(0)",
           "queryType": "instant",
-          "legendFormat": "Ha comms problems",
+          "legendFormat": "dhcp01/02: HA comms problems",
           "refId": "A"
         }
       ],
@@ -1257,14 +1257,14 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 16,
-        "y": 25
+        "x": 4,
+        "y": 29
       }
     },
     {
       "type": "stat",
-      "title": "Lines (without heartbeats)",
-      "description": "",
+      "title": "dhcp01/02: lines",
+      "description": "All Kea lines (dhcp01 + dhcp02), HA heartbeats left out.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1276,9 +1276,9 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} != `'ha-heartbeat'` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} != `'ha-heartbeat'` [$__range])) or vector(0)",
           "queryType": "instant",
-          "legendFormat": "Lines (without heartbeats)",
+          "legendFormat": "dhcp01/02: lines",
           "refId": "A"
         }
       ],
@@ -1322,14 +1322,14 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 20,
-        "y": 25
+        "x": 8,
+        "y": 29
       }
     },
     {
-      "type": "timeseries",
-      "title": "Kea messages by code (top 10)",
-      "description": "Kea's message IDs (DHCP4_LEASE_ALLOC, HA_STATE_TRANSITION, ...), heartbeats left out.",
+      "type": "stat",
+      "title": "fw-wan: leases allocated",
+      "description": "Kea lines matching `DHCP4_LEASE_ALLOC` (fw-wan's guest DHCP).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1341,7 +1341,275 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (code) (count_over_time({source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} != `'ha-heartbeat'` | regexp `^\\s*(?P<sev>[A-Z]+)\\s+(?P<code>[A-Z0-9_]+)` [$__auto])))",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `DHCP4_LEASE_ALLOC` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "fw-wan: leases allocated",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6870ff",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 17,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 25
+      }
+    },
+    {
+      "type": "stat",
+      "title": "fw-wan: NAKs",
+      "description": "Kea lines matching `DHCP4_PACKET_NAK|DHCPNAK` (fw-wan's guest DHCP).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `DHCP4_PACKET_NAK|DHCPNAK` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "fw-wan: NAKs",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              },
+              {
+                "color": "#ffa352",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 25
+      }
+    },
+    {
+      "type": "stat",
+      "title": "fw-wan: allocation failures",
+      "description": "Kea lines matching `ALLOC_FAIL|DHCP4_.*_FAIL|no address available` (fw-wan's guest DHCP).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `ALLOC_FAIL|DHCP4_.*_FAIL|no address available` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "fw-wan: allocation failures",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              },
+              {
+                "color": "#ff6188",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 29
+      }
+    },
+    {
+      "type": "stat",
+      "title": "fw-wan: lines",
+      "description": "All Kea lines (fw-wan's guest DHCP), HA heartbeats left out.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} != `'ha-heartbeat'` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "fw-wan: lines",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6870ff",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 20,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 29
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Kea messages by code (top 10): cluster HA pair (dhcp01/02)",
+      "description": "Kea's message IDs on dhcp01 + dhcp02 (DHCP4_LEASE_ALLOC, HA_STATE_TRANSITION, ...), heartbeats left out.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (code) (count_over_time({source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} != `'ha-heartbeat'` | regexp `^\\s*(?P<sev>[A-Z]+)\\s+(?P<code>[A-Z0-9_]+)` [$__auto])))",
           "queryType": "range",
           "legendFormat": "{{code}}",
           "refId": "A"
@@ -1396,17 +1664,95 @@
           "sort": "desc"
         }
       },
-      "id": 17,
+      "id": 21,
       "gridPos": {
         "h": 10,
-        "w": 8,
+        "w": 12,
         "x": 0,
-        "y": 29
+        "y": 33
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Kea messages by code (top 10): fw-wan (guest)",
+      "description": "Kea's message IDs on fw-wan (DHCP4_LEASE_ALLOC, HA_STATE_TRANSITION, ...), heartbeats left out.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (code) (count_over_time({source=\"syslog\", host=\"fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} != `'ha-heartbeat'` | regexp `^\\s*(?P<sev>[A-Z]+)\\s+(?P<code>[A-Z0-9_]+)` [$__auto])))",
+          "queryType": "range",
+          "legendFormat": "{{code}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 22,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 33
       }
     },
     {
       "type": "table",
-      "title": "Leases allocated",
+      "title": "Leases allocated: cluster HA pair (dhcp01/02)",
       "description": "",
       "datasource": {
         "type": "loki",
@@ -1419,7 +1765,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |= \"DHCP4_LEASE_ALLOC\" | regexp `\\[hwtype=\\d+ (?P<mac>[0-9a-f:]+)\\].*lease (?P<address>\\S+) has been allocated for (?P<seconds>\\d+) seconds`",
+          "expr": "{source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |= \"DHCP4_LEASE_ALLOC\" | regexp `\\[hwtype=\\d+ (?P<mac>[0-9a-f:]+)\\].*lease (?P<address>\\S+) has been allocated for (?P<seconds>\\d+) seconds`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 300,
@@ -1579,17 +1925,17 @@
           }
         }
       ],
-      "id": 18,
+      "id": 23,
       "gridPos": {
         "h": 10,
-        "w": 8,
-        "x": 8,
-        "y": 29
+        "w": 12,
+        "x": 0,
+        "y": 43
       }
     },
     {
       "type": "table",
-      "title": "HA state transitions",
+      "title": "Leases allocated: fw-wan (guest)",
       "description": "",
       "datasource": {
         "type": "loki",
@@ -1602,7 +1948,188 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |= \"HA_STATE_TRANSITION\" | regexp `HA_STATE_TRANSITION (?P<server>\\S+): server transitions from (?P<from>\\S+) to (?P<to>\\S+) state, partner state is (?P<partner>\\S+)`",
+          "expr": "{source=\"syslog\", host=\"fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |= \"DHCP4_LEASE_ALLOC\" | regexp `\\[hwtype=\\d+ (?P<mac>[0-9a-f:]+)\\].*lease (?P<address>\\S+) has been allocated for (?P<seconds>\\d+) seconds`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 300,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "No matching lines in range",
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Server"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Address"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MAC"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lease (s)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "format": "auto",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "Time",
+                "address",
+                "mac",
+                "seconds",
+                "Line"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "Line": "Message",
+              "host": "Server",
+              "address": "Address",
+              "mac": "MAC",
+              "seconds": "Lease (s)"
+            },
+            "indexByName": {
+              "Time": 0,
+              "address": 1,
+              "mac": 2,
+              "seconds": 3,
+              "Line": 4
+            }
+          }
+        }
+      ],
+      "id": 24,
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      }
+    },
+    {
+      "type": "table",
+      "title": "HA state transitions (dhcp01/02)",
+      "description": "",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |= \"HA_STATE_TRANSITION\" | regexp `HA_STATE_TRANSITION (?P<server>\\S+): server transitions from (?P<from>\\S+) to (?P<to>\\S+) state, partner state is (?P<partner>\\S+)`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 300,
@@ -1750,18 +2277,18 @@
           }
         }
       ],
-      "id": 19,
+      "id": 25,
       "gridPos": {
-        "h": 10,
-        "w": 8,
-        "x": 16,
-        "y": 29
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 53
       }
     },
     {
       "type": "logs",
-      "title": "Kea (without heartbeats)",
-      "description": "dhcp01, dhcp02 and fw-wan's Kea, minus the HA heartbeat commands.",
+      "title": "DHCP: cluster HA pair (dhcp01/02)",
+      "description": "Kea on dhcp01 and dhcp02, minus the HA heartbeat commands.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1773,7 +2300,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"dhcp0[0-9]|fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `(?i)$search` != `'ha-heartbeat'` !~ `HA_HEARTBEAT|COMMAND_RECEIVED`",
+          "expr": "{source=\"syslog\", host=~\"dhcp0[12]\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `(?i)$search` != `'ha-heartbeat'` !~ `HA_HEARTBEAT|COMMAND_RECEIVED`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1791,24 +2318,65 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
-      "id": 20,
+      "id": 26,
       "gridPos": {
-        "h": 10,
-        "w": 24,
+        "h": 12,
+        "w": 12,
         "x": 0,
-        "y": 39
+        "y": 61
+      }
+    },
+    {
+      "type": "logs",
+      "title": "DHCP: fw-wan (guest)",
+      "description": "Kea on fw-wan (the guest VRF's DHCP on eth3.4, kea-vrf-helper; no HA).",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{source=\"syslog\", host=\"fw-wan\", app=~\"kea-dhcp4|kea-vrf-helper\"} |~ `(?i)$search`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "enableInfiniteScrolling": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "id": 27,
+      "gridPos": {
+        "h": 20,
+        "w": 12,
+        "x": 12,
+        "y": 53
       }
     },
     {
       "type": "row",
       "title": "keepalived (VIP moves)",
       "collapsed": false,
-      "id": 21,
+      "id": 28,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 73
       },
       "panels": []
     },
@@ -1871,12 +2439,12 @@
         "minVizWidth": 8,
         "maxVizHeight": 300
       },
-      "id": 22,
+      "id": 29,
       "gridPos": {
         "h": 12,
         "w": 6,
         "x": 0,
-        "y": 50
+        "y": 74
       }
     },
     {
@@ -1938,12 +2506,12 @@
           "sort": "none"
         }
       },
-      "id": 23,
+      "id": 30,
       "gridPos": {
         "h": 12,
         "w": 9,
         "x": 6,
-        "y": 50
+        "y": 74
       }
     },
     {
@@ -2145,24 +2713,24 @@
           }
         }
       ],
-      "id": 24,
+      "id": 31,
       "gridPos": {
         "h": 12,
         "w": 9,
         "x": 15,
-        "y": 50
+        "y": 74
       }
     },
     {
       "type": "row",
       "title": "Monitoring and logging stack",
       "collapsed": false,
-      "id": 25,
+      "id": 32,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 62
+        "y": 86
       },
       "panels": []
     },
@@ -2236,12 +2804,12 @@
           "sort": "desc"
         }
       },
-      "id": 26,
+      "id": 33,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 63
+        "y": 87
       }
     },
     {
@@ -2303,12 +2871,12 @@
         "minVizWidth": 8,
         "maxVizHeight": 300
       },
-      "id": 27,
+      "id": 34,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 63
+        "y": 87
       }
     },
     {
@@ -2344,12 +2912,12 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
-      "id": 28,
+      "id": 35,
       "gridPos": {
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 72
+        "y": 96
       }
     },
     {
@@ -2385,12 +2953,12 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
-      "id": 29,
+      "id": 36,
       "gridPos": {
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 82
+        "y": 106
       }
     },
     {
@@ -2426,12 +2994,12 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
-      "id": 30,
+      "id": 37,
       "gridPos": {
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 82
+        "y": 106
       }
     },
     {
@@ -2467,12 +3035,12 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
-      "id": 31,
+      "id": 38,
       "gridPos": {
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 82
+        "y": 106
       }
     },
     {
@@ -2508,12 +3076,12 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       },
-      "id": 32,
+      "id": 39,
       "gridPos": {
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 91
+        "y": 115
       }
     }
   ]
