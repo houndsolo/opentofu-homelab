@@ -58,7 +58,7 @@ locals {
       server = {
         # Every address, so the VIP works wherever it is; metrics-guard (nftables) limits 8080
         # to loopback and the backend VLAN, 9095/7946 to loopback and the HA addresses. gRPC must
-        # include loopback: the query-frontend and querier reach the scheduler on 127.0.0.1.
+        # include the HA addresses: frontends and queriers reach every scheduler through the ring.
         http_listen_address = ""
         http_listen_port    = local.mimir_http_port
         grpc_listen_address = ""
@@ -92,9 +92,17 @@ locals {
           tokens_file_path   = "/data/tokens/ingester"
         }
       }
-      querier         = { ring = { instance_addr = vm.ha_address } }
-      query_scheduler = { ring = { instance_addr = vm.ha_address } }
-      frontend        = { address = vm.ha_address }
+      querier = { ring = { instance_addr = vm.ha_address } }
+      # Ring-based scheduler discovery: every frontend enqueues on, and every querier pulls from,
+      # all three schedulers, so a dashboard burst arriving on the VIP holder is executed by all
+      # nodes' queriers (default 'dns' mode keeps each node on its own in-process scheduler: all
+      # queries ran on mim01 and hit the 100-request queue limit, HTTP 429). Log review 2026-11-10 #12.
+      query_scheduler = {
+        service_discovery_mode              = "ring"
+        max_outstanding_requests_per_tenant = 800
+        ring                                = { instance_addr = vm.ha_address }
+      }
+      frontend = { address = vm.ha_address }
       store_gateway = {
         sharding_ring = {
           instance_addr    = vm.ha_address
