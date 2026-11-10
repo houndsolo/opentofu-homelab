@@ -208,8 +208,30 @@ locals {
           annotations = { summary = "{{ $labels.instance }} {{ $labels.mountpoint }} has under 10% free" }
         },
       ]
-    }], local.logging_rules, local.wlc_rules, local.mimir_rules, local.backend_rules, local.postgres_rules, local.rgw_rules) # logging.tf, telemetry.tf, metrics.tf, backends.tf, postgres.tf, rgw.tf
+    }], local.storage_health_rules, local.logging_rules, local.wlc_rules, local.mimir_rules, local.backend_rules, local.postgres_rules, local.rgw_rules) # logging.tf, telemetry.tf, metrics.tf, backends.tf, postgres.tf, rgw.tf
   })
+
+  # Per-OSD BlueStore stalls (the mixin only has the cluster-wide BLUESTORE_SLOW_OP_ALERT health
+  # check, which stays WARN for a day and masks a new OSD joining). Log review 2026-11-10 #3:
+  # SATA link resets on the Seagate OSDs froze NCQ for up to 30 s. Pairs with the Loki rule
+  # SataLinkReset (logging.tf).
+  storage_health_rules = length(var.targets.ceph) == 0 ? [] : [{
+    name = "storage-health"
+    rules = [
+      {
+        alert       = "CephOSDSlowCommits"
+        expr        = "sum by (ceph_daemon) (increase(ceph_bluestore_slow_committed_kv_count[1h])) > 0"
+        labels      = { severity = "warning" }
+        annotations = { summary = "{{ $labels.ceph_daemon }}: {{ $value | humanize }} slow BlueStore kv commits in the last hour (check its disk/SATA link)" }
+      },
+      {
+        alert       = "CephOSDSlowAIO"
+        expr        = "sum by (ceph_daemon) (increase(ceph_bluestore_slow_aio_wait_count[1h])) > 0"
+        labels      = { severity = "warning" }
+        annotations = { summary = "{{ $labels.ceph_daemon }}: {{ $value | humanize }} slow BlueStore AIO waits in the last hour" }
+      },
+    ]
+  }]
 
   # The ceph-mixin's alerts (rules/ceph-mixin/, vendored from the commit the Ceph dashboards
   # come from: they back the dashboards' Firing Alerts/Alerts panels). Its own file, loaded

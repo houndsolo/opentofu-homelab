@@ -122,6 +122,14 @@ locals {
           labels      = { severity = "warning" }
           annotations = { summary = "{{ $labels.host }} logged a BGP session going down" }
         },
+        {
+          # libata link resets / failed NCQ commands (log review 2026-11-10 #3: the Seagate OSDs'
+          # SATA links reset under link power management and stalled BlueStore for up to 30 s).
+          alert       = "SataLinkReset"
+          expr        = "sum by (host) (count_over_time({app=\"kernel\"} |~ \"hard resetting link|failed command: (READ|WRITE) FPDMA|SError: \\\\{\" [15m])) > 0"
+          labels      = { severity = "warning" }
+          annotations = { summary = "{{ $labels.host }}: SATA link reset / failed NCQ command in the kernel log ({{ $value }} lines in 15m)" }
+        },
       ]
     }]
   })
