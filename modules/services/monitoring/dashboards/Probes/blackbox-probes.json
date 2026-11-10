@@ -32,7 +32,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -165,11 +165,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
@@ -180,17 +180,18 @@
               "options": {
                 "0": {
                   "text": "DOWN",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "UP",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 }
               }
             }
-          ]
+          ],
+          "noValue": "No probe matches the selection"
         },
         "overrides": []
       },
@@ -315,7 +316,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -328,7 +329,8 @@
             },
             "filterable": false,
             "inspect": false
-          }
+          },
+          "noValue": "No probe matches the selection"
         },
         "overrides": [
           {
@@ -359,12 +361,12 @@
                     "options": {
                       "0": {
                         "text": "DOWN",
-                        "color": "red",
+                        "color": "#ff6188",
                         "index": 0
                       },
                       "1": {
                         "text": "UP",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 1
                       }
                     }
@@ -377,11 +379,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": null
                     },
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": 1
                     }
                   ]
@@ -409,15 +411,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 0.99
                     },
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": 0.999
                     }
                   ]
@@ -551,11 +553,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
@@ -566,12 +568,12 @@
               "options": {
                 "0": {
                   "text": "DOWN",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "UP",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 }
               }
@@ -580,7 +582,8 @@
           "custom": {
             "fillOpacity": 80,
             "lineWidth": 0
-          }
+          },
+          "noValue": "No probe matches the selection"
         },
         "overrides": []
       },
@@ -638,7 +641,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -658,7 +661,8 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          }
+          },
+          "noValue": "No probe matches the selection"
         },
         "overrides": []
       },
@@ -730,7 +734,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -750,7 +754,8 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          }
+          },
+          "noValue": "No ICMP probe selected"
         },
         "overrides": []
       },
@@ -809,12 +814,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
           },
-          "mappings": []
+          "mappings": [],
+          "noValue": "No ICMP probe selected"
         },
         "overrides": []
       },
@@ -845,7 +851,7 @@
     {
       "type": "stat",
       "title": "IP protocol",
-      "description": "Address family the ICMP probe used (4 or 6).",
+      "description": "Address family the ICMP probe used.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -857,7 +863,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "probe_ip_protocol{job=\"blackbox-icmp\", host=~\"$host\"}",
+          "expr": "probe_ip_protocol{job=\"blackbox-icmp\", job=~\"$job\", host=~\"$host\"}",
           "legendFormat": "{{host}}",
           "range": true,
           "instant": false,
@@ -873,12 +879,29 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
           },
-          "mappings": []
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "4": {
+                  "text": "IPv4",
+                  "color": "#6870ff",
+                  "index": 0
+                },
+                "6": {
+                  "text": "IPv6",
+                  "color": "#6870ff",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "noValue": "No ICMP probe selected"
         },
         "overrides": []
       },
@@ -950,24 +973,25 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 200
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 300
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 400
               }
             ]
           },
-          "mappings": []
+          "mappings": [],
+          "noValue": "No HTTP probe selected"
         },
         "overrides": []
       },
@@ -1026,7 +1050,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1046,7 +1070,8 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          }
+          },
+          "noValue": "No HTTP probe selected"
         },
         "overrides": []
       },
@@ -1129,14 +1154,44 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
           },
-          "mappings": []
+          "mappings": [],
+          "noValue": "No HTTP probe selected"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": " TLS$"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "no TLS",
+                        "color": "#6870ff",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "TLS",
+                        "color": "#6870ff",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "reduceOptions": {
@@ -1205,7 +1260,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1225,7 +1280,8 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          }
+          },
+          "noValue": "No HTTP probe selected"
         },
         "overrides": []
       },
@@ -1284,7 +1340,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1304,7 +1360,8 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          }
+          },
+          "noValue": "No HTTP probe selected"
         },
         "overrides": []
       },
@@ -1376,7 +1433,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1396,7 +1453,8 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          }
+          },
+          "noValue": "No DNS probe selected"
         },
         "overrides": []
       },
@@ -1455,13 +1513,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
           },
           "mappings": [],
-          "decimals": 0
+          "decimals": 0,
+          "noValue": "No DNS probe selected"
         },
         "overrides": []
       },
@@ -1504,7 +1563,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(max(probe_dns_serial{job=~\"$job\", host=~\"$host\"}) - min(probe_dns_serial{job=~\"$job\", host=~\"$host\"})) or vector(0)",
+          "expr": "max(probe_dns_serial{job=~\"$job\", host=~\"$host\"}) - min(probe_dns_serial{job=~\"$job\", host=~\"$host\"})",
           "legendFormat": "__auto",
           "range": true,
           "instant": false,
@@ -1520,16 +1579,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
           },
-          "mappings": []
+          "mappings": [],
+          "noValue": "No DNS probe selected"
         },
         "overrides": []
       },
@@ -1612,12 +1672,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
           },
-          "mappings": []
+          "mappings": [],
+          "noValue": "No DNS probe selected"
         },
         "overrides": []
       },
@@ -1676,7 +1737,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1696,7 +1757,8 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          }
+          },
+          "noValue": "No DNS probe selected"
         },
         "overrides": []
       },
@@ -1755,13 +1817,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "s",
+          "noValue": "No probe matches the selection",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,

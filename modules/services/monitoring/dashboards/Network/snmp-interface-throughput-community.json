@@ -1,0 +1,241 @@
+{
+  "id": null,
+  "title": "SNMP Interface Throughput (community)",
+  "tags": [
+    "lylat",
+    "snmp"
+  ],
+  "style": "dark",
+  "timezone": "browser",
+  "editable": true,
+  "sharedCrosshair": false,
+  "hideControls": false,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Device",
+        "multi": false,
+        "name": "Device",
+        "query": {
+          "query": "query_result(count by (host, instance) (ifHCInOctets{job=~\"snmp-fs-switches|snmp-mikrotik-access|snmp-spines|snmp-wlc|snmp-mikrotik-hr\"}))",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "/host=\"(?<text>[^\"]+)\".*instance=\"(?<value>[^\"]+)\"/",
+        "sort": 1,
+        "tagValuesQuery": null,
+        "tagsQuery": null,
+        "type": "query",
+        "definition": "query_result(count by (host, instance) (ifHCInOctets{job=~\"snmp-fs-switches|snmp-mikrotik-access|snmp-spines|snmp-wlc|snmp-mikrotik-hr\"}))"
+      },
+      {
+        "allValue": ".*",
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Interface",
+        "multi": false,
+        "name": "Interface",
+        "options": [],
+        "query": "label_values(ifHCInOctets{instance=\"$Device\",job=~\"snmp-fs-switches|snmp-mikrotik-access|snmp-spines|snmp-wlc|snmp-mikrotik-hr\"}, ifDescr)",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "tagValuesQuery": null,
+        "tagsQuery": null,
+        "type": "query"
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "schemaVersion": 41,
+  "version": 12,
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "snmp"
+      ],
+      "asDropdown": true,
+      "title": "SNMP dashboards",
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "gnetId": 1124,
+  "description": "This dashboard shows interface bandwidth as collected by the Prometheus SNMP Exporter.",
+  "uid": "snmp-throughput-community",
+  "refresh": "1m",
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "editable": true,
+      "error": false,
+      "id": 1,
+      "links": [],
+      "repeat": "Interface",
+      "targets": [
+        {
+          "expr": "irate(ifHCInOctets{job=~\"snmp-fs-switches|snmp-mikrotik-access|snmp-spines|snmp-wlc|snmp-mikrotik-hr\",instance='$Device',ifDescr=~\"${Interface:regex}\"}[$__rate_interval]) * 8 or irate(ifInOctets{job=~\"snmp-fs-switches|snmp-mikrotik-access|snmp-spines|snmp-wlc|snmp-mikrotik-hr\",instance='$Device',ifDescr=~\"${Interface:regex}\"}[$__rate_interval]) * 8",
+          "intervalFactor": 2,
+          "legendFormat": "In",
+          "refId": "A",
+          "step": 120
+        },
+        {
+          "expr": "-irate(ifHCOutOctets{job=~\"snmp-fs-switches|snmp-mikrotik-access|snmp-spines|snmp-wlc|snmp-mikrotik-hr\",instance='$Device',ifDescr=~\"${Interface:regex}\"}[$__rate_interval]) * 8 or -irate(ifOutOctets{job=~\"snmp-fs-switches|snmp-mikrotik-access|snmp-spines|snmp-wlc|snmp-mikrotik-hr\",instance='$Device',ifDescr=~\"${Interface:regex}\"}[$__rate_interval]) * 8",
+          "intervalFactor": 2,
+          "legendFormat": "Out",
+          "refId": "B",
+          "step": 120
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "$Interface",
+      "type": "timeseries",
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": true,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "repeatDirection": "h",
+      "maxPerRow": 2
+    }
+  ]
+}

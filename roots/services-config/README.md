@@ -63,8 +63,9 @@ transfers.
 | `dns_deploy_revision` | `"1"` | Change it to force a redeploy, for example after rebuilding a DNS VM that kept its address and ID |
 | `dns_tsig_secret` | `null` (generate one) | Supply an existing TSIG key; see [The TSIG key](#the-tsig-key) |
 | `dhcp_prometheus_exporters` | `{ vrf = "mgmt" }` | VyOS node-exporter (:9100) and frr-exporter (:9342) on each DHCP VM's management address, in that VRF; scraped by [monitoring-config](../monitoring-config/README.md). `null` leaves them unmanaged. |
-| `dhcp_syslog` | `{ host = "10.20.11.40", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
-| `dns_syslog` | `{ host = "10.20.11.40" }` | rsyslog on each DNS VM forwards its journal (BIND included) to this receiver over TCP; also takes `port` (514) and `level` (`info`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
+| `dhcp_syslog` | `{ host = "10.20.11.101", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
+| `dns_node_exporter` | `{}` (image `docker.io/prom/node-exporter:v1.12.1`, port 9100) | node_exporter on each DNS VM ([`dns-node-exporter.tf`](dns-node-exporter.tf)): a Podman Quadlet with host networking, listening on the VM's management address `:9100`, where monitoring-config's `node` job scrapes it. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it. |
+| `dns_syslog` | `{ host = "10.20.11.101" }` | rsyslog on each DNS VM forwards its journal (BIND included) to this receiver over TCP; also takes `port` (514) and `level` (`info`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
 | `dns_vrrp` | `{ vip = "10.8.53.53/16", router_id = 53 }` | keepalived VIP for the DNS pair: on BIND's service NIC, adverts unicast over the `ha_dns` L2VNI. BIND listens on it and DHCP hands it out first. `null` skips it. See [The DNS VIP](#the-dns-vip). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
 
@@ -350,7 +351,7 @@ for today's inventory.
 ## Logs to Loki
 
 Everything here sends its logs as syslog to the Loki/Alloy VIP on the management network,
-`10.20.11.40` (keepalived on log01–log03, [monitoring-config](../monitoring-config/README.md)):
+`10.20.11.101` (keepalived on loki01–loki03, [monitoring-config](../monitoring-config/README.md)):
 TCP 514, RFC 5424, octet-counted framing.
 
 - **DNS VMs** (`dns-syslog.tf`, `terraform_data.dns_syslog`): `templates/rsyslog-loki.sh.tftpl`
@@ -363,7 +364,7 @@ TCP 514, RFC 5424, octet-counted framing.
   queue (128 MB) holds messages while the receiver is down. This is a separate resource from
   `terraform_data.bind9`, so changing it never restarts BIND. The VMs reach the VIP directly
   on the management network (`eth0`).
-- **DHCP VMs** (`dhcp_syslog`): VyOS `system syslog remote 10.20.11.40` from the `mgmt` VRF,
+- **DHCP VMs** (`dhcp_syslog`): VyOS `system syslog remote 10.20.11.101` from the `mgmt` VRF,
   the same commands as the leaves (`fabric.settings.leaf_syslog`).
 
 Check from a DNS VM: `systemctl status rsyslog`, and `logger -t test hello`, which should

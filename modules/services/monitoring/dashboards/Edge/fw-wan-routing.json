@@ -33,7 +33,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -82,8 +82,8 @@
     },
     {
       "type": "link",
-      "title": "Node Exporter Full (fw-wan)",
-      "url": "/d/node-exporter-full/node-exporter-full?var-job=vyos-node&var-node=10.20.10.255:9100",
+      "title": "Node Exporter Full (${host})",
+      "url": "/d/node-exporter-full/node-exporter-full?var-job=vyos-node&var-node=${node}",
       "icon": "dashboard",
       "includeVars": false,
       "keepTime": true,
@@ -151,6 +151,28 @@
             "$__all"
           ]
         }
+      },
+      {
+        "name": "node",
+        "label": "node_exporter",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(node_uname_info{job=\"vyos-node\", host=\"$host\"}, instance)",
+        "query": {
+          "query": "label_values(node_uname_info{job=\"vyos-node\", host=\"$host\"}, instance)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 2,
+        "current": {}
       }
     ]
   },
@@ -223,7 +245,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -241,7 +263,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -256,7 +278,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -273,11 +295,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -373,7 +395,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -391,7 +413,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -406,7 +428,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -423,11 +445,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -511,7 +533,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -575,7 +597,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -639,11 +661,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -708,11 +730,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -762,7 +784,7 @@
     {
       "type": "table",
       "title": "Routing tables",
-      "description": "Per VRF: zebra RIB and kernel FIB routes per address family, route count changes in range, IPv4 BGP RIB entries and established BGP sessions.",
+      "description": "Per VRF: zebra RIB and kernel FIB routes per address family, route count changes in range, IPv4 and IPv6 unicast BGP RIB entries (the leaves' IPv6 underlay and EVPN are in the default VRF; EVPN is on the FRR / EVPN fabric dashboard) and established BGP sessions.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -858,6 +880,19 @@
           "instant": true,
           "format": "table",
           "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vrf) (frr_bgp_rib_count_total{host=\"$host\", vrf=~\"$vrf\", afi=\"ipv6\", safi=\"unicast\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "H"
         }
       ],
       "fieldConfig": {
@@ -869,7 +904,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -902,7 +937,8 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "continuous-BlPu"
+                  "mode": "fixed",
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -919,11 +955,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 1
                     }
                   ]
@@ -976,7 +1012,8 @@
               "Value #D": "IPv6 FIB",
               "Value #E": "Changes in range",
               "Value #F": "BGP RIB (IPv4)",
-              "Value #G": "BGP sessions up"
+              "Value #G": "BGP sessions up",
+              "Value #H": "BGP RIB (IPv6)"
             },
             "indexByName": {
               "vrf": 0,
@@ -985,8 +1022,9 @@
               "Value #C": 3,
               "Value #D": 4,
               "Value #F": 5,
-              "Value #G": 6,
-              "Value #E": 7
+              "Value #H": 6,
+              "Value #G": 7,
+              "Value #E": 8
             }
           }
         }
@@ -1030,7 +1068,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1109,7 +1147,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1187,7 +1225,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1345,12 +1383,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
+          "noValue": "No BGP sessions on this router",
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -1389,17 +1428,17 @@
                     "options": {
                       "0": {
                         "text": "Down",
-                        "color": "red",
+                        "color": "#ff6188",
                         "index": 0
                       },
                       "1": {
                         "text": "Established",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 1
                       },
                       "2": {
                         "text": "Admin down",
-                        "color": "orange",
+                        "color": "#ffa352",
                         "index": 2
                       }
                     }
@@ -1444,11 +1483,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 1
                     }
                   ]
@@ -1480,7 +1519,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -1503,7 +1542,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#F70997"
                 }
               }
             ]
@@ -1615,15 +1654,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 2
               }
             ]
@@ -1634,22 +1673,23 @@
               "options": {
                 "0": {
                   "text": "Down",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "Established",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 },
                 "2": {
                   "text": "Admin down",
-                  "color": "orange",
+                  "color": "#ffa352",
                   "index": 2
                 }
               }
             }
           ],
+          "noValue": "No BGP sessions on this router",
           "custom": {
             "fillOpacity": 80,
             "lineWidth": 0
@@ -1711,13 +1751,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BGP sessions on this router",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1790,13 +1831,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BGP sessions on this router",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1869,13 +1911,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BGP sessions on this router",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1948,13 +1991,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "short",
+          "noValue": "No BGP sessions on this router",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2051,7 +2095,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2070,7 +2114,7 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
@@ -2114,7 +2158,7 @@
     {
       "type": "timeseries",
       "title": "Interface traffic (in + out)",
-      "description": "Interfaces with traffic, labelled with their VRF (fw-wan only; from the config snapshot).",
+      "description": "Interfaces with traffic in the selected VRFs, labelled with their VRF from the config snapshot. fw-wan only: other routers' interfaces show VRF n/a and are left out when a VRF is selected.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2126,7 +2170,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval]) + rate(node_network_transmit_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\") * 8 > 0",
+          "expr": "(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval]) + rate(node_network_transmit_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[$__rate_interval])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")) * 8 > 0",
           "legendFormat": "{{vrf}} · {{device}}",
           "range": true,
           "instant": false,
@@ -2142,7 +2186,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2192,7 +2236,7 @@
     {
       "type": "table",
       "title": "Interfaces",
-      "description": "The router's interfaces (no VRF devices, loopback, dummies or PIM registers). The VRF column is filled in for fw-wan only, from the config snapshot (default = no VRF). Rates over the last 5 minutes.",
+      "description": "The router's interfaces in the selected VRFs (no VRF devices, loopback, dummies or PIM registers), with the VRF from the config snapshot (default = no VRF). fw-wan only: other routers' interfaces show VRF n/a and are left out when a VRF is selected. Rates over the last 5 minutes.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2204,7 +2248,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device, vrf) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(node_network_up{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}, \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\")) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device, vrf) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((node_network_up{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2217,7 +2261,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device, ifalias, operstate) ((node_network_info{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device, ifalias, operstate) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((node_network_info{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2230,7 +2274,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device) ((node_network_mtu_bytes{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((node_network_mtu_bytes{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2243,7 +2287,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device) ((node_network_speed_bytes{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"} * 8 > 0) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((node_network_speed_bytes{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"} * 8 > 0) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2256,7 +2300,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device) ((rate(node_network_receive_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2269,7 +2313,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device) ((rate(node_network_transmit_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_transmit_bytes_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) * 8) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2282,7 +2326,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device) ((rate(node_network_receive_errs_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_errs_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_errs_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_errs_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2295,7 +2339,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host, device) ((rate(node_network_receive_drop_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_drop_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"))",
+          "expr": "max by (host, device) ((label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join((rate(node_network_receive_drop_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m]) + rate(node_network_transmit_drop_total{host=\"$host\", device!~\"lo|pim6reg.*|dum.*\"}[5m])) unless on (host, device) label_replace(group by (host, vrf) (frr_route_total{host=\"$host\"}), \"device\", \"$1\", \"vrf\", \"(.+)\"), \"hd\", \":\", \"host\", \"device\"), \"vrf\", \"default\", \"hd\", \"fw-wan:.*\"), \"vrf\", \"guest_vrf\", \"hd\", \"fw-wan:(eth3\\\\.4)\"), \"vrf\", \"lylat_service\", \"hd\", \"fw-wan:(dum69|eth1\\\\.1000|eth2\\\\.1000|eth3\\\\.5)\"), \"vrf\", \"mgmt\", \"hd\", \"fw-wan:(eth0)\"), \"vrf\", \"vpn_hay\", \"hd\", \"fw-wan:(vti69)\"), \"vrf\", \"vpn_me\", \"hd\", \"fw-wan:(vti1|wg77)\"), \"vrf\", \"wan_vrf\", \"hd\", \"fw-wan:(dum666|eth5)\"), \"vrf\", \"n/a\", \"vrf\", \"\"), \"vrf_match\", \"1\", \"vrf\", \"$vrf\")) and on (vrf_match) (label_replace(vector(1), \"vrf_match\", \"1\", \"__name__\", \".*\")))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -2312,7 +2356,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2354,7 +2398,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#21E2D7"
                 }
               },
               {
@@ -2381,7 +2425,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#F70997"
                 }
               },
               {
@@ -2410,11 +2454,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 0.01
                     }
                   ]
@@ -2442,17 +2486,17 @@
                     "options": {
                       "up": {
                         "text": "up",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 0
                       },
                       "down": {
                         "text": "down",
-                        "color": "red",
+                        "color": "#ff6188",
                         "index": 1
                       },
                       "unknown": {
                         "text": "unknown",
-                        "color": "text",
+                        "color": "#e5f3e2",
                         "index": 2
                       }
                     }
@@ -2593,7 +2637,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": null
                   }
                 ]
@@ -2638,12 +2682,12 @@
                         "options": {
                           "0": {
                             "text": "Down",
-                            "color": "red",
+                            "color": "#ff6188",
                             "index": 0
                           },
                           "1": {
                             "text": "Up",
-                            "color": "green",
+                            "color": "#02E5A8",
                             "index": 1
                           }
                         }
@@ -2744,7 +2788,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": null
                   }
                 ]
@@ -2788,12 +2832,12 @@
                         "options": {
                           "0": {
                             "text": "DOWN",
-                            "color": "red",
+                            "color": "#ff6188",
                             "index": 0
                           },
                           "1": {
                             "text": "UP",
-                            "color": "green",
+                            "color": "#02E5A8",
                             "index": 1
                           }
                         }
@@ -2806,11 +2850,11 @@
                       "mode": "absolute",
                       "steps": [
                         {
-                          "color": "red",
+                          "color": "#ff6188",
                           "value": null
                         },
                         {
-                          "color": "green",
+                          "color": "#02E5A8",
                           "value": 1
                         }
                       ]

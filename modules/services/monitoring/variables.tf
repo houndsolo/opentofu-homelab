@@ -1,10 +1,69 @@
-variable "backend" {
-  description = "The one monitoring backend VM (Prometheus, Alertmanager, exporters, InfluxDB, Postgres)."
+variable "backends" {
+  description = "Monitoring backend VMs (Prometheus, Alertmanager, exporters, InfluxDB, Telegraf), keyed by VM name. Each runs the same scrape config (a Prometheus HA pair, deduplicated by Mimir's HA tracker) and the Alertmanagers form one cluster. primary_backend also runs Postgres (Grafana's database). ha_address/interfaces: the HA VLAN (keepalived adverts, Alertmanager gossip) and NIC names for backend_vrrp."
+  type = map(object({
+    monitoring_address = string           # Monitoring network (10.5/16): UIs, PVE metric pushes, node_exporter, WLC telemetry.
+    backend_address    = string           # Isolated backend VLAN (10.13/16): Grafana -> datasources and Postgres.
+    ha_address         = optional(string) # HA VLAN (ha_monitor): null on any VM keeps gossip on the backend VLAN and keepalived off
+    interfaces = optional(object({
+      ha         = string
+      backend    = string
+      monitoring = string
+    }))
+  }))
+  validation {
+    condition     = length(var.backends) > 0
+    error_message = "Define at least one backend."
+  }
+}
+
+variable "primary_backend" {
+  description = "The backend VM that runs Postgres (Grafana's shared database, a single instance) and whose Prometheus Grafana falls back to without Mimir."
+  type        = string
+  validation {
+    condition     = length(var.primary_backend) > 0
+    error_message = "Name the primary backend."
+  }
+}
+
+variable "backend_vrrp" {
+  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (InfluxDB, the InfluxDB relay) and the backend VLAN (Grafana's InfluxDB and Alertmanager datasources), VRRP router id, PASS password (8 characters at most). Needs ha_address/interfaces on every backend and at least two. null = no keepalived, datasources on the primary."
   type = object({
-    name               = string
-    monitoring_address = string # Monitoring network (10.5/16): UIs, PVE metric pushes, node_exporter.
-    backend_address    = string # Isolated backend VLAN (10.13/16): Grafana -> datasources and Postgres.
+    vips = object({
+      monitoring = string
+      backend    = string
+    })
+    router_id = optional(number, 102)
+    auth_pass = string
   })
+  default = null
+  validation {
+    condition     = var.backend_vrrp == null || try(can(cidrhost(var.backend_vrrp.vips.monitoring, 0)) && can(cidrhost(var.backend_vrrp.vips.backend, 0)) && var.backend_vrrp.router_id >= 1 && var.backend_vrrp.router_id <= 255 && length(var.backend_vrrp.auth_pass) <= 8, false)
+    error_message = "backend_vrrp needs vips.monitoring/backend as IPv4 CIDRs, router_id 1..255 and auth_pass of at most 8 characters."
+  }
+}
+
+variable "influx_relay" {
+  description = "InfluxDB write relay (Telegraf influxdb_v2_listener on every backend, port `port`) for writers that take a single InfluxDB URL (VyOS Telegraf): it accepts writes with secrets.listen_token and copies them into `bucket` on every backend in `targets` (local and peers). Point writers at the monitoring VIP. null leaves it out."
+  type = object({
+    port    = optional(number, 8087)
+    bucket  = string
+    targets = list(string) # backends whose InfluxDB gets the writes (each needs a token in influx_relay_secrets.tokens)
+  })
+  default = null
+  validation {
+    condition     = var.influx_relay == null || try(var.influx_relay.port >= 1024 && var.influx_relay.port <= 65535 && !contains([8086, 9273, 9274], var.influx_relay.port), false)
+    error_message = "influx_relay.port must be an unprivileged port other than 8086 (InfluxDB), 9273 and 9274 (Telegraf metrics)."
+  }
+}
+
+variable "influx_relay_secrets" {
+  description = "The token writers present to the relay (listen_token) and a write token per influx_relay.targets backend for its bucket."
+  sensitive   = true
+  type = object({
+    listen_token = string
+    tokens       = map(string)
+  })
+  default = null
 }
 
 variable "grafana" {
@@ -23,7 +82,7 @@ variable "grafana_vrrp" {
   description = "keepalived VIP for Grafana (CIDR on the UI NIC), VRRP router id and PASS password (8 characters at most). Needs ha_address/interfaces on every Grafana VM and at least two VMs. null = no keepalived."
   type = object({
     vip       = string
-    router_id = optional(number, 11)
+    router_id = optional(number, 100)
     auth_pass = string
   })
   default = null
@@ -48,6 +107,9 @@ variable "images" {
     loki              = string
     alloy             = string
     haproxy           = string
+    telegraf          = string
+    mimir             = optional(string, "docker.io/grafana/mimir:3.2.4")
+    postgres_exporter = optional(string, "quay.io/prometheuscommunity/postgres-exporter:v0.20.1")
   })
   validation {
     condition     = alltrue([for image in values(var.images) : can(regex("^[A-Za-z0-9][A-Za-z0-9._/:@-]*$", image))])
@@ -64,8 +126,14 @@ variable "targets" {
     grafana  = list(object({ host = string, address = string }))                                     # Grafana /metrics, :3000
     ceph     = optional(list(object({ host = string, address = string })), [])                       # Ceph mgr prometheus module, :9283 (every mgr host)
     telegraf = optional(list(object({ host = string, address = string })), [])                       # Telegraf prometheus-client output on VyOS routers, :9273
-    snmp     = map(object({ modules = list(string), auth = string, targets = map(string) }))         # job suffix => host => IP
-    blackbox = map(list(object({ host = string, target = string })))                                 # blackbox module => targets (IP or URL)
+    snmp = map(object({                                                                              # job suffix => host => IP
+      modules         = list(string)
+      auth            = string
+      targets         = map(string)
+      scrape_interval = optional(string) # null: the global 30s
+      scrape_timeout  = optional(string) # null: the global 10s
+    }))
+    blackbox = map(list(object({ host = string, target = string }))) # blackbox module => targets (IP or URL)
   })
 }
 
@@ -107,7 +175,7 @@ variable "snmp_auths" {
 }
 
 variable "settings" {
-  description = "Retention, external URLs and InfluxDB naming."
+  description = "Retention, external URLs, InfluxDB naming and Ceph labels."
   type = object({
     prometheus_retention_time = optional(string, "90d")
     prometheus_retention_size = optional(string, "120GB")
@@ -118,6 +186,10 @@ variable "settings" {
     grafana_root_url          = optional(string, "http://grafana.lylat.space:3000/")
     dns_probe_zone            = optional(string, "lylat.space")
     ceph_cluster_name         = optional(string, "lylat") # cluster label on ceph metrics (ceph-mixin dashboards filter on it)
+    # Label matchers added to the ceph-mixin's node_* alerts (main.tf), which assume node_exporter
+    # runs on the Ceph nodes only. null: host=~ the PVE cluster's nodes (targets.pve; standalone
+    # PVE hosts aren't in Ceph); "": the upstream rules unchanged.
+    ceph_node_selector = optional(string)
   })
   default = {}
 }
@@ -140,20 +212,23 @@ variable "logging" {
 }
 
 variable "logging_settings" {
-  description = "VIPs (CIDR, one per client network, all in one VRRP instance), VRRP router id, the Ceph RGW endpoints behind each VM's haproxy, Loki retention and replication, the schema's start date and which sources may reach Loki's ports."
+  description = "VIPs (CIDR, one per client network, all in one VRRP instance), VRRP router id, the Ceph RGW endpoints behind each VM's haproxy, Loki retention and replication, the schema's start date, which sources may reach Loki's ports and the syslog host overrides and VyOS dedup."
   type = object({
     vips = optional(object({
-      backend    = optional(string, "10.13.11.40/16") # Grafana datasource, Alloy pushes from the other VMs
-      monitoring = optional(string, "10.5.11.40/16")  # syslog from devices and PVE nodes
-      mgmt       = optional(string, "10.20.11.40/16") # syslog from the VyOS leaves and DHCP VMs (mgmt VRF)
+      backend    = optional(string, "10.13.11.101/16") # Grafana datasource, Alloy pushes from the other VMs
+      monitoring = optional(string, "10.5.11.101/16")  # syslog from devices and PVE nodes
+      mgmt       = optional(string, "10.20.11.101/16") # syslog from the VyOS leaves and DHCP VMs (mgmt VRF)
     }), {})
-    vrrp_router_id        = optional(number, 40)
+    vrrp_router_id        = optional(number, 101)
     rgw_endpoints         = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
     retention_period      = optional(string, "90d")
     replication_factor    = optional(number, 3)
     schema_start          = optional(string, "2026-11-01")           # never change once Loki has data; add a new period instead
     loki_allowed_sources  = optional(list(string), ["10.13.0.0/16"]) # Loki HTTP (3100); the ring ports only accept the logging VMs
     syslog_host_overrides = optional(map(string), {})                # sender IP => host label
+    # Host label regex (anchored) of the VyOS senders: their rsyslog sends each non-kernel line twice and
+    # the receiver drops the copy with one leading space (templates/config.alloy.tftpl). "" turns it off.
+    syslog_dedup_hosts = optional(string, "LEAF-[0-9]+|fw-wan|dhcp0[0-9]")
   })
   default = {}
   validation {
@@ -172,4 +247,159 @@ variable "logging_secrets" {
     vrrp_password = string
   })
   default = null
+}
+
+variable "wlc_telemetry" {
+  description = "Telegraf on the backends in `backends` receiving Cisco model-driven telemetry (gRPC dial-out, kvGPB) from the C9800 WLCs on their monitoring_address:port, each written to its local InfluxDB bucket `bucket` (which must exist there) with that backend's wlc_telemetry_tokens entry. null leaves Telegraf out."
+  type = object({
+    port     = optional(number, 57500)
+    bucket   = string
+    backends = list(string)
+  })
+  default = null
+  validation {
+    condition     = var.wlc_telemetry == null || try(var.wlc_telemetry.port >= 1024 && var.wlc_telemetry.port <= 65535 && var.wlc_telemetry.port != 9273, false)
+    error_message = "wlc_telemetry.port must be an unprivileged port (1024..65535) other than 9273 (Telegraf's metrics)."
+  }
+}
+
+variable "wlc_telemetry_tokens" {
+  description = "Backend name => write-only InfluxDB token for wlc_telemetry.bucket on that backend. Required for every wlc_telemetry.backends entry."
+  type        = map(string)
+  sensitive   = true
+  default     = {}
+}
+
+variable "metrics" {
+  description = "Mimir VMs (role = \"metrics\": Mimir ring, haproxy to the RGWs, keepalived, Alloy, node_exporter), keyed by VM name. Name order sets the VRRP priority (150, 100, 50). Empty, or metrics_secrets = null, leaves Mimir out: Prometheus then has no remote_write and Grafana queries Prometheus directly."
+  type = map(object({
+    backend_address = string # backend VLAN: Mimir HTTP (push, queries), scrapes; holds the VIP
+    ha_address      = string # Mimir HA VLAN: memberlist, gRPC, VRRP adverts
+    interfaces = object({    # NIC names for VRRP
+      ha      = string
+      backend = string
+    })
+  }))
+  default = {}
+}
+
+variable "metrics_settings" {
+  description = "Mimir: VIP (CIDR on the backend VLAN NIC), VRRP router id, the RGWs behind each VM's haproxy, replication, retention, HA tracker labels and per-tenant limits, and which sources may reach Mimir's HTTP port."
+  type = object({
+    vip                        = optional(string, "10.13.11.103/16")
+    vrrp_router_id             = optional(number, 103)
+    rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
+    replication_factor         = optional(number, 3)
+    retention_period           = optional(string, "396d") # ~13 months (compactor deletes older blocks)
+    ha_cluster_label           = optional(string, "ha_cluster")
+    ha_replica_label           = optional(string, "__replica__")
+    drop_labels                = optional(list(string), ["ha_cluster", "site"]) # after HA dedup: the Prometheus external labels
+    max_series                 = optional(number, 300000)                       # ~118k active today (default 150k)
+    ingestion_rate             = optional(number, 300000)                       # samples/s, per tenant, split over the healthy distributors (see below)
+    ingestion_burst_size       = optional(number, 2000000)                      # per distributor (not split)
+    max_label_names_per_series = optional(number, 40)                           # 21 at most today (default 30)
+    out_of_order_time_window   = optional(string, "10m")
+    block_upload_enabled       = optional(bool, true) # mimirtool backfill
+    allowed_sources            = optional(list(string), ["10.13.0.0/16"])
+  })
+  default = {}
+  validation {
+    condition     = can(cidrhost(var.metrics_settings.vip, 0)) && length(var.metrics_settings.rgw_endpoints) > 0 && alltrue([for e in var.metrics_settings.rgw_endpoints : can(regex("^[0-9.]+:[0-9]+$", e))])
+    error_message = "metrics_settings.vip is an IPv4 CIDR and rgw_endpoints are \"IP:port\" strings, at least one."
+  }
+}
+
+variable "metrics_secrets" {
+  description = "Mimir's S3 bucket and keys (RGW user) and the VRRP password (8 characters at most). null leaves Mimir out."
+  sensitive   = true
+  type = object({
+    s3_bucket     = string
+    s3_access_key = string
+    s3_secret_key = string
+    vrrp_password = string
+  })
+  default = null
+}
+
+variable "postgres" {
+  description = "Patroni members (role = \"postgres\": PostgreSQL 17, Patroni, etcd, pgBackRest, keepalived, haproxy to the RGWs, exporters, Alloy), keyed by VM name. Name order sets the VRRP priority (first election only). Empty, or postgres_secrets = null, leaves the cluster out (Grafana stays on the primary backend's Postgres)."
+  type = map(object({
+    backend_address = string # backend VLAN: Grafana -> the VIP, scrapes; holds the VIP
+    ha_address      = string # Postgres HA VLAN: replication, etcd, Patroni REST, VRRP adverts
+    interfaces = object({    # NIC names for VRRP
+      ha      = string
+      backend = string
+    })
+  }))
+  default = {}
+}
+
+variable "postgres_settings" {
+  description = "Patroni cluster: VIP (CIDR on the backend NIC), VRRP router id, cluster name (Patroni scope, pgBackRest stanza, etcd token), RGWs behind each member's haproxy, backup schedule/retention, Postgres parameters, the Grafana cutover switches and the Debian package series the deploy accepts."
+  type = object({
+    vip                        = optional(string, "10.13.11.104/16")
+    vrrp_router_id             = optional(number, 104)
+    cluster_name               = optional(string, "lylat-pg")
+    rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
+    retention_days             = optional(number, 14)               # PITR window (pgBackRest time-based full retention)
+    backup_schedule            = optional(string, "*-*-* 01:30:00") # systemd OnCalendar: daily full backup on the leader
+    archive_timeout            = optional(number, 300)              # s: a WAL segment is archived at least this often when there are writes (RPO)
+    maximum_lag_on_failover    = optional(number, 1048576)          # bytes: replicas further behind don't take over
+    max_connections            = optional(number, 200)              # cluster-wide: only at bootstrap, later via pgctl edit-config
+    parameters                 = optional(map(string), {})          # extra/overriding local postgresql.conf parameters
+    etcd_initial_cluster_state = optional(string, "new")            # "existing" when a rebuilt member rejoins (README)
+    grafana_on_cluster         = optional(bool, false)              # Grafana uses the VIP (after the runbook's dump/restore)
+    legacy_on_primary          = optional(bool, true)               # keep the primary backend's Postgres container
+    bootstrap_from_backup      = optional(bool, false)              # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
+    restore_target_time        = optional(string)                   # with bootstrap_from_backup: PITR target, e.g. "2026-11-20 12:00:00+00"
+    package_versions = optional(map(string), {                      # Debian package => accepted version (shell glob)
+      "postgresql-17" = "17.*"
+      "patroni"       = "4.0.*"
+      "etcd-server"   = "3.5.*"
+      "pgbackrest"    = "2.55.*"
+    })
+  })
+  default = {}
+  validation {
+    condition = (
+      can(cidrhost(var.postgres_settings.vip, 0)) && var.postgres_settings.vrrp_router_id >= 1 && var.postgres_settings.vrrp_router_id <= 255 &&
+      can(regex("^[a-z0-9][a-z0-9-]*$", var.postgres_settings.cluster_name)) &&
+      length(var.postgres_settings.rgw_endpoints) > 0 && alltrue([for e in var.postgres_settings.rgw_endpoints : can(regex("^[0-9.]+:[0-9]+$", e))]) &&
+      var.postgres_settings.retention_days >= 1 && contains(["new", "existing"], var.postgres_settings.etcd_initial_cluster_state) &&
+      alltrue([for k, v in var.postgres_settings.package_versions : can(regex("^[a-z0-9.+-]+$", k)) && can(regex("^[A-Za-z0-9.+~:*-]+$", v))])
+    )
+    error_message = "postgres_settings: vip is an IPv4 CIDR, vrrp_router_id 1..255, cluster_name lowercase [a-z0-9-], rgw_endpoints \"IP:port\", retention_days >= 1, etcd_initial_cluster_state new|existing, package_versions package => version glob."
+  }
+}
+
+variable "postgres_secrets" {
+  description = "pgBackRest's S3 bucket and keys (RGW user), the Patroni superuser/replication/REST API and postgres_exporter passwords and the VRRP password (8 characters at most). Grafana's role uses secrets.grafana_db_password. null leaves the cluster out."
+  sensitive   = true
+  type = object({
+    s3_bucket            = string
+    s3_access_key        = string
+    s3_secret_key        = string
+    superuser_password   = string
+    replication_password = string
+    restapi_password     = string
+    monitor_password     = string
+    vrrp_password        = string
+  })
+  default = null
+}
+
+variable "rgw_bucket_alerts" {
+  description = "Thresholds of the per-bucket Ceph RGW alerts (rgw.tf; metrics from roots/monitoring-config/pve-collectors). Growth is in allocated bytes."
+  type = object({
+    growth_1h_bytes       = optional(number, 10737418240)  # CephRGWBucketFastGrowth: 10 GiB in an hour
+    growth_24h_bytes      = optional(number, 107374182400) # CephRGWBucketGrowth24h: 100 GiB in a day
+    quota_ratio           = optional(number, 0.85)         # Near(Bucket|User)Quota
+    quota_horizon_days    = optional(number, 7)            # CephRGWBucketQuotaFullSoon
+    stats_max_age_seconds = optional(number, 1800)         # CephRGWBucketStatsStale (the timer runs every 5 min)
+  })
+  default = {}
+  validation {
+    condition     = var.rgw_bucket_alerts.quota_ratio > 0 && var.rgw_bucket_alerts.quota_ratio <= 1 && var.rgw_bucket_alerts.quota_horizon_days > 0
+    error_message = "rgw_bucket_alerts.quota_ratio must be in (0, 1] and quota_horizon_days positive."
+  }
 }

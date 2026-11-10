@@ -10,12 +10,33 @@ override_resource {
   values = { result = "mockvrrp" }
 }
 
+override_resource {
+  target = random_password.pg_vrrp
+  values = { result = "pgvrrp01" }
+}
+
+override_resource {
+  target = random_password.backend_vrrp
+  values = { result = "monvrrp1" }
+}
+
 mock_provider "influxdb" {
   mock_data "influxdb_organization" {
     defaults = { id = "0123456789abcdef" }
   }
   mock_resource "influxdb_bucket" {
     defaults = { id = "fedcba9876543210" }
+  }
+}
+
+# The replica backend's InfluxDB (influxdb-replica.tf).
+mock_provider "influxdb" {
+  alias = "replica"
+  mock_data "influxdb_organization" {
+    defaults = { id = "1123456789abcdef" }
+  }
+  mock_resource "influxdb_bucket" {
+    defaults = { id = "1edcba9876543210" }
   }
 }
 
@@ -29,7 +50,12 @@ variables {
   ssh_private_key_path = "/dev/null"
   pve_api_token        = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
   greatfox_api_token   = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
+  postgres_settings    = {} # the default; postgres.auto.tfvars (the live cutover) would leak in
   loki_s3              = { bucket = "loki", access_key = "MOCKACCESSKEY", secret_key = "mocksecretkeymocksecretkey" }
+  mimir_s3             = { bucket = "mimir", access_key = "MOCKMIMIRKEY", secret_key = "mockmimirsecretmockmimirsecret" } # metrics.tftest.hcl
+  postgres_s3          = { bucket = "postgres", access_key = "MOCKPGKEY", secret_key = "mockpgsecretmockpgsecret" }       # postgres.tftest.hcl
+  # Stage B (mon-ha.auto.tfvars) has its own run, backend_replica_ready.
+  influxdb_replica_ready = false
 }
 
 run "inventory_targets" {
@@ -38,16 +64,16 @@ run "inventory_targets" {
   assert {
     condition = (
       output.prometheus_url == "http://10.5.11.30:9090" &&
-      output.grafana_urls == { graf01 = "http://10.2.11.31:3000", graf02 = "http://10.2.11.32:3000" } &&
-      length(terraform_data.backend) == 1 && length(terraform_data.grafana) == 2
+      output.grafana_urls == { graf01 = "http://10.2.11.32:3000", graf02 = "http://10.2.11.33:3000" } &&
+      length(terraform_data.backend) == 2 && length(terraform_data.grafana) == 2
     )
-    error_message = "Deploy one backend (mon01) and both Grafana VMs, with UIs on the expected addresses."
+    error_message = "Deploy both backends (mon01, mon02) and both Grafana VMs, with UIs on the expected addresses."
   }
 
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "10.5.1.11:9100") &&    # PVE node on vmbr100
-      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9100") &&  # Grafana over the backend VLAN
+      strcontains(module.monitoring.prometheus_config, "10.13.11.32:9100") &&  # Grafana over the backend VLAN
       strcontains(module.monitoring.prometheus_config, "10.20.10.17:9342") &&  # leaf FRR exporter
       strcontains(module.monitoring.prometheus_config, "10.20.10.255:9100") && # fw-wan extra target
       strcontains(module.monitoring.prometheus_config, "\"snmp-spines\"") &&
@@ -68,16 +94,16 @@ run "inventory_targets" {
 
   assert {
     condition = (
-      strcontains(nonsensitive(module.monitoring.backend_deployment), "promtool") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "promtool") &&
       strcontains(module.monitoring.units.mon01.postgres, "PublishPort=10.13.11.30:5432:5432\n") &&
       !strcontains(module.monitoring.units.mon01.postgres, "10.5.11.30") &&
-      strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.21.11.31:9094,10.21.11.32:9094") &&
-      strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.13.11.32:9100") &&
+      strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.21.11.32:9094,10.21.11.33:9094") &&
+      strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.13.11.33:9100") &&
       strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus") &&
       # Data dirs of images that drop from root to a service user stay owned by that user,
       # so a redeploy that doesn't restart Postgres/InfluxDB can't lock them out.
-      strcontains(nonsensitive(module.monitoring.backend_deployment), "ensure_dir '/var/lib/monitoring/postgres' '0700' 'user|docker.io/library/postgres:17|postgres'") &&
-      strcontains(nonsensitive(module.monitoring.backend_deployment), "ensure_dir '/var/lib/monitoring/influxdb/data' '0700' 'user|docker.io/library/influxdb:2.8|influxdb'")
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "ensure_dir '/var/lib/monitoring/postgres' '0700' 'user|docker.io/library/postgres:17|postgres'") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "ensure_dir '/var/lib/monitoring/influxdb/data' '0700' 'user|docker.io/library/influxdb:2.8|influxdb'")
     )
     error_message = "Validate before install, bind Postgres to the backend VLAN only, and peer Grafana over it."
   }
@@ -88,38 +114,43 @@ run "inventory_targets" {
       strcontains(module.monitoring.dashboard_providers_config, "\"foldersFromFilesStructure\": true") &&
       strcontains(module.monitoring.dashboard_providers_config, "\"allowUiUpdates\": false") &&
       { for rel, content in module.monitoring.dashboards : rel => jsondecode(content).uid } == {
-        "Edge/fw-wan-firewall.json"            = "fw-wan-firewall"
-        "Edge/fw-wan-overview.json"            = "fw-wan-overview"
-        "Edge/fw-wan-routing.json"             = "fw-wan-routing"
-        "Edge/fw-wan-vpn.json"                 = "fw-wan-vpn"
-        "Hosts/node-exporter-full.json"        = "node-exporter-full"
-        "Logs/fw-wan-logs.json"                = "logs-fw-wan"
-        "Logs/logs-overview.json"              = "logs-overview"
-        "Logs/network-device-logs.json"        = "logs-network"
-        "Logs/proxmox-ceph-logs.json"          = "logs-proxmox"
-        "Logs/services-logs.json"              = "logs-services"
-        "Monitoring/monitoring-stack.json"     = "monitoring-stack"
-        "Network/frr-evpn-fabric.json"         = "frr-evpn-fabric"
-        "Network/mikrotik-snmp.json"           = "mikrotik-snmp"
-        "Network/snmp-device-summary.json"     = "snmp-device-summary"
-        "Network/snmp-interface-detail.json"   = "snmp-interface-detail"
-        "Overview/overview.json"               = "lylat-overview"
-        "Probes/blackbox-probes.json"          = "blackbox-probes"
-        "Proxmox/proxmox-cluster-flux.json"    = "proxmox-cluster-flux"
-        "Proxmox/proxmox-guest.json"           = "proxmox-guest"
-        "Proxmox/proxmox-node.json"            = "proxmox-node"
-        "Proxmox/proxmox-overview.json"        = "proxmox-overview"
-        "Proxmox/proxmox-storage.json"         = "proxmox-storage"
-        "Storage/ceph-cluster.json"            = "ceph-cluster"
-        "Storage/ceph-osd.json"                = "ceph-osd"
-        "Storage/ceph-cluster-advanced.json"   = "ceph-cluster-advanced"
-        "Storage/ceph-filesystem.json"         = "ceph-filesystem"
-        "Storage/ceph-osd-device-details.json" = "ceph-osd-device-details"
-        "Storage/ceph-osds-overview.json"      = "ceph-osds-overview"
-        "Storage/ceph-pool-details.json"       = "ceph-pool-details"
-        "Storage/ceph-pools-overview.json"     = "ceph-pools-overview"
-        "Storage/ceph-rbd-details.json"        = "ceph-rbd-details"
-        "Storage/ceph-rbd-overview.json"       = "ceph-rbd-overview"
+        "Edge/fw-wan-firewall.json"                        = "fw-wan-firewall"
+        "Edge/fw-wan-overview.json"                        = "fw-wan-overview"
+        "Edge/fw-wan-routing.json"                         = "fw-wan-routing"
+        "Edge/fw-wan-vpn.json"                             = "fw-wan-vpn"
+        "Hosts/node-exporter-full.json"                    = "node-exporter-full"
+        "Logs/fw-wan-logs.json"                            = "logs-fw-wan"
+        "Logs/logs-overview.json"                          = "logs-overview"
+        "Logs/network-device-logs.json"                    = "logs-network"
+        "Logs/proxmox-ceph-logs.json"                      = "logs-proxmox"
+        "Logs/services-logs.json"                          = "logs-services"
+        "Monitoring/monitoring-stack.json"                 = "monitoring-stack"
+        "Network/frr-evpn-fabric.json"                     = "frr-evpn-fabric"
+        "Network/mikrotik-snmp.json"                       = "mikrotik-snmp"
+        "Network/snmp-device-summary.json"                 = "snmp-device-summary"
+        "Network/snmp-interface-detail.json"               = "snmp-interface-detail"
+        "Network/snmp-interface-throughput-community.json" = "snmp-throughput-community"
+        "Network/snmp-throughput.json"                     = "snmp-throughput"
+        "Network/wireless-client.json"                     = "wireless-client"
+        "Network/wireless-overview.json"                   = "wireless-overview"
+        "Overview/overview.json"                           = "lylat-overview"
+        "Probes/blackbox-probes.json"                      = "blackbox-probes"
+        "Proxmox/proxmox-cluster-flux.json"                = "proxmox-cluster-flux"
+        "Proxmox/proxmox-guest.json"                       = "proxmox-guest"
+        "Proxmox/proxmox-node.json"                        = "proxmox-node"
+        "Proxmox/proxmox-overview.json"                    = "proxmox-overview"
+        "Proxmox/proxmox-storage.json"                     = "proxmox-storage"
+        "Storage/ceph-cluster.json"                        = "ceph-cluster"
+        "Storage/ceph-osd.json"                            = "ceph-osd"
+        "Storage/ceph-rgw-buckets.json"                    = "ceph-rgw-buckets"
+        "Storage/ceph-cluster-advanced.json"               = "ceph-cluster-advanced"
+        "Storage/ceph-filesystem.json"                     = "ceph-filesystem"
+        "Storage/ceph-osd-device-details.json"             = "ceph-osd-device-details"
+        "Storage/ceph-osds-overview.json"                  = "ceph-osds-overview"
+        "Storage/ceph-pool-details.json"                   = "ceph-pool-details"
+        "Storage/ceph-pools-overview.json"                 = "ceph-pools-overview"
+        "Storage/ceph-rbd-details.json"                    = "ceph-rbd-details"
+        "Storage/ceph-rbd-overview.json"                   = "ceph-rbd-overview"
       }
     )
     error_message = "Provision the dashboards from dashboards/<Folder>/*.json, with fixed uids, through a file provider that the UI can't save over."
@@ -178,12 +209,13 @@ run "inventory_targets" {
   }
 
   assert {
-    # The Proxmox dashboards read InfluxDB (the PVE metric server buckets); some add Prometheus panels.
+    # The Proxmox and wireless dashboards read InfluxDB (PVE metric servers, C9800 telemetry); some add Prometheus panels.
     # The log dashboards (Logs/) read Loki.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
       (
         strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") ||
         (startswith(rel, "Proxmox/") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}")) ||
+        (startswith(rel, "Network/wireless-") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}")) ||
         (startswith(rel, "Logs/") && strcontains(content, "{\"type\":\"loki\",\"uid\":\"loki\"}"))
       ) &&
       !strcontains(content, "$${DS_") &&            # import-time placeholders
@@ -224,6 +256,20 @@ run "inventory_targets" {
   }
 
   assert {
+    # The wireless dashboards (C9800 telemetry) query only the provisioned InfluxDB datasource, read only
+    # the wlc bucket, pick WLCs by the telemetry's source tag and share a "Wireless dashboards" dropdown.
+    condition = alltrue([for rel, content in module.monitoring.dashboards : (
+      contains(jsondecode(content).tags, "wireless") &&
+      length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "wireless")]) == 1 &&
+      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) > 0 &&
+      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) == length(regexall("\"type\":\"influxdb\",\"uid\":\"influxdb\"", content)) &&
+      length(split("from(bucket: ", content)) == length(split("from(bucket: \\\"wlc\\\")", content)) &&
+      length([for v in jsondecode(content).templating.list : v if v.name == "wlc" && strcontains(v.query, "tag: \"source\"")]) == 1
+    ) if startswith(rel, "Network/wireless-")]) && length([for rel in keys(module.monitoring.dashboards) : rel if startswith(rel, "Network/wireless-")]) == 2
+    error_message = "Wireless dashboards carry the wireless tag and dropdown, use the provisioned InfluxDB datasource on the wlc bucket and a WLC picker on the source tag."
+  }
+
+  assert {
     condition = alltrue([for name in ["graf01", "graf02"] : (
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "prune '/etc/grafana-container/provisioning/dashboards/files'") &&
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/Network' '0755' 'root'") &&
@@ -233,8 +279,89 @@ run "inventory_targets" {
         "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/${dir}' '0755' 'root'"
       )]) &&
       strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/dashboards.yml' '0644' 'root' 'grafana' ''")
-    )]) && !strcontains(nonsensitive(module.monitoring.backend_deployment), "\nprune '")
+    )]) && !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "\nprune '")
     error_message = "Grafana VMs install the dashboards without a restart (the provider polls), restart only for the provider file, and prune removed dashboards."
+  }
+}
+
+# node_exporter collectors, the exporters' self-scrapes and the ceph-mixin alerts (main.tf),
+# the relay's prometheus_client filter (backends.tf).
+run "exporters_and_ceph_alerts" {
+  command = plan
+
+  assert {
+    # The same extra collectors (and the D-Bus socket for systemd) on every VM's node_exporter.
+    condition = alltrue([for name in ["mon01", "mon02", "graf01", "graf02", "loki01", "mim01"] : (
+      strcontains(module.monitoring.units[name]["node-exporter"], " --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
+      strcontains(module.monitoring.units[name]["node-exporter"], "Volume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro\n")
+    )])
+    error_message = "node_exporter on every VM runs the processes, tcpstat, interrupts and systemd collectors (services/sockets/timers), with the host's D-Bus socket."
+  }
+
+  assert {
+    # Each replica scrapes both backends' exporters, so Mimir (one replica's samples) sees both.
+    condition = alltrue([for job, port in { snmp-exporter = 9116, blackbox-exporter = 9115 } : (
+      one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j.static_configs if j.job_name == job]) == [
+        { targets = ["10.13.11.30:${port}"], labels = { host = "mon01" } },
+        { targets = ["10.13.11.31:${port}"], labels = { host = "mon02" } },
+      ] &&
+      strcontains(module.monitoring.units.mon01[job], "PublishPort=10.13.11.30:${port}:${port}\n") &&
+      strcontains(module.monitoring.units.mon02[job], "PublishPort=10.13.11.31:${port}:${port}\n")
+    )])
+    error_message = "The snmp/blackbox exporters are published on the backend VLAN and scraped there from both replicas, with host = backend."
+  }
+
+  assert {
+    # Every scrape target carries a host label (the monitoring-stack dashboard groups by it).
+    condition     = alltrue(flatten([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : [for sc in try(j.static_configs, []) : try(sc.labels.host, "") != ""]]))
+    error_message = "Every static scrape target has a host label."
+  }
+
+  assert {
+    condition     = alltrue([for name in ["mon01", "mon02"] : endswith(module.monitoring.influx_relay_configs[name], "  namepass = [\"internal_*\"]\n  [outputs.prometheus_client.tagdrop]\n    host = [\"*\"]\n")])
+    error_message = "The relay's prometheus_client output passes only its own internal_* metrics (the writers' carry a host tag)."
+  }
+
+  assert {
+    # The vendored ceph-mixin alerts, all 99, in rules/ceph.yml on both backends.
+    condition = (
+      length(yamldecode(module.monitoring.prometheus_ceph_rules).groups) == 16 &&
+      length(flatten([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : g.rules])) == 99 &&
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : [for r in g.rules : r.alert]]), "CephHealthWarning") &&
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : [for r in g.rules : r.alert]]), "CephFilesystemOffline") &&
+      alltrue([for name in ["mon01", "mon02"] : (
+        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "unpack '/etc/monitoring/prometheus/rules/ceph.yml' '${base64encode(module.monitoring.prometheus_ceph_rules)}'") &&
+        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "check rules /etc/prometheus/rules/ceph.yml")
+      )])
+    )
+    error_message = "Both backends load the ceph-mixin's alert rules as rules/ceph.yml and check them with promtool."
+  }
+
+  assert {
+    # Only the "nodes" group changes: its node_* selectors are limited to the PVE cluster's nodes.
+    condition = (
+      one([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : { for r in g.rules : r.alert => r.expr } if g.name == "nodes"])["CephNodeRootFilesystemFull"] == "node_filesystem_avail_bytes{host=~\"eldarad|fichina|fortuna|macbeth|titania|venom|zoness\",mountpoint=\"/\"} / node_filesystem_size_bytes{host=~\"eldarad|fichina|fortuna|macbeth|titania|venom|zoness\",mountpoint=\"/\"} * 100 < 5" &&
+      startswith(one([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : { for r in g.rules : r.alert => r.expr } if g.name == "nodes"])["CephNodeInconsistentMTU"], "node_network_mtu_bytes{host=~\"eldarad|fichina|fortuna|macbeth|titania|venom|zoness\"} * (node_network_up{host=~\"eldarad|fichina|fortuna|macbeth|titania|venom|zoness\",device!=\"lo\"} > 0)") &&
+      alltrue([for r in one([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : g.rules if g.name == "nodes"]) : length(regexall("\\bnode_[a-z_]+", r.expr)) == length(regexall("\\bnode_[a-z_]+\\{host=~", r.expr))]) &&
+      [for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : g.rules if g.name == "cluster health"] == [for g in yamldecode(file("../../modules/services/monitoring/rules/ceph-mixin/prometheus_alerts.yml")).groups : g.rules if g.name == "cluster health"]
+    )
+    error_message = "The ceph-mixin's node_* alerts are limited to the PVE cluster's nodes; the other groups are loaded unchanged."
+  }
+}
+
+run "ceph_alerts_need_ceph" {
+  command = plan
+
+  variables {
+    ceph_mgr_nodes = []
+  }
+
+  assert {
+    condition = (
+      module.monitoring.prometheus_ceph_rules == "" &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "rules/ceph.yml")
+    )
+    error_message = "Without Ceph targets there are no ceph-mixin alerts."
   }
 }
 
@@ -293,7 +420,7 @@ run "snmp_v3_auths" {
       strcontains(module.monitoring.units.mon01["snmp-exporter"], "Volume=/etc/monitoring/snmp-exporter/auths.yml:/etc/snmp_exporter/auths.yml:ro") &&
       strcontains(module.monitoring.units.mon01["snmp-exporter"], "--config.file=/etc/snmp_exporter/auths.yml") &&
       strcontains(module.monitoring.prometheus_config, "\"lylat_v3\"") &&
-      strcontains(nonsensitive(module.monitoring.backend_deployment), "--dry-run")
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "--dry-run")
     )
     error_message = "SNMPv3 auths add a second exporter config file, validated before install, and the WLC job uses them."
   }
@@ -301,6 +428,30 @@ run "snmp_v3_auths" {
   assert {
     condition     = !strcontains(module.monitoring.prometheus_config, "authsecret123") && !strcontains(module.monitoring.units.mon01["snmp-exporter"], "authsecret123")
     error_message = "SNMPv3 secrets must not end up in prometheus.yml or the unit."
+  }
+}
+
+# The MikroTik SNMP jobs get a longer timeout (their walks take 8-10 s); the others keep the global one.
+run "snmp_scrape_timeouts" {
+  command = plan
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.prometheus_config, "\"job_name\": \"snmp-spines\"\n  \"metrics_path\": \"/snmp\"") &&
+      length(regexall("\"scrape_timeout\": \"20s\"", module.monitoring.prometheus_config)) == 2 &&
+      length(regexall("\"scrape_interval\": \"30s\"\n  \"scrape_timeout\": \"20s\"", module.monitoring.prometheus_config)) == 2
+    )
+    error_message = "snmp-mikrotik-access and snmp-spines scrape every 30s with a 20s timeout."
+  }
+
+  # HOST-RESOURCES-MIB is its own fast job, so the slow walks timing out don't take it along.
+  assert {
+    condition = (
+      strcontains(module.monitoring.prometheus_config, "\"job_name\": \"snmp-mikrotik-hr\"\n  \"metrics_path\": \"/snmp\"\n  \"params\":\n    \"auth\":\n    - \"public_v2\"\n    \"module\":\n    - \"hrDevice\"\n    - \"hrStorage\"\n    - \"hrSystem\"\n  \"relabel_configs\"") &&
+      strcontains(module.monitoring.prometheus_config, "\"job_name\": \"snmp-spines\"\n  \"metrics_path\": \"/snmp\"\n  \"params\":\n    \"auth\":\n    - \"public_v2\"\n    \"module\":\n    - \"if_mib\"\n    - \"mikrotik\"\n    - \"system\"\n  \"relabel_configs\"") &&
+      length(regexall("\"targets\":\n    - \"10\\.5\\.0\\.[3-6]\"", module.monitoring.prometheus_config)) == 8
+    )
+    error_message = "snmp-mikrotik-hr walks hrDevice/hrStorage/hrSystem on the 4 MikroTiks (global interval and timeout); the slow jobs keep if_mib/mikrotik/system."
   }
 }
 
@@ -322,81 +473,169 @@ run "pve_metric_servers" {
   }
 }
 
+run "wlc_telemetry" {
+  command = plan
+
+  override_resource {
+    target = influxdb_authorization.wlc
+    values = { token = "mockwlctoken" }
+  }
+
+  assert {
+    condition = (
+      output.wlc_telemetry_receiver == { address = "10.5.11.30", receivers = { mon01 = "10.5.11.30" }, port = 57500, bucket = "wlc" } && # VIP once influxdb_replica_ready
+      influxdb_bucket.wlc[0].retention_period == 90 * 86400 &&
+      length(influxdb_authorization.wlc[0].permissions) == 1 && influxdb_authorization.wlc[0].permissions[0].action == "write" &&
+      module.monitoring.backend_services == ["monitoring-network", "postgres", "influxdb", "telegraf", "influx-relay", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
+    )
+    error_message = "C9800 telemetry gets its own bucket and write-only token, and Telegraf starts right after InfluxDB."
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.5.11.30:57500:57500\n") &&
+      strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.13.11.30:9273:9273\n") && # its own metrics, for both replicas
+      !strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.13.11.30:57500") &&
+      !strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.5.11.102:57500") && # one Telegraf: no fan-out
+      length(regexall("outputs.influxdb_v2", module.monitoring.wlc_telegraf_configs.mon01)) == 1 &&
+      strcontains(module.monitoring.units.mon01.telegraf, "Network=monitoring.network\n") &&
+      strcontains(module.monitoring.units.mon01.telegraf, "User=telegraf\n") &&
+      strcontains(module.monitoring.units.mon01.telegraf, "EnvironmentFile=/etc/monitoring/telegraf.env\n") &&
+      strcontains(module.monitoring.units.mon01.telegraf, "ExecReload=/usr/bin/podman kill --signal HUP telegraf\n") &&
+      !strcontains(module.monitoring.units.mon01.telegraf, "mockwlctoken")
+    )
+    error_message = "Telegraf publishes the MDT port on the monitoring address only (metrics on the backend VLAN), runs as its own user and reads the token from an env file."
+  }
+
+  assert {
+    condition = (
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "put '/etc/monitoring/telegraf.env' '0600' 'root' 'telegraf' ''") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "put '/etc/monitoring/telegraf/telegraf.conf' '0644' 'root' '' 'telegraf'") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), base64encode("INFLUX_TOKEN=mockwlctoken\n")) &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "config check --config /etc/telegraf/telegraf.conf") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "--http2-prior-knowledge http://10.5.11.30:57500/")
+    )
+    error_message = "deploy.sh checks the Telegraf config before install, keeps the token in a 0600 env file and health-checks the gRPC port."
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.prometheus_config, "\"job_name\": \"telegraf\"") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.30:9273") &&
+      !strcontains(module.monitoring.prometheus_config, "10.13.11.31:9273") && # not before influxdb_replica_ready
+      strcontains(module.monitoring.prometheus_rules, "WlcTelemetryStopped") &&
+      !contains(keys(module.monitoring.units.mon02), "telegraf")
+    )
+    error_message = "Prometheus scrapes Telegraf's own metrics and alerts when the WLCs stop sending."
+  }
+}
+
+run "wlc_telemetry_disabled" {
+  command = plan
+
+  variables {
+    wlc_telemetry = null
+  }
+
+  assert {
+    condition = (
+      output.wlc_telemetry_receiver == null &&
+      length(influxdb_bucket.wlc) == 0 && length(influxdb_authorization.wlc) == 0 &&
+      !contains(module.monitoring.backend_services, "telegraf") &&
+      !contains(keys(module.monitoring.units.mon01), "telegraf") &&
+      !strcontains(module.monitoring.prometheus_config, "\"job_name\": \"telegraf\"") &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "/etc/monitoring/telegraf")
+    )
+    error_message = "wlc_telemetry = null leaves Telegraf, its bucket, token and scrape job out."
+  }
+}
+
 run "logging" {
   command = plan
 
   assert {
     condition = (
       length(terraform_data.logging) == 3 &&
-      output.loki_url == "http://10.13.11.40:3100" &&
-      output.loki_urls == { log01 = "http://10.13.11.33:3100", log02 = "http://10.13.11.34:3100", log03 = "http://10.13.11.35:3100" }
+      output.loki_url == "http://10.13.11.101:3100" &&
+      output.loki_urls == { loki01 = "http://10.13.11.34:3100", loki02 = "http://10.13.11.35:3100", loki03 = "http://10.13.11.36:3100" }
     )
-    error_message = "Deploy Loki on log01-03, reached through the backend VIP."
+    error_message = "Deploy Loki on loki01-03, reached through the backend VIP."
   }
 
   assert {
     # The ring (memberlist, ingester gRPC) runs on the HA VLAN; S3 goes through the local haproxy.
-    condition = alltrue([for name, i in { log01 = 33, log02 = 34, log03 = 35 } : (
+    condition = alltrue([for name, i in { loki01 = 34, loki02 = 35, loki03 = 36 } : (
       yamldecode(module.monitoring.loki_configs[name]).common.instance_addr == "10.21.12.${i}" &&
       yamldecode(module.monitoring.loki_configs[name]).memberlist.advertise_addr == "10.21.12.${i}" &&
-      yamldecode(module.monitoring.loki_configs[name]).memberlist.join_members == ["10.21.12.33:7946", "10.21.12.34:7946", "10.21.12.35:7946"] &&
+      yamldecode(module.monitoring.loki_configs[name]).memberlist.join_members == ["10.21.12.34:7946", "10.21.12.35:7946", "10.21.12.36:7946"] &&
       yamldecode(module.monitoring.loki_configs[name]).common.replication_factor == 3 &&
       yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.endpoint == "127.0.0.1:7480" &&
       yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.bucketnames == "loki" &&
-      yamldecode(module.monitoring.loki_configs[name]).ruler.alertmanager_url == "http://10.13.11.30:9093" &&
+      yamldecode(module.monitoring.loki_configs[name]).ruler.alertmanager_url == "http://10.13.11.30:9093,http://10.13.11.31:9093" &&
       yamldecode(module.monitoring.loki_configs[name]).limits_config.retention_period == "90d" &&
       yamldecode(module.monitoring.loki_configs[name]).compactor.retention_enabled &&
       yamldecode(module.monitoring.loki_configs[name]).schema_config.configs[0].schema == "v13" &&
       !strcontains(module.monitoring.loki_configs[name], "MOCKACCESSKEY") &&
       !strcontains(module.monitoring.loki_configs[name], "mocksecretkey")
     )])
-    error_message = "Loki: ring on the HA VLAN, RF 3, S3 via 127.0.0.1:7480, ruler to mon01's Alertmanager, 90d retention, no keys in loki.yaml."
+    error_message = "Loki: ring on the HA VLAN, RF 3, S3 via 127.0.0.1:7480, ruler to both Alertmanagers, 90d retention, no keys in loki.yaml."
   }
 
   assert {
     # One VRRP instance: adverts over the HA NIC (eth5), the VIPs on the client NICs, nopreempt.
-    condition = alltrue([for name, p in { log01 = { i = 33, prio = 150 }, log02 = { i = 34, prio = 100 }, log03 = { i = 35, prio = 50 } } : (
+    condition = alltrue([for name, p in { loki01 = { i = 34, prio = 150 }, loki02 = { i = 35, prio = 100 }, loki03 = { i = 36, prio = 50 } } : (
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/keepalived/keepalived.conf' '0600' 'root' '' 'keepalived'") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), base64encode(templatefile("../../modules/services/monitoring/templates/keepalived.conf.tftpl", {
         host          = name
-        router_id     = 40
+        router_id     = 101
         priority      = p.prio
         auth_pass     = "mockmockmockmockmockmockmockmock" # mocked random_password
         alloy_address = "10.13.11.${p.i}"
         ha_interface  = "eth5"
         ha_address    = "10.21.12.${p.i}"
-        peers         = [for j in [33, 34, 35] : "10.21.12.${j}" if j != p.i]
+        peers         = [for j in [34, 35, 36] : "10.21.12.${j}" if j != p.i]
         vips = [
-          { cidr = "10.13.11.40/16", interface = "eth2" },
-          { cidr = "10.5.11.40/16", interface = "eth3" },
-          { cidr = "10.20.11.40/16", interface = "eth0" },
+          { cidr = "10.13.11.101/16", interface = "eth2" },
+          { cidr = "10.5.11.101/16", interface = "eth3" },
+          { cidr = "10.20.11.101/16", interface = "eth0" },
         ]
       })))
     )])
-    error_message = "keepalived: vrid 40 over eth5 (HA VLAN), VIPs on eth2/eth3/eth0, priorities 150/100/50."
+    error_message = "keepalived: vrid 101 over eth5 (HA VLAN), VIPs on eth2/eth3/eth0, priorities 150/100/50."
   }
 
   assert {
     condition = (
-      strcontains(module.monitoring.alloy_configs.log01, "syslog_format          = \"raw\"") &&
-      strcontains(module.monitoring.alloy_configs.log01, "address                = \"0.0.0.0:1514\"") &&
-      strcontains(module.monitoring.alloy_configs.log01, "url = \"http://127.0.0.1:3100/loki/api/v1/push\"") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "syslog_format          = \"raw\"") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "address                = \"0.0.0.0:1514\"") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "url = \"http://127.0.0.1:3100/loki/api/v1/push\"") &&
       # Sender address => host, from snmp_targets (the same host label Prometheus uses).
-      strcontains(module.monitoring.alloy_configs.log01, "replacement   = \"c9800-wlc-1\"") && strcontains(module.monitoring.alloy_configs.log01, "replacement   = \"m326-2\"") &&
-      strcontains(module.monitoring.units.log01.alloy, "--stability.level=experimental") &&
-      strcontains(module.monitoring.units.log01.alloy, "Network=host") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "replacement   = \"c9800-wlc-1\"") && strcontains(module.monitoring.alloy_configs.loki01, "replacement   = \"m326-2\"") &&
+      strcontains(module.monitoring.units.loki01.alloy, "--stability.level=experimental") &&
+      strcontains(module.monitoring.units.loki01.alloy, "Network=host") &&
       # The other VMs ship only their journal, to the VIP.
       !strcontains(module.monitoring.alloy_configs.mon01, "loki.source.syslog") &&
-      strcontains(module.monitoring.alloy_configs.graf01, "url = \"http://10.13.11.40:3100/loki/api/v1/push\"") &&
+      strcontains(module.monitoring.alloy_configs.graf01, "url = \"http://10.13.11.101:3100/loki/api/v1/push\"") &&
       !strcontains(module.monitoring.units.mon01.alloy, "stability.level") &&
-      strcontains(module.monitoring.units.graf02.alloy, "--server.http.listen-addr=10.13.11.32:12345") &&
+      strcontains(module.monitoring.units.graf02.alloy, "--server.http.listen-addr=10.13.11.33:12345") &&
       contains(module.monitoring.backend_services, "alloy")
     )
     error_message = "Alloy: syslog (TCP/UDP 514, raw UDP 1514) on the logging VMs into the local Loki; journal-only on mon01/graf to the VIP."
   }
 
   assert {
-    condition = alltrue([for name in ["log01", "log02", "log03"] : (
+    condition = (
+      # Syslog goes through the VyOS dedup stage, the journal straight to Loki.
+      strcontains(module.monitoring.alloy_configs.loki01, "forward_to    = [loki.process.syslog.receiver]") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "selector            = \"{host=~\\\"LEAF-[0-9]+|fw-wan|dhcp0[0-9]\\\", app!=\\\"kernel\\\"} |~ \\\"^ [^ ]\\\"\"") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "action              = \"drop\"") &&
+      !strcontains(module.monitoring.alloy_configs.mon01, "loki.process")
+    )
+    error_message = "Alloy: the VyOS imuxsock copies (one leading space, not kernel) are dropped before Loki on the logging VMs."
+  }
+
+  assert {
+    condition = alltrue([for name in ["loki01", "loki02", "loki03"] : (
       strcontains(module.monitoring.haproxy_configs[name], "bind 127.0.0.1:7480") &&
       strcontains(module.monitoring.haproxy_configs[name], "server rgw1 10.27.0.12:7480") &&
       strcontains(module.monitoring.haproxy_configs[name], "server rgw3 10.27.0.17:7480") &&
@@ -408,11 +647,11 @@ run "logging" {
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"loki\"") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.33:3100") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.35:8405") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.34:3100") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.36:8405") &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.30:12345") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.34:9100") &&
-      strcontains(module.monitoring.units.log02["node-exporter"], "--collector.netdev.address-info") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.35:9100") &&
+      strcontains(module.monitoring.units.loki02["node-exporter"], "--collector.netdev.address-info") &&
       length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "logging"]) == 1 &&
       length([for r in one([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules if g.name == "logging"]) : r if r.alert == "LoggingVIPNotHeldOnce"]) == 3 &&
       strcontains(module.monitoring.prometheus_rules, "loki_ingester_chunks_flush_failures_total") &&
@@ -424,15 +663,16 @@ run "logging" {
   assert {
     condition = (
       strcontains(module.monitoring.datasources_config, "\"uid\": \"loki\"") &&
-      strcontains(module.monitoring.datasources_config, "\"url\": \"http://10.13.11.40:3100\"") &&
+      strcontains(module.monitoring.datasources_config, "\"url\": \"http://10.13.11.101:3100\"") &&
       # $$ escapes Grafana's environment expansion of provisioning files.
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.jsonData.derivedFields[0].url if d.uid == "loki"]) == "up{host=\"$$${__value.raw}\"}"
+      # (?i): Loki has the VyOS hosts in upper case, Prometheus in lower case.
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.jsonData.derivedFields[0].url if d.uid == "loki"]) == "up{host=~\"(?i)$$${__value.raw}\"}"
     )
-    error_message = "Grafana gets a Loki datasource (uid loki) on the backend VIP, linking the host label to Prometheus."
+    error_message = "Grafana gets a Loki datasource (uid loki) on the backend VIP, linking the host label to Prometheus (case-insensitively)."
   }
 
   assert {
-    condition = alltrue([for name in ["log01", "log02", "log03"] : (
+    condition = alltrue([for name in ["loki01", "loki02", "loki03"] : (
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "-verify-config") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "validate --stability.level=experimental /etc/alloy/config.alloy") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "haproxy -c") &&
@@ -473,12 +713,12 @@ run "logging_ha_nic_required" {
           ]
         }
       },
-      { for name, i in { log01 = 33, log02 = 34, log03 = 35 } : name => {
-        owner                  = "services-vms"
-        role                   = "logging"
-        node                   = "zoness"
-        vm_id                  = 1100 + i
-        management_address     = "10.20.11.${i}/16"
+      { for name, i in { loki01 = 34, loki02 = 35, loki03 = 36 } : name => {
+        owner                   = "services-vms"
+        role                    = "logging"
+        node                    = "zoness"
+        vm_id                   = 1100 + i
+        management_address      = "10.20.11.${i}/16"
         network_devices = [
           { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.${i}/16" },
           { bridge = "vmbr100", ipv4_address = "10.5.11.${i}/16" },
@@ -495,26 +735,26 @@ run "grafana_ha" {
 
   assert {
     # Alerting gossip on the Grafana HA VLAN (213), published only there.
-    condition = alltrue([for name, i in { graf01 = 31, graf02 = 32 } : (
+    condition = alltrue([for name, i in { graf01 = 32, graf02 = 33 } : (
       strcontains(module.monitoring.units[name].grafana, "GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS=10.21.11.${i}:9094") &&
       strcontains(module.monitoring.units[name].grafana, "PublishPort=10.21.11.${i}:9094:9094/udp") &&
       !strcontains(module.monitoring.units[name].grafana, "10.13.11.${i}:9094")
     )])
-    error_message = "Grafana alerting HA gossips over 10.21.11.31/.32:9094."
+    error_message = "Grafana alerting HA gossips over 10.21.11.32/.33:9094."
   }
 
   assert {
-    # VIP on the UI NIC (eth1, VLAN 2), adverts unicast on the HA NIC (eth3), router id 11.
+    # VIP on the UI NIC (eth1, VLAN 2), adverts unicast on the HA NIC (eth3), router id 100.
     condition = (
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.2.11.40/16 dev eth1") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.2.11.100/16 dev eth1") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "interface eth3") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip 10.21.11.31") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    10.21.11.32\n") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip 10.21.11.32") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    10.21.11.33\n") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "priority 150") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "priority 100") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "virtual_router_id 11")
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "virtual_router_id 100")
     )
-    error_message = "keepalived on graf01/02: VIP 10.2.11.40 on eth1, unicast adverts over eth3, vrid 11, name-ordered priority."
+    error_message = "keepalived on graf01/02: VIP 10.2.11.100 on eth1, unicast adverts over eth3, vrid 100, name-ordered priority."
   }
 }
 
@@ -525,5 +765,235 @@ run "grafana_vrrp_disabled" {
   assert {
     condition     = nonsensitive(module.monitoring.grafana_keepalived_configs.graf01) == null
     error_message = "grafana_vrrp = null renders no keepalived config."
+  }
+}
+
+# Backend HA (backends.tf): mon01 (primary, Postgres) + mon02, Alertmanager cluster and
+# keepalived over the ha_monitor VLAN 215, VIPs 10.5.11.102 / 10.13.11.102, InfluxDB relay.
+run "backend_ha" {
+  command = plan
+
+  assert {
+    # Same scrapes on both, only __replica__ differs; alerts lose it so the AM cluster dedups.
+    condition = alltrue([for name in ["mon01", "mon02"] : (
+      yamldecode(module.monitoring.prometheus_configs[name]).global.external_labels == { site = "lylat", ha_cluster = "lylat", __replica__ = name } &&
+      yamldecode(module.monitoring.prometheus_configs[name]).alerting.alert_relabel_configs == [{ action = "labeldrop", regex = "__replica__" }] &&
+      yamldecode(module.monitoring.prometheus_configs[name]).alerting.alertmanagers[0].static_configs[0].targets == ["10.13.11.30:9093", "10.13.11.31:9093"] &&
+      yamldecode(module.monitoring.prometheus_configs[name]).scrape_configs == yamldecode(module.monitoring.prometheus_configs.mon01).scrape_configs
+    )])
+    error_message = "Both replicas scrape the same targets with __replica__ = their name, and send to both Alertmanagers."
+  }
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9090") && # every replica's Prometheus and Alertmanager
+      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9093") &&
+      strcontains(module.monitoring.prometheus_config, "10.5.11.31:9100") &&
+      !strcontains(module.monitoring.prometheus_config, "localhost:9090") &&
+      strcontains(module.monitoring.prometheus_rules, "AlertmanagerClusterDegraded") &&
+      strcontains(module.monitoring.prometheus_rules, "address=\\\"10.5.11.102\\\"") &&
+      strcontains(module.monitoring.prometheus_rules, "address=\\\"10.13.11.102\\\"")
+    )
+    error_message = "Every replica scrapes every Prometheus/Alertmanager by address; HA alerts cover the cluster and both VIPs."
+  }
+
+  assert {
+    # Postgres only on the primary; mon02 runs everything else.
+    condition = (
+      !contains(keys(module.monitoring.units.mon02), "postgres") &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "/var/lib/monitoring/postgres") &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "pg_isready") &&
+      module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "influxdb", "influx-relay", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
+      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.13.11.30:5432")
+    )
+    error_message = "Postgres stays on mon01 (Grafana's database); mon02 gets the rest, keepalived last."
+  }
+
+  assert {
+    # Alertmanager gossip on the HA VLAN, published only there.
+    condition = alltrue([for name, i in { mon01 = { me = 30, peer = 31 }, mon02 = { me = 31, peer = 30 } } : (
+      strcontains(module.monitoring.units[name].alertmanager, "--cluster.advertise-address=10.21.13.${i.me}:9094") &&
+      strcontains(module.monitoring.units[name].alertmanager, "--cluster.peer=10.21.13.${i.peer}:9094") &&
+      strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.21.13.${i.me}:9094:9094/udp") &&
+      strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.13.11.102:9093:9093\n") &&
+      strcontains(module.monitoring.units[name].influxdb, "PublishPort=10.5.11.102:8086:8086\n") &&
+      strcontains(module.monitoring.units[name].influxdb, "PublishPort=10.13.11.102:8086:8086\n") &&
+      strcontains(module.monitoring.units[name]["node-exporter"], "--collector.netdev.address-info")
+    )])
+    error_message = "Alertmanager gossips over 10.21.13.30/.31:9094; InfluxDB and Alertmanager also publish on the VIPs."
+  }
+
+  assert {
+    # VIPs on eth2 (vmbr100) and eth3 (VLAN 13), adverts unicast on eth4 (VLAN 215), router id 102.
+    condition = (
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.5.11.102/16 dev eth2") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.13.11.102/16 dev eth3") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "interface eth4") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "unicast_src_ip 10.21.13.30") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "    10.21.13.31\n") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "priority 150") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "priority 100") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "virtual_router_id 102") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), base64encode(module.monitoring.backend_keepalived_configs.mon02)) &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "sysctl -q -p /etc/sysctl.d/90-monitoring-vip.conf") &&
+      output.monitoring_vips == { monitoring = "10.5.11.102", backend = "10.13.11.102" }
+    )
+    error_message = "keepalived on mon01/02: VIPs on eth2/eth3, unicast adverts over eth4, vrid 102, mon01 first; nonlocal bind applied."
+  }
+
+  assert {
+    # Grafana: Influx and Alertmanager on the backend VIP, per-replica Prometheus datasources.
+    condition = (
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "influxdb"]) == "http://10.13.11.102:8086" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.102:9093" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon01"]) == "http://10.13.11.30:9090" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon02"]) == "http://10.13.11.31:9090"
+    )
+    error_message = "Grafana reaches InfluxDB and Alertmanager on the backend VIP, and each Prometheus replica directly."
+  }
+
+  assert {
+    # Before influxdb_replica_ready: nothing on mon02's InfluxDB, the relay writes to mon01 only.
+    condition = (
+      length(influxdb_bucket.replica) == 0 && length(proxmox_metrics_server.cluster_replica) == 0 &&
+      strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon01\"") &&
+      strcontains(module.monitoring.influx_relay_configs.mon02, "http://10.13.11.30:8086") &&
+      !strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon02\"") &&
+      output.vyos_telegraf_influxdb == { url = "http://10.5.11.102", port = 8087, bucket = "vyos" }
+    )
+    error_message = "The replica's InfluxDB objects wait for influxdb_replica_ready; VyOS writes to the relay on the monitoring VIP."
+  }
+}
+
+run "backend_replica_ready" {
+  command = plan
+
+  variables {
+    influxdb_replica_ready = true
+  }
+
+  override_resource {
+    target = influxdb_authorization.replica
+    values = { token = "mockreplicatoken" }
+  }
+
+  override_resource {
+    target = influxdb_authorization.wlc
+    values = { token = "mockwlctoken" }
+  }
+
+  assert {
+    condition = (
+      toset(keys(influxdb_bucket.replica)) == toset(["pve-cluster", "pve-greatfox", "vyos", "wlc"]) &&
+      alltrue([for a in values(influxdb_authorization.replica) : length(a.permissions) == 1 && a.permissions[0].action == "write"]) &&
+      proxmox_metrics_server.cluster_replica[0].name == "influxdb-mon02" &&
+      proxmox_metrics_server.cluster_replica[0].server == "10.5.11.31" &&
+      proxmox_metrics_server.cluster_replica[0].influx_bucket == "pve_cluster" &&
+      proxmox_metrics_server.standalone_replica["greatfox"].influx_bucket == "pve_greatfox" &&
+      proxmox_metrics_server.cluster.server == "10.5.11.30" # the primary's entry stays
+    )
+    error_message = "mon02's InfluxDB gets the same buckets with write-only tokens, and a second metric server per cluster/host."
+  }
+
+  assert {
+    condition = (
+      contains(keys(module.monitoring.units.mon02), "telegraf") &&
+      strcontains(module.monitoring.units.mon02.telegraf, "PublishPort=10.5.11.31:57500:57500\n") &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9273") &&
+      output.wlc_telemetry_receiver.receivers == { mon01 = "10.5.11.30", mon02 = "10.5.11.31" } &&
+      # Each relay writes locally by container name and to the peer over the backend VLAN.
+      strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon02\"\n  urls = [\"http://influxdb:8086\"]") &&
+      strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon01\"\n  urls = [\"http://10.13.11.30:8086\"]") &&
+      strcontains(module.monitoring.influx_relay_configs.mon01, "alias = \"mon02\"\n  urls = [\"http://10.13.11.31:8086\"]")
+    )
+    error_message = "With influxdb_replica_ready, mon02 runs the WLC Telegraf with its own token and the relay writes to both InfluxDBs."
+  }
+
+  # IOS XE keeps one receiver per subscription active, so the WLCs send to the monitoring VIP
+  # and the holder's Telegraf writes the wlc bucket on both backends.
+  assert {
+    condition = (
+      output.wlc_telemetry_receiver.address == "10.5.11.102" &&
+      alltrue([for h in ["mon01", "mon02"] : strcontains(module.monitoring.units[h].telegraf, "PublishPort=10.5.11.102:57500:57500\n")]) &&
+      strcontains(module.monitoring.units.mon02.telegraf, "PublishPort=10.5.11.31:57500:57500\n") && # own address stays
+      strcontains(module.monitoring.wlc_telegraf_configs.mon01, "alias = \"mon01\"\n  urls = [\"http://influxdb:8086\"]\n  token = \"$${INFLUX_TOKEN}\"") &&
+      strcontains(module.monitoring.wlc_telegraf_configs.mon01, "alias = \"mon02\"\n  urls = [\"http://10.13.11.31:8086\"]\n  token = \"$${INFLUX_TOKEN_MON02}\"") &&
+      strcontains(module.monitoring.wlc_telegraf_configs.mon02, "alias = \"mon02\"\n  urls = [\"http://influxdb:8086\"]\n  token = \"$${INFLUX_TOKEN}\"") &&
+      strcontains(module.monitoring.wlc_telegraf_configs.mon02, "alias = \"mon01\"\n  urls = [\"http://10.13.11.30:8086\"]\n  token = \"$${INFLUX_TOKEN_MON01}\"") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), base64encode("INFLUX_TOKEN=mockwlctoken\nINFLUX_TOKEN_MON02=mockreplicatoken\n")) &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), base64encode("INFLUX_TOKEN_MON01=mockwlctoken\nINFLUX_TOKEN=mockreplicatoken\n")) &&
+      !strcontains(module.monitoring.wlc_telegraf_configs.mon01, "mockwlctoken") &&
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr if g.name == "wlc-telemetry"]), "sum(rate(internal_gather_metrics_gathered{job=\"telegraf\", input=\"cisco_telemetry_mdt\"}[10m])) == 0") &&
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].alert if g.name == "wlc-telemetry"]), "WlcTelemetryWriteDropping")
+    )
+    error_message = "Both WLC Telegrafs listen on the monitoring VIP and write the wlc bucket on both InfluxDBs (local + peer token); WlcTelemetryStopped sums over both."
+  }
+}
+
+run "backend_vrrp_disabled" {
+  command = plan
+  variables { backend_vrrp = null }
+
+  assert {
+    condition = (
+      nonsensitive(module.monitoring.backend_keepalived_configs.mon01) == null &&
+      output.monitoring_vips == null &&
+      !contains(module.monitoring.backend_services, "keepalived") &&
+      !strcontains(module.monitoring.units.mon01.influxdb, "10.5.11.102") &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "influxdb"]) == "http://10.13.11.30:8086"
+    )
+    error_message = "backend_vrrp = null: no keepalived or VIP publishing; Grafana uses the primary."
+  }
+}
+
+run "backend_ha_nic_required" {
+  command = plan
+
+  # Two backends with backend_vrrp on, but mon02 has no ha_monitor (215) NIC.
+  variables {
+    vms = { for name, i in { mon01 = 30, mon02 = 31 } : name => {
+      owner              = "services-vms"
+      role               = "monitoring"
+      node               = "zoness"
+      vm_id              = 1100 + i
+      management_address = "10.20.11.${i}/16"
+      network_devices = concat([
+        { bridge = "vmbr4000", vlan_id = 2, ipv4_address = "10.2.11.${i}/16", ipv4_gateway = "10.2.0.5" },
+        { bridge = "vmbr100", ipv4_address = "10.5.11.${i}/16" },
+        { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.${i}/16" },
+      ], name == "mon01" ? [{ bridge = "vmbr4000", vlan_id = 215, ipv4_address = "10.21.13.${i}/24" }] : [])
+    } }
+  }
+
+  expect_failures = [terraform_data.backend]
+}
+
+# A single backend (mon02 left out of the inventory): mon01 alone, no cluster, no VIPs; Grafana
+# and the relay use mon01.
+run "backend_single" {
+  command = plan
+  variables { vms = { for name, vm in var.vms : name => vm if name != "mon02" } }
+
+  assert {
+    condition = (
+      keys(terraform_data.backend) == ["mon01"] &&
+      nonsensitive(module.monitoring.backend_keepalived_configs.mon01) == null &&
+      output.monitoring_vips == null &&
+      !contains(module.monitoring.backend_services, "keepalived") &&
+      strcontains(module.monitoring.units.mon01.alertmanager, "--cluster.listen-address=\n") &&
+      !strcontains(module.monitoring.units.mon01.alertmanager, "--cluster.peer") &&
+      !strcontains(module.monitoring.units.mon01.influxdb, "10.5.11.102") &&
+      yamldecode(module.monitoring.prometheus_config).global.external_labels.__replica__ == "mon01" &&
+      yamldecode(module.monitoring.prometheus_config).alerting.alertmanagers[0].static_configs[0].targets == ["10.13.11.30:9093"] &&
+      !strcontains(module.monitoring.prometheus_config, "10.13.11.31") &&
+      !strcontains(module.monitoring.prometheus_rules, "AlertmanagerClusterDegraded") &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "influxdb"]) == "http://10.13.11.30:8086" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.30:9093" &&
+      !contains([for d in yamldecode(module.monitoring.datasources_config).datasources : d.uid], "prometheus-mon02") &&
+      output.vyos_telegraf_influxdb.url == "http://10.5.11.30" &&
+      !strcontains(module.monitoring.influx_relay_configs.mon01, "10.13.11.31") &&
+      length(influxdb_bucket.replica) == 0
+    )
+    error_message = "Without mon02, mon01 runs alone: no Alertmanager peers, no keepalived/VIPs, Grafana and the VyOS relay on mon01."
   }
 }

@@ -1,0 +1,10 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Daily pgBackRest backup (runs on every member; only the leader backs up)
+
+[Timer]
+OnCalendar=${schedule}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

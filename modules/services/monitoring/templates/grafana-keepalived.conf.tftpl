@@ -1,5 +1,5 @@
 # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
-# VRRP for the Grafana VIP on ${host}: adverts go unicast over the HA VLAN (${ha_interface}),
+# VRRP for the Grafana VIP(s) on ${host}: adverts go unicast over the HA VLAN (${ha_interface}),
 # the VIP sits on the UI NIC (${interface}).
 
 global_defs {
@@ -40,7 +40,9 @@ vrrp_instance grafana {
     auth_pass ${auth_pass}
   }
   virtual_ipaddress {
+%{ for vip in vips ~}
     ${vip} dev ${interface}
+%{ endfor ~}
   }
   track_interface {
     ${interface}

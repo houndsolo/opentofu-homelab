@@ -14,7 +14,9 @@ locals {
   logging_secrets = var.logging_secrets != null ? var.logging_secrets : { s3_bucket = "", s3_access_key = "", s3_secret_key = "", vrrp_password = "" }
   logging_names   = sort(keys(var.logging))
   logging_vips    = var.logging_settings.vips
-  vip_address     = { for net, cidr in local.logging_vips : net => split("/", cidr)[0] }
+  # Every logging VM's HA address (sorted: memberlist join list, keepalived peers, ring guard).
+  logging_ring_peers = sort(distinct([for name in local.logging_names : var.logging[name].ha_address]))
+  vip_address        = { for net, cidr in local.logging_vips : net => split("/", cidr)[0] }
   # Grafana's datasource, Alloy pushes from the other VMs and the README all use the backend VIP.
   loki_url = "http://${local.vip_address.backend}:3100"
 
@@ -62,7 +64,7 @@ locals {
         bind_port                   = 7946
         advertise_addr              = vm.ha_address
         advertise_port              = 7946
-        join_members                = [for peer in local.logging_names : "${var.logging[peer].ha_address}:7946"]
+        join_members                = [for a in local.logging_ring_peers : "${a}:7946"]
         abort_if_cluster_join_fails = false
       }
       schema_config = {
@@ -97,7 +99,8 @@ locals {
       # Rule groups are sharded over the ruler ring: each group is evaluated by one
       # instance, so an alert is sent once. Rules come from local files (same on every VM).
       ruler = {
-        alertmanager_url = "http://${local.back}:9093" # the backend's Alertmanager, over the backend VLAN
+        # Every Alertmanager (one group each, so each gets every alert; the cluster dedups), over the backend VLAN.
+        alertmanager_url = join(",", [for t in local.alertmanager_targets : "http://${t}"])
         enable_api       = true
         enable_sharding  = true
         rule_path        = "/loki/rules-temp"
@@ -128,9 +131,11 @@ locals {
   # Alloy everywhere: journal -> Loki; on the logging VMs also the syslog receiver,
   # pushing to the local Loki (which replicates to the others).
   alloy_hosts = merge(
-    { (var.backend.name) = { listen = local.back, loki_url = local.loki_url, syslog = false } },
+    { for name, b in var.backends : name => { listen = b.backend_address, loki_url = local.loki_url, syslog = false } },
     { for name, g in var.grafana : name => { listen = g.backend_address, loki_url = local.loki_url, syslog = false } },
     { for name, vm in var.logging : name => { listen = vm.backend_address, loki_url = "http://127.0.0.1:3100", syslog = true } },
+    local.mimir_alloy_hosts, # metrics.tf
+    local.pg_alloy_hosts,    # postgres.tf
   )
   alloy_config = {
     for name, a in local.alloy_hosts : name => templatefile("${path.module}/templates/config.alloy.tftpl", {
@@ -142,6 +147,8 @@ locals {
       # Senders' address => host label (wins over the hostname in the message, which is
       # missing in raw messages and generic on some switches).
       host_overrides = var.logging_settings.syslog_host_overrides
+      # Loki host labels whose imuxsock duplicates (one leading space) are dropped.
+      dedup_hosts = var.logging_settings.syslog_dedup_hosts
     })
   }
   alloy_unit = {
@@ -202,7 +209,7 @@ locals {
       alloy_address = vm.backend_address
       ha_interface  = vm.interfaces.ha
       ha_address    = vm.ha_address
-      peers         = [for peer in local.logging_names : var.logging[peer].ha_address if peer != name]
+      peers         = [for a in local.logging_ring_peers : a if a != vm.ha_address]
       vips          = [for net in ["backend", "monitoring", "mgmt"] : { cidr = local.logging_vips[net], interface = vm.interfaces[net] }]
     })
   }
@@ -246,11 +253,11 @@ locals {
         image       = var.images.node_exporter
         network     = "host"
         publish     = []
-        volumes     = ["/:/host:ro,rslave"]
+        volumes     = local.node_exporter_volumes
         env         = {}
         env_files   = []
         # address-info: node_network_address_info shows which VM holds each VIP.
-        exec        = ["--path.rootfs=/host", "--web.listen-address=${vm.backend_address}:9100", "--collector.netdev.address-info"]
+        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${vm.backend_address}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
         user        = null
         caps        = []
         podman_args = ["--pid=host"]
@@ -326,6 +333,7 @@ locals {
   haproxy_cfg = {
     for name, vm in var.logging : name => templatefile("${path.module}/templates/haproxy.cfg.tftpl", {
       host          = name
+      client        = "Loki"
       endpoints     = var.logging_settings.rgw_endpoints
       stats_address = vm.backend_address
     })
@@ -333,7 +341,7 @@ locals {
 
   guard_nft = templatefile("${path.module}/templates/logging-guard.nft.tftpl", {
     sources      = var.logging_settings.loki_allowed_sources
-    ring_sources = [for name in local.logging_names : var.logging[name].ha_address]
+    ring_sources = local.logging_ring_peers
   })
 
   # Prometheus: Loki, Alloy (every VM), haproxy (RGW health from each log VM).
@@ -427,14 +435,15 @@ locals {
     jsonData = {
       maxLines     = 1000
       manageAlerts = false # the ruler's rules are files on the log VMs
-      # Every stream has a host label (the same value Prometheus uses): link it to that host's targets.
+      # Every stream has a host label, the name Prometheus uses too, but Loki has the VyOS hosts in
+      # upper case (LEAF-11 vs leaf-11), so the link ignores case. It opens that host's targets.
       derivedFields = [{
         name          = "host metrics"
         matcherType   = "label"
         matcherRegex  = "host"
         datasourceUid = "prometheus"
         # $$ keeps Grafana's provisioning from expanding it as an environment variable.
-        url             = "up{host=\"$$${__value.raw}\"}"
+        url             = "up{host=~\"(?i)$$${__value.raw}\"}"
         urlDisplayLabel = "Prometheus targets of this host"
       }]
     }

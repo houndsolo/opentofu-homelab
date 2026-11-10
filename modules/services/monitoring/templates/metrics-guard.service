@@ -1,0 +1,20 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Limit Mimir's ports to loopback, the backend VLAN and the ring (nftables table metrics_guard)
+# Early-boot unit like Debian's nftables.service: without DefaultDependencies=no it is
+# ordered after basic.target AND before network-pre.target, a cycle via cloud-init.
+DefaultDependencies=no
+After=local-fs.target
+Before=network-pre.target shutdown.target mimir.service
+Wants=network-pre.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/metrics/guard.nft
+ExecReload=/usr/sbin/nft -f /etc/metrics/guard.nft
+ExecStop=/usr/sbin/nft delete table inet metrics_guard
+
+[Install]
+WantedBy=multi-user.target

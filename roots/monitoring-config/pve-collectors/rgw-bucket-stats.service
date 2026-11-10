@@ -1,0 +1,11 @@
+# Installed by roots/monitoring-config/pve-collectors/install.sh (not managed by OpenTofu).
+[Unit]
+Description=Per-bucket Ceph RGW usage for node_exporter (ceph_rgw_buckets.prom)
+After=network-online.target ceph.target
+ConditionPathIsDirectory=/var/lib/prometheus/node-exporter
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rgw-bucket-stats
+Nice=10
+TimeoutStartSec=120

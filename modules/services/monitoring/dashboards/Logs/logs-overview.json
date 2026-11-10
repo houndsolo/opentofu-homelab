@@ -31,7 +31,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -98,8 +98,8 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({source=~\"${source:regex}\"}, host)",
-        "query": "label_values({source=~\"${source:regex}\"}, host)",
+        "definition": "label_values({source=~\"${source}\"}, host)",
+        "query": "label_values({source=~\"${source}\"}, host)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
@@ -126,14 +126,14 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\"}, app)",
-        "query": "label_values({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\"}, app)",
+        "definition": "label_values({source=~\"${source}\", host=~\"(?i)$host\"}, app)",
+        "query": "label_values({source=~\"${source}\", host=~\"(?i)$host\"}, app)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
         "options": [],
         "sort": 1,
-        "regex": "",
+        "regex": "/^(?![a-z]+_[a-z]+$)(.+)$/",
         "hide": 0,
         "allValue": ".*",
         "current": {
@@ -211,7 +211,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Lines in range",
           "refId": "A"
@@ -226,7 +226,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -276,7 +276,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(rate({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\" [5m])) or vector(0)",
+          "expr": "sum(rate({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\" [5m])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "lines/s",
           "refId": "A"
@@ -291,7 +291,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -340,7 +340,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Errors in range",
           "refId": "A"
@@ -355,11 +355,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -409,7 +409,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Warnings in range",
           "refId": "A"
@@ -424,11 +424,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -478,7 +478,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "count(sum by (host) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} [5m]))) or vector(0)",
+          "expr": "count(sum by (host) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} [5m]))) or vector(0)",
           "queryType": "instant",
           "legendFormat": "hosts",
           "refId": "A"
@@ -493,7 +493,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -558,11 +558,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -619,7 +619,7 @@
     {
       "type": "timeseries",
       "title": "Lines by source",
-      "description": "syslog: devices and VMs sending syslog; journal: the monitoring and logging VMs' journals (Alloy). The VyOS routers and DHCP VMs currently send every line twice (once with a leading space), so their volume is doubled.",
+      "description": "syslog: devices and VMs sending syslog; journal: the monitoring and logging VMs' journals (Alloy). The VyOS routers and DHCP VMs send every line twice; Alloy keeps one copy, so their volume is doubled only before that change (2026-11).",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -631,7 +631,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (source) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\" [$__auto]))",
+          "expr": "sum by (source) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{source}}",
           "refId": "A"
@@ -646,13 +646,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -679,7 +680,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -694,7 +695,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "purple"
+                  "fixedColor": "#9932cc"
                 }
               }
             ]
@@ -739,7 +740,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (level) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\" [$__auto]))",
+          "expr": "sum by (level) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{level}}",
           "refId": "A"
@@ -754,13 +755,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -787,7 +789,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "red"
+                  "fixedColor": "#ff6188"
                 }
               }
             ]
@@ -802,7 +804,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#ffa352"
                 }
               }
             ]
@@ -817,7 +819,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -832,7 +834,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -847,7 +849,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -879,8 +881,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Lines by host (top 10)",
-      "description": "",
+      "title": "Lines by host",
+      "description": "Every selected host, the legend sorted by total. The top hosts over the whole range: see Noisiest hosts.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -892,7 +894,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (host) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\" [$__auto])))",
+          "expr": "sum by (host) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -907,13 +909,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -939,7 +942,9 @@
             "sum",
             "max"
           ],
-          "showLegend": true
+          "showLegend": true,
+          "sortBy": "Total",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -969,7 +974,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__auto]))",
+          "expr": "sum by (host) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -984,13 +989,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -1046,7 +1052,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__auto]))",
+          "expr": "sum by (host) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -1061,13 +1067,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -1123,7 +1130,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(15, sum by (host) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\" [$__range])))",
+          "expr": "sort_desc(topk(15, sum by (host) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\" [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -1138,7 +1145,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1197,7 +1204,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(15, sum by (app) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\" [$__range])))",
+          "expr": "sort_desc(topk(15, sum by (app) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\" [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{app}}",
           "refId": "A"
@@ -1212,7 +1219,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1264,7 +1271,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(15, sum by (host, app) (count_over_time({source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range])))",
+          "expr": "sort_desc(topk(15, sum by (host, app) (count_over_time({source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{host}} · {{app}}",
           "refId": "A"
@@ -1279,7 +1286,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": null
               }
             ]
@@ -1351,7 +1358,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\"",
+          "expr": "{source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\"",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 200,
@@ -1367,7 +1374,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1532,7 +1539,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=~\"${source:regex}\", host=~\"(?i)${host:regex}\", app=~\"${app:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"${level:regex}\"",
+          "expr": "{source=~\"${source}\", host=~\"(?i)$host\", app=~\"$app\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~\"$level\"",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 1000,

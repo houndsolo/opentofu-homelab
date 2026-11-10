@@ -1,0 +1,47 @@
+#!/bin/bash
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# Run by pg-leader-setup.service on every Patroni member (every deploy). On the leader only:
+# Grafana's and the exporter's roles (passwords from /etc/postgres-ha/roles.env), the
+# grafana database, the pgBackRest stanza and, if the repository has none yet, a first full
+# backup. Replicas get all of it through replication; they exit right away.
+set -euo pipefail
+member='${name}'
+stanza='${stanza}'
+
+leader=""
+for _ in $(seq 1 90); do
+  leader=$(curl -fsS -m 2 http://127.0.0.1:8008/cluster 2>/dev/null | jq -r '.members[] | select(.role == "leader") | .name' || true)
+  [ -n "$leader" ] && break
+  sleep 2
+done
+[ -n "$leader" ] || { echo "no Patroni leader after 3 minutes" >&2; exit 1; }
+if [ "$leader" != "$member" ]; then
+  echo "$member is a replica (leader: $leader): nothing to do"
+  exit 0
+fi
+for _ in $(seq 1 60); do
+  [ "$(runuser -u postgres -- psql -XAtqc 'select pg_is_in_recovery()' 2>/dev/null || true)" = f ] && break
+  sleep 2
+done
+
+# Passwords come from the environment (\getenv), never from the command line.
+runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -q <<'SQL'
+\getenv grafana_pw PG_GRAFANA_PASSWORD
+\getenv monitor_pw PG_MONITOR_PASSWORD
+SELECT 'CREATE ROLE grafana LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'grafana') \gexec
+ALTER ROLE grafana LOGIN PASSWORD :'grafana_pw';
+SELECT 'CREATE ROLE pgmon LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'pgmon') \gexec
+ALTER ROLE pgmon LOGIN PASSWORD :'monitor_pw';
+GRANT pg_monitor TO pgmon;
+SELECT 'CREATE DATABASE grafana OWNER grafana' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'grafana') \gexec
+SQL
+echo "roles grafana, pgmon and database grafana present"
+
+# The S3 keys come from the environment too (PGBACKREST_REPO1_S3_KEY*). stanza-create is a
+# no-op on an existing, matching stanza.
+runuser -u postgres -- pgbackrest --stanza="$stanza" stanza-create
+runuser -u postgres -- pgbackrest --stanza="$stanza" check
+if [ "$(runuser -u postgres -- pgbackrest --stanza="$stanza" --output=json info | jq '.[0].backup | length')" = 0 ]; then
+  echo "no backup in the repository yet: first full backup"
+  /usr/local/sbin/pg-backup full
+fi

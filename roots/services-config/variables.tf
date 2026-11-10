@@ -145,7 +145,7 @@ variable "dhcp_syslog" {
     facility = optional(string, "all")
     level    = optional(string, "info")
   })
-  default = { host = "10.20.11.40", vrf = "mgmt" }
+  default = { host = "10.20.11.101", vrf = "mgmt" }
 }
 
 variable "dns_syslog" {
@@ -155,7 +155,7 @@ variable "dns_syslog" {
     port  = optional(number, 514)
     level = optional(string, "info")
   })
-  default = { host = "10.20.11.40" }
+  default = { host = "10.20.11.101" }
   validation {
     condition = var.dns_syslog == null || (
       can(regex("^[A-Za-z0-9.:-]+$", try(var.dns_syslog.host, ""))) &&

@@ -1,0 +1,20 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Limit Postgres, Patroni and etcd ports to their clients (nftables table postgres_guard)
+# Early boot like Debian's nftables.service: without DefaultDependencies=no the implicit
+# After=basic.target plus Before=network-pre.target makes an ordering cycle at boot.
+DefaultDependencies=no
+After=local-fs.target
+Before=network-pre.target shutdown.target etcd.service patroni.service
+Wants=network-pre.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/postgres-ha/guard.nft
+ExecReload=/usr/sbin/nft -f /etc/postgres-ha/guard.nft
+ExecStop=/usr/sbin/nft delete table inet postgres_guard
+
+[Install]
+WantedBy=multi-user.target

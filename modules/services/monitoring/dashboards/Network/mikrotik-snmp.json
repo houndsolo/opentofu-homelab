@@ -9,7 +9,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "target": {
           "limit": 100,
@@ -124,19 +124,19 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46",
+                    "color": "#02E5A8",
                     "value": null
                   },
                   {
-                    "color": "yellow",
+                    "color": "#ffd27a",
                     "value": 1
                   },
                   {
-                    "color": "#EF843C",
+                    "color": "#ffa352",
                     "value": 1.5
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 2
                   }
                 ]
@@ -177,7 +177,7 @@
                 "uid": "prometheus"
               },
               "exemplar": true,
-              "expr": "snmp_scrape_duration_seconds{instance='$instance'}",
+              "expr": "sum(snmp_scrape_duration_seconds{instance='$instance'})",
               "instant": true,
               "interval": "",
               "legendFormat": "",
@@ -214,19 +214,19 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46",
+                    "color": "#02E5A8",
                     "value": null
                   },
                   {
-                    "color": "yellow",
+                    "color": "#ffd27a",
                     "value": 1
                   },
                   {
-                    "color": "#EF843C",
+                    "color": "#ffa352",
                     "value": 1.5
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 2
                   }
                 ]
@@ -267,7 +267,7 @@
                 "uid": "prometheus"
               },
               "exemplar": true,
-              "expr": "snmp_scrape_walk_duration_seconds{instance='$instance'}",
+              "expr": "sum(snmp_scrape_walk_duration_seconds{instance='$instance'})",
               "instant": true,
               "interval": "",
               "legendFormat": "",
@@ -304,7 +304,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "text",
+                    "color": "#e5f3e2",
                     "value": null
                   }
                 ]
@@ -345,7 +345,7 @@
                 "uid": "prometheus"
               },
               "exemplar": true,
-              "expr": "snmp_scrape_pdus_returned{instance='$instance'}",
+              "expr": "sum(snmp_scrape_pdus_returned{instance='$instance'})",
               "instant": true,
               "interval": "",
               "legendFormat": "",
@@ -421,23 +421,23 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 0
               },
               {
-                "color": "dark-orange",
+                "color": "#996333",
                 "value": 86400
               },
               {
-                "color": "dark-yellow",
+                "color": "#997f4b",
                 "value": 604800
               },
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": 2628000
               }
             ]
@@ -524,27 +524,27 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "#EAB839",
+                "color": "#ffd27a",
                 "value": 1
               },
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": 2
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 3
               },
               {
-                "color": "light-blue",
+                "color": "#8f95ff",
                 "value": 4
               },
               {
-                "color": "rgb(69, 69, 71)",
+                "color": "#606760",
                 "value": 5
               }
             ]
@@ -609,11 +609,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "dark-orange",
+                "color": "#996333",
                 "value": 1
               }
             ]
@@ -678,7 +678,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#fff899",
+                "color": "#f1e4b3",
                 "value": null
               }
             ]
@@ -716,11 +716,11 @@
             "uid": "prometheus"
           },
           "exemplar": true,
-          "expr": "sysIdentity{instance='$instance'}",
+          "expr": "sysName{instance='$instance'}",
           "hide": false,
           "instant": true,
           "interval": "",
-          "legendFormat": "{{sysIdentity}}",
+          "legendFormat": "{{sysName}}",
           "refId": "A"
         }
       ],
@@ -743,7 +743,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#fff899",
+                "color": "#f1e4b3",
                 "value": null
               }
             ]
@@ -808,7 +808,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "super-light-yellow",
+                "color": "#f1e4b3",
                 "value": null
               }
             ]
@@ -873,7 +873,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -900,7 +900,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^Time$/",
+          "fields": "",
           "values": false
         },
         "text": {},
@@ -914,7 +914,7 @@
             "uid": "prometheus"
           },
           "exemplar": true,
-          "expr": "time()-(hrSystemDate{instance='$instance'})",
+          "expr": "hrSystemDate{instance='$instance'} * 1000",
           "instant": true,
           "interval": "",
           "legendFormat": "",
@@ -939,7 +939,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1005,7 +1005,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1071,7 +1071,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "super-light-yellow",
+                "color": "#f1e4b3",
                 "value": null
               }
             ]
@@ -1136,7 +1136,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "super-light-yellow",
+                "color": "#f1e4b3",
                 "value": null
               }
             ]
@@ -1211,7 +1211,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1280,15 +1280,15 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "dark-orange",
+                "color": "#996333",
                 "value": 80
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 90
               }
             ]
@@ -1363,15 +1363,15 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "dark-orange",
+                "color": "#996333",
                 "value": 60
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 80
               }
             ]
@@ -1448,15 +1448,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "dark-orange",
+                "color": "#996333",
                 "value": 80
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 90
               }
             ]
@@ -1525,19 +1525,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "light-blue",
+                "color": "#8f95ff",
                 "value": null
               },
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": 20
               },
               {
-                "color": "dark-orange",
+                "color": "#996333",
                 "value": 55
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 65
               }
             ]
@@ -1600,7 +1600,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 30,
+            "fillOpacity": 25,
             "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
@@ -1631,7 +1631,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1680,7 +1680,7 @@
             "uid": "prometheus"
           },
           "exemplar": true,
-          "expr": "mtxrHlTemperature{instance='$instance'}/10",
+          "expr": "mtxrHlProcessorTemperature{instance='$instance'}/10 or mtxrHlTemperature{instance='$instance'}/10",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -1744,7 +1744,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1810,7 +1810,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1875,7 +1875,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1951,11 +1951,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -2052,23 +2052,24 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               },
               {
-                "color": "dark-yellow",
+                "color": "#997f4b",
                 "value": 2
               },
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": 3
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 4
               }
             ]
-          }
+          },
+          "noValue": "No PoE"
         },
         "overrides": []
       },
@@ -2130,12 +2131,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
-          "unit": "watt"
+          "unit": "watt",
+          "noValue": "No PoE"
         },
         "overrides": []
       },
@@ -2196,12 +2198,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
-          "unit": "mamp"
+          "unit": "mamp",
+          "noValue": "No PoE"
         },
         "overrides": []
       },
@@ -2262,12 +2265,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
-          "unit": "volt"
+          "unit": "volt",
+          "noValue": "No PoE"
         },
         "overrides": []
       },
@@ -2357,7 +2361,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2443,7 +2447,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "super-light-yellow",
+                "color": "#f1e4b3",
                 "value": null
               }
             ]
@@ -2487,35 +2491,35 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "#299c46",
+                      "color": "#02E5A8",
                       "value": 1
                     },
                     {
-                      "color": "semi-dark-red",
+                      "color": "#cc4e6e",
                       "value": 2
                     },
                     {
-                      "color": "#EAB839",
+                      "color": "#ffd27a",
                       "value": 3
                     },
                     {
-                      "color": "#6a6a6a",
+                      "color": "#606760",
                       "value": 4
                     },
                     {
-                      "color": "#6ED0E0",
+                      "color": "#21E2D7",
                       "value": 5
                     },
                     {
-                      "color": "#EF843C",
+                      "color": "#ffa352",
                       "value": 6
                     },
                     {
-                      "color": "dark-purple",
+                      "color": "#5c1f7c",
                       "value": 7
                     }
                   ]
@@ -2585,23 +2589,23 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "rgb(77, 79, 79)",
+                      "color": "#606760",
                       "value": null
                     },
                     {
-                      "color": "#EAB839",
+                      "color": "#ffd27a",
                       "value": 50000000
                     },
                     {
-                      "color": "#6ED0E0",
+                      "color": "#21E2D7",
                       "value": 100000000
                     },
                     {
-                      "color": "#299c46",
+                      "color": "#02E5A8",
                       "value": 1000000000
                     },
                     {
-                      "color": "semi-dark-purple",
+                      "color": "#7b29a4",
                       "value": 1000000010
                     }
                   ]
@@ -2620,20 +2624,16 @@
             },
             "properties": [
               {
-                "id": "unit",
-                "value": "bits"
-              },
-              {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "rgb(77, 79, 79)",
+                      "color": "#606760",
                       "value": null
                     },
                     {
-                      "color": "super-light-yellow",
+                      "color": "#f1e4b3",
                       "value": 1
                     }
                   ]
@@ -2642,6 +2642,10 @@
               {
                 "id": "custom.width",
                 "value": 118
+              },
+              {
+                "id": "unit",
+                "value": "decbytes"
               }
             ]
           },
@@ -2652,20 +2656,16 @@
             },
             "properties": [
               {
-                "id": "unit",
-                "value": "bits"
-              },
-              {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "rgb(77, 79, 79)",
+                      "color": "#606760",
                       "value": null
                     },
                     {
-                      "color": "super-light-yellow",
+                      "color": "#f1e4b3",
                       "value": 1
                     }
                   ]
@@ -2674,6 +2674,10 @@
               {
                 "id": "custom.width",
                 "value": 118
+              },
+              {
+                "id": "unit",
+                "value": "decbytes"
               }
             ]
           },
@@ -2705,11 +2709,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "rgb(77, 79, 79)",
+                      "color": "#606760",
                       "value": null
                     },
                     {
-                      "color": "super-light-yellow",
+                      "color": "#f1e4b3",
                       "value": 1
                     }
                   ]
@@ -2877,7 +2881,7 @@
             "uid": "prometheus"
           },
           "exemplar": true,
-          "expr": "ifSpeed{instance='$instance'}",
+          "expr": "ifHighSpeed{instance='$instance'}*1000000",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -2940,20 +2944,6 @@
           "interval": "",
           "legendFormat": "",
           "refId": "I"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "exemplar": true,
-          "expr": "ifAlias{instance='$instance'}",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "J"
         }
       ],
       "title": "Interfaces",
@@ -2992,7 +2982,7 @@
               "__name__ 8": true,
               "__name__ 9": true,
               "ifIndex": false,
-              "ifIndex 1": true,
+              "ifIndex 1": false,
               "ifIndex 2": true,
               "ifIndex 3": true,
               "ifIndex 4": true,
@@ -3021,7 +3011,41 @@
               "mtxrInterfaceStatsIndex": true,
               "mtxrInterfaceStatsIndex 1": true,
               "mtxrInterfaceStatsIndex 2": true,
-              "mtxrInterfaceStatsIndex 3": true
+              "mtxrInterfaceStatsIndex 3": true,
+              "host 1": true,
+              "ifDescr 1": true,
+              "ifAlias 1": false,
+              "host 2": true,
+              "ifDescr 2": true,
+              "ifAlias 2": true,
+              "host 3": true,
+              "ifDescr 3": true,
+              "ifAlias 3": true,
+              "host 4": true,
+              "ifDescr 4": true,
+              "ifAlias 4": true,
+              "host 5": true,
+              "ifDescr 5": true,
+              "ifAlias 5": true,
+              "host 6": true,
+              "ifDescr 6": true,
+              "ifAlias 6": true,
+              "host 7": true,
+              "ifDescr 7": true,
+              "ifAlias 7": true,
+              "ifIndex 7": true,
+              "host 8": true,
+              "ifDescr 8": true,
+              "ifAlias 8": true,
+              "ifIndex 8": true,
+              "host 9": true,
+              "ifDescr 9": true,
+              "ifAlias 9": true,
+              "ifIndex 9": true,
+              "host 10": true,
+              "ifDescr 10": true,
+              "ifAlias 10": true,
+              "ifIndex 10": true
             },
             "indexByName": {
               "Time": 12,
@@ -3042,7 +3066,9 @@
               "ifType": 1,
               "instance": 14,
               "job": 15,
-              "mtxrInterfaceStatsIndex": 17
+              "mtxrInterfaceStatsIndex": 17,
+              "ifAlias 1": 10,
+              "ifIndex 1": 0
             },
             "renameByName": {
               "Time": "",
@@ -3063,7 +3089,9 @@
               "ifType": "Type of interface",
               "instance": "",
               "mtxrInterfaceStatsIndex": "",
-              "mtxrInterfaceStatsIndex 1": ""
+              "mtxrInterfaceStatsIndex 1": "",
+              "ifAlias 1": "Comment",
+              "ifIndex 1": "Int. index"
             }
           }
         }
@@ -3071,55 +3099,34 @@
       "type": "table"
     },
     {
-      "aliasColors": {
-        "In - wlan1": "#ff2e63"
-      },
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "description": "Showing values > 0",
-      "fill": 1,
-      "fillGradient": 0,
       "gridPos": {
         "h": 6,
         "w": 12,
         "x": 0,
         "y": 39
       },
-      "hiddenSeries": false,
       "id": 1659,
-      "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "hideEmpty": false,
-        "hideZero": true,
-        "max": true,
-        "min": false,
-        "rightSide": true,
-        "show": true,
-        "total": false,
-        "values": true
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "connected",
       "options": {
-        "alertThreshold": true
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
-      "percentage": false,
-      "pluginVersion": "9.0.5",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
       "targets": [
         {
           "datasource": {
@@ -3388,87 +3395,83 @@
           "refId": "R"
         }
       ],
-      "thresholds": [],
-      "timeRegions": [],
       "title": "Tx Eth errors, etc",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "mode": "time",
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "bps",
-          "label": "",
-          "logBase": 1,
-          "show": true
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": true,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
         },
-        {
-          "format": "short",
-          "logBase": 1,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byValue",
+              "options": {
+                "reducer": "allIsZero",
+                "op": "gte",
+                "value": 0
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": false,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {
-      "aliasColors": {
-        "In - wlan1": "#ff2e63"
-      },
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "description": "Showing values > 0",
-      "fill": 1,
-      "fillGradient": 0,
       "gridPos": {
         "h": 6,
         "w": 12,
         "x": 12,
         "y": 39
       },
-      "hiddenSeries": false,
       "id": 1671,
-      "legend": {
-        "alignAsTable": true,
-        "avg": true,
-        "current": true,
-        "hideEmpty": false,
-        "hideZero": true,
-        "max": true,
-        "min": false,
-        "rightSide": true,
-        "show": true,
-        "total": false,
-        "values": true
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "connected",
       "options": {
-        "alertThreshold": true
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
-      "percentage": false,
-      "pluginVersion": "9.0.5",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
       "targets": [
         {
           "datasource": {
@@ -3640,35 +3643,52 @@
           "refId": "M"
         }
       ],
-      "thresholds": [],
-      "timeRegions": [],
       "title": "Rx Eth errors, etc",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "mode": "time",
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "bps",
-          "label": "",
-          "logBase": 1,
-          "show": true
+      "type": "timeseries",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": true,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
         },
-        {
-          "format": "short",
-          "logBase": 1,
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byValue",
+              "options": {
+                "reducer": "allIsZero",
+                "op": "gte",
+                "value": 0
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": false,
+                  "legend": true,
+                  "tooltip": true
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -3693,7 +3713,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "super-light-yellow",
+                "color": "#f1e4b3",
                 "value": null
               }
             ]
@@ -3701,22 +3721,6 @@
           "unit": "short"
         },
         "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Neighbor index"
-            },
-            "properties": [
-              {
-                "id": "custom.align",
-                "value": "center"
-              },
-              {
-                "id": "custom.width",
-                "value": 134
-              }
-            ]
-          },
           {
             "matcher": {
               "id": "byName",
@@ -3786,8 +3790,8 @@
         "showHeader": true,
         "sortBy": [
           {
-            "desc": true,
-            "displayName": "Neighbor index"
+            "desc": false,
+            "displayName": "Interface"
           }
         ]
       },
@@ -3799,141 +3803,41 @@
             "uid": "prometheus"
           },
           "exemplar": true,
-          "expr": "mtxrNeighborInterfaceID{instance='$instance'}",
+          "expr": "mtxrNeighborIdentity{instance='$instance'}\n  * on(ifName, mtxrNeighborMacAddress) group_left(mtxrNeighborIpAddress) mtxrNeighborIpAddress{instance='$instance'}\n  * on(ifName, mtxrNeighborMacAddress) group_left(mtxrNeighborPlatform) mtxrNeighborPlatform{instance='$instance'}\n  * on(ifName, mtxrNeighborMacAddress) group_left(mtxrNeighborSoftwareID) mtxrNeighborSoftwareID{instance='$instance'}\n  * on(ifName, mtxrNeighborMacAddress) group_left(mtxrNeighborVersion) mtxrNeighborVersion{instance='$instance'}",
           "format": "table",
           "instant": true,
           "interval": "",
           "legendFormat": "",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "exemplar": true,
-          "expr": "mtxrNeighborIdentity{instance='$instance'}",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "exemplar": true,
-          "expr": "mtxrNeighborIpAddress{instance='$instance'}",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "exemplar": true,
-          "expr": "mtxrNeighborMacAddress{instance='$instance'}",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "D"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "exemplar": true,
-          "expr": "mtxrNeighborPlatform{instance='$instance'}",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "E"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "exemplar": true,
-          "expr": "mtxrNeighborSoftwareID{instance='$instance'}",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "F"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "exemplar": true,
-          "expr": "mtxrNeighborVersion{instance='$instance'}",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "legendFormat": "",
-          "refId": "G"
         }
       ],
       "title": "Neighbors",
       "transformations": [
         {
-          "id": "seriesToColumns",
-          "options": {
-            "byField": "mtxrNeighborIndex"
-          }
-        },
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
           "id": "organize",
           "options": {
             "excludeByName": {
               "Time": true,
-              "Value #A": true,
-              "Value #B": true,
-              "Value #C": true,
-              "Value #D": true,
-              "Value #E": true,
-              "Value #F": true,
-              "Value #G": true,
+              "Value": true,
               "__name__": true,
+              "host": true,
               "instance": true,
-              "job": true,
-              "mtxrNeighborIndex": false
+              "job": true
             },
-            "indexByName": {},
+            "indexByName": {
+              "ifName": 0,
+              "mtxrNeighborIdentity": 1,
+              "mtxrNeighborMacAddress": 2,
+              "mtxrNeighborIpAddress": 3,
+              "mtxrNeighborPlatform": 4,
+              "mtxrNeighborSoftwareID": 5,
+              "mtxrNeighborVersion": 6
+            },
             "renameByName": {
-              "Time": "",
-              "Value #A": "",
-              "Value #B": "",
-              "Value #C": "",
-              "Value #D": "",
-              "Value #E": "",
-              "Value #F": "",
-              "job": "",
+              "ifName": "Interface",
               "mtxrNeighborIdentity": "identity",
-              "mtxrNeighborIndex": "Neighbor index",
-              "mtxrNeighborIpAddress": "IP",
               "mtxrNeighborMacAddress": "MAC",
+              "mtxrNeighborIpAddress": "IP",
               "mtxrNeighborPlatform": "Platform",
               "mtxrNeighborSoftwareID": "Software ID",
               "mtxrNeighborVersion": "Firmware version"
@@ -3958,113 +3862,36 @@
       "id": 1642,
       "panels": [
         {
-          "aliasColors": {
-            "CCQ - 1": "#ff2e63",
-            "CCQ - 2": "#08d9d6",
-            "CCQ - Tilda": "#ff2e63",
-            "Noise - 1": "#ff2e63",
-            "Noise - 2": "#08d9d6",
-            "Noise - Tilda": "light-blue",
-            "Noise - Tilda_5": "dark-purple",
-            "TX CCQ - Tilda": "#ff2e63"
-          },
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "description": "",
-          "fill": 1,
-          "fillGradient": 0,
           "gridPos": {
             "h": 9,
             "w": 8,
             "x": 0,
             "y": 3
           },
-          "hiddenSeries": false,
           "id": 1270,
-          "legend": {
-            "alignAsTable": true,
-            "avg": true,
-            "current": true,
-            "hideZero": true,
-            "max": false,
-            "min": false,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
           "links": [],
           "maxPerRow": 2,
-          "nullPointMode": "connected",
           "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "8.3.4",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "repeatDirection": "h",
-          "seriesOverrides": [
-            {
-              "alias": "2",
-              "yaxis": 1
+            "legend": {
+              "showLegend": true,
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "lastNotNull"
+              ]
             },
-            {
-              "alias": "mtxrWlApNoiseFloor{instance=\"192.168.5.1\", job=\"Mikrotik\", mtxrWlApIndex=\"2\"}",
-              "yaxis": 2
-            },
-            {
-              "alias": "mtxrWlApNoiseFloor{instance=\"192.168.5.1\", job=\"Mikrotik\", mtxrWlApIndex=\"11\"}",
-              "yaxis": 2
-            },
-            {
-              "alias": "mtxrWlApNoiseFloor{instance=\"192.168.5.1\", job=\"Mikrotik\", mtxrWlApIndex=\"1\"}",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise 1",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise 11",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise 2",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - 2",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - 11",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - 1",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - Tilda",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - Tilda_5",
-              "yaxis": 2
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
             }
-          ],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
+          },
+          "repeatDirection": "h",
           "targets": [
             {
               "datasource": {
@@ -4094,37 +3921,69 @@
               "refId": "B"
             }
           ],
-          "thresholds": [],
-          "timeRegions": [],
           "title": "Wi-Fi Overall Tx CCQ & Noise",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "percent",
-              "label": "",
-              "logBase": 1,
-              "show": true
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "pointSize": 5,
+                "spanNulls": true,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "axisPlacement": "auto",
+                "gradientMode": "opacity"
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "No wireless"
             },
-            {
-              "format": "dBm",
-              "label": "",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": true,
-            "alignLevel": 0
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "custom.axisPlacement",
+                    "value": "right"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "dBm"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byValue",
+                  "options": {
+                    "reducer": "allIsZero",
+                    "op": "gte",
+                    "value": 0
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "viz": false,
+                      "legend": true,
+                      "tooltip": true
+                    }
+                  }
+                ]
+              }
+            ]
           }
         },
         {
@@ -4144,7 +4003,7 @@
                 "barAlignment": 0,
                 "drawStyle": "line",
                 "fillOpacity": 10,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4172,15 +4031,16 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "No wireless"
             },
             "overrides": [
               {
@@ -4192,7 +4052,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#ff2e63",
+                      "fixedColor": "#F70997",
                       "mode": "fixed"
                     }
                   }
@@ -4207,7 +4067,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#08d9d6",
+                      "fixedColor": "#21E2D7",
                       "mode": "fixed"
                     }
                   }
@@ -4222,7 +4082,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-green",
+                      "fixedColor": "#028b66",
                       "mode": "fixed"
                     }
                   }
@@ -4237,7 +4097,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#ff2e63",
+                      "fixedColor": "#F70997",
                       "mode": "fixed"
                     }
                   }
@@ -4314,7 +4174,7 @@
                 "barAlignment": 0,
                 "drawStyle": "line",
                 "fillOpacity": 10,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4342,15 +4202,16 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
-              "unit": "MHz"
+              "unit": "MHz",
+              "noValue": "No wireless"
             },
             "overrides": [
               {
@@ -4362,7 +4223,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#ff2e63",
+                      "fixedColor": "#F70997",
                       "mode": "fixed"
                     }
                   }
@@ -4377,7 +4238,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#08d9d6",
+                      "fixedColor": "#21E2D7",
                       "mode": "fixed"
                     }
                   }
@@ -4392,7 +4253,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-green",
+                      "fixedColor": "#028b66",
                       "mode": "fixed"
                     }
                   }
@@ -4407,7 +4268,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#ff2e63",
+                      "fixedColor": "#F70997",
                       "mode": "fixed"
                     }
                   }
@@ -4473,10 +4334,11 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
-              }
+              },
+              "noValue": "No wireless"
             },
             "overrides": [
               {
@@ -4922,7 +4784,7 @@
         {
           "cards": {},
           "color": {
-            "cardColor": "#C4162A",
+            "cardColor": "#993b53",
             "colorScale": "sqrt",
             "colorScheme": "interpolateRdYlGn",
             "exponent": 0.5,
@@ -4983,12 +4845,17 @@
             "show": true
           },
           "yBucketBound": "auto",
-          "yBucketSize": 2
+          "yBucketSize": 2,
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "No wireless"
+            }
+          }
         },
         {
           "cards": {},
           "color": {
-            "cardColor": "#C4162A",
+            "cardColor": "#993b53",
             "colorScale": "sqrt",
             "colorScheme": "interpolateRdYlGn",
             "exponent": 0.5,
@@ -5049,7 +4916,12 @@
             "show": true
           },
           "yBucketBound": "auto",
-          "yBucketSize": 2
+          "yBucketSize": 2,
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "No wireless"
+            }
+          }
         }
       ],
       "targets": [
@@ -5094,7 +4966,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               }
@@ -5163,14 +5035,15 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
-              }
+              },
+              "noValue": "No CAPsMAN"
             },
             "overrides": [
               {
@@ -5445,14 +5318,15 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
-              }
+              },
+              "noValue": "No CAPsMAN"
             },
             "overrides": [
               {
@@ -5690,7 +5564,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               }
@@ -5759,14 +5633,15 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
-              }
+              },
+              "noValue": "No CAPsMAN"
             },
             "overrides": [
               {
@@ -6384,11 +6259,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6450,11 +6326,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6530,15 +6407,16 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "dark-red"
+                    "color": "#993b53"
                   },
                   {
-                    "color": "#299c46",
+                    "color": "#02E5A8",
                     "value": 1
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6622,11 +6500,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6681,7 +6560,8 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "fixed",
+                "fixedColor": "#21E2D7"
               },
               "custom": {
                 "axisLabel": "",
@@ -6716,11 +6596,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6782,11 +6663,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6848,11 +6730,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6914,11 +6797,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -6980,11 +6864,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -7046,11 +6931,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -7112,11 +6998,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "noValue": "No W60G"
             },
             "overrides": []
           },
@@ -7190,117 +7077,38 @@
       "id": 1673,
       "panels": [
         {
-          "aliasColors": {
-            "CCQ - 1": "#ff2e63",
-            "CCQ - 2": "#08d9d6",
-            "CCQ - Tilda": "#ff2e63",
-            "Noise - 1": "#ff2e63",
-            "Noise - 2": "#08d9d6",
-            "Noise - Tilda": "light-blue",
-            "Noise - Tilda_5": "dark-purple",
-            "TX CCQ - Tilda": "#ff2e63"
-          },
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "description": "Signal Strength: signal strength in dBm (if first ppp-client modem supports)\n\nModem Signal: signal EC/IO in dB (if first ppp-client modem supports)",
-          "fill": 1,
-          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 6,
             "x": 0,
             "y": 6
           },
-          "hiddenSeries": false,
           "id": 1640,
-          "legend": {
-            "alignAsTable": true,
-            "avg": true,
-            "current": true,
-            "hideZero": true,
-            "max": true,
-            "min": true,
-            "rightSide": false,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 1,
           "links": [],
           "maxPerRow": 2,
-          "nullPointMode": "connected",
           "options": {
-            "alertThreshold": true
-          },
-          "percentage": false,
-          "pluginVersion": "8.3.4",
-          "pointradius": 2,
-          "points": false,
-          "renderer": "flot",
-          "repeatDirection": "h",
-          "seriesOverrides": [
-            {
-              "alias": "2",
-              "yaxis": 1
+            "legend": {
+              "showLegend": true,
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "mean",
+                "lastNotNull",
+                "max",
+                "min"
+              ]
             },
-            {
-              "alias": "mtxrWlApNoiseFloor{instance=\"192.168.5.1\", job=\"Mikrotik\", mtxrWlApIndex=\"2\"}",
-              "yaxis": 2
-            },
-            {
-              "alias": "mtxrWlApNoiseFloor{instance=\"192.168.5.1\", job=\"Mikrotik\", mtxrWlApIndex=\"11\"}",
-              "yaxis": 2
-            },
-            {
-              "alias": "mtxrWlApNoiseFloor{instance=\"192.168.5.1\", job=\"Mikrotik\", mtxrWlApIndex=\"1\"}",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise 1",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise 11",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise 2",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - 2",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - 11",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - 1",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - Tilda",
-              "yaxis": 2
-            },
-            {
-              "alias": "Noise - Tilda_5",
-              "yaxis": 2
-            },
-            {
-              "alias": "Modem Signal",
-              "yaxis": 2
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
             }
-          ],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
+          },
+          "repeatDirection": "h",
           "targets": [
             {
               "datasource": {
@@ -7327,37 +7135,99 @@
               "refId": "B"
             }
           ],
-          "thresholds": [],
-          "timeRegions": [],
           "title": "Modem",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "dBm",
-              "label": "",
-              "logBase": 1,
-              "show": true
+          "type": "timeseries",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "dBm",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "pointSize": 5,
+                "spanNulls": true,
+                "lineInterpolation": "linear",
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "axisPlacement": "auto",
+                "gradientMode": "opacity"
+              },
+              "color": {
+                "mode": "palette-classic"
+              },
+              "noValue": "No modem"
             },
-            {
-              "format": "dB",
-              "label": "",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": true,
-            "alignLevel": 0
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "custom.axisPlacement",
+                    "value": "right"
+                  },
+                  {
+                    "id": "unit",
+                    "value": "dB"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byValue",
+                  "options": {
+                    "reducer": "allIsZero",
+                    "op": "gte",
+                    "value": 0
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "viz": false,
+                      "legend": true,
+                      "tooltip": true
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           }
         },
         {
@@ -7376,7 +7246,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "#299c46"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -7468,7 +7338,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 50,
+                "fillOpacity": 25,
                 "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
@@ -7497,11 +7367,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "Bps"
+              "unit": "Bps",
+              "noValue": "No queues"
             },
             "overrides": []
           },
@@ -7602,7 +7473,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 50,
+                "fillOpacity": 25,
                 "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
@@ -7631,17 +7502,109 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
-              "unit": "Bps"
+              "unit": "Bps",
+              "noValue": "No queues"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "F"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#ffd27a"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 6,
@@ -7789,7 +7752,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 50,
+                "fillOpacity": 25,
                 "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
@@ -7817,11 +7780,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "binBps"
+              "unit": "binBps",
+              "noValue": "No queues"
             },
             "overrides": []
           },
@@ -7925,7 +7889,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 50,
+                "fillOpacity": 25,
                 "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
@@ -7953,13 +7917,75 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "binBps"
+              "unit": "binBps",
+              "noValue": "No queues"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 6,
@@ -8088,7 +8114,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 50,
+                "fillOpacity": 25,
                 "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
@@ -8116,7 +8142,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -8341,7 +8367,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 100,
+                "fillOpacity": 25,
                 "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
@@ -8369,7 +8395,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -8385,7 +8411,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#6afff3",
+                      "fixedColor": "#5ce7da",
                       "mode": "fixed"
                     }
                   }
@@ -8400,7 +8426,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#bf71ff",
+                      "fixedColor": "#b06cd3",
                       "mode": "fixed"
                     }
                   }

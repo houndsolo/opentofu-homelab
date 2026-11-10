@@ -1,0 +1,9 @@
+#!/bin/sh
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# patronictl with this member's config and the REST API credentials (run with sudo), e.g.
+#   sudo pgctl list    sudo pgctl switchover --leader <m> --candidate <m>    sudo pgctl history
+#   sudo pgctl restart ${scope} <member>    sudo pgctl edit-config    sudo pgctl show-config
+set -a
+. /etc/postgres-ha/patroni.env
+set +a
+exec runuser -u postgres -- /usr/bin/patronictl -c /etc/patroni/config.yml "$@"

@@ -1,0 +1,9 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=pgBackRest backup of the Patroni cluster (leader only)
+After=patroni.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/postgres-ha/s3.env
+ExecStart=/usr/local/sbin/pg-backup full

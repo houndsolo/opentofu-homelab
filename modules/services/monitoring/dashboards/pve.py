@@ -35,6 +35,7 @@ import textwrap
 from custom import (BLUE, CEPH_DASH, FILL, NODE_DASH, READ, RED_IF_ANY, UP_MAP, UP_STEPS, WRITE, Board, bargauge,
                     cell, dashboard, fixed_color, gauge, hidden, mapping, organize, override, q, stat, steps, table,
                     timeseries)
+from theme import ACCENT, ACCENT2, ACCENT3, INFO, OK, SERIES, TEXT
 
 INFLUX = {"type": "influxdb", "uid": "influxdb"}
 OVERVIEW_DASH = "/d/proxmox-overview/proxmox-overview"
@@ -50,7 +51,11 @@ PVE_LINK = {"type": "dashboards", "tags": ["proxmox"], "asDropdown": True, "titl
             "tooltip": "", "url": ""}
 
 CPU, MEM, SWAP, WAIT = "blue", "purple", "orange", "orange"
-NET_IN, NET_OUT = "green", "yellow"
+NET_IN, NET_OUT = ACCENT2, ACCENT  # directions, not states (like custom.READ/WRITE)
+# Panels with a series per node of the lylat cluster color them by node (in legend order); a node
+# not listed here (greatfox, a new one) keeps the in/out colors.
+CLUSTER_NODES = ("eldarad", "fichina", "fortuna", "macbeth", "titania", "venom", "zoness")
+DASHED = {"fill": "dash", "dash": [10, 10]}
 FRACTION = steps(("green", None), ("orange", 0.75), ("red", 0.9))
 LOAD = steps(("green", None), ("orange", 0.8), ("red", 1.5))
 STATUS_MAP = mapping(running=("running", "green"), stopped=("stopped", "text"), paused=("paused", "orange"),
@@ -119,7 +124,9 @@ def text_stat(title, targets, **kw):
     """A stat that shows string fields (status, tags, versions)."""
     kw.setdefault("color_mode", "value")
     p = stat(title, targets, **kw)
-    p["options"]["reduceOptions"] = {"values": False, "calcs": ["lastNotNull"], "fields": "/.*/"}
+    # Every field but the time column: a "fields" regex matches the time field too, which would show up
+    # as a "Time" tile next to the value.
+    p["options"]["reduceOptions"] = {"values": False, "calcs": ["lastNotNull"], "fields": "/^(?!Time$).*$/"}
     return p
 
 
@@ -141,15 +148,18 @@ def gauge_cell(*names, unit="percentunit", thresholds=FRACTION):
 
 
 def net_overrides(rx="in", tx="out"):
-    """Inbound above the axis, outbound mirrored below it."""
-    return [override(f"(?i).*\\b{rx}$", {"color": {"mode": "fixed", "fixedColor": NET_IN}}, regex=True),
-            override(f"(?i).*\\b{tx}$", {"color": {"mode": "fixed", "fixedColor": NET_OUT},
+    """Inbound above the axis, outbound mirrored below it.
+
+    Override regexes use the /pattern/flags form: JavaScript has no inline (?i), and Grafana silently
+    drops a matcher whose regex doesn't compile."""
+    return [override(f"/.*\\b{rx}$/i", {"color": {"mode": "fixed", "fixedColor": NET_IN}}, regex=True),
+            override(f"/.*\\b{tx}$/i", {"color": {"mode": "fixed", "fixedColor": NET_OUT},
                                           "custom.transform": "negative-Y"}, regex=True)]
 
 
 def rw_overrides():
-    return [override("(?i).*\\bread$", {"color": {"mode": "fixed", "fixedColor": READ}}, regex=True),
-            override("(?i).*\\bwrite$", {"color": {"mode": "fixed", "fixedColor": WRITE},
+    return [override("/.*\\bread$/i", {"color": {"mode": "fixed", "fixedColor": READ}}, regex=True),
+            override("/.*\\bwrite$/i", {"color": {"mode": "fixed", "fixedColor": WRITE},
                                           "custom.transform": "negative-Y"}, regex=True)]
 
 
@@ -192,11 +202,15 @@ def node_var(multi=False):
 
 def guest_var():
     # "5301|dns01 (5301)": the regex shows the name and keeps the vmid as the value
-    # (names aren't unique: greatfox has two arch-6800xt-nvme).
+    # (names aren't unique: greatfox has two arch-6800xt-nvme). Only the newest series per vmid: a guest
+    # renamed or rebuilt under a reused vmid has a series per name, and Grafana would show the first one.
     return flux_var("guest", "Guest", flux('''
         %(src)s
           |> %(range)s
           |> filter(fn: (r) => r._measurement == "system" and %(guests)s and r._field == "uptime" and %(on_node)s)
+          |> last()
+          |> group(columns: ["vmid"])
+          |> sort(columns: ["_time"])
           |> last()
           |> group()
           |> map(fn: (r) => ({_value: r.vmid + "|" + r.host + " (" + r.vmid + ")"}))
@@ -336,9 +350,11 @@ def weighted_mem_query(src=FRAGMENTS["src"], sel="true"):
           |> map(fn: (r) => ({_time: r._time, _value: r.used / r.total}))''', src=src, sel=sel)
 
 
-def storage_now_query(sel="true", keep=None, tail=""):
-    """Current storages, shared ones once ("ceph_rbd"), local ones per node ("local (zoness)")."""
-    return fx('''
+def storage_now_query(sel="true", keep=None, tail="", head=""):
+    """Current storages, shared ones once ("ceph_rbd"), local ones per node ("local (zoness)").
+
+    head: Flux statements put before the query (variables the tail uses), same placeholders."""
+    return fx(textwrap.indent(textwrap.dedent(head).strip(), " " * 8) + '''
         nums = %(src)s
           |> %(now)s
           |> filter(fn: (r) => r._measurement == "system" and r.object == "storages" and %(sel)s and
@@ -490,8 +506,13 @@ def overview():
           |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)
           |> map(fn: (r) => ({r with _value: r._value * 8.0}))
           |> ''' + series('r.host + (if r._field == "receive" then " in" else " out")'))],
-        unit="bps", fill=10, overrides=net_overrides(), calcs=("mean", "max"),
-        desc="Summed over each node's physical NICs (bond members and uplinks); inbound up, outbound down."), 12, 9)
+        unit="bps", fill=10, calcs=("mean", "max"),
+        overrides=[*net_overrides(),
+                   override("/.*\\bout$/i", {"custom.lineStyle": DASHED}, regex=True),
+                   *[override(f"/^{n} (in|out)$/", {"color": {"mode": "fixed", "fixedColor": c}}, regex=True)
+                     for n, c in zip(CLUSTER_NODES, SERIES)]],
+        desc="Summed over each node's physical NICs (bond members and uplinks); one color per node, inbound "
+             "up (solid), outbound down (dashed)."), 12, 9)
     b.add(timeseries("IO wait per node", [fx('''
         %(src)s
           |> %(range)s
@@ -523,6 +544,8 @@ def overview():
               |> map(fn: (r) => ({guest: r.host, _value: %(value)s}))
               |> filter(fn: (r) => r._value > 0.0)
               |> top(n: 10)'''
+        if rate:  # only guests moving data now are listed, so a quiet host has none
+            kw.setdefault("no_value", "idle")
         p = bars(title, [fx(q_, flds=flds, value=value)], unit=unit, desc=desc, links=guest_links,
                  bar_height=18, **kw)
         return p
@@ -706,12 +729,11 @@ def node():
                           override("memtotal", {"displayName": "RAM", "unit": "bytes", "decimals": 0}),
                           override("swaptotal", {"displayName": "Swap", "unit": "bytes", "decimals": 0}),
                           override("blocks", {"displayName": "Root FS", "unit": "bytes", "decimals": 0})])
-    hw["options"]["reduceOptions"]["fields"] = "/^(cpus|memtotal|swaptotal|blocks)$/"
     exporter = stat("node_exporter", [q('max by (instance) (up{job="node", host="$node"})', "{{instance}}")],
-                    mappings=mapping(**{"0": ("down", "orange"), "1": ("UP", "green")}), thresholds=UP_STEPS,
+                    mappings=UP_MAP, thresholds=UP_STEPS,
                     no_value="not scraped",
                     desc="Prometheus node_exporter on this node; click for Node Exporter Full (hardware, disks, "
-                         "temperatures). greatfox has none installed yet, so it's down there.")
+                         "temperatures).")
     field_links(exporter, ("Node Exporter Full",
                            NODE_DASH + "?var-job=node&var-node=${__field.labels.instance}&" + TIME_URL))
     b.col(4, (hw, 5), (exporter, 3))
@@ -896,7 +918,7 @@ def storage_table(sel="true", title="Storages"):
           |> sort(columns: ["pct"], desc: true)''', sel=sel, ceph=CEPH_DASH, storage_dash=STORAGE_DASH,
                                 node_dash=PVE_NODE_DASH)],
               desc="Now, shared storages once. Growth is the change of used space over the time range, per day; "
-                   "Full in extrapolates it (blank when not growing). Click a storage: Ceph storages open the "
+                   "Full in extrapolates it (\"not filling up\" when not growing). Click a storage: Ceph storages open the "
                    "Ceph cluster dashboard, local ones their node.",
               transformations=[organize(rename={
                   "storage": "Storage", "nodename": "Node", "type": "Type", "content": "Content", "shared": "Shared",
@@ -914,7 +936,7 @@ def storage_table(sel="true", title="Storages"):
                          override("Growth / day", {"unit": "bytes", "decimals": 1}),
                          override("Full in", {"unit": "dtdurations",
                                               "mappings": [{"type": "range", "options": {"from": -1e18, "to": 0,
-                                                                                         "result": {"text": "not filling up", "index": 0}}}],
+                                                                                         "result": {"text": "not filling up", "color": "green", "index": 0}}}],
                                               "thresholds": steps(("red", None), ("orange", 7 * 86400), ("green", 30 * 86400)),
                                               "custom.cellOptions": {"type": "color-text"}})],
               sort="Used %", desc_sort=True)
@@ -922,6 +944,11 @@ def storage_table(sel="true", title="Storages"):
 
 
 # --- Proxmox guests -----------------------------------------------------------------------
+
+# Empty by design: VM-only panels on a container or a stopped VM, balloon panels without a balloon driver.
+VM_ONLY = "running VMs only"
+NO_BALLOON = "no balloon driver data"
+
 
 def guests():
     b = Board()
@@ -1003,7 +1030,8 @@ def guests():
                 no_value="no balloon",
                 desc="VMs with the balloon driver: current balloon size / maximum. Below 100% means PVE took "
                      "memory back from the guest."), 4, 7)
-    b.add(gauge("Root disk (CT)", [pair("system", fields("disk", "maxdisk"), "r.disk / r.maxdisk")],
+    b.add(gauge("Root disk (CT)", [pair("system", fields("disk", "maxdisk") + ' and r.object == "lxc"',
+                                        "r.disk / r.maxdisk")],
                 unit="percentunit", min_=0, max_=1, decimals=1, thresholds=FILL, no_value="n/a",
                 desc="Containers only: used / size of the root filesystem. PVE doesn't know how full a VM's "
                      "disk is (always 0)."), 4, 7)
@@ -1055,22 +1083,22 @@ def guests():
     b.add(timeseries("Pressure", [ts(fields(*[f"pressure{k}{s}" for k in ("cpu", "io", "memory") for s in ("some", "full")]),
                                      'strings.trimPrefix(v: strings.replaceAll(v: strings.replaceAll(v: r._field, t: "some", u: " some"), '
                                      't: "full", u: " full"), prefix: "pressure")')],
-                     unit="percent", fill=0, min_=0,
-                     overrides=[override("/full$/", {"custom.lineStyle": {"fill": "dash", "dash": [10, 10]}}, regex=False)],
+                     unit="percent", fill=0, min_=0, no_value="not running",
+                     overrides=[*[override(f"^{k} ", {"color": {"mode": "fixed", "fixedColor": c}}, regex=True)
+                                  for k, c in (("cpu", ACCENT), ("io", ACCENT2), ("memory", ACCENT3))],
+                                override(".* full$", {"custom.lineStyle": DASHED}, regex=True)],
                      desc="Pressure stall information (10 s averages): some = at least one task waited, full = all "
                           "tasks waited."), 8, 8)
-    # override() treats a name starting with / as a regex only through byRegexp; fix the matcher.
-    b.target[-1]["fieldConfig"]["overrides"][0]["matcher"] = {"id": "byRegexp", "options": ".* full$"}
 
     b.row("Disk")
     b.add(timeseries("Disk throughput", [ts(fields("diskread", "diskwrite"),
                                             'if r._field == "diskread" then "read" else "write"', rate=True)],
-                     unit="Bps", fill=20, overrides=rw_overrides(), calcs=("mean", "max"),
+                     unit="Bps", fill=20, overrides=rw_overrides(), calcs=("mean", "max"), no_value="not running",
                      desc="All disks of the guest; reads up, writes down."), 8, 8)
     b.add(timeseries("IOPS per disk (VM)", [ts(fields("rd_operations", "wr_operations"),
                                                'r.instance + (if r._field == "rd_operations" then " read" else " write")',
                                                measurement="blockstat", rate=True)],
-                     unit="iops", fill=10, overrides=rw_overrides(), calcs=("mean", "max"),
+                     unit="iops", fill=10, overrides=rw_overrides(), calcs=("mean", "max"), no_value=VM_ONLY,
                      desc="QEMU block statistics per virtual disk (VMs only)."), 8, 8)
 
     def latency(kind):
@@ -1085,16 +1113,18 @@ def guests():
               |> ''' + series('r.instance + " %(name)s"'), g=g, k=kind, name="read" if kind == "rd" else "write")
 
     b.add(timeseries("Latency per disk (VM)", [latency("rd"), latency("wr")], unit="s", fill=0,
-                     overrides=[override("(?i).*read$", {"color": {"mode": "fixed", "fixedColor": READ}}, regex=True),
-                                override("(?i).*write$", {"color": {"mode": "fixed", "fixedColor": WRITE}}, regex=True)],
-                     calcs=("mean", "max"), desc="Average time per completed read and write, per virtual disk."), 8, 8)
+                     overrides=[override("/.*read$/i", {"color": {"mode": "fixed", "fixedColor": READ}}, regex=True),
+                                override("/.*write$/i", {"color": {"mode": "fixed", "fixedColor": WRITE}}, regex=True)],
+                     calcs=("mean", "max"), no_value=VM_ONLY,
+                     desc="Average time per completed read and write, per virtual disk."), 8, 8)
     b.add(timeseries("Throughput per disk (VM)", [ts(fields("rd_bytes", "wr_bytes"),
                                                      'r.instance + (if r._field == "rd_bytes" then " read" else " write")',
                                                      measurement="blockstat", rate=True)],
-                     unit="Bps", fill=10, overrides=rw_overrides(), calcs=("mean", "max")), 8, 8)
+                     unit="Bps", fill=10, overrides=rw_overrides(), calcs=("mean", "max"), no_value=VM_ONLY), 8, 8)
     b.add(timeseries("Root disk used (CT)", [ts(fields("disk", "maxdisk"),
-                                                'if r._field == "disk" then "used" else "size"')],
-                     unit="bytes", fill=20, min_=0,
+                                                'if r._field == "disk" then "used" else "size"',
+                                                extra_filter='r.object == "lxc"')],
+                     unit="bytes", fill=20, min_=0, no_value="containers only",
                      overrides=[fixed_color("used", "blue"),
                                 override("size", {"custom.fillOpacity": 0, "color": {"mode": "fixed", "fixedColor": "text"},
                                                   "custom.lineStyle": {"fill": "dash", "dash": [10, 10]}})],
@@ -1119,7 +1149,7 @@ def guests():
     b.add(timeseries("Per NIC (VM)", [ts(fields("netin", "netout"),
                                          'r.instance + (if r._field == "netin" then " in" else " out")',
                                          measurement="nics", rate=True, scale=" * 8.0")],
-                     unit="bps", fill=10, overrides=net_overrides(), calcs=("mean", "max"),
+                     unit="bps", fill=10, overrides=net_overrides(), calcs=("mean", "max"), no_value=VM_ONLY,
                      desc="Per tap interface (VMs only; container veths are on the node dashboard)."), 12, 8)
 
     b.row("Balloon and guest memory (VM)", collapsed=True)
@@ -1127,17 +1157,24 @@ def guests():
                                     '(if r._field == "actual" then "balloon size" else if r._field == "max_mem" '
                                     'then "maximum" else if r._field == "total_mem" then "guest total" else "guest free")',
                                     measurement="ballooninfo")],
-                     unit="bytes", fill=0, min_=0,
+                     unit="bytes", fill=0, min_=0, no_value=NO_BALLOON,
+                     overrides=[fixed_color("balloon size", OK), fixed_color("guest total", INFO),
+                                fixed_color("guest free", ACCENT2),
+                                override("maximum", {"color": {"mode": "fixed", "fixedColor": TEXT},
+                                                     "custom.lineStyle": DASHED})],
                      desc="From the balloon driver: balloon size (memory the guest may use), maximum, and the "
                           "guest's own view of total and free memory."), 8, 8)
     b.add(timeseries("Page faults", [ts(fields("major_page_faults", "minor_page_faults"),
                                         'if r._field == "major_page_faults" then "major" else "minor"',
                                         measurement="ballooninfo", rate=True)],
-                     unit="short", fill=0, desc="Per second, as the guest reports them. Major faults read from disk."), 8, 8)
+                     unit="short", fill=0, no_value=NO_BALLOON,
+                     overrides=[fixed_color("minor", ACCENT2), fixed_color("major", ACCENT)],
+                     desc="Per second, as the guest reports them. Major faults read from disk."), 8, 8)
     b.add(timeseries("Guest swap", [ts(fields("mem_swapped_in", "mem_swapped_out"),
                                        'if r._field == "mem_swapped_in" then "in" else "out"',
                                        measurement="ballooninfo", rate=True)],
-                     unit="Bps", fill=10, overrides=net_overrides(), desc="Swapped in / out inside the guest."), 8, 8)
+                     unit="Bps", fill=10, overrides=net_overrides(), no_value=NO_BALLOON,
+                     desc="Swapped in / out inside the guest."), 8, 8)
 
     return finish(dashboard("proxmox-guest", "Proxmox guests",
                             "Every VM and container, and one in depth: state, CPU, memory, balloon, pressure, disk and network.",
@@ -1153,17 +1190,36 @@ def storage():
     b.row("Summary")
     b.add(storage_bars(s), 10, 10)
     b.col(5,
-          (stat("Storages", [storage_now_query(s, tail='''
-              |> reduce(identity: {storages: 0, inactive: 0, fullest: 0.0}, fn: (r, accumulator) => ({
-                   storages: accumulator.storages + 1, inactive: accumulator.inactive + (if r.active == 1.0 then 0 else 1),
-                   fullest: if r.pct > accumulator.fullest then r.pct else accumulator.fullest}))''')],
+          # pvestatd sends only active storages to the metric server (update_storage_status() skips
+          # inactive ones), so "active" is always 1 here. What it can show: storages that reported
+          # during the time range and then stopped (went inactive, node down, removed).
+          (stat("Storages", [storage_now_query(s, head='''
+              quiet = %(src)s
+                |> %(range)s
+                |> filter(fn: (r) => r._measurement == "system" and r.object == "storages" and %(sel)s and r._field == "shared")
+                |> last()
+                |> group()
+                |> map(fn: (r) => ({storage: if r._value == 1.0 then r.host else r.host + " (" + r.nodename + ")", t: int(v: r._time)}))
+                |> group(columns: ["storage"])
+                |> max(column: "t")
+                |> group()
+                |> reduce(identity: {n: 0}, fn: (r, accumulator) => ({
+                     n: accumulator.n + (if r.t < int(v: date.sub(d: 2m, from: v.timeRangeStop)) then 1 else 0)}))
+                |> findRecord(fn: (key) => true, idx: 0)''', tail='''
+              |> reduce(identity: {storages: 0, fullest: 0.0}, fn: (r, accumulator) => ({
+                   storages: accumulator.storages + 1,
+                   fullest: if r.pct > accumulator.fullest then r.pct else accumulator.fullest}))
+              |> map(fn: (r) => ({r with quiet: if exists quiet.n then quiet.n else 0}))''')],
                 text_mode="value_and_name", color_mode="value", orientation="vertical",
-                transformations=[organize(order=["storages", "inactive", "fullest"])],
+                transformations=[organize(order=["storages", "quiet", "fullest"])],
                 overrides=[override("storages", {"displayName": "Storages", "color": {"mode": "fixed", "fixedColor": "blue"}}),
-                           override("inactive", {"displayName": "Inactive", "thresholds": RED_IF_ANY}),
+                           override("quiet", {"displayName": "Stopped reporting", "thresholds": RED_IF_ANY}),
                            override("fullest", {"displayName": "Fullest", "unit": "percentunit", "decimals": 1,
                                                 "thresholds": FILL})],
-                desc="Storages (shared ones once), inactive ones (PVE can't reach them) and the fullest one."), 10))
+                desc="Storages reporting now (shared ones once), the ones that reported earlier in the time range "
+                     "but not in the last 2 minutes (went inactive, node down or storage removed), and the fullest "
+                     "one. PVE sends only active storages to the metric server, so a storage that was never active "
+                     "in the range (an unreachable PBS, say) is not counted: `pvesm status` lists those."), 10))
     ceph_link = [("Ceph cluster", CEPH_DASH + "?" + TIME_URL)]
     b.col(9,
           (stat("Ceph health", [q("ceph_health_status")], mappings=mapping(**{
@@ -1195,7 +1251,7 @@ def storage():
           |> filter(fn: (r) => r.shared == 0.0)
           |> map(fn: (r) => ({nodename: r.nodename, host: r.host, pct: if r.total > 0.0 then r.used / r.total else 0.0}))
           |> pivot(rowKey: ["nodename"], columnKey: ["host"], valueColumn: "pct")''', s=s)],
-                desc="Used share of each node-local storage.",
+                desc="Used share of each node-local storage.", no_value="no node-local storage selected",
                 transformations=[organize(rename={"nodename": "Node"})],
                 overrides=[*[o for o in gauge_cell(".*", thresholds=FILL)],
                            override("Node", {"links": [node_link("nodename")], "custom.cellOptions": {"type": "auto"},

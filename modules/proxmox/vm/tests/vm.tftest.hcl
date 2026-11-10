@@ -117,3 +117,44 @@ run "resource_settings_are_configurable" {
     error_message = "Hardware, network and timeout settings must be templated."
   }
 }
+
+run "cloud_init_dns_only_when_set" {
+  command = plan
+  assert {
+    condition     = length(proxmox_virtual_environment_vm.this.initialization[0].dns) == 0
+    error_message = "Without dns_servers/dns_domain the module renders no initialization.dns (no change for roots that don't set it)."
+  }
+}
+
+run "cloud_init_dns" {
+  command = plan
+  variables {
+    vm_config = {
+      datastore_id = "ceph_rbd"
+      import_image = "cephfs:import/debian.qcow2"
+      dns_servers  = ["10.8.53.53"]
+      dns_domain   = "lylat.space"
+    }
+  }
+  assert {
+    condition = (
+      proxmox_virtual_environment_vm.this.initialization[0].dns[0].domain == "lylat.space" &&
+      proxmox_virtual_environment_vm.this.initialization[0].dns[0].servers == tolist(["10.8.53.53"])
+    )
+    error_message = "dns_servers/dns_domain from vm_config become initialization.dns."
+  }
+}
+
+run "cloud_init_dns_per_vm" {
+  command = plan
+  variables {
+    vm = { node = "venom", vm_id = 401, management_address = "10.20.4.1/16", config = { dns_domain = "example.test" } }
+  }
+  assert {
+    condition = (
+      proxmox_virtual_environment_vm.this.initialization[0].dns[0].domain == "example.test" &&
+      proxmox_virtual_environment_vm.this.initialization[0].dns[0].servers == null
+    )
+    error_message = "A per-VM config.dns_domain alone is enough to render the dns block."
+  }
+}

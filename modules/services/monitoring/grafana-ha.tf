@@ -1,5 +1,5 @@
 # Grafana HA on its own L2VNI (l2vnis.ha_grafana, VLAN 213): unified alerting's gossip
-# (9094) and keepalived's unicast adverts. The VIP (grafana_vrrp.vip, 10.2.11.40) sits on
+# (9094) and keepalived's unicast adverts. The VIP (grafana_vrrp.vip, 10.2.11.100) sits on
 # the UI NIC (VLAN 2); Grafana publishes :3000 on every address, so it answers there.
 locals {
   grafana_names = sort(keys(var.grafana))
@@ -20,8 +20,8 @@ locals {
       auth_pass    = try(var.grafana_vrrp.auth_pass, "")
       ha_interface = try(g.interfaces.ha, "none")
       ha_address   = g.ha_address
-      peers        = [for peer in local.grafana_names : var.grafana[peer].ha_address if peer != name]
-      vip          = try(var.grafana_vrrp.vip, "")
+      peers        = sort([for peer in local.grafana_names : var.grafana[peer].ha_address if peer != name])
+      vips         = try([var.grafana_vrrp.vip], [])
       interface    = try(g.interfaces.vip, "none")
     }) : null
   }

@@ -31,7 +31,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -131,8 +131,8 @@
           "type": "influxdb",
           "uid": "influxdb"
         },
-        "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"uptime\" and r.nodename =~ /^${node:regex}$/)\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({_value: r.vmid + \"|\" + r.host + \" (\" + r.vmid + \")\"}))\n  |> distinct()",
-        "definition": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"uptime\" and r.nodename =~ /^${node:regex}$/)\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({_value: r.vmid + \"|\" + r.host + \" (\" + r.vmid + \")\"}))\n  |> distinct()",
+        "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"uptime\" and r.nodename =~ /^${node:regex}$/)\n  |> last()\n  |> group(columns: [\"vmid\"])\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({_value: r.vmid + \"|\" + r.host + \" (\" + r.vmid + \")\"}))\n  |> distinct()",
+        "definition": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r._field == \"uptime\" and r.nodename =~ /^${node:regex}$/)\n  |> last()\n  |> group(columns: [\"vmid\"])\n  |> sort(columns: [\"_time\"])\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({_value: r.vmid + \"|\" + r.host + \" (\" + r.vmid + \")\"}))\n  |> distinct()",
         "refresh": 2,
         "multi": false,
         "includeAll": false,
@@ -201,7 +201,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -245,27 +245,27 @@
                     "options": {
                       "running": {
                         "text": "running",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 0
                       },
                       "stopped": {
                         "text": "stopped",
-                        "color": "text",
+                        "color": "#e5f3e2",
                         "index": 1
                       },
                       "paused": {
                         "text": "paused",
-                        "color": "orange",
+                        "color": "#ffa352",
                         "index": 2
                       },
                       "prelaunch": {
                         "text": "prelaunch",
-                        "color": "blue",
+                        "color": "#6870ff",
                         "index": 3
                       },
                       "suspended": {
                         "text": "suspended",
-                        "color": "orange",
+                        "color": "#ffa352",
                         "index": 4
                       }
                     }
@@ -302,12 +302,12 @@
                     "options": {
                       "qemu": {
                         "text": "VM",
-                        "color": "blue",
+                        "color": "#6870ff",
                         "index": 0
                       },
                       "lxc": {
                         "text": "CT",
-                        "color": "purple",
+                        "color": "#9932cc",
                         "index": 1
                       }
                     }
@@ -356,15 +356,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 0.75
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 0.9
                     }
                   ]
@@ -408,15 +408,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 0.75
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 0.9
                     }
                   ]
@@ -671,7 +671,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -682,27 +682,27 @@
               "options": {
                 "running": {
                   "text": "running",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 0
                 },
                 "stopped": {
                   "text": "stopped",
-                  "color": "text",
+                  "color": "#e5f3e2",
                   "index": 1
                 },
                 "paused": {
                   "text": "paused",
-                  "color": "orange",
+                  "color": "#ffa352",
                   "index": 2
                 },
                 "prelaunch": {
                   "text": "prelaunch",
-                  "color": "blue",
+                  "color": "#6870ff",
                   "index": 3
                 },
                 "suspended": {
                   "text": "suspended",
-                  "color": "orange",
+                  "color": "#ffa352",
                   "index": 4
                 }
               }
@@ -717,7 +717,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/.*/"
+          "fields": "/^(?!Time$).*$/"
         },
         "colorMode": "value",
         "graphMode": "none",
@@ -766,7 +766,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -777,12 +777,12 @@
               "options": {
                 "qemu": {
                   "text": "VM",
-                  "color": "blue",
+                  "color": "#6870ff",
                   "index": 0
                 },
                 "lxc": {
                   "text": "CT",
-                  "color": "purple",
+                  "color": "#9932cc",
                   "index": 1
                 }
               }
@@ -797,7 +797,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/.*/"
+          "fields": "/^(?!Time$).*$/"
         },
         "colorMode": "value",
         "graphMode": "none",
@@ -846,7 +846,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -868,7 +868,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/.*/"
+          "fields": "/^(?!Time$).*$/"
         },
         "colorMode": "value",
         "graphMode": "none",
@@ -917,11 +917,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 3600
               }
             ]
@@ -932,7 +932,7 @@
               "options": {
                 "0": {
                   "text": "not running",
-                  "color": "text",
+                  "color": "#e5f3e2",
                   "index": 0
                 }
               }
@@ -998,7 +998,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1062,7 +1062,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1128,7 +1128,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1194,7 +1194,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "#e5f3e2",
                 "value": null
               }
             ]
@@ -1210,7 +1210,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/.*/"
+          "fields": "/^(?!Time$).*$/"
         },
         "colorMode": "value",
         "graphMode": "none",
@@ -1259,15 +1259,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.75
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.9
               }
             ]
@@ -1330,15 +1330,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.75
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.9
               }
             ]
@@ -1401,11 +1401,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 0.999
               }
             ]
@@ -1456,7 +1456,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"disk\" or r._field == \"maxdisk\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n  |> last(column: \"_time\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.disk / r.maxdisk}))",
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"disk\" or r._field == \"maxdisk\") and r.object == \"lxc\")\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"])\n  |> last(column: \"_time\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.disk / r.maxdisk}))",
           "refId": "A"
         }
       ],
@@ -1469,19 +1469,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "yellow",
+                "color": "#ffd27a",
                 "value": 0.7
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.85
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.95
               }
             ]
@@ -1545,15 +1545,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 10
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 40
               }
             ]
@@ -1615,7 +1615,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "#e5f3e2",
                 "value": null
               }
             ]
@@ -1631,7 +1631,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/.*/"
+          "fields": "/^(?!Time$).*$/"
         },
         "colorMode": "value",
         "graphMode": "none",
@@ -1693,7 +1693,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1727,7 +1727,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -1785,7 +1785,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1805,7 +1805,7 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
@@ -1819,7 +1819,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "purple"
+                  "fixedColor": "#9932cc"
                 }
               }
             ]
@@ -1834,7 +1834,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -1849,7 +1849,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#ffa352"
                 }
               }
             ]
@@ -1868,7 +1868,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               },
               {
@@ -1897,7 +1897,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               },
               {
@@ -1965,7 +1965,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1973,6 +1973,7 @@
           "mappings": [],
           "unit": "percent",
           "min": 0,
+          "noValue": "not running",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1989,6 +1990,51 @@
           }
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^cpu "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^io "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^memory "
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9932cc"
+                }
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byRegexp",
@@ -2073,13 +2119,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "Bps",
+          "noValue": "not running",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2092,21 +2139,21 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bread$"
+              "options": "/.*\\bread$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -2114,14 +2161,14 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bwrite$"
+              "options": "/.*\\bwrite$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#F70997"
                 }
               },
               {
@@ -2182,13 +2229,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "iops",
+          "noValue": "running VMs only",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2201,21 +2249,21 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bread$"
+              "options": "/.*\\bread$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -2223,14 +2271,14 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bwrite$"
+              "options": "/.*\\bwrite$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#F70997"
                 }
               },
               {
@@ -2299,13 +2347,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "s",
+          "noValue": "running VMs only",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2325,14 +2374,14 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*read$"
+              "options": "/.*read$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -2340,14 +2389,14 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*write$"
+              "options": "/.*write$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#F70997"
                 }
               }
             ]
@@ -2404,13 +2453,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "Bps",
+          "noValue": "running VMs only",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2423,21 +2473,21 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bread$"
+              "options": "/.*\\bread$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -2445,14 +2495,14 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bwrite$"
+              "options": "/.*\\bwrite$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#F70997"
                 }
               },
               {
@@ -2500,7 +2550,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"disk\" or r._field == \"maxdisk\") and true)\n            |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n            |> map(fn: (r) => ({r with series: if r._field == \"disk\" then \"used\" else \"size\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"system\" and r.vmid == \"${guest}\" and (r._field == \"disk\" or r._field == \"maxdisk\") and r.object == \"lxc\")\n            |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n            |> map(fn: (r) => ({r with series: if r._field == \"disk\" then \"used\" else \"size\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
           "refId": "A"
         }
       ],
@@ -2513,7 +2563,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2521,6 +2571,7 @@
           "mappings": [],
           "unit": "bytes",
           "min": 0,
+          "noValue": "containers only",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2533,7 +2584,7 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
@@ -2547,7 +2598,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -2566,7 +2617,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               },
               {
@@ -2634,11 +2685,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -2714,7 +2765,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2733,21 +2784,21 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bin$"
+              "options": "/.*\\bin$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -2755,14 +2806,14 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bout$"
+              "options": "/.*\\bout$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "yellow"
+                  "fixedColor": "#F70997"
                 }
               },
               {
@@ -2823,13 +2874,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "bps",
+          "noValue": "running VMs only",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2842,21 +2894,21 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bin$"
+              "options": "/.*\\bin$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -2864,14 +2916,14 @@
           {
             "matcher": {
               "id": "byRegexp",
-              "options": "(?i).*\\bout$"
+              "options": "/.*\\bout$/i"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "yellow"
+                  "fixedColor": "#F70997"
                 }
               },
               {
@@ -2944,7 +2996,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": null
                   }
                 ]
@@ -2952,6 +3004,7 @@
               "mappings": [],
               "unit": "bytes",
               "min": 0,
+              "noValue": "no balloon driver data",
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 1,
@@ -2967,7 +3020,78 @@
                 "gradientMode": "none"
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "balloon size"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "guest total"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "guest free"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "maximum"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#e5f3e2"
+                    }
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        10,
+                        10
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "options": {
             "legend": {
@@ -3020,13 +3144,14 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": null
                   }
                 ]
               },
               "mappings": [],
               "unit": "short",
+              "noValue": "no balloon driver data",
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 1,
@@ -3042,7 +3167,38 @@
                 "gradientMode": "none"
               }
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "minor"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "major"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "options": {
             "legend": {
@@ -3095,13 +3251,14 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": null
                   }
                 ]
               },
               "mappings": [],
               "unit": "Bps",
+              "noValue": "no balloon driver data",
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 1,
@@ -3114,21 +3271,21 @@
                   "group": "A"
                 },
                 "axisPlacement": "auto",
-                "gradientMode": "none"
+                "gradientMode": "opacity"
               }
             },
             "overrides": [
               {
                 "matcher": {
                   "id": "byRegexp",
-                  "options": "(?i).*\\bin$"
+                  "options": "/.*\\bin$/i"
                 },
                 "properties": [
                   {
                     "id": "color",
                     "value": {
                       "mode": "fixed",
-                      "fixedColor": "green"
+                      "fixedColor": "#21E2D7"
                     }
                   }
                 ]
@@ -3136,14 +3293,14 @@
               {
                 "matcher": {
                   "id": "byRegexp",
-                  "options": "(?i).*\\bout$"
+                  "options": "/.*\\bout$/i"
                 },
                 "properties": [
                   {
                     "id": "color",
                     "value": {
                       "mode": "fixed",
-                      "fixedColor": "yellow"
+                      "fixedColor": "#F70997"
                     }
                   },
                   {

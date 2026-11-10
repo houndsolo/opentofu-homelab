@@ -1,0 +1,52 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# VRRP for the Postgres VIP on ${host}: it follows the Patroni leader. Adverts go unicast over
+# the HA VLAN (${ha_interface}); the VIP sits on the backend VLAN NIC (${vip_interface}), where
+# Grafana connects.
+
+global_defs {
+  router_id ${host}
+  script_user nobody nogroup
+  enable_script_security
+  vrrp_garp_master_refresh 60
+}
+
+# Patroni's /primary answers 200 only on the member that holds the leader key in etcd (a
+# leader that loses etcd demotes itself after ttl). Every replica fails the check and sits
+# in FAULT, so only the leader can hold the VIP: after a failover the old leader drops it
+# within ~4 s and the new one takes it ~3 s later. No weight: FAULT releases the VIP.
+vrrp_script chk_patroni_primary {
+  script "/usr/bin/curl -fsS -m 2 -o /dev/null http://127.0.0.1:8008/primary"
+  interval 2
+  timeout 2
+  fall 2
+  rise 1
+  init_fail
+}
+
+vrrp_instance postgres {
+  state BACKUP
+  nopreempt
+  interface ${ha_interface}
+  virtual_router_id ${router_id}
+  priority ${priority}
+  advert_int 1
+  unicast_src_ip ${ha_address}
+  unicast_peer {
+%{ for peer in peers ~}
+    ${peer}
+%{ endfor ~}
+  }
+  authentication {
+    auth_type PASS
+    auth_pass ${auth_pass}
+  }
+  virtual_ipaddress {
+    ${vip} dev ${vip_interface}
+  }
+  track_interface {
+    ${vip_interface}
+  }
+  track_script {
+    chk_patroni_primary
+  }
+}

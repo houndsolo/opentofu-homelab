@@ -24,6 +24,7 @@ from custom import (
     fixed_color, gauge, mapping, organize, override, q, query_var, stat, state_timeline, steps,
     table, text, timeseries,
 )
+from theme import ACCENT, ACCENT2, INFO
 import fwwan_snapshot as snap
 
 FW = 'host="fw-wan"'
@@ -34,7 +35,7 @@ FW_LINK = {"type": "dashboards", "tags": ["fw-wan"], "asDropdown": True, "title"
            "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
            "tooltip": "", "url": ""}
 NODE_FULL = NODE_DASH + "?var-job=vyos-node&var-node=10.20.10.255:9100&${__url_time_range}"
-IN, OUT = "green", "blue"
+IN, OUT = ACCENT2, ACCENT  # directions, not states (like custom.READ/WRITE)
 ACTION_COLORS = {"accept": "green", "drop": "red", "reject": "orange", "return": "blue", "jump": "purple",
                  "unknown": "yellow"}
 ACTION_MAP = mapping(**{a: ("not in snapshot" if a == "unknown" else a, c) for a, c in ACTION_COLORS.items()})
@@ -54,7 +55,10 @@ def url_link(title, url, icon="dashboard"):
 
 
 NODE_FULL_LINK = url_link("Node Exporter Full (fw-wan)", NODE_DASH + "?var-job=vyos-node&var-node=10.20.10.255:9100")
+# On the VRFs & routing dashboard: the picked router's node_exporter (hidden variable "node").
+NODE_HOST_LINK = url_link("Node Exporter Full (${host})", NODE_DASH + "?var-job=vyos-node&var-node=${node}")
 FRR_LINK = url_link("FRR / EVPN fabric", FRR_DASH)
+NO_BGP = "No BGP sessions on this router"
 
 
 def go(title, key):
@@ -70,6 +74,17 @@ def on_influx(p):
 
 def flux(query):
     return {"datasource": INFLUX, "query": query}
+
+
+def value_text(p):
+    """Bar gauge values in the text color (the bars keep their colors; dark ones are hard to read as text)."""
+    p["options"]["valueMode"] = "text"
+    return p
+
+
+def described(p, desc):
+    p["description"] = desc
+    return p
 
 
 def display(p, name):
@@ -100,7 +115,8 @@ FINAL = ("accept", "drop", "reject")
 DEFAULT = {"rule": "default-action"}
 BASE_DEFAULT = {"kind": "base", "rule": "default-action"}
 VERDICT_COLORS = {"accept": "green", "drop": "red", "reject": "orange", "default accept": "dark-green",
-                  "default drop": "dark-red", "default reject": "dark-orange", "return": "blue"}
+                  "default drop": "dark-red", "default reject": "dark-orange", "return": "blue",
+                  "default return": "dark-blue"}
 
 
 def _rules():
@@ -203,7 +219,8 @@ def rule_reference():
     return text("Rule reference", "\n".join(lines))
 
 
-# Interface -> VRF from the snapshot, applied only to fw-wan's series.
+# Interface -> VRF from the snapshot, applied only to fw-wan's series (other hosts get vrf="n/a":
+# nothing exports their interfaces' VRF membership).
 def with_vrf(expr):
     e = f'label_replace(label_join({expr}, "hd", ":", "host", "device"), "vrf", "default", "hd", "fw-wan:.*")'
     by_vrf = {}
@@ -212,7 +229,12 @@ def with_vrf(expr):
     for vrf, devs in sorted(by_vrf.items()):
         if vrf != "default":
             e = f'label_replace({e}, "vrf", "{vrf}", "hd", "fw-wan:({"|".join(devs)})")'
-    return e
+    return f'label_replace({e}, "vrf", "n/a", "vrf", "")'
+
+
+def in_vrf(expr, vrf):
+    """Keeps the series of expr (with a vrf label, see with_vrf) whose vrf matches the regex vrf ("$vrf")."""
+    return only(f'label_replace({expr}, "vrf_match", "1", "vrf", "{vrf}")', "vrf_match", "1")
 
 
 def vrf_devices(h):
@@ -278,10 +300,28 @@ FW_LOG_COUNT = (SYSLOG + f'  |> filter(fn: (r) => r._value =~ {FW_LOG_RE})\n'
                 '  |> group()\n  |> count()\n')
 
 
-def syslog_query(where):
-    return (SYSLOG + f"  |> filter(fn: (r) => {where})\n"
+# fw-wan's rsyslog gets every non-kernel line twice (imuxsock and imjournal, see the Alloy
+# config in templates/config.alloy.tftpl) and forwards both to Telegraf, whose parser drops
+# the imuxsock copy's leading space: the twins only differ in _time (< 1 ms apart). They
+# share the series, the message and the sender's timestamp field (whole seconds), so unique()
+# on timestamp + message keeps the first. Identical lines in the same second count once.
+SYSLOG_DEDUP = ('from(bucket: "vyos")\n'
+                '  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n'
+                '  |> filter(fn: (r) => r._measurement == "syslog" and r.host == "fw-wan" and '
+                '(r._field == "message" or r._field == "timestamp"))\n'
+                '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
+                '  |> filter(fn: (r) => exists r.message)\n'
+                '  |> map(fn: (r) => ({r with _value: r.message}))\n')
+
+
+def syslog_query(where, limit=300):
+    return (SYSLOG_DEDUP + f"  |> filter(fn: (r) => {where})\n"
+            '  |> map(fn: (r) => ({r with key: (if exists r.timestamp then string(v: r.timestamp) else "") + " " + r._value}))\n'
+            '  |> sort(columns: ["_time"])\n'
+            '  |> unique(column: "key")\n'
             '  |> map(fn: (r) => ({_time: r._time, Severity: r.severity, App: r.appname, Message: r._value}))\n'
-            '  |> group()\n  |> sort(columns: ["_time"], desc: true)\n  |> limit(n: 300)\n')
+            '  |> group()\n  |> sort(columns: ["_time"], desc: true)\n'
+            f'  |> limit(n: {limit})\n')
 
 
 SEVERITY_MAP = mapping(**{"emerg": ("emerg", "red"), "alert": ("alert", "red"), "crit": ("crit", "red"),
@@ -291,7 +331,7 @@ SEVERITY_MAP = mapping(**{"emerg": ("emerg", "red"), "alert": ("alert", "red"), 
 
 def log_table(title, query, desc):
     return on_influx(table(title, [flux(query)], desc=desc, no_value="No log lines in range",
-                           transformations=[organize(rename={"_time": "Time"})],
+                           transformations=[organize(rename={"_time": "Time"}, order=["Time", "Severity", "App", "Message"])],
                            overrides=[cell("Severity", "color-text"), override("Severity", {"mappings": SEVERITY_MAP}),
                                       override("Time", {"custom.width": 170}), override("Severity", {"custom.width": 90}),
                                       override("App", {"custom.width": 150})]))
@@ -299,7 +339,7 @@ def log_table(title, query, desc):
 
 # --- shared panels -----------------------------------------------------------------
 
-def bgp_table(sel):
+def bgp_table(sel, no_value=None):
     lbl = "max without (instance, job, role, host)"
     return table("BGP peers", [
         q(f"{lbl} (frr_bgp_peer_state{{{sel}}})", table=True),
@@ -310,7 +350,7 @@ def bgp_table(sel):
           table=True),
         q(f"{lbl} (resets(frr_bgp_peer_uptime_seconds{{{sel}}}[$__range]))", table=True),
     ], desc="One row per session (VRF, address family, peer). Interface peers (eth1.1000/eth2.1000 on fw-wan) are BGP "
-            "unnumbered; the hostname comes from the peer's BGP hostname capability.",
+            "unnumbered; the hostname comes from the peer's BGP hostname capability.", no_value=no_value,
         transformations=[MERGE, organize(exclude=["Time"], rename={
             "vrf": "VRF", "afi": "AFI", "safi": "SAFI", "peer": "Peer", "peer_hostname": "Hostname",
             "peer_desc": "Description", "peer_type": "Type", "peer_as": "Peer AS", "local_as": "Local AS",
@@ -328,22 +368,28 @@ def bgp_table(sel):
         sort="VRF")
 
 
-def bgp_state(sel):
+def bgp_state(sel, no_value=None):
     return state_timeline("BGP session state", [
         q(f"max without (instance, job, role, local_as, peer_as, peer_hostname, peer_desc, peer_type) "
           f"(frr_bgp_peer_state{{{sel}}})", "{{vrf}} · {{peer}} {{afi}}"),
-    ], mappings=BGP_MAP, thresholds=steps(("red", None), ("green", 1), ("orange", 2)),
+    ], mappings=BGP_MAP, thresholds=steps(("red", None), ("green", 1), ("orange", 2)), no_value=no_value,
         desc="Gaps mean frr_exporter wasn't scraped.")
 
 
-def interface_table(h, desc):
+def interface_table(h, desc, vrf=None):
+    """vrf: keep only the interfaces in VRFs matching this regex (e.g. "$vrf")."""
     sel = ports(h)
 
     def col(expr, by="host, device"):
-        return q(f"max by ({by}) ({phys(expr, h)})", table=True)
+        e = phys(expr, h)
+        if vrf:
+            e = in_vrf(with_vrf(e), vrf)
+        elif "vrf" in by:
+            e = with_vrf(e)
+        return q(f"max by ({by}) ({e})", table=True)
 
     return table("Interfaces", [
-        col(with_vrf(f"node_network_up{sel}"), "host, device, vrf"),
+        col(f"node_network_up{sel}", "host, device, vrf"),
         col(f"node_network_info{sel}", "host, device, ifalias, operstate"),
         col(f"node_network_mtu_bytes{sel}"),
         col(f"node_network_speed_bytes{sel} * 8 > 0"),
@@ -429,7 +475,10 @@ def overview():
           (stat("Conntrack entries", [q(f"node_nf_conntrack_entries{{{FW}}}", "entries")], decimals=0, thresholds=BLUE,
                 links=[go("fw-wan firewall", "firewall")], **spark), 4))
 
-    b.add(bgp_summary(f"{{{FW}}}"), 5, 5)
+    b.add(described(bgp_summary(f"{{{FW}}}"),
+                    "IPv4 unicast BGP sessions from frr_exporter: BORDER-LEAF-18/19 (VRF lylat_service, BGP unnumbered "
+                    "over eth1.1000/eth2.1000) and the haystack peer (VRF vpn_hay). If the exporter is down, all three "
+                    "show 0; check the Exporters stat."), 5, 5)
     b.add(stat("VPN tunnels", [
         q(f"vyos_ipsec_ike_up{{{FW}}}", "{{connection}}"),
         q(f"vyos_wireguard_peer_up{{{FW}}}", "wg {{peer}}"),
@@ -550,8 +599,9 @@ def overview():
     b.row("Router log", collapsed=True)
     b.add(log_table("Syslog (without firewall lines)",
                     syslog_query(f"not (r._value =~ {FW_LOG_RE})"),
-                    "fw-wan's syslog from Telegraf (InfluxDB bucket vyos), newest first. Firewall log lines are on the "
-                    "firewall dashboard."), 24, 12)
+                    "fw-wan's syslog from Telegraf (InfluxDB bucket vyos), newest first, with the second copy of each line "
+                    "(VyOS's rsyslog sends them twice) left out, up to 300 lines. Firewall log lines are on the firewall "
+                    "dashboard."), 24, 12)
 
     return dashboard(UIDS["overview"], "fw-wan overview",
                      "The VyOS edge router: health, WAN and VRF traffic, firewall verdicts, VPN tunnels, system.",
@@ -653,15 +703,17 @@ def firewall():
                    override("Total packets", {"decimals": 0})],
         sort="Packets in range", desc_sort=True), 24, 18)
     b.add(bargauge("Top rules in range", [
-        q(f"topk(12, {fw('increase', window='$__range')} > 0)", "{{chain}} #{{rule}} · {{verdict}}"),
+        q(f"sort_desc(topk(12, {fw('increase', window='$__range')} > 0))", "{{chain}} #{{rule}} ({{family}}) · {{verdict}}",
+          instant=True),
     ], decimals=0, mode="gradient", color={"mode": "continuous-BlPu"}, thresholds=BLUE,
-        desc="Packets per rule in the selected time range (jumps included)."), 12, 10)
-    b.add(bargauge("Default actions hit in range", [
+        desc="The 12 rules (jumps and default actions included) with the most packets in the selected time range, "
+             "largest first."), 12, 10)
+    b.add(value_text(bargauge("Default actions hit in range", [
         q(f"sum by (family, chain, verdict) ({fw('increase', window='$__range', **DEFAULT)})",
           "{{chain}} ({{family}}) · {{verdict}}"),
     ], decimals=0, thresholds=GREEN, desc="Packets that fell through every rule of a chain to its default action.",
         overrides=[override(f".*· {v}$", {"color": {"mode": "fixed", "fixedColor": c}}, regex=True)
-                   for v, c in VERDICT_COLORS.items()]), 12, 10)
+                   for v, c in VERDICT_COLORS.items()])), 12, 10)
 
     b.row("NAT")
     nlbl = "max without (instance, job, role, host)"
@@ -748,7 +800,9 @@ def vpn():
                text_mode="value_and_name", mappings=UP_MAP, thresholds=UP_STEPS, orientation="horizontal",
                desc="UP = handshake within the last 3 minutes. Road-warrior peers are DOWN while not connected."), 4, 6)
     b.col(4,
-          (bgp_summary(f'{{{FW}, vrf=~"vpn_.*"}}'), 3),
+          (described(bgp_summary(f'{{{FW}, vrf=~"vpn_.*"}}'),
+                     "BGP sessions in the VPN VRFs (vpn_*) from frr_exporter: the haystack peer in vpn_hay. Drops to "
+                     "0 if the exporter is down."), 3),
           (stat("vpn-metrics.py", [
               q(f"vyos_vpn_metrics_ipsec_ok{{{FW}}}", "IPsec"), q(f"vyos_vpn_metrics_wireguard_ok{{{FW}}}", "WG"),
               q(f"time() - vyos_vpn_metrics_last_run_timestamp_seconds{{{FW}}}", "age"),
@@ -866,8 +920,10 @@ def vpn():
         desc="ipsec default-action: IKE/ESP from addresses that aren't configured peers."), 12, 8)
 
     b.row("IPsec log", collapsed=True)
-    b.add(log_table("charon", syslog_query('r.appname =~ /charon/'),
-                    "strongSwan's log lines from the syslog (InfluxDB), newest first."), 24, 12)
+    b.add(log_table("charon", syslog_query('r.appname =~ /charon/', limit=1000),
+                    "strongSwan's log lines from the syslog (InfluxDB), newest first, without the duplicate copies, up to "
+                    "1000 lines. While a peer is unreachable charon logs a retry every few minutes, so long ranges can "
+                    "hit the cap."), 24, 12)
 
     return dashboard(UIDS["vpn"], "fw-wan VPNs",
                      "fw-wan's IPsec connections, VTI and WireGuard interfaces, WireGuard peers, BGP over the tunnels.",
@@ -906,16 +962,19 @@ def routing():
         q(f"sum by (vrf) (changes(frr_route_total{{{rv}}}[$__range]))", table=True),
         q(f'{vv} (frr_bgp_rib_count_total{{{rv}, afi="ipv4"}})', table=True),
         q(f'count by (vrf) (frr_bgp_peer_state{{{rv}}} == 1)', table=True),
-    ], desc="Per VRF: zebra RIB and kernel FIB routes per address family, route count changes in range, IPv4 BGP "
-            "RIB entries and established BGP sessions.",
+        q(f'{vv} (frr_bgp_rib_count_total{{{rv}, afi="ipv6", safi="unicast"}})', table=True),
+    ], desc="Per VRF: zebra RIB and kernel FIB routes per address family, route count changes in range, IPv4 and "
+            "IPv6 unicast BGP RIB entries (the leaves' IPv6 underlay and EVPN are in the default VRF; EVPN is on the "
+            "FRR / EVPN fabric dashboard) and established BGP sessions.",
         transformations=[MERGE, organize(exclude=["Time"], rename={
             "vrf": "VRF", "Value #A": "IPv4 RIB", "Value #B": "IPv4 FIB", "Value #C": "IPv6 RIB", "Value #D": "IPv6 FIB",
-            "Value #E": "Changes in range", "Value #F": "BGP RIB (IPv4)", "Value #G": "BGP sessions up"},
-            order=["VRF", "IPv4 RIB", "IPv4 FIB", "IPv6 RIB", "IPv6 FIB", "BGP RIB (IPv4)", "BGP sessions up",
-                   "Changes in range"])],
+            "Value #E": "Changes in range", "Value #F": "BGP RIB (IPv4)", "Value #G": "BGP sessions up",
+            "Value #H": "BGP RIB (IPv6)"},
+            order=["VRF", "IPv4 RIB", "IPv4 FIB", "IPv6 RIB", "IPv6 FIB", "BGP RIB (IPv4)", "BGP RIB (IPv6)",
+                   "BGP sessions up", "Changes in range"])],
         overrides=[override("IPv4 RIB|IPv6 RIB", {"custom.cellOptions": {"type": "gauge", "mode": "basic",
                                                                          "valueDisplayMode": "text"},
-                                                  "color": {"mode": "continuous-BlPu"}}, regex=True),
+                                                  "color": {"mode": "fixed", "fixedColor": INFO}}, regex=True),
                    override("Changes in range", {"thresholds": ORANGE_IF_ANY, "custom.cellOptions": {"type": "color-text"}})],
         sort="VRF"), 12, 10)
     b.add(timeseries("Routes per VRF", [q(f"sum by (vrf) (frr_route_total{{{rv}}})", "{{vrf}}")],
@@ -930,24 +989,25 @@ def routing():
     ], decimals=0, fill=0, calcs=("max", "lastNotNull"), no_value="All RIB routes are in the FIB"), 12, 8)
 
     b.row("BGP")
-    b.add(bgp_table(f"{h}, vrf=~\"$vrf\""), 24, 8)
+    b.add(bgp_table(f"{h}, vrf=~\"$vrf\"", no_value=NO_BGP), 24, 8)
     bs = f'{h}, vrf=~"$vrf"'
-    b.add(bgp_state(bs), 12, 7)
+    b.add(bgp_state(bs, no_value=NO_BGP), 12, 7)
     b.add(timeseries("BGP RIB entries", [
         q(f"max by (vrf, afi, safi) (frr_bgp_rib_count_total{{{bs}}})", "{{vrf}} {{afi}}/{{safi}}"),
-    ], decimals=0, fill=0, step=True, calcs=("min", "max", "lastNotNull")), 12, 7)
+    ], decimals=0, fill=0, step=True, calcs=("min", "max", "lastNotNull"), no_value=NO_BGP), 12, 7)
     b.add(timeseries("Prefixes received", [
         q(f"sum by (vrf, peer, peer_hostname) (frr_bgp_peer_prefixes_received_count_total{{{bs}}})",
           "{{vrf}} · {{peer}} {{peer_hostname}}"),
-    ], decimals=0, fill=0, step=True, calcs=("min", "max", "lastNotNull")), 8, 8)
+    ], decimals=0, fill=0, step=True, calcs=("min", "max", "lastNotNull"), no_value=NO_BGP), 8, 8)
     b.add(timeseries("Prefixes advertised", [
         q(f"sum by (vrf, peer, peer_hostname) (frr_bgp_peer_prefixes_advertised_count_total{{{bs}}})",
           "{{vrf}} · {{peer}} {{peer_hostname}}"),
-    ], decimals=0, fill=0, step=True, calcs=("min", "max", "lastNotNull")), 8, 8)
+    ], decimals=0, fill=0, step=True, calcs=("min", "max", "lastNotNull"), no_value=NO_BGP), 8, 8)
     b.add(timeseries("BGP messages", [
         q(f"sum by (vrf, peer) (rate(frr_bgp_peer_message_received_total{{{bs}}}[$__rate_interval]) "
           f"+ rate(frr_bgp_peer_message_sent_total{{{bs}}}[$__rate_interval]))", "{{vrf}} · {{peer}}"),
-    ], unit="short", fill=0, calcs=("mean", "max"), desc="Messages per second (updates and keepalives), rx + tx."), 8, 8)
+    ], unit="short", fill=0, calcs=("mean", "max"), no_value=NO_BGP,
+        desc="Messages per second (updates and keepalives), rx + tx."), 8, 8)
 
     b.row("Interfaces by VRF")
     vrf_dev = vrf_devices(rv)
@@ -958,13 +1018,15 @@ def routing():
                 desc="Counters of the VRF devices: traffic received on or sent from the VRF's interfaces "
                      "(received above the axis, sent below)."), 12, 10)
     b.add(timeseries("Interface traffic (in + out)", [
-        q(f"{with_vrf(port_rate(h, '$__rate_interval'))} * 8 > 0",
+        q(f"{in_vrf(with_vrf(port_rate(h, '$__rate_interval')), '$vrf')} * 8 > 0",
           "{{vrf}} · {{device}}"),
     ], unit="bps", fill=0, calcs=("mean", "max"), placement="right",
-        desc="Interfaces with traffic, labelled with their VRF (fw-wan only; from the config snapshot)."), 12, 10)
-    b.add(interface_table(h, "The router's interfaces (no VRF devices, loopback, dummies or PIM registers). The VRF "
-                             "column is filled in for fw-wan only, from the config snapshot (default = no VRF). Rates "
-                             "over the last 5 minutes."), 24, 12)
+        desc="Interfaces with traffic in the selected VRFs, labelled with their VRF from the config snapshot. fw-wan "
+             "only: other routers' interfaces show VRF n/a and are left out when a VRF is selected."), 12, 10)
+    b.add(interface_table(h, "The router's interfaces in the selected VRFs (no VRF devices, loopback, dummies or PIM "
+                             "registers), with the VRF from the config snapshot (default = no VRF). fw-wan only: other "
+                             "routers' interfaces show VRF n/a and are left out when a VRF is selected. Rates over the "
+                             "last 5 minutes.", vrf="$vrf"), 24, 12)
 
     b.row("BFD", collapsed=True)
     b.add(table("BFD peers", [
@@ -985,11 +1047,14 @@ def routing():
 
     host = query_var("host", "Router", 'label_values(frr_route_total, host)', multi=False, include_all=False)
     host["current"] = {"selected": True, "text": "fw-wan", "value": "fw-wan"}
-    variables = [host, query_var("vrf", "VRF", 'label_values(frr_route_total{host="$host"}, vrf)')]
+    node = query_var("node", "node_exporter", 'label_values(node_uname_info{job="vyos-node", host="$host"}, instance)',
+                     multi=False, include_all=False)
+    node["hide"] = 2  # for the Node Exporter Full link
+    variables = [host, query_var("vrf", "VRF", 'label_values(frr_route_total{host="$host"}, vrf)'), node]
     return dashboard(UIDS["routing"], "fw-wan VRFs & routing",
                      "Routing tables, BGP sessions and interfaces per VRF. Router picker (default fw-wan; the VyOS "
                      "leaves and DHCP VMs work too).", b, tags=["fw-wan", "vyos", "bgp"], variables=variables,
-                     extra_links=[FW_LINK, FRR_LINK, NODE_FULL_LINK])
+                     extra_links=[FW_LINK, FRR_LINK, NODE_HOST_LINK])
 
 
 DASHBOARDS = {

@@ -28,7 +28,31 @@ locals {
     ]))[0], null)
   }
 
-  backend_name = try(one(keys(local.monitoring_vms)), null)
+  # Backends: the primary (Postgres, the default influxdb provider) and the replica(s).
+  backend_name  = contains(keys(local.monitoring_vms), var.monitoring_primary) ? var.monitoring_primary : null
+  replica_names = sort([for name in keys(local.monitoring_vms) : name if name != var.monitoring_primary])
+  replica_name  = try(local.replica_names[0], null) # the influxdb.replica provider (one replica)
+  # Buckets, tokens and metric servers on the replica's InfluxDB (influxdb-replica.tf):
+  # only once it's deployed (the provider needs a running InfluxDB to plan).
+  replica_influxdb = var.influxdb_replica_ready && local.replica_name != null
+
+  # Backends: HA VLAN NIC (keepalived adverts, Alertmanager gossip) and the NICs that hold
+  # the VIPs. network_devices[i] is eth<i+1>.
+  monitoring_nic = {
+    for name in keys(local.monitoring_vms) : name => {
+      ha = try(one([
+        for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
+        if nic.vlan_id == var.monitoring_ha_vlan_id && nic.ipv4_address != null
+      ]), null)
+      backend = try(one([
+        for i, nic in local.nics[name] : "eth${i + 1}" if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+      ]), null)
+      monitoring = try(one([
+        for i, nic in local.nics[name] : "eth${i + 1}" if nic.bridge == var.monitoring_bridge && nic.ipv4_address != null
+      ]), null)
+    }
+  }
+  monitoring_ha_ready = alltrue([for n in values(local.monitoring_nic) : n.ha != null && n.backend != null && n.monitoring != null])
 
   # Grafana VMs: HA VLAN NIC (alerting gossip, VRRP) and the UI NIC (the one with the
   # default gateway, VLAN 2) that holds the VIP. network_devices[i] is eth<i+1>.
@@ -86,6 +110,8 @@ locals {
       [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "grafana" } }],
       [for name in keys(local.dns_vms) : { host = name, address = local.mgmt[name], labels = { role = "dns" } }],
       [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
+      [for name, n in local.metrics_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "metrics" } } if local.mimir_enabled],
+      [for name, n in local.postgres_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "postgres" } } if local.postgres_enabled],
       [for name, address in local.pve_nodes : { host = name, address = address, labels = { role = "proxmox" } }],
       [for host, address in var.node_extra_targets : { host = host, address = address, labels = {} }],
     )
@@ -143,14 +169,20 @@ resource "random_password" "grafana_secret_key" {
 }
 
 # VRRPv2 PASS authentication: at most 8 characters, sent in clear (it only guards
-# against accidental peers, like another keepalived reusing router id 40).
+# against accidental peers, like another keepalived reusing router id 101).
 resource "random_password" "vrrp" {
   length  = 8
   special = false
 }
 
-# Grafana's VRRP instance (its own HA VLAN, router id 11): same 8-character PASS limit.
+# Grafana's VRRP instance (its own HA VLAN, router id 100): same 8-character PASS limit.
 resource "random_password" "grafana_vrrp" {
+  length  = 8
+  special = false
+}
+
+# The backends' VRRP instance (ha_monitor VLAN, router id 102): same 8-character PASS limit.
+resource "random_password" "backend_vrrp" {
   length  = 8
   special = false
 }
@@ -158,10 +190,20 @@ resource "random_password" "grafana_vrrp" {
 module "monitoring" {
   source = "../../modules/services/monitoring"
 
-  backend = {
-    name               = coalesce(local.backend_name, "missing")
-    monitoring_address = coalesce(try(local.monitoring_address[local.backend_name], null), "0.0.0.0")
-    backend_address    = coalesce(try(local.backend_address[local.backend_name], null), "0.0.0.0")
+  # Every role = "monitoring" VM; Postgres on monitoring_primary.
+  backends = {
+    for name, n in local.monitoring_nic : name => {
+      monitoring_address = coalesce(local.monitoring_address[name], "0.0.0.0")
+      backend_address    = coalesce(local.backend_address[name], "0.0.0.0")
+      ha_address         = try(n.ha.address, null)
+      interfaces         = local.monitoring_ha_ready ? { ha = n.ha.interface, backend = n.backend, monitoring = n.monitoring } : null
+    }
+  }
+  primary_backend = coalesce(local.backend_name, var.monitoring_primary)
+  backend_vrrp = var.backend_vrrp == null ? null : {
+    vips      = var.backend_vrrp.vips
+    router_id = var.backend_vrrp.router_id
+    auth_pass = random_password.backend_vrrp.result
   }
   grafana = {
     for name, n in local.grafana_nic : name => {
@@ -188,6 +230,32 @@ module "monitoring" {
   pve_exporter_token = var.pve_exporter_token
   snmp_auths         = var.snmp_v3_auths
 
+  # telegraf.tf: Telegraf for the C9800 telemetry, with the bucket's write-only token.
+  # Telegraf on the primary, and on the replica once its InfluxDB has the bucket (influxdb-replica.tf).
+  wlc_telemetry = var.wlc_telemetry == null ? null : {
+    port     = var.wlc_telemetry.port
+    bucket   = influxdb_bucket.wlc[0].name
+    backends = concat([var.monitoring_primary], local.replica_influxdb ? [local.replica_name] : [])
+  }
+  wlc_telemetry_tokens = merge(
+    { (var.monitoring_primary) = one(influxdb_authorization.wlc[*].token) },
+    local.replica_influxdb && var.wlc_telemetry != null ? { (local.replica_name) = influxdb_authorization.replica["wlc"].token } : {},
+  )
+
+  # VyOS Telegraf -> monitoring VIP :8087 -> bucket vyos on every backend (influxdb-replica.tf).
+  influx_relay = var.vyos_influx_relay_port == null ? null : {
+    port    = var.vyos_influx_relay_port
+    bucket  = influxdb_bucket.vyos.name
+    targets = concat([var.monitoring_primary], local.replica_influxdb ? [local.replica_name] : [])
+  }
+  influx_relay_secrets = {
+    listen_token = influxdb_authorization.vyos.token # the token fw-wan already has
+    tokens = merge(
+      { (var.monitoring_primary) = influxdb_authorization.vyos.token },
+      local.replica_influxdb ? { (local.replica_name) = influxdb_authorization.replica["vyos"].token } : {},
+    )
+  }
+
   # Unaddressed networks become 0.0.0.0 here and fail terraform_data.logging's precondition.
   logging = {
     for name, n in local.logging_nic : name => {
@@ -210,13 +278,50 @@ module "monitoring" {
     s3_secret_key = var.loki_s3.secret_key
     vrrp_password = random_password.vrrp.result
   }
+
+  # metrics.tf: Mimir on the role = "metrics" VMs, once the RGW keys are set.
+  metrics = {
+    for name, n in local.metrics_nic : name => {
+      ha_address      = try(n.ha.address, "0.0.0.0")
+      backend_address = try(n.backend.address, "0.0.0.0")
+      interfaces      = { ha = try(n.ha.interface, "none"), backend = try(n.backend.interface, "none") }
+    }
+  }
+  metrics_settings = var.metrics_settings
+  metrics_secrets = var.mimir_s3 == null ? null : {
+    s3_bucket     = var.mimir_s3.bucket
+    s3_access_key = var.mimir_s3.access_key
+    s3_secret_key = var.mimir_s3.secret_key
+    vrrp_password = random_password.mimir_vrrp.result
+  }
+
+  # postgres.tf: the Patroni cluster on the role = "postgres" VMs, once the RGW keys are set.
+  postgres = {
+    for name, n in local.postgres_nic : name => {
+      ha_address      = try(n.ha.address, "0.0.0.0")
+      backend_address = try(n.backend.address, "0.0.0.0")
+      interfaces      = { ha = try(n.ha.interface, "none"), backend = try(n.backend.interface, "none") }
+    }
+  }
+  postgres_settings = var.postgres_settings
+  postgres_secrets = var.postgres_s3 == null ? null : {
+    s3_bucket            = var.postgres_s3.bucket
+    s3_access_key        = var.postgres_s3.access_key
+    s3_secret_key        = var.postgres_s3.secret_key
+    superuser_password   = random_password.pg_superuser.result
+    replication_password = random_password.pg_replication.result
+    restapi_password     = random_password.pg_restapi.result
+    monitor_password     = random_password.pg_monitor.result
+    vrrp_password        = random_password.pg_vrrp.result
+  }
+  rgw_bucket_alerts = var.rgw_bucket_alerts # pve-collectors/rgw-bucket-stats.py
 }
 
 resource "terraform_data" "backend" {
   for_each = local.monitoring_vms
 
   triggers_replace = [
-    sha256(module.monitoring.backend_deployment),
+    sha256(module.monitoring.backend_deployments[each.key]),
     each.value.management_address,
     each.value.vm_id,
     each.value.config.ssh_username,
@@ -225,8 +330,12 @@ resource "terraform_data" "backend" {
 
   lifecycle {
     precondition {
-      condition     = length(local.monitoring_vms) == 1
-      error_message = "Define exactly one services-vms VM with role = \"monitoring\"."
+      condition     = local.backend_name != null && length(local.monitoring_vms) <= 2
+      error_message = "Define one or two services-vms VMs with role = \"monitoring\", one of them named by monitoring_primary (\"${var.monitoring_primary}\")."
+    }
+    precondition {
+      condition     = var.backend_vrrp == null || length(local.monitoring_vms) < 2 || local.monitoring_ha_ready
+      error_message = "With two backends and backend_vrrp, every monitoring VM needs one addressed NIC on VLAN ${var.monitoring_ha_vlan_id} (ha_monitor)."
     }
     precondition {
       condition     = local.backend_address[each.key] != null && local.monitoring_address[each.key] != null
@@ -255,7 +364,7 @@ resource "terraform_data" "backend" {
   }
 
   provisioner "file" {
-    content     = module.monitoring.backend_deployment
+    content     = module.monitoring.backend_deployments[each.key]
     destination = "/tmp/tofu-monitoring-${self.id}/deploy.sh"
   }
 
@@ -270,8 +379,9 @@ resource "terraform_data" "backend" {
 resource "terraform_data" "grafana" {
   for_each = local.grafana_vms
 
-  # Grafana needs Postgres and the datasources on the backend.
-  depends_on = [terraform_data.backend]
+  # Grafana needs Postgres (mon01's, or the Patroni cluster after the cutover) and the datasources on the backend.
+  # Its "prometheus" datasource points at Mimir once mimir_s3 is set: wait for a healthy Mimir (metrics.tf).
+  depends_on = [terraform_data.backend, terraform_data.postgres, terraform_data.metrics]
 
   triggers_replace = [
     sha256(module.monitoring.grafana_deployments[each.key]),

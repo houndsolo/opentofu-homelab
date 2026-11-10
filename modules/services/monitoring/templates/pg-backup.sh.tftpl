@@ -1,0 +1,42 @@
+#!/bin/bash
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# pgBackRest backup of the Patroni cluster, run by pg-backup.timer on every member: only the
+# leader backs up (the others exit). Writes the result for node_exporter's textfile collector
+# (alerts PostgresBackupFailed / PostgresBackupTooOld). Retention: pgbackrest.conf (expire
+# runs after every backup and prunes the WAL archive with it).
+#   pg-backup [full|diff]   default full (the database is small)
+set -uo pipefail
+type=$${1:-full}
+stanza='${stanza}'
+prom='${textfile_dir}/pgbackrest.prom'
+
+if ! curl -fsS -m 2 -o /dev/null http://127.0.0.1:8008/primary; then
+  echo "not the Patroni leader: no backup here"
+  exit 0
+fi
+start=$(date +%s)
+runuser -u postgres -- pgbackrest --stanza="$stanza" --type="$type" backup
+rc=$?
+end=$(date +%s)
+last_ok=$(awk '/^pgbackrest_backup_last_success_timestamp_seconds/ {print $2}' "$prom" 2>/dev/null)
+[ $rc -eq 0 ] && last_ok=$end
+tmp=$(mktemp "${textfile_dir}/.pgbackrest.XXXXXX")
+{
+  echo "# HELP pgbackrest_backup_last_exit_code Exit code of the last pgBackRest backup run on this member."
+  echo "# TYPE pgbackrest_backup_last_exit_code gauge"
+  echo "pgbackrest_backup_last_exit_code{stanza=\"$stanza\",type=\"$type\"} $rc"
+  echo "# HELP pgbackrest_backup_last_run_timestamp_seconds When the last backup run on this member ended."
+  echo "# TYPE pgbackrest_backup_last_run_timestamp_seconds gauge"
+  echo "pgbackrest_backup_last_run_timestamp_seconds{stanza=\"$stanza\"} $end"
+  echo "# HELP pgbackrest_backup_duration_seconds Duration of the last backup run on this member."
+  echo "# TYPE pgbackrest_backup_duration_seconds gauge"
+  echo "pgbackrest_backup_duration_seconds{stanza=\"$stanza\"} $((end - start))"
+  if [ -n "$last_ok" ]; then
+    echo "# HELP pgbackrest_backup_last_success_timestamp_seconds When the last successful backup on this member ended."
+    echo "# TYPE pgbackrest_backup_last_success_timestamp_seconds gauge"
+    echo "pgbackrest_backup_last_success_timestamp_seconds{stanza=\"$stanza\"} $last_ok"
+  fi
+} > "$tmp"
+chmod 0644 "$tmp"
+mv "$tmp" "$prom"
+exit $rc

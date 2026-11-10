@@ -33,7 +33,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -202,7 +202,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -220,7 +220,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -235,7 +235,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -252,11 +252,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -352,7 +352,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -370,7 +370,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -385,7 +385,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -402,11 +402,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -490,11 +490,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -558,17 +558,18 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 3600
               }
             ]
           },
           "mappings": [],
-          "unit": "dtdurations"
+          "unit": "dtdurations",
+          "noValue": "No BGP sessions on the selected router(s)"
         },
         "overrides": []
       },
@@ -639,11 +640,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -786,12 +787,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
+          "noValue": "No BGP sessions on the selected router(s)",
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -830,17 +832,17 @@
                     "options": {
                       "0": {
                         "text": "Down",
-                        "color": "red",
+                        "color": "#ff6188",
                         "index": 0
                       },
                       "1": {
                         "text": "Established",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 1
                       },
                       "2": {
                         "text": "Admin down",
-                        "color": "orange",
+                        "color": "#ffa352",
                         "index": 2
                       }
                     }
@@ -978,15 +980,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 2
               }
             ]
@@ -997,22 +999,23 @@
               "options": {
                 "0": {
                   "text": "Down",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "Established",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 },
                 "2": {
                   "text": "Admin down",
-                  "color": "orange",
+                  "color": "#ffa352",
                   "index": 2
                 }
               }
             }
           ],
+          "noValue": "No BGP sessions on the selected router(s)",
           "custom": {
             "fillOpacity": 80,
             "lineWidth": 0
@@ -1074,13 +1077,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BGP sessions on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1153,7 +1157,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1247,13 +1251,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "unit": "short",
+          "noValue": "No BGP sessions on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1266,7 +1271,7 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": []
@@ -1326,13 +1331,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BGP sessions on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1405,13 +1411,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BGP sessions on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1511,12 +1518,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
+          "noValue": "No BFD peers on the selected router(s)",
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -1555,12 +1563,12 @@
                     "options": {
                       "0": {
                         "text": "Down",
-                        "color": "red",
+                        "color": "#ff6188",
                         "index": 0
                       },
                       "1": {
                         "text": "Up",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 1
                       }
                     }
@@ -1668,15 +1676,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.01
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
@@ -1684,7 +1692,8 @@
           "mappings": [],
           "unit": "percentunit",
           "min": 0,
-          "max": 1
+          "max": 1,
+          "noValue": "No BFD peers on the selected router(s)"
         },
         "overrides": []
       },
@@ -1745,13 +1754,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BFD peers on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1836,13 +1846,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No L2 VNIs on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1914,13 +1925,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No L2 VNIs on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -1993,13 +2005,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No L2 VNIs on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2073,16 +2086,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
           },
           "mappings": [],
+          "noValue": "No L2 VNIs on the selected router(s)",
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -2188,12 +2202,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
+          "noValue": "No L2 VNIs on the selected router(s)",
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -2284,12 +2299,13 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
+          "noValue": "No L2 VNIs on the selected router(s)",
           "custom": {
             "align": "auto",
             "cellOptions": {
@@ -2391,13 +2407,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
           },
           "mappings": [],
-          "decimals": 0
+          "decimals": 0,
+          "noValue": "No L2 VNIs on the selected router(s)"
         },
         "overrides": []
       },
@@ -2472,7 +2489,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2567,7 +2584,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2646,7 +2663,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2724,13 +2741,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No BGP sessions on the selected router(s)",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 1,
@@ -2817,11 +2835,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
@@ -2832,12 +2850,12 @@
               "options": {
                 "0": {
                   "text": "DOWN",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "UP",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 }
               }
@@ -2947,7 +2965,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]

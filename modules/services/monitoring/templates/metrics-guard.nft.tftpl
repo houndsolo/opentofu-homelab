@@ -1,0 +1,19 @@
+#!/usr/sbin/nft -f
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# Mimir runs with host networking and has to answer on every address (the VIP moves
+# between the Mimir VMs), so its ports are limited here:
+#   ${http_port} (HTTP: push, query, UI)    loopback and ${join(", ", sources)}
+#   ${memberlist_port}, ${grpc_port} (memberlist, gRPC)  loopback and the Mimir VMs' HA addresses
+# Nothing else is filtered.
+table inet metrics_guard
+delete table inet metrics_guard
+
+table inet metrics_guard {
+  chain input {
+    type filter hook input priority filter - 10; policy accept;
+    iif "lo" accept
+    tcp dport ${http_port} ip saddr { ${join(", ", sources)} } accept
+    meta l4proto { tcp, udp } th dport { ${memberlist_port}, ${grpc_port} } ip saddr { ${join(", ", ring_sources)} } accept
+    meta l4proto { tcp, udp } th dport { ${http_port}, ${memberlist_port}, ${grpc_port} } drop
+  }
+}

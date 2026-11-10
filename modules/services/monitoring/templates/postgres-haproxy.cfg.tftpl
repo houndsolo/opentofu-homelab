@@ -1,0 +1,40 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# S3 for pgBackRest on ${host}: https://127.0.0.1:7443 -> the Ceph RGWs on the PVE nodes (Ceph
+# public network, plain HTTP). pgBackRest only speaks TLS to S3, so haproxy terminates it here
+# with the host's snakeoil certificate (pgBackRest doesn't verify it: loopback only).
+
+global
+  maxconn 500
+  # Started as root to read the snakeoil key (root:ssl-cert 0640), then drops privileges.
+  user haproxy
+  group haproxy
+
+defaults
+  mode http
+  timeout connect 3s
+  timeout client 5m
+  timeout server 5m
+  retries 2
+  option redispatch
+
+frontend s3
+  bind 127.0.0.1:7443 ssl crt /usr/local/etc/haproxy/tls/s3.pem
+  default_backend rgw
+
+backend rgw
+  balance roundrobin
+  # An anonymous GET / on RGW returns 200 (empty bucket list).
+  option httpchk GET /
+  http-check expect status 200
+  default-server check inter 5s fall 3 rise 2
+%{ for i, endpoint in endpoints ~}
+  server rgw${i + 1} ${endpoint}
+%{ endfor ~}
+
+# Prometheus metrics (job haproxy-postgres) and the stats page, on the backend VLAN.
+frontend stats
+  bind ${stats_address}:8405
+  http-request use-service prometheus-exporter if { path /metrics }
+  stats enable
+  stats uri /stats
+  stats refresh 10s

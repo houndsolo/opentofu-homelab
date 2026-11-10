@@ -20,6 +20,8 @@ variable "vm_config" {
     cloud_init_interface    = optional(string, "scsi0")
     cloud_init_datastore_id = optional(string)
     user_data_file_id       = optional(string)
+    dns_servers             = optional(list(string)) # cloud-init resolver; null = Proxmox falls back to the host's resolv.conf
+    dns_domain              = optional(string)       # cloud-init search domain (and FQDN)
     management_bridge       = optional(string, "vmbr0")
     network_model           = optional(string, "virtio")
     network_disconnected    = optional(bool, false)

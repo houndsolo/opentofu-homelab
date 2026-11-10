@@ -31,7 +31,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -166,19 +166,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "yellow",
+                "color": "#ffd27a",
                 "value": 0.7
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.85
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.95
               }
             ]
@@ -231,7 +231,7 @@
     {
       "type": "stat",
       "title": "Storages",
-      "description": "Storages (shared ones once), inactive ones (PVE can't reach them) and the fullest one.",
+      "description": "Storages reporting now (shared ones once), the ones that reported earlier in the time range but not in the last 2 minutes (went inactive, node down or storage removed), and the fullest one. PVE sends only active storages to the metric server, so a storage that was never active in the range (an unreachable PBS, say) is not counted: `pvesm status` lists those.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -242,7 +242,7 @@
             "type": "influxdb",
             "uid": "influxdb"
           },
-          "query": "import \"date\"\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n|> reduce(identity: {storages: 0, inactive: 0, fullest: 0.0}, fn: (r, accumulator) => ({\n     storages: accumulator.storages + 1, inactive: accumulator.inactive + (if r.active == 1.0 then 0 else 1),\n     fullest: if r.pct > accumulator.fullest then r.pct else accumulator.fullest}))",
+          "query": "import \"date\"\nquiet = from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and r._field == \"shared\")\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({storage: if r._value == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\", t: int(v: r._time)}))\n  |> group(columns: [\"storage\"])\n  |> max(column: \"t\")\n  |> group()\n  |> reduce(identity: {n: 0}, fn: (r, accumulator) => ({\n       n: accumulator.n + (if r.t < int(v: date.sub(d: 2m, from: v.timeRangeStop)) then 1 else 0)}))\n  |> findRecord(fn: (key) => true, idx: 0)\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n|> reduce(identity: {storages: 0, fullest: 0.0}, fn: (r, accumulator) => ({\n     storages: accumulator.storages + 1,\n     fullest: if r.pct > accumulator.fullest then r.pct else accumulator.fullest}))\n|> map(fn: (r) => ({r with quiet: if exists quiet.n then quiet.n else 0}))",
           "refId": "A"
         }
       ],
@@ -255,7 +255,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -277,7 +277,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -285,12 +285,12 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "inactive"
+              "options": "quiet"
             },
             "properties": [
               {
                 "id": "displayName",
-                "value": "Inactive"
+                "value": "Stopped reporting"
               },
               {
                 "id": "thresholds",
@@ -298,11 +298,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -334,19 +334,19 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "yellow",
+                      "color": "#ffd27a",
                       "value": 0.7
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 0.85
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 0.95
                     }
                   ]
@@ -380,7 +380,7 @@
             "renameByName": {},
             "indexByName": {
               "storages": 0,
-              "inactive": 1,
+              "quiet": 1,
               "fullest": 2
             }
           }
@@ -425,15 +425,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 2
               }
             ]
@@ -444,17 +444,17 @@
               "options": {
                 "0": {
                   "text": "HEALTH_OK",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 0
                 },
                 "1": {
                   "text": "HEALTH_WARN",
-                  "color": "orange",
+                  "color": "#ffa352",
                   "index": 1
                 },
                 "2": {
                   "text": "HEALTH_ERR",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 2
                 }
               }
@@ -526,19 +526,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "yellow",
+                "color": "#ffd27a",
                 "value": 0.7
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.85
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.95
               }
             ]
@@ -583,7 +583,7 @@
     {
       "type": "table",
       "title": "Storages",
-      "description": "Now, shared storages once. Growth is the change of used space over the time range, per day; Full in extrapolates it (blank when not growing). Click a storage: Ceph storages open the Ceph cluster dashboard, local ones their node.",
+      "description": "Now, shared storages once. Growth is the change of used space over the time range, per day; Full in extrapolates it (\"not filling up\" when not growing). Click a storage: Ceph storages open the Ceph cluster dashboard, local ones their node.",
       "datasource": {
         "type": "influxdb",
         "uid": "influxdb"
@@ -607,7 +607,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -704,12 +704,12 @@
                     "options": {
                       "0": {
                         "text": "local",
-                        "color": "text",
+                        "color": "#e5f3e2",
                         "index": 0
                       },
                       "1": {
                         "text": "shared",
-                        "color": "blue",
+                        "color": "#6870ff",
                         "index": 1
                       }
                     }
@@ -782,19 +782,19 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "yellow",
+                      "color": "#ffd27a",
                       "value": 0.7
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 0.85
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 0.95
                     }
                   ]
@@ -846,6 +846,7 @@
                       "to": 0,
                       "result": {
                         "text": "not filling up",
+                        "color": "#02E5A8",
                         "index": 0
                       }
                     }
@@ -858,15 +859,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 604800
                     },
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": 2592000
                     }
                   ]
@@ -987,7 +988,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1063,7 +1064,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1139,7 +1140,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1226,12 +1227,13 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": null
                   }
                 ]
               },
               "mappings": [],
+              "noValue": "no node-local storage selected",
               "custom": {
                 "align": "auto",
                 "cellOptions": {
@@ -1270,19 +1272,19 @@
                       "mode": "absolute",
                       "steps": [
                         {
-                          "color": "green",
+                          "color": "#02E5A8",
                           "value": null
                         },
                         {
-                          "color": "yellow",
+                          "color": "#ffd27a",
                           "value": 0.7
                         },
                         {
-                          "color": "orange",
+                          "color": "#ffa352",
                           "value": 0.85
                         },
                         {
-                          "color": "red",
+                          "color": "#ff6188",
                           "value": 0.95
                         }
                       ]

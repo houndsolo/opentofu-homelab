@@ -71,6 +71,15 @@ resource "proxmox_virtual_environment_vm" "this" {
         }
       }
 
+      # Only when set: roots that don't set dns_servers/dns_domain see no change.
+      dynamic "dns" {
+        for_each = local.config.dns_servers != null || local.config.dns_domain != null ? [true] : []
+        content {
+          domain  = local.config.dns_domain
+          servers = local.config.dns_servers
+        }
+      }
+
       dynamic "user_account" {
         for_each = length(var.vm.config.ssh_pubkeys) > 0 ? [true] : []
         content {

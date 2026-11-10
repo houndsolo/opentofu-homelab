@@ -8,7 +8,7 @@ disks, NICs, cloud-init). The software inside them is set up afterwards by
 
 Every entry in [`vms.auto.tfvars`](../../inventory/auto.tfvars/vms.auto.tfvars)
 with `owner = "services-vms"`. Its `role` says what kind of service VM it is:
-`dns`, `dhcp`, `monitoring`, `grafana`, or no role at all for any other service
+`dns`, `dhcp`, `monitoring`, `grafana`, `logging`, `metrics`, or no role at all for any other service
 VM. All of them are built with the shared
 [VM module](../../modules/README.md#proxmoxvm). Today that's:
 
@@ -18,12 +18,16 @@ VM. All of them are built with the shared
 | `dns02` | `dns` | eldarad | 5302 | `debian13` | `10.20.53.2/16` | eth1: `vmbr4000` VLAN 8, `10.8.53.2/16`, gateway `10.8.0.5` |
 | `dhcp01` | `dhcp` | venom | 6701 | `vyos` | `10.20.67.1/16` | generated (see below) |
 | `dhcp02` | `dhcp` | eldarad | 6702 | `vyos` | `10.20.67.2/16` | generated |
-| `mon01` | `monitoring` | zoness | 1130 | `debian13` | `10.20.11.30/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.30/16`, gateway `10.2.0.5`; eth2: `vmbr100` (untagged), `10.5.11.30/16`; eth3: `vmbr4000` VLAN 13, `10.13.11.30/16` |
-| `graf01` | `grafana` | venom | 1131 | `debian13` | `10.20.11.31/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.31/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 13, `10.13.11.31/16` |
-| `graf02` | `grafana` | eldarad | 1132 | `debian13` | `10.20.11.32/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.32/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 13, `10.13.11.32/16` |
+| `mon01` | `monitoring` | zoness | 1130 | `debian13` | `10.20.11.30/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.30/16`, gateway `10.2.0.5`; eth2: `vmbr100` (untagged), `10.5.11.30/16`; eth3: `vmbr4000` VLAN 13, `10.13.11.30/16`; eth4: `vmbr4000` VLAN 215, `10.21.13.30/24` |
+| `mon02` | `monitoring` | macbeth | 1136 | `debian13` | `10.20.11.31/16` | same as `mon01` with `.31` |
+| `graf01` | `grafana` | venom | 1131 | `debian13` | `10.20.11.32/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.32/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 13, `10.13.11.32/16`; eth3: VLAN 213 `10.21.11.32/24` |
+| `graf02` | `grafana` | eldarad | 1132 | `debian13` | `10.20.11.33/16` | eth1: `vmbr4000` VLAN 2, `10.2.11.33/16`, gateway `10.2.0.5`; eth2: `vmbr4000` VLAN 13, `10.13.11.33/16`; eth3: VLAN 213 `10.21.11.33/24` |
+| `loki01`–`loki03` | `logging` | zoness, titania, fortuna | 1133–1135 | `debian13` | `10.20.11.34`–`.36/16` | eth1: VLAN 2 `10.2.11.34`–`.36/16`, gateway `10.2.0.5`; eth2: VLAN 13 `10.13.11.34`–`.36/16`; eth3: `vmbr100` `10.5.11.34`–`.36/16`; eth4: `vmbr27` (Ceph public) `10.27.11.34`–`.36/16`; eth5: VLAN 214 `10.21.12.34`–`.36/24` |
+| `mim01`–`mim03` | `metrics` | fichina, venom, eldarad | 1137–1139 | `debian13` | `10.20.11.37`–`.39/16` | eth1: VLAN 2 `10.2.11.37`–`.39/16`, gateway `10.2.0.5`; eth2: VLAN 13 `10.13.11.37`–`.39/16`; eth3: `vmbr27` (Ceph public) `10.27.11.37`–`.39/16`; eth4: VLAN 216 `10.21.14.37`–`.39/24` |
 
 Sizes are set in each VM's `config`: 2 cores and 2048 MB for the DNS, DHCP and
-Grafana VMs, and 4 cores, 8192 MB and a 200 GB disk for `mon01`. Each pair is
+Grafana VMs (Grafana 4096 MB), 4 cores, 8192 MB and a 200 GB disk for `mon01`/`mon02`, and
+4 cores, 8192 MB and a 60 GB disk for the Loki and Mimir VMs. Each pair is
 split across two hosts, so losing one host doesn't take out DNS, DHCP or
 Grafana.
 
@@ -87,18 +91,26 @@ but every VLAN numbered above the one you added or removed moves to a different
 `ethN`. Plan `services-vms` and `services-config` together, and apply them one
 after the other.
 
-## Monitoring and Grafana VMs
+## Monitoring, Grafana, Loki and Mimir VMs
 
-`mon01` (`role = "monitoring"`, sized for Prometheus, InfluxDB and Grafana's
-Postgres) and `graf01`/`graf02` (`role = "grafana"`) are created like the DNS VMs:
+`mon01`/`mon02` (`role = "monitoring"`, sized for Prometheus and InfluxDB; Grafana's
+Postgres runs on `mon01` only), `graf01`/`graf02` (`role = "grafana"`),
+`loki01`–`loki03` (`role = "logging"`), `mim01`–`mim03` (`role = "metrics"`) and
+`pg01`–`pg03` (`role = "postgres"`: Patroni, Grafana's HA database replacing mon01's) are
+created like the DNS VMs:
 the NICs listed in the inventory, with addresses, user and keys set by
 cloud-init. Their software is deployed by
 [monitoring-config](../monitoring-config/README.md). services-config ignores
-these roles, and no DNS records are generated for them. All three have a NIC on
+these roles, and no DNS records are generated for them (their mgmt names are
+listed by hand in `dns-records.auto.tfvars`). All of them have a NIC on
 VLAN 13 (`10.13.0.0/16`, the isolated `lylat_monitor` VRF): Grafana reaches the
-backend's datasources and Postgres over it, and the Grafana pair uses it for
-alerting HA and, later, keepalived. The VM IDs follow the mgmt address
-(`10.20.11.30` → 1130), like the DNS and DHCP VMs.
+datasources (Prometheus, InfluxDB, Loki, Mimir) and Postgres over it. Each HA
+group has its own HA L2VNI for keepalived and gossip/memberlist: `ha_grafana`
+(213), `ha_logging` (214), `ha_monitor` (215), `ha_mimir` (216), `ha_postgres` (217:
+also Postgres replication and etcd). Each VM has the same last octet on every network, grouped by
+service: mon .30-.31, graf .32-.33, loki .34-.36, mim .37-.39, pg .40-.42; VIPs from .100
+(one octet per service, VRRP router id = that octet). VM IDs stay what they were when
+created (1130-1142), so since the re-addressing they no longer match the octet.
 
 ## Good to know
 
@@ -110,12 +122,21 @@ alerting HA and, later, keepalived. The VM IDs follow the mgmt address
 - **VLAN tagging is done by Proxmox.** The guest sees ordinary, untagged NICs.
   The bridge just has to carry the VLAN (`vmbr4000` is VLAN-aware on every
   node).
+- **Cloud-init DNS** ([`dns.tf`](dns.tf)): every Debian VM here gets `nameserver 10.8.53.53` (the DNS VIP)
+  and `search lylat.space` from cloud-init (`vm_dns`). Without it, Proxmox copies the host's resolv.conf
+  (1.1.1.1), so lylat.space names don't resolve. The VyOS DHCP VMs are left out (`vm_dns_vyos = false`). Other
+  roots see no change: the module renders `initialization.dns` only when `dns_servers`/`dns_domain` is set.
 - **SSH keys are selected by name** from
   [`ssh_pubkeys.tf`](../../inventory/ssh_pubkeys.tf). An unknown name fails the
   plan. Keys can't be combined with a custom cloud-init user-data snippet.
-- **Cloud-init runs at first boot only.** If you change the addresses or keys of
-  an existing VM, you'll need to change them in the guest by hand, or recreate
-  the VM.
+- **Cloud-init runs at first boot only**, per instance. Proxmox derives the
+  instance ID from the cloud-init user and network data (hostname = VM name,
+  addresses, keys), and rebuilds the cloud-init drive on the next start *from
+  Proxmox* (`qm start`/`qm reboot`, not a reboot inside the guest). After a rename,
+  or a NIC/address/key change, that start makes cloud-init treat the VM as a new
+  instance: it applies the new hostname/network/keys and **regenerates the SSH host
+  keys** (run `ssh-keygen -R <ip>` afterwards). The provider itself reboots the VM
+  when `initialization` changes; a rename alone doesn't reboot.
 
 ## Running it
 

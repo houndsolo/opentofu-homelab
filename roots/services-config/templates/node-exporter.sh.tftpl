@@ -1,0 +1,21 @@
+#!/bin/bash
+# Install/refresh the node-exporter Quadlet; restart only when the unit changed.
+set -euo pipefail
+unit=/etc/containers/systemd/node-exporter.container
+install -d -m 0755 /etc/containers/systemd
+printf '%s' '${unit_b64}' | base64 -d > "$unit.new"
+chmod 0644 "$unit.new"
+changed=1
+if [ -f "$unit" ] && cmp -s "$unit" "$unit.new"; then changed=0; fi
+mv "$unit.new" "$unit"
+systemctl daemon-reload
+if [ "$changed" = 1 ] || ! systemctl is-active --quiet node-exporter.service; then
+  systemctl restart node-exporter.service
+fi
+for i in $(seq 1 60); do
+  if curl -fsS -o /dev/null --max-time 3 "http://${listen}/metrics"; then echo "node-exporter up on ${listen}"; exit 0; fi
+  sleep 2
+done
+echo "node-exporter not answering on ${listen}" >&2
+journalctl -u node-exporter.service -n 20 --no-pager >&2 || true
+exit 1

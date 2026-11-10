@@ -7,7 +7,7 @@
         "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "target": {
           "limit": 100,
@@ -71,13 +71,16 @@
             {
               "options": {
                 "1": {
-                  "text": "up"
+                  "text": "up",
+                  "color": "#02E5A8"
                 },
                 "2": {
-                  "text": "down"
+                  "text": "down",
+                  "color": "#ffa352"
                 },
                 "3": {
-                  "text": "testing"
+                  "text": "testing",
+                  "color": "#ffd27a"
                 }
               },
               "type": "value"
@@ -87,15 +90,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "#ffa352",
                 "value": 2
-              },
-              {
-                "color": "#d44a3a"
               }
             ]
           },
@@ -158,25 +158,32 @@
             {
               "options": {
                 "1": {
-                  "text": "up"
+                  "text": "up",
+                  "color": "#02E5A8"
                 },
                 "2": {
-                  "text": "down"
+                  "text": "down",
+                  "color": "#ff6188"
                 },
                 "3": {
-                  "text": "testing"
+                  "text": "testing",
+                  "color": "#ffd27a"
                 },
                 "4": {
-                  "text": "unknown"
+                  "text": "unknown",
+                  "color": "#ffa352"
                 },
                 "5": {
-                  "text": "dormant"
+                  "text": "dormant",
+                  "color": "#ffd27a"
                 },
                 "6": {
-                  "text": "notPresent"
+                  "text": "notPresent",
+                  "color": "#ffa352"
                 },
                 "7": {
-                  "text": "lowerLayerDown"
+                  "text": "lowerLayerDown",
+                  "color": "#ff6188"
                 }
               },
               "type": "value"
@@ -186,15 +193,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "#ffa352",
                 "value": 2
-              },
-              {
-                "color": "#d44a3a"
               }
             ]
           },
@@ -253,15 +257,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#d44a3a",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "rgba(255, 163, 82, 0.89)",
                 "value": 360000
               },
               {
-                "color": "#299c46",
+                "color": "#02E5A8",
                 "value": 8640000
               }
             ]
@@ -320,10 +324,12 @@
             {
               "options": {
                 "1": {
-                  "text": "true"
+                  "text": "true",
+                  "color": "#02E5A8"
                 },
                 "2": {
-                  "text": "false"
+                  "text": "false",
+                  "color": "#ffa352"
                 }
               },
               "type": "value"
@@ -333,19 +339,17 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#56A64B",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "#ffa352",
                 "value": 2
-              },
-              {
-                "color": "#d44a3a"
               }
             ]
           },
-          "unit": "none"
+          "unit": "none",
+          "noValue": "N/A on this device"
         },
         "overrides": []
       },
@@ -412,19 +416,20 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#FF9830",
+                "color": "#ffa352",
                 "value": null
               },
               {
-                "color": "#56A64B",
+                "color": "#02b887",
                 "value": 2
               },
               {
-                "color": "#299c46"
+                "color": "#02E5A8"
               }
             ]
           },
-          "unit": "none"
+          "unit": "none",
+          "noValue": "N/A on this device"
         },
         "overrides": []
       },
@@ -489,11 +494,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -566,11 +571,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -637,11 +642,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -735,7 +740,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -763,18 +768,49 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
           },
           "unit": "bps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -834,7 +870,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -862,18 +898,49 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
           },
           "unit": "pps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -933,7 +1000,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -961,18 +1028,49 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
           },
           "unit": "pps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -1032,7 +1130,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1060,18 +1158,49 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
           },
           "unit": "pps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -1131,7 +1260,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1159,18 +1288,49 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
           },
           "unit": "pps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
@@ -1230,7 +1390,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1258,18 +1418,64 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
           },
           "unit": "pps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#02E5A8"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,

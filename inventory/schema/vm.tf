@@ -28,6 +28,8 @@ variable "vm" {
       cloud_init_interface    = optional(string)
       cloud_init_datastore_id = optional(string)
       user_data_file_id       = optional(string)
+      dns_servers             = optional(list(string))
+      dns_domain              = optional(string)
       management_bridge       = optional(string)
       network_model           = optional(string)
       network_disconnected    = optional(bool)

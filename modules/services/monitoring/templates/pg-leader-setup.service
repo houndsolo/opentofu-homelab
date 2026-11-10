@@ -1,0 +1,18 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Grafana roles/database and pgBackRest stanza on the Patroni leader (no-op on replicas)
+After=patroni.service
+Requires=patroni.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/postgres-ha/patroni.env
+EnvironmentFile=/etc/postgres-ha/s3.env
+# Grafana's and the exporter's passwords: only this unit sees them (not Postgres' environment).
+EnvironmentFile=/etc/postgres-ha/roles.env
+ExecStart=/usr/local/sbin/pg-leader-setup
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+# Managed by OpenTofu (services-config). Local edits are overwritten.
+[Unit]
+Description=Prometheus node exporter
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=node-exporter
+Network=host
+Volume=/:/host:ro,rslave
+# systemd collector: talks to systemd over the host's D-Bus system socket.
+Volume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
+PodmanArgs=--pid=host
+# The collectors and flags of monitoring-config's VMs (modules/services/monitoring/main.tf node_exporter_collectors).
+Exec=--path.rootfs=/host --web.listen-address=${listen} --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

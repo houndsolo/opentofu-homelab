@@ -6,7 +6,7 @@
         "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "showIn": 0,
         "tags": [],
@@ -65,10 +65,43 @@
         "defaults": {
           "custom": {
             "fillOpacity": 8,
-            "showPoints": "never"
+            "showPoints": "never",
+            "gradientMode": "opacity"
           },
           "unit": "short"
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "fill": 1,
       "fillGradient": 0,
@@ -170,10 +203,43 @@
         "defaults": {
           "custom": {
             "fillOpacity": 8,
-            "showPoints": "never"
+            "showPoints": "never",
+            "gradientMode": "opacity"
           },
           "unit": "Bps"
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "fill": 1,
       "fillGradient": 0,
@@ -275,10 +341,43 @@
         "defaults": {
           "custom": {
             "fillOpacity": 8,
-            "showPoints": "never"
+            "showPoints": "never",
+            "gradientMode": "opacity"
           },
           "unit": "ns"
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "fill": 1,
       "fillGradient": 0,
@@ -387,11 +486,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -514,6 +613,20 @@
           "options": {
             "reducers": []
           }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "cluster": true,
+              "instance": true,
+              "job": true,
+              "namespace": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
         }
       ],
       "type": "table"
@@ -539,11 +652,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -666,6 +779,20 @@
           "options": {
             "reducers": []
           }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "cluster": true,
+              "instance": true,
+              "job": true,
+              "namespace": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
         }
       ],
       "type": "table"
@@ -691,11 +818,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -801,7 +928,7 @@
       "styles": [],
       "targets": [
         {
-          "expr": "topk(10,\n  sum(\n    rate(ceph_rbd_write_latency_sum{cluster=~\"$cluster|\", }[$__rate_interval]) /\n      clamp_min(rate(ceph_rbd_write_latency_count{cluster=~\"$cluster|\", }[$__rate_interval]), 1) +\n      rate(ceph_rbd_read_latency_sum{cluster=~\"$cluster|\", }[$__rate_interval]) /\n      clamp_min(rate(ceph_rbd_read_latency_count{cluster=~\"$cluster|\", }[$__rate_interval]), 1)\n  ) by (pool, image, namespace)\n)\n",
+          "expr": "topk(10,\n  sum(\n    rate(ceph_rbd_write_latency_sum{cluster=~\"$cluster|\", }[$__rate_interval]) /\n      clamp_min(rate(ceph_rbd_write_latency_count{cluster=~\"$cluster|\", }[$__rate_interval]), 1e-9) +\n      rate(ceph_rbd_read_latency_sum{cluster=~\"$cluster|\", }[$__rate_interval]) /\n      clamp_min(rate(ceph_rbd_read_latency_count{cluster=~\"$cluster|\", }[$__rate_interval]), 1e-9)\n  ) by (pool, image, namespace)\n)\n",
           "format": "table",
           "instant": true,
           "intervalFactor": 1,
@@ -817,6 +944,20 @@
           "id": "merge",
           "options": {
             "reducers": []
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "cluster": true,
+              "instance": true,
+              "job": true,
+              "namespace": true
+            },
+            "indexByName": {},
+            "renameByName": {}
           }
         }
       ],

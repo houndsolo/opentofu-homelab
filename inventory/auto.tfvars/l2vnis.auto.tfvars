@@ -1,6 +1,7 @@
 # Standalone L2VNIs for HA peer traffic: no VRF, no anycast gateway, no DHCP.
 # VLAN = VNI - 9000. VIPs stay on the client-facing NICs; only unicast peer traffic
-# (keepalived adverts, Kea HA, Loki memberlist/gRPC, Grafana alerting HA) uses these.
+# (keepalived adverts, Kea HA, Loki/Mimir memberlist/gRPC, Grafana/Alertmanager gossip,
+# Postgres replication + etcd) uses these.
 l2vnis = {
   ha_dhcp = {
     vni         = 9211
@@ -18,12 +19,30 @@ l2vnis = {
     vni         = 9213
     vlan_id     = 213
     prefix      = "10.21.11.0/24"
-    description = "Grafana keepalived + alerting HA (graf01 .31, graf02 .32; VIP 10.2.11.40 on VLAN 2)"
+    description = "Grafana keepalived + alerting HA (graf01 .32, graf02 .33; VIP 10.2.11.100 on VLAN 2)"
   }
   ha_logging = {
     vni         = 9214
     vlan_id     = 214
     prefix      = "10.21.12.0/24"
-    description = "Loki memberlist/gRPC + keepalived (log01-03 .33-.35)"
+    description = "Loki memberlist/gRPC + keepalived (loki01-03 .34-.36; VIPs 10.x.11.101)"
+  }
+  ha_monitor = {
+    vni         = 9215
+    vlan_id     = 215
+    prefix      = "10.21.13.0/24"
+    description = "Monitoring keepalived + Alertmanager gossip (mon01 .30, mon02 .31; VIPs 10.5.11.102, 10.13.11.102)"
+  }
+  ha_mimir = {
+    vni         = 9216
+    vlan_id     = 216
+    prefix      = "10.21.14.0/24"
+    description = "Mimir memberlist/gRPC + keepalived (mim01-03 .37-.39; VIP 10.13.11.103 on VLAN 13)"
+  }
+  ha_postgres = {
+    vni         = 9217
+    vlan_id     = 217
+    prefix      = "10.21.15.0/24"
+    description = "Patroni: Postgres streaming replication, etcd peers/clients, Patroni REST API, keepalived (pg01-03 .40-.42; VIP 10.13.11.104 on VLAN 13)"
   }
 }

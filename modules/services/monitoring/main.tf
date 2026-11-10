@@ -5,8 +5,12 @@ locals {
   grafana_data = "/var/lib/grafana-container"
   quadlet_dir  = "/etc/containers/systemd"
 
-  mon  = var.backend.monitoring_address
-  back = var.backend.backend_address
+  # Backends (backends.tf has the HA pieces). mon/back are the primary's addresses:
+  # Postgres, and anything that has to name one backend.
+  backend_names = sort(keys(var.backends))
+  primary       = var.primary_backend
+  mon           = try(var.backends[local.primary].monitoring_address, "0.0.0.0")
+  back          = try(var.backends[local.primary].backend_address, "0.0.0.0")
 
   # Whether a token was given is not secret; the token itself stays sensitive.
   pve_enabled = nonsensitive(var.pve_exporter_token != null)
@@ -27,6 +31,23 @@ locals {
     }
   }) : ""
 
+  # node_exporter on every VM here (backends, Grafana, logging.tf, metrics.tf, postgres.tf;
+  # services-config's DNS template has the same flags). Besides the defaults: the collectors
+  # Node Exporter Full graphs that are off by default (processes, tcpstat, interrupts) and
+  # systemd, which asks systemd over the host's D-Bus system socket (--path.rootfs doesn't
+  # cover that, hence the socket at the path D-Bus clients default to). The default exclude
+  # already drops mounts, devices, slices and scopes; unit-include also leaves out targets
+  # and paths (~55 units x 5 state series per VM). [.] instead of \. keeps the Quadlet
+  # Exec line free of escapes.
+  node_exporter_volumes = ["/:/host:ro,rslave", "/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro"]
+  node_exporter_collectors = [
+    "--collector.processes",
+    "--collector.tcpstat",
+    "--collector.interrupts",
+    "--collector.systemd",
+    "--collector.systemd.unit-include=.+[.](service|socket|timer)",
+  ]
+
   # Rewrites a static target into exporter parameters (the snmp/pve/blackbox pattern).
   proxy_relabel = {
     for name, address in {
@@ -42,10 +63,25 @@ locals {
 
   scrape_configs = concat(
     [
-      { job_name = "prometheus", static_configs = [{ targets = ["localhost:9090"] }] },
-      { job_name = "alertmanager", static_configs = [{ targets = ["alertmanager:9093"] }] },
-      { job_name = "snmp-exporter", static_configs = [{ targets = ["snmp-exporter:9116"] }] },
-      { job_name = "blackbox-exporter", static_configs = [{ targets = ["blackbox-exporter:9115"] }] },
+      # Every backend's Prometheus, Alertmanager and SNMP/blackbox exporters, by
+      # backend-VLAN address with host = backend: each replica scrapes all of them, so
+      # Mimir's HA dedup (it keeps one replica's samples) still has every instance's metrics.
+      {
+        job_name       = "prometheus"
+        static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:9090"], labels = { host = name } }]
+      },
+      {
+        job_name       = "alertmanager"
+        static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:9093"], labels = { host = name } }]
+      },
+      {
+        job_name       = "snmp-exporter"
+        static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:9116"], labels = { host = name } }]
+      },
+      {
+        job_name       = "blackbox-exporter"
+        static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:9115"], labels = { host = name } }]
+      },
       {
         job_name = "node"
         static_configs = [for t in var.targets.node : {
@@ -94,13 +130,16 @@ locals {
         { source_labels = ["instance"], regex = ".*:9283", target_label = "instance", replacement = "ceph_cluster" },
       ]
     }],
-    [for name, job in var.targets.snmp : {
+    # Slow agents (the MikroTiks walk if_mib + mikrotik in 7-10 s) get their own interval/timeout.
+    [for name, job in var.targets.snmp : merge({
       job_name        = "snmp-${name}"
       metrics_path    = "/snmp"
       params          = { module = job.modules, auth = [job.auth] }
       static_configs  = [for host, address in job.targets : { targets = [address], labels = { host = host } }]
       relabel_configs = local.proxy_relabel.snmp
-    }],
+      }, job.scrape_interval == null ? {} : { scrape_interval = job.scrape_interval },
+      job.scrape_timeout == null ? {} : { scrape_timeout = job.scrape_timeout },
+    )],
     local.pve_enabled ? [{
       job_name        = "pve"
       metrics_path    = "/pve"
@@ -115,19 +154,33 @@ locals {
       static_configs  = [for t in targets : { targets = [t.target], labels = { host = t.host } }]
       relabel_configs = local.proxy_relabel.blackbox
     }],
-    local.logging_scrape_configs, # logging.tf
+    local.logging_scrape_configs,  # logging.tf
+    local.wlc_scrape_configs,      # telemetry.tf
+    local.mimir_scrape_configs,    # metrics.tf
+    local.postgres_scrape_configs, # postgres.tf
+    local.relay_scrape_configs,    # backends.tf
   )
 
-  prometheus_yml = yamlencode({
-    global = {
-      scrape_interval     = "30s"
-      evaluation_interval = "30s"
-      external_labels     = { site = "lylat" }
-    }
-    alerting       = { alertmanagers = [{ static_configs = [{ targets = ["alertmanager:9093"] }] }] }
-    rule_files     = ["/etc/prometheus/rules/*.yml"]
-    scrape_configs = local.scrape_configs
-  })
+  # One per backend: the same scrapes and rules, only __replica__ differs. Mimir's HA
+  # tracker keeps one replica's samples (ha_cluster/__replica__) and then drops ha_cluster
+  # and site, so stored series look like each Prometheus's own (and the backfill).
+  prometheus_yml = {
+    for name in local.backend_names : name => yamlencode(merge({
+      global = {
+        scrape_interval     = "30s"
+        evaluation_interval = "30s"
+        external_labels     = { site = "lylat", ha_cluster = "lylat", __replica__ = name }
+      }
+      alerting = {
+        # Both replicas fire the same alerts; without __replica__ they're identical and
+        # the Alertmanager cluster sends them once.
+        alert_relabel_configs = [{ action = "labeldrop", regex = "__replica__" }]
+        alertmanagers         = [{ static_configs = [{ targets = local.alertmanager_targets }] }]
+      }
+      rule_files     = ["/etc/prometheus/rules/*.yml"]
+      scrape_configs = local.scrape_configs
+    }, length(local.mimir_remote_write) > 0 ? { remote_write = local.mimir_remote_write } : {})) # metrics.tf
+  }
 
   rules_yml = yamlencode({
     groups = concat([{
@@ -155,8 +208,33 @@ locals {
           annotations = { summary = "{{ $labels.instance }} {{ $labels.mountpoint }} has under 10% free" }
         },
       ]
-    }], local.logging_rules) # logging.tf
+    }], local.logging_rules, local.wlc_rules, local.mimir_rules, local.backend_rules, local.postgres_rules, local.rgw_rules) # logging.tf, telemetry.tf, metrics.tf, backends.tf, postgres.tf, rgw.tf
   })
+
+  # The ceph-mixin's alerts (rules/ceph-mixin/, vendored from the commit the Ceph dashboards
+  # come from: they back the dashboards' Firing Alerts/Alerts panels). Its own file, loaded
+  # like the others and routed like them. Changed on the way: the "nodes" group's node_*
+  # selectors get settings.ceph_node_selector (by default the PVE cluster's nodes), because
+  # node_exporter runs on every host here, not just on the Ceph nodes (unfiltered,
+  # CephNodeInconsistentMTU fires for each VyOS interface whose MTU differs from the
+  # median of all hosts' same-named interfaces, CephNodeDiskspaceWarning for any VM).
+  ceph_alerts_enabled = length(var.targets.ceph) > 0
+  ceph_node_sel = (var.settings.ceph_node_selector != null ? var.settings.ceph_node_selector
+    : length(var.targets.pve) == 0 ? "" : "host=~\"${join("|", sort([for t in var.targets.pve : t.host]))}\""
+  )
+  ceph_alerts_yml = local.ceph_alerts_enabled ? yamlencode({
+    groups = [for g in yamldecode(file("${path.module}/rules/ceph-mixin/prometheus_alerts.yml")).groups : {
+      name = g.name
+      rules = [for r in g.rules : merge(r, {
+        # 1: node_x{...} -> node_x{<sel>,...}; 2: a bare node_x -> node_x{<sel>} (now
+        # every node_x left without a "{" after it).
+        expr = g.name != "nodes" || local.ceph_node_sel == "" ? r.expr : replace(
+          replace(r.expr, "/\\b(node_[a-z_]+)\\{/", "$${1}{${local.ceph_node_sel},"),
+          "/\\b(node_[a-z_]+)([^a-z_{]|$)/", "$${1}{${local.ceph_node_sel}}$${2}",
+        )
+      })]
+    }]
+  }) : ""
 
   # Placeholder routing: alerts are visible in Alertmanager/Grafana but not sent anywhere yet.
   alertmanager_yml = yamlencode({
@@ -201,20 +279,23 @@ locals {
     apiVersion = 1
     datasources = concat([
       {
+        # uid "prometheus" is what the dashboards use: Mimir when it's on (metrics.tf),
+        # else the primary's Prometheus.
         name      = "Prometheus"
         uid       = "prometheus"
         type      = "prometheus"
         access    = "proxy"
-        url       = "http://${local.back}:9090"
+        url       = coalesce(local.mimir_query_url, "http://${local.back}:9090")
         isDefault = true
-        jsonData  = { timeInterval = "30s" }
+        jsonData  = merge({ timeInterval = "30s" }, local.mimir_datasource_json) # metrics.tf
       },
       {
+        # Any member of the Alertmanager cluster shows the same alerts and silences.
         name     = "Alertmanager"
         uid      = "alertmanager"
         type     = "alertmanager"
         access   = "proxy"
-        url      = "http://${local.back}:9093"
+        url      = "http://${local.backend_service_host}:9093"
         jsonData = { implementation = "prometheus" }
       },
       {
@@ -222,11 +303,23 @@ locals {
         uid            = "influxdb"
         type           = "influxdb"
         access         = "proxy"
-        url            = "http://${local.back}:8086"
+        url            = "http://${local.backend_service_host}:8086"
         jsonData       = { version = "Flux", organization = var.settings.influxdb_org, defaultBucket = var.settings.influxdb_grafana_bucket }
         secureJsonData = { token = "$INFLUXDB_TOKEN" } # Expanded by Grafana from grafana.env.
       },
-    ], local.loki_datasource) # logging.tf
+      ],
+      # Each replica's own Prometheus (debugging, comparing replicas). backends.tf
+      [for name in local.backend_names : {
+        name   = "Prometheus ${name}"
+        uid    = "prometheus-${name}"
+        type   = "prometheus"
+        access = "proxy"
+        url    = "http://${var.backends[name].backend_address}:9090"
+        # Both replicas load the same rule files: only the primary's are listed in Grafana's alert
+        # views (alert list panels, Alerting > Data source-managed), so each alert shows once.
+        jsonData = merge({ timeInterval = "30s" }, name == local.primary ? {} : { manageAlerts = false })
+      }],
+    local.loki_datasource) # logging.tf
   })
 
   # Dashboards: dashboards/<Folder>/<name>.json becomes Grafana folder <Folder>.
@@ -258,235 +351,296 @@ locals {
     }]
   })
 
-  # One container unit per service. "reload" adds ExecReload (SIGHUP) for config-only changes.
-  # A {for} expression keeps the per-service object shapes (merge with a
-  # conditional {} would need identical types).
+  # One container unit per service and backend. "reload" adds ExecReload (SIGHUP) for
+  # config-only changes. A {for} expression keeps the per-service object shapes (merge
+  # with a conditional {} would need identical types). Postgres runs on the primary only;
+  # Telegraf (WLC telemetry) where wlc_telemetry.backends lists the backend.
   backend_containers = {
-    for name, c in local.backend_container_defs : name => c
-    if name != "pve-exporter" || local.pve_enabled
+    for host in local.backend_names : host => {
+      for name, c in merge(local.backend_container_defs[host], local.wlc_container[host], local.relay_container[host]) : name => c # telemetry.tf, backends.tf
+      if(name != "pve-exporter" || local.pve_enabled) && (name != "telegraf" || contains(local.wlc_backends, host)) && (name != "postgres" || (host == local.primary && local.legacy_postgres)) && (name != "influx-relay" || local.relay_enabled)
+    }
   }
   backend_container_defs = {
-    prometheus = {
-      description = "Prometheus"
-      image       = var.images.prometheus
-      publish     = ["${local.mon}:9090:9090", "${local.back}:9090:9090"]
-      volumes     = ["${local.backend_conf}/prometheus:/etc/prometheus:ro", "${local.backend_data}/prometheus:/prometheus"]
-      exec = [
-        "--config.file=/etc/prometheus/prometheus.yml",
-        "--storage.tsdb.path=/prometheus",
-        "--storage.tsdb.retention.time=${var.settings.prometheus_retention_time}",
-        "--storage.tsdb.retention.size=${var.settings.prometheus_retention_size}",
-        "--web.external-url=http://${local.mon}:9090/",
-        "--web.enable-lifecycle",
-      ]
-      reload = true
-    }
-    alertmanager = {
-      description = "Prometheus Alertmanager"
-      image       = var.images.alertmanager
-      publish     = ["${local.mon}:9093:9093", "${local.back}:9093:9093"]
-      volumes     = ["${local.backend_conf}/alertmanager:/etc/alertmanager:ro", "${local.backend_data}/alertmanager:/alertmanager"]
-      exec = [
-        "--config.file=/etc/alertmanager/alertmanager.yml",
-        "--storage.path=/alertmanager",
-        "--web.external-url=http://${local.mon}:9093/",
-        "--cluster.listen-address=", # Single instance: no gossip listener.
-      ]
-      reload = true
-    }
-    snmp-exporter = {
-      description = "Prometheus SNMP exporter (bundled snmp.yml, plus SNMPv3 auths when given)"
-      image       = var.images.snmp_exporter
-      volumes     = local.snmp_auths_enabled ? ["${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro"] : []
-      exec        = local.snmp_auths_enabled ? ["--config.file=/etc/snmp_exporter/snmp.yml", "--config.file=/etc/snmp_exporter/auths.yml"] : []
-    }
-    blackbox-exporter = {
-      description = "Prometheus blackbox exporter"
-      image       = var.images.blackbox_exporter
-      volumes     = ["${local.backend_conf}/blackbox:/etc/blackbox_exporter:ro"]
-      exec        = ["--config.file=/etc/blackbox_exporter/config.yml"]
-      # Raw ICMP sockets need root plus CAP_NET_RAW inside the container.
-      user   = "0"
-      caps   = ["CAP_NET_RAW"]
-      reload = true
-    }
-    influxdb = {
-      description = "InfluxDB 2 (Proxmox metric server target)"
-      image       = var.images.influxdb
-      publish     = ["${local.mon}:8086:8086", "${local.back}:8086:8086"]
-      volumes     = ["${local.backend_data}/influxdb/data:/var/lib/influxdb2", "${local.backend_data}/influxdb/config:/etc/influxdb2"]
-      env = {
-        DOCKER_INFLUXDB_INIT_MODE      = "setup"
-        DOCKER_INFLUXDB_INIT_USERNAME  = "admin"
-        DOCKER_INFLUXDB_INIT_ORG       = var.settings.influxdb_org
-        DOCKER_INFLUXDB_INIT_BUCKET    = var.settings.influxdb_bucket
-        DOCKER_INFLUXDB_INIT_RETENTION = var.settings.influxdb_retention
+    for host, b in var.backends : host => {
+      prometheus = {
+        description = "Prometheus"
+        image       = var.images.prometheus
+        publish     = ["${b.monitoring_address}:9090:9090", "${b.backend_address}:9090:9090"]
+        volumes     = ["${local.backend_conf}/prometheus:/etc/prometheus:ro", "${local.backend_data}/prometheus:/prometheus"]
+        exec = [
+          "--config.file=/etc/prometheus/prometheus.yml",
+          "--storage.tsdb.path=/prometheus",
+          "--storage.tsdb.retention.time=${var.settings.prometheus_retention_time}",
+          "--storage.tsdb.retention.size=${var.settings.prometheus_retention_size}",
+          "--web.external-url=http://${b.monitoring_address}:9090/",
+          "--web.enable-lifecycle",
+        ]
+        reload = true
       }
-      env_files = ["${local.backend_conf}/influxdb.env"]
-    }
-    postgres = {
-      description = "PostgreSQL for the shared Grafana database"
-      image       = var.images.postgres
-      publish     = ["${local.back}:5432:5432"]
-      volumes     = ["${local.backend_data}/postgres:/var/lib/postgresql/data"]
-      env         = { POSTGRES_USER = "grafana", POSTGRES_DB = "grafana" }
-      env_files   = ["${local.backend_conf}/postgres.env"]
-    }
-    node-exporter = {
-      description = "Prometheus node exporter"
-      image       = var.images.node_exporter
-      network     = "host"
-      volumes     = ["/:/host:ro,rslave"]
-      podman_args = ["--pid=host"]
-      exec        = ["--path.rootfs=/host", "--web.listen-address=${local.mon}:9100"]
-    }
-    pve-exporter = {
-      description = "Prometheus Proxmox VE exporter"
-      image       = var.images.pve_exporter
-      volumes     = ["${local.backend_conf}/pve-exporter/pve.yml:/etc/prometheus/pve.yml:ro"]
+      alertmanager = {
+        description = "Prometheus Alertmanager"
+        image       = var.images.alertmanager
+        # Also on the backend VIP (Grafana's Alertmanager datasource) and the gossip port. backends.tf
+        publish = concat(
+          ["${b.monitoring_address}:9093:9093", "${b.backend_address}:9093:9093"],
+          [for vip in local.backend_vip_backend : "${vip}:9093:9093"],
+          local.am_cluster_publish[host],
+        )
+        volumes = ["${local.backend_conf}/alertmanager:/etc/alertmanager:ro", "${local.backend_data}/alertmanager:/alertmanager"]
+        exec = concat([
+          "--config.file=/etc/alertmanager/alertmanager.yml",
+          "--storage.path=/alertmanager",
+          "--web.external-url=http://${b.monitoring_address}:9093/",
+        ], local.am_cluster_args[host])
+        reload = true
+      }
+      snmp-exporter = {
+        description = "Prometheus SNMP exporter (bundled snmp.yml, plus SNMPv3 auths when given)"
+        image       = var.images.snmp_exporter
+        # The probes go to the container by name; the backend address is for the other
+        # replica's self-scrape (job snmp-exporter), like Prometheus's own port.
+        publish = ["${b.backend_address}:9116:9116"]
+        volumes = local.snmp_auths_enabled ? ["${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro"] : []
+        exec    = local.snmp_auths_enabled ? ["--config.file=/etc/snmp_exporter/snmp.yml", "--config.file=/etc/snmp_exporter/auths.yml"] : []
+      }
+      blackbox-exporter = {
+        description = "Prometheus blackbox exporter"
+        image       = var.images.blackbox_exporter
+        publish     = ["${b.backend_address}:9115:9115"] # as snmp-exporter
+        volumes     = ["${local.backend_conf}/blackbox:/etc/blackbox_exporter:ro"]
+        exec        = ["--config.file=/etc/blackbox_exporter/config.yml"]
+        # Raw ICMP sockets need root plus CAP_NET_RAW inside the container.
+        user   = "0"
+        caps   = ["CAP_NET_RAW"]
+        reload = true
+      }
+      influxdb = {
+        description = "InfluxDB 2 (Proxmox metric server target)"
+        image       = var.images.influxdb
+        # Also on both VIPs (backends.tf): VyOS's relay target and Grafana's datasource.
+        publish = concat(
+          ["${b.monitoring_address}:8086:8086", "${b.backend_address}:8086:8086"],
+          [for vip in concat(local.backend_vip_monitoring, local.backend_vip_backend) : "${vip}:8086:8086"],
+        )
+        volumes = ["${local.backend_data}/influxdb/data:/var/lib/influxdb2", "${local.backend_data}/influxdb/config:/etc/influxdb2"]
+        env = {
+          DOCKER_INFLUXDB_INIT_MODE      = "setup"
+          DOCKER_INFLUXDB_INIT_USERNAME  = "admin"
+          DOCKER_INFLUXDB_INIT_ORG       = var.settings.influxdb_org
+          DOCKER_INFLUXDB_INIT_BUCKET    = var.settings.influxdb_bucket
+          DOCKER_INFLUXDB_INIT_RETENTION = var.settings.influxdb_retention
+        }
+        env_files = ["${local.backend_conf}/influxdb.env"]
+        # influxd exits 2 on SIGTERM; without this every stop/restart leaves the unit "failed".
+        service = ["SuccessExitStatus=2"]
+      }
+      postgres = {
+        description = "PostgreSQL for the shared Grafana database"
+        image       = var.images.postgres
+        publish     = ["${b.backend_address}:5432:5432"]
+        volumes     = ["${local.backend_data}/postgres:/var/lib/postgresql/data"]
+        env         = { POSTGRES_USER = "grafana", POSTGRES_DB = "grafana" }
+        env_files   = ["${local.backend_conf}/postgres.env"]
+      }
+      node-exporter = {
+        description = "Prometheus node exporter"
+        image       = var.images.node_exporter
+        network     = "host"
+        volumes     = local.node_exporter_volumes
+        podman_args = ["--pid=host"]
+        # address-info: node_network_address_info shows which backend holds each VIP.
+        exec = concat(["--path.rootfs=/host", "--web.listen-address=${b.monitoring_address}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors)
+      }
+      pve-exporter = {
+        description = "Prometheus Proxmox VE exporter"
+        image       = var.images.pve_exporter
+        volumes     = ["${local.backend_conf}/pve-exporter/pve.yml:/etc/prometheus/pve.yml:ro"]
+      }
     }
   }
 
-  # Restart and health order on the backend.
-  backend_order = [for name in ["postgres", "influxdb", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name if contains(keys(local.backend_containers), name)]
+  # Restart and health order on each backend.
+  backend_order = {
+    for host in local.backend_names : host => [
+      for name in ["postgres", "influxdb", "telegraf", "influx-relay", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
+      if contains(keys(local.backend_containers[host]), name)
+    ]
+  }
 
   backend_units = {
-    for name, c in local.backend_containers : name => templatefile("${path.module}/templates/container.tftpl", {
-      name        = name
-      description = c.description
-      image       = c.image
-      network     = try(c.network, "monitoring.network")
-      publish     = try(c.publish, [])
-      volumes     = try(c.volumes, [])
-      env         = try(c.env, {})
-      env_files   = try(c.env_files, [])
-      exec        = try(c.exec, [])
-      user        = try(c.user, null)
-      caps        = try(c.caps, [])
-      podman_args = try(c.podman_args, [])
-      reload      = try(c.reload, false)
-    })
+    for host in local.backend_names : host => {
+      # c.service: extra [Service] lines (the shared template has no variable for them).
+      for name, c in local.backend_containers[host] : name => replace(templatefile("${path.module}/templates/container.tftpl", {
+        name        = name
+        description = c.description
+        image       = c.image
+        network     = try(c.network, "monitoring.network")
+        publish     = try(c.publish, [])
+        volumes     = try(c.volumes, [])
+        env         = try(c.env, {})
+        env_files   = try(c.env_files, [])
+        exec        = try(c.exec, [])
+        user        = try(c.user, null)
+        caps        = try(c.caps, [])
+        podman_args = try(c.podman_args, [])
+        reload      = try(c.reload, false)
+      }), "[Service]\n", join("\n", concat(["[Service]"], try(c.service, []), [""])))
+    }
   }
 
-  backend_files = concat(
-    [{
-      path    = "${local.quadlet_dir}/monitoring.network"
-      mode    = "0644"
-      owner   = "root"
-      content = file("${path.module}/templates/monitoring.network")
-      restart = ["monitoring-network"]
-      reload  = []
-    }],
-    [for name in local.backend_order : {
-      path    = "${local.quadlet_dir}/${name}.container"
-      mode    = "0644"
-      owner   = "root"
-      content = local.backend_units[name]
-      restart = [name]
-      reload  = []
-    }],
-    [
-      { path = "${local.backend_conf}/prometheus/prometheus.yml", mode = "0644", owner = "root", content = local.prometheus_yml, restart = [], reload = ["prometheus"] },
-      { path = "${local.backend_conf}/prometheus/rules/basic.yml", mode = "0644", owner = "root", content = local.rules_yml, restart = [], reload = ["prometheus"] },
-      { path = "${local.backend_conf}/alertmanager/alertmanager.yml", mode = "0644", owner = "root", content = local.alertmanager_yml, restart = [], reload = ["alertmanager"] },
-      { path = "${local.backend_conf}/blackbox/config.yml", mode = "0644", owner = "root", content = local.blackbox_yml, restart = [], reload = ["blackbox-exporter"] },
-      {
-        path    = "${local.backend_conf}/influxdb.env"
-        mode    = "0600"
+  backend_files = {
+    for host in local.backend_names : host => concat(
+      [{
+        path    = "${local.quadlet_dir}/monitoring.network"
+        mode    = "0644"
         owner   = "root"
-        content = "DOCKER_INFLUXDB_INIT_PASSWORD=${var.secrets.influxdb_admin_password}\nDOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${var.secrets.influxdb_admin_token}\n"
-        restart = ["influxdb"]
+        content = file("${path.module}/templates/monitoring.network")
+        restart = ["monitoring-network"]
         reload  = []
-      },
-      {
+      }],
+      [for name in local.backend_order[host] : {
+        path    = "${local.quadlet_dir}/${name}.container"
+        mode    = "0644"
+        owner   = "root"
+        content = local.backend_units[host][name]
+        restart = [name]
+        reload  = []
+      }],
+      [
+        { path = "${local.backend_conf}/prometheus/prometheus.yml", mode = "0644", owner = "root", content = local.prometheus_yml[host], restart = [], reload = ["prometheus"] },
+        { path = "${local.backend_conf}/prometheus/rules/basic.yml", mode = "0644", owner = "root", content = local.rules_yml, restart = [], reload = ["prometheus"] },
+        { path = "${local.backend_conf}/alertmanager/alertmanager.yml", mode = "0644", owner = "root", content = local.alertmanager_yml, restart = [], reload = ["alertmanager"] },
+        { path = "${local.backend_conf}/blackbox/config.yml", mode = "0644", owner = "root", content = local.blackbox_yml, restart = [], reload = ["blackbox-exporter"] },
+      ],
+      local.ceph_alerts_enabled ? [
+        { path = "${local.backend_conf}/prometheus/rules/ceph.yml", mode = "0644", owner = "root", content = local.ceph_alerts_yml, restart = [], reload = ["prometheus"] },
+      ] : [],
+      [
+        {
+          path    = "${local.backend_conf}/influxdb.env"
+          mode    = "0600"
+          owner   = "root"
+          content = "DOCKER_INFLUXDB_INIT_PASSWORD=${var.secrets.influxdb_admin_password}\nDOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${var.secrets.influxdb_admin_token}\n"
+          restart = ["influxdb"]
+          reload  = []
+        },
+      ],
+      host == local.primary && local.legacy_postgres ? [{ # postgres.tf
         path    = "${local.backend_conf}/postgres.env"
         mode    = "0600"
         owner   = "root"
         content = "POSTGRES_PASSWORD=${var.secrets.grafana_db_password}\n"
         restart = ["postgres"]
         reload  = []
-      },
-    ],
-    local.pve_enabled ? [{
-      # Readable by the exporter's runtime user only.
-      path    = "${local.backend_conf}/pve-exporter/pve.yml"
-      mode    = "0640"
-      owner   = "runtime|${var.images.pve_exporter}"
-      content = local.pve_yml
-      restart = ["pve-exporter"]
-      reload  = []
-    }] : [],
-    local.alloy_files[var.backend.name], # logging.tf
-    local.snmp_auths_enabled ? [{
-      # SNMPv3 credentials; the exporter image runs as root.
-      path    = local.snmp_auths_path
-      mode    = "0600"
-      owner   = "root"
-      content = local.snmp_auths_yml
-      restart = ["snmp-exporter"]
-      reload  = []
-    }] : [],
-  )
+      }] : [],
+      local.pve_enabled ? [{
+        # Readable by the exporter's runtime user only.
+        path    = "${local.backend_conf}/pve-exporter/pve.yml"
+        mode    = "0640"
+        owner   = "runtime|${var.images.pve_exporter}"
+        content = local.pve_yml
+        restart = ["pve-exporter"]
+        reload  = []
+      }] : [],
+      local.alloy_files[host], # logging.tf
+      local.snmp_auths_enabled ? [{
+        # SNMPv3 credentials; the exporter image runs as root.
+        path    = local.snmp_auths_path
+        mode    = "0600"
+        owner   = "root"
+        content = local.snmp_auths_yml
+        restart = ["snmp-exporter"]
+        reload  = []
+      }] : [],
+      local.wlc_files[host],        # telemetry.tf
+      local.backend_ha_files[host], # backends.tf
+      local.relay_files[host],      # backends.tf
+    )
+  }
 
-  backend_dirs = concat(
-    [
-      { path = local.quadlet_dir, mode = "0755", owner = "root" },
-      { path = local.backend_conf, mode = "0755", owner = "root" },
-      { path = "${local.backend_conf}/prometheus", mode = "0755", owner = "root" },
-      { path = "${local.backend_conf}/prometheus/rules", mode = "0755", owner = "root" },
-      { path = "${local.backend_conf}/alertmanager", mode = "0755", owner = "root" },
-      { path = "${local.backend_conf}/blackbox", mode = "0755", owner = "root" },
-      { path = local.backend_data, mode = "0755", owner = "root" },
-      { path = "${local.backend_data}/prometheus", mode = "0750", owner = "runtime|${var.images.prometheus}" },
-      { path = "${local.backend_data}/alertmanager", mode = "0750", owner = "runtime|${var.images.alertmanager}" },
-      # The InfluxDB and Postgres images start as root and drop to a service user.
-      # Their data dirs must stay owned by that user: their entrypoints chown
-      # only at container start, so forcing root here would lock out a server
-      # that this deployment doesn't restart.
-      { path = "${local.backend_data}/influxdb", mode = "0755", owner = "root" },
-      { path = "${local.backend_data}/influxdb/data", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
-      { path = "${local.backend_data}/influxdb/config", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
-      { path = "${local.backend_data}/postgres", mode = "0700", owner = "user|${var.images.postgres}|postgres" },
-    ],
-    local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
-    local.snmp_auths_enabled ? [{ path = "${local.backend_conf}/snmp-exporter", mode = "0755", owner = "root" }] : [],
-    local.alloy_dirs,
-  )
+  backend_dirs = {
+    for host in local.backend_names : host => concat(
+      [
+        { path = local.quadlet_dir, mode = "0755", owner = "root" },
+        { path = local.backend_conf, mode = "0755", owner = "root" },
+        { path = "${local.backend_conf}/prometheus", mode = "0755", owner = "root" },
+        { path = "${local.backend_conf}/prometheus/rules", mode = "0755", owner = "root" },
+        { path = "${local.backend_conf}/alertmanager", mode = "0755", owner = "root" },
+        { path = "${local.backend_conf}/blackbox", mode = "0755", owner = "root" },
+        { path = local.backend_data, mode = "0755", owner = "root" },
+        { path = "${local.backend_data}/prometheus", mode = "0750", owner = "runtime|${var.images.prometheus}" },
+        { path = "${local.backend_data}/alertmanager", mode = "0750", owner = "runtime|${var.images.alertmanager}" },
+        # The InfluxDB and Postgres images start as root and drop to a service user.
+        # Their data dirs must stay owned by that user: their entrypoints chown
+        # only at container start, so forcing root here would lock out a server
+        # that this deployment doesn't restart.
+        { path = "${local.backend_data}/influxdb", mode = "0755", owner = "root" },
+        { path = "${local.backend_data}/influxdb/data", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
+        { path = "${local.backend_data}/influxdb/config", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
+      ],
+      host == local.primary ? [{ path = "${local.backend_data}/postgres", mode = "0700", owner = "user|${var.images.postgres}|postgres" }] : [],
+      local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
+      local.snmp_auths_enabled ? [{ path = "${local.backend_conf}/snmp-exporter", mode = "0755", owner = "root" }] : [],
+      local.alloy_dirs,
+      local.wlc_dirs[host],  # telemetry.tf
+      local.backend_ha_dirs, # backends.tf
+      local.relay_dirs,      # backends.tf
+    )
+  }
 
-  backend_validations = concat([
-    "podman run --rm --network=none --user 0 --entrypoint promtool -v \"$root${local.backend_conf}/prometheus:/etc/prometheus:ro\" '${var.images.prometheus}' check config /etc/prometheus/prometheus.yml",
-    "podman run --rm --network=none --user 0 --entrypoint amtool -v \"$root${local.backend_conf}/alertmanager:/etc/alertmanager:ro\" '${var.images.alertmanager}' check-config /etc/alertmanager/alertmanager.yml",
-    "podman run --rm --network=none --user 0 -v \"$root${local.backend_conf}/blackbox:/etc/blackbox_exporter:ro\" '${var.images.blackbox_exporter}' --config.check --config.file=/etc/blackbox_exporter/config.yml",
-    local.alloy_validation[var.backend.name],
-    ], local.snmp_auths_enabled ? [
-    "podman run --rm --network=none -v \"$root${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro\" '${var.images.snmp_exporter}' --dry-run --config.file=/etc/snmp_exporter/snmp.yml --config.file=/etc/snmp_exporter/auths.yml",
-  ] : [])
+  backend_validations = {
+    for host in local.backend_names : host => concat([
+      "podman run --rm --network=none --user 0 --entrypoint promtool -v \"$root${local.backend_conf}/prometheus:/etc/prometheus:ro\" '${var.images.prometheus}' check config /etc/prometheus/prometheus.yml",
+      ], local.ceph_alerts_enabled ? [
+      # check config covers rules/*.yml too; this names the vendored file if it's the one that breaks.
+      "podman run --rm --network=none --user 0 --entrypoint promtool -v \"$root${local.backend_conf}/prometheus:/etc/prometheus:ro\" '${var.images.prometheus}' check rules /etc/prometheus/rules/ceph.yml",
+      ] : [], [
+      "podman run --rm --network=none --user 0 --entrypoint amtool -v \"$root${local.backend_conf}/alertmanager:/etc/alertmanager:ro\" '${var.images.alertmanager}' check-config /etc/alertmanager/alertmanager.yml",
+      "podman run --rm --network=none --user 0 -v \"$root${local.backend_conf}/blackbox:/etc/blackbox_exporter:ro\" '${var.images.blackbox_exporter}' --config.check --config.file=/etc/blackbox_exporter/config.yml",
+      local.alloy_validation[host],
+      ], local.snmp_auths_enabled ? [
+      "podman run --rm --network=none -v \"$root${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro\" '${var.images.snmp_exporter}' --dry-run --config.file=/etc/snmp_exporter/snmp.yml --config.file=/etc/snmp_exporter/auths.yml",
+    ] : [], local.wlc_validations[host], local.backend_ha_validations, local.relay_validations) # telemetry.tf, backends.tf
+  }
 
-  backend_health = [
-    "curl -fsS -o /dev/null --max-time 3 http://${local.back}:9090/-/ready",
-    "curl -fsS -o /dev/null --max-time 3 http://${local.back}:9093/-/ready",
-    "curl -fsS -o /dev/null --max-time 3 http://${local.back}:8086/health",
-    "podman exec postgres pg_isready -q -U grafana -d grafana",
-    local.alloy_health[var.backend.name],
-  ]
+  backend_health = {
+    for host, b in var.backends : host => concat(
+      [
+        "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9090/-/ready",
+        "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9093/-/ready",
+        "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:8086/health",
+      ],
+      host == local.primary && local.legacy_postgres ? ["podman exec postgres pg_isready -q -U grafana -d grafana"] : [], # postgres.tf
+      [local.alloy_health[host]],
+      local.wlc_health[host],   # telemetry.tf
+      local.relay_health[host], # backends.tf
+    )
+  }
 
-  backend_deployment = templatefile("${path.module}/templates/deploy.sh.tftpl", {
-    host         = var.backend.name
-    state_file   = "${local.backend_conf}/.tofu-quadlets"
-    images       = distinct(concat([for c in values(local.backend_containers) : c.image], [var.images.alloy]))
-    packages     = []
-    dirs         = local.backend_dirs
-    prune_dirs   = []
-    files        = local.backend_files
-    validations  = local.backend_validations
-    post_install = []
-    services     = concat(["monitoring-network"], local.backend_order, ["alloy"])
-    health       = local.backend_health
-  })
+  backend_services = {
+    for host in local.backend_names : host => concat(["monitoring-network"], local.backend_order[host], ["alloy"], local.backend_ha_services)
+  }
+
+  backend_deployments = {
+    for host in local.backend_names : host => templatefile("${path.module}/templates/deploy.sh.tftpl", {
+      host         = host
+      state_file   = "${local.backend_conf}/.tofu-quadlets"
+      images       = distinct(concat([for c in values(local.backend_containers[host]) : c.image], [var.images.alloy]))
+      packages     = local.backend_ha_packages
+      dirs         = local.backend_dirs[host]
+      prune_dirs   = []
+      files        = local.backend_files[host]
+      validations  = local.backend_validations[host]
+      post_install = local.backend_ha_post_install
+      services     = local.backend_services[host]
+      health       = local.backend_health[host]
+    })
+  }
 
   # Grafana front ends.
   # Alerting HA gossip: over the HA VLAN when every VM has an address there (grafana-ha.tf).
-  grafana_peers = join(",", [for name in sort(keys(var.grafana)) : "${local.grafana_gossip[name]}:9094"])
+  grafana_peers = join(",", sort([for name in sort(keys(var.grafana)) : "${local.grafana_gossip[name]}:9094"]))
 
   # Quadlet units per Grafana VM (no secrets; those live in grafana.env).
   grafana_units = {
@@ -503,7 +657,7 @@ locals {
           GF_SERVER_ROOT_URL                       = var.settings.grafana_root_url
           GF_SECURITY_ADMIN_USER                   = "admin"
           GF_DATABASE_TYPE                         = "postgres"
-          GF_DATABASE_HOST                         = "${local.back}:5432"
+          GF_DATABASE_HOST                         = local.grafana_db_host # postgres.tf: the Patroni VIP after the cutover
           GF_DATABASE_NAME                         = "grafana"
           GF_DATABASE_USER                         = "grafana"
           GF_UNIFIED_ALERTING_HA_LISTEN_ADDRESS    = "0.0.0.0:9094"
@@ -512,7 +666,7 @@ locals {
           GF_METRICS_ENABLED                       = "true"
           GF_ANALYTICS_REPORTING_ENABLED           = "false"
           GF_ANALYTICS_CHECK_FOR_UPDATES           = "false"
-          }, local.home_dashboard_path == null ? {} : {
+          }, local.grafana_db_env, local.home_dashboard_path == null ? {} : {
           GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = local.home_dashboard_path
         })
         env_files   = ["${local.grafana_conf}/grafana.env"]
@@ -530,10 +684,10 @@ locals {
         image       = var.images.node_exporter
         network     = "host"
         publish     = []
-        volumes     = ["/:/host:ro,rslave"]
+        volumes     = local.node_exporter_volumes
         env         = {}
         env_files   = []
-        exec        = ["--path.rootfs=/host", "--web.listen-address=${g.backend_address}:9100"]
+        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${g.backend_address}:9100"], local.node_exporter_collectors)
         user        = null
         caps        = []
         podman_args = ["--pid=host"]

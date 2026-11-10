@@ -3,7 +3,7 @@ variable "vms" {
   type = map(object({
     image              = optional(string)
     owner              = string           # fabric-vms, services-vms or workloads.
-    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana or logging.
+    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics or postgres.
     node               = optional(string)
     vm_id              = optional(number)
     management_address = optional(string)
@@ -30,6 +30,8 @@ variable "vms" {
       cloud_init_interface    = optional(string)
       cloud_init_datastore_id = optional(string)
       user_data_file_id       = optional(string)
+      dns_servers             = optional(list(string))
+      dns_domain              = optional(string)
       management_bridge       = optional(string)
       network_model           = optional(string)
       network_disconnected    = optional(bool)
@@ -74,9 +76,9 @@ variable "vms" {
     condition = alltrue([
       for vm in values(var.vms) :
       contains(["fabric-vms", "services-vms", "workloads"], vm.owner) &&
-      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp", "monitoring", "grafana", "logging"], vm.role)))
+      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp", "monitoring", "grafana", "logging", "metrics", "postgres"], vm.role)))
     ])
-    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns, dhcp, monitoring, grafana or logging) applies only to services-vms."
+    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns, dhcp, monitoring, grafana, logging, metrics or postgres) applies only to services-vms."
   }
   validation {
     condition = alltrue([

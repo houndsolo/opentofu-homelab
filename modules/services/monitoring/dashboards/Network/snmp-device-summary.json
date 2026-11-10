@@ -7,7 +7,7 @@
         "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "target": {
           "limit": 100,
@@ -79,15 +79,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "#FF9830",
+                "color": "#ffa352",
                 "value": 360000
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 8640000
               }
             ]
@@ -146,7 +146,7 @@
               "options": {
                 "match": "null",
                 "result": {
-                  "color": "#73BF69",
+                  "color": "#02E5A8",
                   "text": "0"
                 }
               },
@@ -157,15 +157,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#73BF69",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "#FF9830",
+                "color": "#ffa352",
                 "value": 1
               },
               {
-                "color": "#F2495C",
+                "color": "#ff6188",
                 "value": 2
               }
             ]
@@ -201,7 +201,7 @@
       "pluginVersion": "8.4.2",
       "targets": [
         {
-          "expr": "count(ifOperStatus{instance=\"$instance\"} != 1 and ifAdminStatus{instance=\"$instance\"} == 1)",
+          "expr": "count(ifOperStatus{instance=\"$instance\"} != 1 and ifAdminStatus{instance=\"$instance\"} == 1) or vector(0)",
           "instant": true,
           "interval": "",
           "legendFormat": "",
@@ -237,15 +237,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#F2495C",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "rgba(255, 163, 82, 0.89)",
                 "value": 1
               },
               {
-                "color": "#73BF69",
+                "color": "#02E5A8",
                 "value": 2
               }
             ]
@@ -308,11 +308,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 100000000
               }
             ]
@@ -349,7 +349,7 @@
             "uid": "prometheus"
           },
           "exemplar": false,
-          "expr": "topk(5, irate(ifHCInOctets{instance=\"$instance\"}[5m]) or irate(ifInOctets{instance=\"$instance\"}[5m]) or irate(ifHCOutOctets{instance=\"$instance\"}[5m]) or irate(ifOutOctets{instance=\"$instance\"}[5m]))*8",
+          "expr": "topk(5, (irate(ifHCInOctets{instance=\"$instance\"}[5m]) > irate(ifHCOutOctets{instance=\"$instance\"}[5m]) or irate(ifHCOutOctets{instance=\"$instance\"}[5m])) * 8)",
           "instant": true,
           "interval": "",
           "legendFormat": "{{ ifName }}",
@@ -375,7 +375,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -403,11 +403,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -503,11 +503,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -584,7 +584,7 @@
             "uid": "prometheus"
           },
           "exemplar": false,
-          "expr": "ifPhysAddress",
+          "expr": "ifPhysAddress{instance=\"$instance\"}",
           "format": "table",
           "instant": true,
           "interval": "",

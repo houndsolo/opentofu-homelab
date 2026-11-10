@@ -1,0 +1,53 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# VRRP for the Mimir VIP on ${host}: adverts go unicast over the HA VLAN (${ha_interface}),
+# the VIP sits on the backend VLAN NIC (${vip_interface}), where Prometheus and Grafana reach it.
+
+global_defs {
+  router_id ${host}
+  script_user nobody nogroup
+  enable_script_security
+  vrrp_garp_master_refresh 60
+}
+
+# No weight: a failing check puts the node in FAULT, which releases the VIP. (With
+# nopreempt a lowered priority would never move it.) /ready stays OK once Mimir has
+# started, until the process stops answering.
+vrrp_script chk_mimir {
+  script "/usr/bin/curl -fsS -m 2 -o /dev/null http://127.0.0.1:${mimir_port}/ready"
+  interval 5
+  timeout 3
+  fall 3
+  rise 2
+  init_fail
+}
+
+vrrp_instance mimir {
+  # Everyone starts BACKUP and nobody preempts: priority only decides the first election,
+  # and a recovered node doesn't pull the VIP back (no second interruption).
+  state BACKUP
+  nopreempt
+  interface ${ha_interface}
+  virtual_router_id ${router_id}
+  priority ${priority}
+  advert_int 1
+  unicast_src_ip ${ha_address}
+  unicast_peer {
+%{ for peer in peers ~}
+    ${peer}
+%{ endfor ~}
+  }
+  authentication {
+    auth_type PASS
+    auth_pass ${auth_pass}
+  }
+  virtual_ipaddress {
+    ${vip} dev ${vip_interface}
+  }
+  # The backend NIC going down is a FAULT too: the VIP would be unreachable here.
+  track_interface {
+    ${vip_interface}
+  }
+  track_script {
+    chk_mimir
+  }
+}

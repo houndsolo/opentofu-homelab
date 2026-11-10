@@ -124,8 +124,8 @@ fabric = {
     ntp_servers              = ["10.20.10.255"]    # NTP for spines AND leaves (fw-wan, on the management network)
     leaf_ntp_vrf             = "mgmt"              # the VRF the leaves' NTP client runs in (leave out = default VRF)
     leaf_prometheus_exporters = { vrf = "mgmt" }   # node/frr exporters on each leaf's mgmt address (leave out = unmanaged)
-    leaf_syslog = { host = "10.20.11.40", vrf = "mgmt" } # remote syslog to the Loki VIP (leave out = unmanaged)
-    spine_syslog = { host = "10.5.11.40" }        # spines' remote syslog, UDP 514 (leave out = unmanaged)
+    leaf_syslog = { host = "10.20.11.101", vrf = "mgmt" } # remote syslog to the Loki VIP (leave out = unmanaged)
+    spine_syslog = { host = "10.5.11.101" }        # spines' remote syslog, UDP 514 (leave out = unmanaged)
     # vxlan_mtu = 9119                             # default; tenant side: vxlan0, br0 and its VLANs, the access port
     # outer_mtu = 9189                             # default; underlay side: the spine links and the loopback
   }
@@ -192,16 +192,16 @@ listening on its management address inside that VRF. frr-exporter also gets the
 scrapes them (jobs `vyos-node`, `vyos-frr`). Leaving the setting out (null)
 means "don't manage the exporters"; it doesn't remove existing configuration.
 
-`fabric.settings.leaf_syslog = { host = "10.20.11.40", vrf = "mgmt" }` sends every
+`fabric.settings.leaf_syslog = { host = "10.20.11.101", vrf = "mgmt" }` sends every
 leaf's syslog (facility `all`, level `info` and up) to the Loki/Alloy VIP on the
 management network ([monitoring-config](../roots/monitoring-config/README.md),
-log01–log03), from the management VRF. It uses TCP 514 with RFC 5424 messages
+loki01–loki03), from the management VRF. It uses TCP 514 with RFC 5424 messages
 (`format include-timezone`) and octet-counted framing. Optional fields: `port`
 (514), `protocol` (`tcp` or `udp`; UDP drops the framing), `facility` (`all`),
 `level` (`info`). Leaving it out means "don't manage remote syslog". The DHCP VMs
 get the same commands from services-config's `dhcp_syslog`.
 
-`fabric.settings.spine_syslog = { host = "10.5.11.40" }` points the spines' built-in
+`fabric.settings.spine_syslog = { host = "10.5.11.101" }` points the spines' built-in
 `remote` logging action at the Loki/Alloy VIP on the monitoring network: UDP 514,
 RouterOS's `syslog` format with BSD timestamps (RFC 3164), facility `daemon`, sent from
 the spine's VLAN 5 address (src-address stays automatic). One logging rule per topic in
@@ -313,6 +313,7 @@ root creates it. Service VMs also take a `role`:
 | `services-vms` | `dhcp` | services-vms | services-config (VyOS DHCP) | Define exactly two, or none. VM IDs must be 6701–6799. Data NICs are generated. |
 | `services-vms` | `monitoring` | services-vms | (nothing yet) | `mon01`: meant for Prometheus, InfluxDB and Grafana's Postgres |
 | `services-vms` | `grafana` | services-vms | (nothing yet) | `graf01`, `graf02` |
+| `services-vms` | `postgres` | services-vms | monitoring-config (Patroni) | `pg01`-`pg03`: Grafana's HA Postgres (Patroni + etcd + pgBackRest); odd count, at least 3 |
 | `services-vms` | (none) | services-vms | (nothing) | Any other service VM |
 | `workloads` | (none) | workloads | (nothing) | Ordinary VMs |
 | `fabric-vms` | (none) | fabric-vms | fabric-leaves | Only for **overrides** of the generated `vtep-<node>` VMs |
@@ -357,7 +358,7 @@ Rules that are checked for you when you run `plan`:
 
 - `owner` is required and must be `fabric-vms`, `services-vms` or `workloads`.
   `role` is only allowed with `services-vms`, and must be `dns`, `dhcp`,
-  `monitoring` or `grafana`.
+  `monitoring`, `grafana`, `logging`, `metrics` or `postgres`.
 - Every VM except a `fabric-vms` override needs a `node` and a `vm_id`.
 - A `dns` VM needs exactly one NIC with an `ipv4_address`.
 - There must be either no `dhcp` VMs or exactly two, with different VM IDs.

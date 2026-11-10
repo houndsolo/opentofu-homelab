@@ -1,6 +1,6 @@
 # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
-# S3 for Loki on ${host}: 127.0.0.1:7480 -> the Ceph RGWs on the PVE nodes (Ceph public
-# network). Any single RGW (or PVE node) can go down without Loki noticing.
+# S3 for ${client} on ${host}: 127.0.0.1:7480 -> the Ceph RGWs on the PVE nodes (Ceph public
+# network). Any single RGW (or PVE node) can go down without ${client} noticing.
 
 global
   maxconn 2000

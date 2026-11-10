@@ -31,7 +31,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -101,7 +101,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -172,11 +172,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -247,11 +247,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -315,11 +315,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -414,7 +414,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -432,7 +432,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -447,7 +447,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -464,11 +464,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -564,7 +564,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -582,7 +582,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -597,7 +597,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -614,11 +614,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -703,15 +703,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 2
               }
             ]
@@ -722,17 +722,17 @@
               "options": {
                 "0": {
                   "text": "HEALTH_OK",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 0
                 },
                 "1": {
                   "text": "HEALTH_WARN",
-                  "color": "orange",
+                  "color": "#ffa352",
                   "index": 1
                 },
                 "2": {
                   "text": "HEALTH_ERR",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 2
                 }
               }
@@ -804,19 +804,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "yellow",
+                "color": "#ffd27a",
                 "value": 0.7
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.85
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.95
               }
             ]
@@ -901,7 +901,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -921,7 +921,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -936,7 +936,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#F70997"
                 }
               }
             ]
@@ -1017,7 +1017,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1036,7 +1036,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -1051,7 +1051,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#F70997"
                 }
               }
             ]
@@ -1132,11 +1132,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -1156,11 +1156,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -1241,7 +1241,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1263,7 +1263,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -1284,11 +1284,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -1356,7 +1356,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1378,7 +1378,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -1397,7 +1397,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -1416,7 +1416,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "text"
+                  "fixedColor": "#e5f3e2"
                 }
               }
             ]
@@ -1435,7 +1435,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -1500,15 +1500,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.75
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.9
               }
             ]
@@ -1577,15 +1577,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.75
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.9
               }
             ]
@@ -1654,19 +1654,19 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "yellow",
+                "color": "#ffd27a",
                 "value": 0.7
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.85
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.95
               }
             ]
@@ -1752,11 +1752,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
@@ -1767,12 +1767,12 @@
               "options": {
                 "0": {
                   "text": "DOWN",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "UP",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 }
               }
@@ -1855,7 +1855,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1874,7 +1874,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#21E2D7"
                 }
               }
             ]
@@ -1889,7 +1889,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#F70997"
                 }
               }
             ]
@@ -1970,11 +1970,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
@@ -1985,12 +1985,12 @@
               "options": {
                 "0": {
                   "text": "DOWN",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "UP",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 }
               }
@@ -2045,7 +2045,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum ((label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(rate(vyos_firewall_rule_packets_total{host=\"fw-wan\", chain!~\"VYOS_.*\"}[$__rate_interval]), \"key\", \"/\", \"family\", \"chain\", \"rule\"), \"action\", \"unknown\", \"key\", \".*\"), \"action\", \"accept\", \"key\", \"ipv4/input/30|ipv4/input/53|ipv4/input/89|ipv4/input/646|ipv4/input/647|ipv4/input/1002|ipv4/input/2123|ipv4/input/9100|ipv4/input/9273|ipv4/input/10050|ipv4/input/10051|ipv4/input/10161|ipv4/bgp_peers/1|ipv4/bgp_peers/2|ipv4/bgp_peers/3|ipv4/conn_filter/10|ipv4/deny_guest_vrf/5|ipv4/deny_guest_vrf/10|ipv4/dns_in/1|ipv4/dns_in/2|ipv4/dns_in/3|ipv4/haystack/4|ipv4/haystack/5|ipv4/haystack/6|ipv4/haystack/60|ipv4/haystack/179|ipv4/haystack/180|ipv4/haystack/190|ipv4/haystack/3000|ipv4/haystack_dns/1|ipv4/haystack_dns/2|ipv4/haystack_dns/3|ipv4/haystack_ssh/1|ipv4/haystack_ssh/2|ipv4/haystack_ssh/3|ipv4/haystack_vxlan/1|ipv4/haystack_vxlan/100|ipv4/ipsec/1|ipv4/ipsec/2|ipv4/lylat_lan_forward/default-action|ipv4/vpn_me_FW/1|ipv4/vpn_me_FW/22|ipv4/vpn_me_FW/100|ipv4/vpn_me_FW/101|ipv4/vyos_mgmt/22|ipv4/vyos_mgmt/23|ipv4/output/default-action|ipv6/input/20|ipv6/input/30|ipv6/input/40|ipv6/input/646|ipv6/input/647|ipv6/input/1089|ipv6/forward/20|ipv6/forward/30|ipv6/bgp_in_ipv6/10|ipv6/bgp_in_ipv6/20|ipv6/bgp_in_ipv6/30|ipv6/conn_filter/10|ipv6/output/default-action\"), \"action\", \"drop\", \"key\", \"ipv4/input/default-action|ipv4/forward/default-action|ipv4/bgp_peers/default-action|ipv4/conn_filter/20|ipv4/deny_data/22|ipv4/deny_data/23|ipv4/deny_data/24|ipv4/deny_guest_vrf/9|ipv4/deny_guest_vrf/default-action|ipv4/haystack/2|ipv4/ipsec/default-action|ipv4/outside-in/default-action|ipv4/vpn_me_FW/default-action|ipv4/wg70_fw/default-action|ipv6/input/default-action|ipv6/forward/default-action|ipv6/bgp_in_ipv6/default-action|ipv6/conn_filter/20|ipv6/outside-in/default-action\"), \"action\", \"jump\", \"key\", \"ipv4/input/10|ipv4/input/22|ipv4/input/179|ipv4/input/443|ipv4/input/500|ipv4/input/501|ipv4/input/502|ipv4/forward/5|ipv4/forward/20|ipv4/forward/69|ipv4/forward/70|ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv4/forward/140|ipv4/forward/151|ipv4/haystack/22|ipv4/haystack/53|ipv4/haystack/100|ipv4/wg70_fw/10|ipv4/wg70_fw/53|ipv6/input/10|ipv6/input/179|ipv6/forward/10|ipv6/forward/40\"), \"action\", \"reject\", \"key\", \"ipv4/dns_in/default-action|ipv4/haystack/3|ipv4/haystack/default-action|ipv4/haystack_dns/default-action|ipv4/haystack_ssh/default-action|ipv4/haystack_vxlan/default-action\"), \"action\", \"return\", \"key\", \"ipv4/conn_filter/default-action|ipv4/deny_data/default-action|ipv4/vyos_mgmt/default-action|ipv6/conn_filter/default-action\"), \"target\", \"bgp_in_ipv6\", \"key\", \"ipv6/input/179\"), \"target\", \"bgp_peers\", \"key\", \"ipv4/input/179\"), \"target\", \"conn_filter\", \"key\", \"ipv4/input/10|ipv4/forward/20|ipv4/wg70_fw/10|ipv6/input/10|ipv6/forward/10\"), \"target\", \"deny_data\", \"key\", \"ipv4/forward/5\"), \"target\", \"deny_guest_vrf\", \"key\", \"ipv4/forward/140\"), \"target\", \"dns_in\", \"key\", \"ipv4/wg70_fw/53\"), \"target\", \"haystack\", \"key\", \"ipv4/forward/69\"), \"target\", \"haystack_dns\", \"key\", \"ipv4/haystack/53\"), \"target\", \"haystack_ssh\", \"key\", \"ipv4/haystack/22\"), \"target\", \"haystack_vxlan\", \"key\", \"ipv4/haystack/100\"), \"target\", \"ipsec\", \"key\", \"ipv4/input/500|ipv4/input/501|ipv4/input/502\"), \"target\", \"lylat_lan_forward\", \"key\", \"ipv4/forward/151\"), \"target\", \"outside-in\", \"key\", \"ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv6/forward/40\"), \"target\", \"vpn_me_FW\", \"key\", \"ipv4/forward/70\"), \"target\", \"vyos_mgmt\", \"key\", \"ipv4/input/22|ipv4/input/443\"), \"verdict\", \"$1\", \"action\", \"(.*)\"), \"ra\", \":\", \"rule\", \"action\"), \"verdict\", \"default $1\", \"ra\", \"default-action:(.*)\"), \"verdict\", \"→ $1\", \"target\", \"(.+)\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
+          "expr": "sum ((label_replace(label_replace(label_join(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_replace(label_join(rate(vyos_firewall_rule_packets_total{host=\"fw-wan\", chain!~\"VYOS_.*\"}[$__rate_interval]), \"key\", \"/\", \"family\", \"chain\", \"rule\"), \"action\", \"unknown\", \"key\", \".*\"), \"action\", \"accept\", \"key\", \"ipv4/input/30|ipv4/input/53|ipv4/input/89|ipv4/input/646|ipv4/input/647|ipv4/input/1002|ipv4/input/2123|ipv4/input/9100|ipv4/input/9101|ipv4/input/9273|ipv4/input/9274|ipv4/input/10050|ipv4/input/10051|ipv4/input/10161|ipv4/bgp_peers/1|ipv4/bgp_peers/2|ipv4/bgp_peers/3|ipv4/conn_filter/10|ipv4/deny_guest_vrf/5|ipv4/deny_guest_vrf/10|ipv4/dns_in/1|ipv4/dns_in/2|ipv4/dns_in/3|ipv4/haystack/4|ipv4/haystack/5|ipv4/haystack/6|ipv4/haystack/60|ipv4/haystack/179|ipv4/haystack/180|ipv4/haystack/190|ipv4/haystack/3000|ipv4/haystack_dns/1|ipv4/haystack_dns/2|ipv4/haystack_dns/3|ipv4/haystack_ssh/1|ipv4/haystack_ssh/2|ipv4/haystack_ssh/3|ipv4/haystack_vxlan/1|ipv4/haystack_vxlan/100|ipv4/ipsec/1|ipv4/ipsec/2|ipv4/lylat_lan_forward/default-action|ipv4/vpn_me_FW/1|ipv4/vpn_me_FW/22|ipv4/vpn_me_FW/100|ipv4/vpn_me_FW/101|ipv4/vyos_mgmt/22|ipv4/vyos_mgmt/23|ipv4/output/default-action|ipv6/input/20|ipv6/input/30|ipv6/input/40|ipv6/input/646|ipv6/input/647|ipv6/input/1089|ipv6/input/3784|ipv6/forward/20|ipv6/forward/30|ipv6/bgp_in_ipv6/10|ipv6/bgp_in_ipv6/20|ipv6/bgp_in_ipv6/30|ipv6/conn_filter/10|ipv6/output/default-action\"), \"action\", \"drop\", \"key\", \"ipv4/input/default-action|ipv4/forward/default-action|ipv4/bgp_peers/default-action|ipv4/conn_filter/20|ipv4/deny_data/22|ipv4/deny_data/23|ipv4/deny_data/24|ipv4/deny_guest_vrf/9|ipv4/deny_guest_vrf/default-action|ipv4/haystack/2|ipv4/ipsec/default-action|ipv4/outside-in/default-action|ipv4/vpn_me_FW/default-action|ipv4/wg70_fw/default-action|ipv6/input/default-action|ipv6/forward/default-action|ipv6/bgp_in_ipv6/default-action|ipv6/conn_filter/20|ipv6/outside-in/default-action\"), \"action\", \"jump\", \"key\", \"ipv4/input/10|ipv4/input/22|ipv4/input/179|ipv4/input/443|ipv4/input/500|ipv4/input/501|ipv4/input/502|ipv4/forward/5|ipv4/forward/20|ipv4/forward/69|ipv4/forward/70|ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv4/forward/140|ipv4/forward/151|ipv4/haystack/22|ipv4/haystack/53|ipv4/haystack/100|ipv4/wg70_fw/10|ipv4/wg70_fw/53|ipv6/input/10|ipv6/input/179|ipv6/forward/10|ipv6/forward/40\"), \"action\", \"reject\", \"key\", \"ipv4/dns_in/default-action|ipv4/haystack/3|ipv4/haystack/default-action|ipv4/haystack_dns/default-action|ipv4/haystack_ssh/default-action|ipv4/haystack_vxlan/default-action\"), \"action\", \"return\", \"key\", \"ipv4/conn_filter/default-action|ipv4/deny_data/default-action|ipv4/vyos_mgmt/default-action|ipv6/conn_filter/default-action\"), \"target\", \"bgp_in_ipv6\", \"key\", \"ipv6/input/179\"), \"target\", \"bgp_peers\", \"key\", \"ipv4/input/179\"), \"target\", \"conn_filter\", \"key\", \"ipv4/input/10|ipv4/forward/20|ipv4/wg70_fw/10|ipv6/input/10|ipv6/forward/10\"), \"target\", \"deny_data\", \"key\", \"ipv4/forward/5\"), \"target\", \"deny_guest_vrf\", \"key\", \"ipv4/forward/140\"), \"target\", \"dns_in\", \"key\", \"ipv4/wg70_fw/53\"), \"target\", \"haystack\", \"key\", \"ipv4/forward/69\"), \"target\", \"haystack_dns\", \"key\", \"ipv4/haystack/53\"), \"target\", \"haystack_ssh\", \"key\", \"ipv4/haystack/22\"), \"target\", \"haystack_vxlan\", \"key\", \"ipv4/haystack/100\"), \"target\", \"ipsec\", \"key\", \"ipv4/input/500|ipv4/input/501|ipv4/input/502\"), \"target\", \"lylat_lan_forward\", \"key\", \"ipv4/forward/151\"), \"target\", \"outside-in\", \"key\", \"ipv4/forward/99|ipv4/forward/100|ipv4/forward/101|ipv6/forward/40\"), \"target\", \"vpn_me_FW\", \"key\", \"ipv4/forward/70\"), \"target\", \"vyos_mgmt\", \"key\", \"ipv4/input/22|ipv4/input/443\"), \"verdict\", \"$1\", \"action\", \"(.*)\"), \"ra\", \":\", \"rule\", \"action\"), \"verdict\", \"default $1\", \"ra\", \"default-action:(.*)\"), \"verdict\", \"→ $1\", \"target\", \"(.+)\")) and on (action) (label_replace(vector(1), \"action\", \"drop\", \"__name__\", \".*\") or label_replace(vector(1), \"action\", \"reject\", \"__name__\", \".*\"))) or vector(0)",
           "legendFormat": "__auto",
           "range": true,
           "instant": false,
@@ -2061,15 +2061,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 50
               }
             ]
@@ -2142,15 +2142,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 0.75
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 0.9
               }
             ]
@@ -2264,7 +2264,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2306,11 +2306,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -2399,7 +2399,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2410,12 +2410,12 @@
               "options": {
                 "0": {
                   "text": "DOWN",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "UP",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 }
               }
@@ -2530,7 +2530,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2568,21 +2568,31 @@
               "Time": true,
               "Value": true,
               "alertstate": true,
-              "role": true
+              "role": true,
+              "cluster": true,
+              "type": true
             },
             "renameByName": {
               "alertname": "Alert",
               "severity": "Severity",
               "job": "Job",
               "host": "Host",
-              "instance": "Instance"
+              "instance": "Instance",
+              "reason": "Reason",
+              "address": "Address",
+              "network": "Network",
+              "vip": "VIP"
             },
             "indexByName": {
               "alertname": 0,
               "severity": 1,
               "job": 2,
               "host": 3,
-              "instance": 4
+              "instance": 4,
+              "reason": 5,
+              "address": 6,
+              "network": 7,
+              "vip": 8
             }
           }
         }
@@ -2639,11 +2649,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": 1
               }
             ]
@@ -2654,12 +2664,12 @@
               "options": {
                 "0": {
                   "text": "DOWN",
-                  "color": "red",
+                  "color": "#ff6188",
                   "index": 0
                 },
                 "1": {
                   "text": "UP",
-                  "color": "green",
+                  "color": "#02E5A8",
                   "index": 1
                 }
               }
@@ -2742,7 +2752,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2764,7 +2774,38 @@
             "gradientMode": "none"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -2863,7 +2904,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -3026,7 +3067,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -3094,12 +3135,12 @@
                     "options": {
                       "0": {
                         "text": "DOWN",
-                        "color": "red",
+                        "color": "#ff6188",
                         "index": 0
                       },
                       "1": {
                         "text": "UP",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 1
                       }
                     }
@@ -3136,15 +3177,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 75
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 90
                     }
                   ]
@@ -3188,15 +3229,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 75
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 90
                     }
                   ]
@@ -3240,15 +3281,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 75
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 90
                     }
                   ]
@@ -3292,15 +3333,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 75
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 90
                     }
                   ]
@@ -3332,15 +3373,15 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "orange",
+                      "color": "#ffa352",
                       "value": 0.8
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1.5
                     }
                   ]
@@ -3469,7 +3510,7 @@
     {
       "type": "timeseries",
       "title": "Top 10 host/router interfaces (rx + tx)",
-      "description": "Physical (eth*) interfaces from node_exporter.",
+      "description": "Physical (eth*) interfaces from node_exporter: the 10 busiest over the selected range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -3481,7 +3522,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (host, device) (rate(node_network_receive_bytes_total{device=~\"eth[0-9]+\"}[$__rate_interval]) + rate(node_network_transmit_bytes_total{device=~\"eth[0-9]+\"}[$__rate_interval])) * 8)",
+          "expr": "sum by (host, device) (rate(node_network_receive_bytes_total{device=~\"eth[0-9]+\"}[$__rate_interval]) + rate(node_network_transmit_bytes_total{device=~\"eth[0-9]+\"}[$__rate_interval])) * 8 and on (host, device) topk(10, sum by (host, device) (rate(node_network_receive_bytes_total{device=~\"eth[0-9]+\"}[$__range] @ end()) + rate(node_network_transmit_bytes_total{device=~\"eth[0-9]+\"}[$__range] @ end())))",
           "legendFormat": "{{host}} {{device}}",
           "range": true,
           "instant": false,
@@ -3497,7 +3538,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -3516,7 +3557,7 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": []
@@ -3547,7 +3588,7 @@
     {
       "type": "timeseries",
       "title": "Top 10 switch ports (rx + tx)",
-      "description": "SNMP if_mib counters from the switches and WLCs.",
+      "description": "SNMP if_mib counters from the switches and WLCs: the 10 busiest ports over the selected range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -3559,7 +3600,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "topk(10, (rate(ifHCInOctets[$__rate_interval]) + rate(ifHCOutOctets[$__rate_interval])) * 8)",
+          "expr": "(rate(ifHCInOctets[$__rate_interval]) + rate(ifHCOutOctets[$__rate_interval])) * 8 and on (host, ifName) topk(10, rate(ifHCInOctets[$__range] @ end()) + rate(ifHCOutOctets[$__range] @ end()))",
           "legendFormat": "{{host}} {{ifName}}",
           "range": true,
           "instant": false,
@@ -3575,7 +3616,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -3594,7 +3635,7 @@
               "group": "A"
             },
             "axisPlacement": "auto",
-            "gradientMode": "none"
+            "gradientMode": "opacity"
           }
         },
         "overrides": []

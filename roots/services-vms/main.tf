@@ -21,7 +21,7 @@ module "vm" {
     # solely from VNI inventory, rather than manually listed per DHCP VM.
     network_devices = module.dhcp_macs.network_devices[each.key]
   } : {})
-  vm_config   = var.vm_config
+  vm_config   = each.value.image == "vyos" && !var.vm_dns_vyos ? var.vm_config : merge(var.vm_config, local.vm_dns_config) # dns.tf
   ssh_pubkeys = local.ssh_pubkeys
   vm_images   = var.vm_images
 }

@@ -89,10 +89,20 @@ CHAINS = {
           "description": "prometheus node/frr exporters (mon01)",
           "match": "dport 9100,9342, proto tcp, src 10.20.11.30"
         },
+        "9101": {
+          "action": "accept",
+          "description": "mon02 scrapes node/frr exporter",
+          "match": "dport 9100,9342, proto tcp, src 10.20.11.31"
+        },
         "9273": {
           "action": "accept",
           "description": "prometheus telegraf client (mon01)",
           "match": "dport 9273, proto tcp, src 10.5.11.30"
+        },
+        "9274": {
+          "action": "accept",
+          "description": "mon02 scrapes telegraf prometheus-client",
+          "match": "dport 9273, proto tcp, src 10.5.11.31"
         },
         "10050": {
           "action": "accept",
@@ -350,7 +360,7 @@ CHAINS = {
         "3000": {
           "action": "accept",
           "description": "",
-          "match": "dst 10.2.11.31-10.2.11.32, dport 3000, proto tcp"
+          "match": "dst 10.2.11.32-10.2.11.33, dport 3000, proto tcp"
         }
       }
     },
@@ -572,6 +582,11 @@ CHAINS = {
           "action": "accept",
           "description": "",
           "match": "in @INFRA, proto ospf"
+        },
+        "3784": {
+          "action": "accept",
+          "description": "single-hop BFD from the border leaves (lylat_service VRF)",
+          "match": "dport 3784-3785, hop-limit eq 255, in lylat_service, proto udp, src fe80::/10"
         }
       }
     },

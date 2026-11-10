@@ -32,7 +32,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -172,7 +172,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Logged packets",
           "refId": "A"
@@ -187,7 +187,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -237,7 +237,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"drop\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"drop\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Dropped",
           "refId": "A"
@@ -252,7 +252,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               }
             ]
@@ -302,7 +302,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"reject\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"reject\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Rejected",
           "refId": "A"
@@ -317,7 +317,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": null
               }
             ]
@@ -367,7 +367,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"accept\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=\"accept\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Accepted (logged)",
           "refId": "A"
@@ -382,7 +382,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -432,7 +432,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "count(sum by (src) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range]))) or vector(0)",
+          "expr": "count(sum by (src) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range]))) or vector(0)",
           "queryType": "instant",
           "legendFormat": "sources",
           "refId": "A"
@@ -447,7 +447,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -496,7 +496,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "count(sum by (proto, dpt) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range]))) or vector(0)",
+          "expr": "count(sum by (proto, dpt) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__range]))) or vector(0)",
           "queryType": "instant",
           "legendFormat": "ports",
           "refId": "A"
@@ -511,7 +511,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -560,7 +560,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (chain, rule, action) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
+          "expr": "sum by (chain, rule, action) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{chain}} #{{rule}} {{action}}",
           "refId": "A"
@@ -575,13 +575,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -637,7 +638,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (action) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
+          "expr": "sum by (action) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{action}}",
           "refId": "A"
@@ -652,13 +653,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -685,7 +687,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -700,7 +702,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "red"
+                  "fixedColor": "#ff6188"
                 }
               }
             ]
@@ -715,7 +717,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#ffa352"
                 }
               }
             ]
@@ -760,7 +762,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (in) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
+          "expr": "sum by (in) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\" [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{in}}",
           "refId": "A"
@@ -775,13 +777,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -837,7 +840,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (src) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "expr": "sort_desc(topk(10, sum by (src) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{src}}",
           "refId": "A"
@@ -852,7 +855,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               }
             ]
@@ -904,7 +907,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (dst) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "expr": "sort_desc(topk(10, sum by (dst) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{dst}}",
           "refId": "A"
@@ -919,7 +922,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               }
             ]
@@ -971,7 +974,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (proto, dpt) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "expr": "sort_desc(topk(10, sum by (proto, dpt) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{proto}} {{dpt}}",
           "refId": "A"
@@ -986,7 +989,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               }
             ]
@@ -1038,7 +1041,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (chain, rule) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range])))",
+          "expr": "sort_desc(topk(10, sum by (chain, rule) (count_over_time({source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"drop|reject\" [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{chain}} #{{rule}}",
           "refId": "A"
@@ -1053,7 +1056,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": null
               }
             ]
@@ -1105,7 +1108,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt src=\"SRC\", dst=\"DST\", proto=\"PROTO\", spt=\"SPT\", dpt=\"DPT\" | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\"",
+          "expr": "{source=\"syslog\", host=\"fw-wan\"} |~ `^\\s*\\[ipv[46]-` |= `$addr` | regexp `^\\s*\\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\\]]+)-(?P<act>[ADR])\\]\\s*IN=(?P<in>\\S*) OUT=(?P<out>\\S*)` | logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else }}reject{{ end }}` | drop act, __error__, __error_details__ | action=~\"${action:regex}\"",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1121,7 +1124,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1284,17 +1287,17 @@
                     "options": {
                       "accept": {
                         "text": "accept",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 0
                       },
                       "drop": {
                         "text": "drop",
-                        "color": "red",
+                        "color": "#ff6188",
                         "index": 1
                       },
                       "reject": {
                         "text": "reject",
-                        "color": "orange",
+                        "color": "#ffa352",
                         "index": 2
                       }
                     }
@@ -1445,7 +1448,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1510,7 +1513,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1575,11 +1578,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -1644,11 +1647,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -1713,7 +1716,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1778,7 +1781,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1886,13 +1889,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -1919,7 +1923,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "green"
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -1934,7 +1938,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "red"
+                  "fixedColor": "#ff6188"
                 }
               }
             ]
@@ -1949,7 +1953,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#ffa352"
                 }
               }
             ]
@@ -1964,7 +1968,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -1979,7 +1983,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "purple"
+                  "fixedColor": "#9932cc"
                 }
               }
             ]
@@ -2039,13 +2043,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,

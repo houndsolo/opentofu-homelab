@@ -1,0 +1,66 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+# VRRP for the monitoring backend VIPs on ${host}. One instance: adverts go unicast over
+# the HA VLAN (${ha_interface}), and the VIPs sit on the client-facing NICs, so they move together.
+
+global_defs {
+  router_id ${host}
+  script_user nobody nogroup
+  enable_script_security
+  vrrp_garp_master_refresh 60
+}
+
+# No weight: a failing check puts the node in FAULT, which releases the VIPs. (With
+# nopreempt a lowered priority would never move them.)
+vrrp_script chk_influxdb {
+  script "/usr/bin/curl -fsS -m 2 -o /dev/null http://${backend_address}:8086/health"
+  interval 5
+  timeout 3
+  fall 3
+  rise 2
+  init_fail
+}
+
+vrrp_script chk_alertmanager {
+  script "/usr/bin/curl -fsS -m 2 -o /dev/null http://${backend_address}:9093/-/ready"
+  interval 5
+  timeout 3
+  fall 3
+  rise 2
+  init_fail
+}
+
+vrrp_instance monitoring {
+  # Everyone starts BACKUP and nobody preempts: priority only decides the first election,
+  # and a recovered node doesn't pull the VIPs back (no second interruption).
+  state BACKUP
+  nopreempt
+  interface ${ha_interface}
+  virtual_router_id ${router_id}
+  priority ${priority}
+  advert_int 1
+  unicast_src_ip ${ha_address}
+  unicast_peer {
+%{ for peer in peers ~}
+    ${peer}
+%{ endfor ~}
+  }
+  authentication {
+    auth_type PASS
+    auth_pass ${auth_pass}
+  }
+  virtual_ipaddress {
+%{ for vip in vips ~}
+    ${vip.cidr} dev ${vip.interface}
+%{ endfor ~}
+  }
+  # A client NIC going down is a FAULT too: its VIP would be unreachable here.
+  track_interface {
+%{ for nic in distinct([for vip in vips : vip.interface]) ~}
+    ${nic}
+%{ endfor ~}
+  }
+  track_script {
+    chk_influxdb
+    chk_alertmanager
+  }
+}

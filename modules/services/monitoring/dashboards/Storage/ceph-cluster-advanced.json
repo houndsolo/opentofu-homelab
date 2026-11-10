@@ -6,7 +6,7 @@
         "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "showIn": 0,
         "tags": [],
@@ -112,14 +112,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#9ac48a"
+                "color": "#02E5A8"
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "rgba(255, 163, 82, 0.89)",
                 "value": 1
               },
               {
-                "color": "rgba(245, 54, 54, 0.9)",
+                "color": "rgba(255, 97, 136, 0.9)",
                 "value": 2
               }
             ]
@@ -198,14 +198,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "rgba(245, 54, 54, 0.9)"
+                "color": "rgba(255, 97, 136, 0.9)"
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "rgba(255, 163, 82, 0.89)",
                 "value": 0.1
               },
               {
-                "color": "rgba(50, 172, 45, 0.97)",
+                "color": "rgba(2, 229, 168, 0.97)",
                 "value": 0.3
               }
             ]
@@ -282,19 +282,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "rgba(50, 172, 45, 0.97)"
-              },
-              {
-                "color": "rgba(237, 129, 40, 0.89)",
-                "value": 0.025
-              },
-              {
-                "color": "rgba(245, 54, 54, 0.9)",
-                "value": 1
+                "color": "#21E2D7",
+                "value": null
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#21E2D7"
+          }
         }
       },
       "gridPos": {
@@ -368,7 +365,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               }
             ]
           },
@@ -444,14 +441,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#d44a3a"
+                "color": "#ff6188"
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "rgba(255, 163, 82, 0.89)",
                 "value": 0
               },
               {
-                "color": "#9ac48a",
+                "color": "#02E5A8",
                 "value": 0
               }
             ]
@@ -504,10 +501,10 @@
     {
       "colorMode": "Panel",
       "colors": {
-        "crit": "rgb(255, 0, 0)",
-        "disable": "rgba(128, 128, 128, 0.9)",
-        "ok": "rgba(50, 128, 45, 0.9)",
-        "warn": "rgba(237, 129, 40, 0.9)"
+        "crit": "#ff6188",
+        "disable": "rgba(96, 103, 96, 0.9)",
+        "ok": "rgba(2, 184, 135, 0.9)",
+        "warn": "rgba(255, 163, 82, 0.9)"
       },
       "cornerRadius": 0,
       "datasource": {
@@ -525,7 +522,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -542,7 +539,8 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "fixed"
+                  "mode": "fixed",
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -559,11 +557,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -583,11 +581,11 @@
                   "mode": "absolute",
                   "steps": [
                     {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "value": null
                     },
                     {
-                      "color": "red",
+                      "color": "#ff6188",
                       "value": 1
                     }
                   ]
@@ -738,10 +736,10 @@
     {
       "colorMode": "Panel",
       "colors": {
-        "crit": "rgba(245, 54, 54, 0.9)",
-        "disable": "rgba(128, 128, 128, 0.9)",
-        "ok": "rgba(50, 128, 45, 0.9)",
-        "warn": "rgba(237, 129, 40, 0.9)"
+        "crit": "rgba(255, 97, 136, 0.9)",
+        "disable": "rgba(96, 103, 96, 0.9)",
+        "ok": "rgba(2, 184, 135, 0.9)",
+        "warn": "rgba(255, 163, 82, 0.9)"
       },
       "cornerRadius": 1,
       "datasource": {
@@ -759,11 +757,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -850,10 +848,10 @@
     {
       "colorMode": "Panel",
       "colors": {
-        "crit": "rgba(245, 54, 54, 0.9)",
-        "disable": "rgba(128, 128, 128, 0.9)",
-        "ok": "rgba(50, 128, 45, 0.9)",
-        "warn": "rgba(237, 129, 40, 0.9)"
+        "crit": "rgba(255, 97, 136, 0.9)",
+        "disable": "rgba(96, 103, 96, 0.9)",
+        "ok": "rgba(2, 184, 135, 0.9)",
+        "warn": "rgba(255, 163, 82, 0.9)"
       },
       "cornerRadius": 1,
       "datasource": {
@@ -871,11 +869,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -892,7 +890,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "red",
+                  "fixedColor": "#ff6188",
                   "mode": "fixed"
                 }
               }
@@ -907,7 +905,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#987d24",
+                  "fixedColor": "#ffd27a",
                   "mode": "fixed"
                 }
               }
@@ -1018,20 +1016,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "rgba(50, 172, 45, 0.97)",
+                "color": "#21E2D7",
                 "value": null
-              },
-              {
-                "color": "rgba(237, 129, 40, 0.89)",
-                "value": 0.025
-              },
-              {
-                "color": "rgba(245, 54, 54, 0.9)",
-                "value": 0.1
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#21E2D7"
+          }
         }
       },
       "gridPos": {
@@ -1103,7 +1097,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1180,15 +1174,15 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#d44a3a",
+                "color": "#ff6188",
                 "value": null
               },
               {
-                "color": "rgba(237, 129, 40, 0.89)",
+                "color": "rgba(255, 163, 82, 0.89)",
                 "value": 0
               },
               {
-                "color": "#9ac48a",
+                "color": "#02E5A8",
                 "value": 0
               }
             ]
@@ -1241,10 +1235,10 @@
     {
       "colorMode": "Panel",
       "colors": {
-        "crit": "rgba(245, 54, 54, 0.9)",
-        "disable": "rgba(128, 128, 128, 0.9)",
-        "ok": "rgba(50, 128, 45, 0.9)",
-        "warn": "rgba(237, 129, 40, 0.9)"
+        "crit": "rgba(255, 97, 136, 0.9)",
+        "disable": "rgba(96, 103, 96, 0.9)",
+        "ok": "rgba(2, 184, 135, 0.9)",
+        "warn": "rgba(255, 163, 82, 0.9)"
       },
       "cornerRadius": 1,
       "datasource": {
@@ -1262,11 +1256,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -1447,7 +1441,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 40,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1474,15 +1468,15 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "#c0921f",
+                "color": "#ffd27a",
                 "value": 75
               },
               {
-                "color": "#E02F44",
+                "color": "#cc4e6e",
                 "value": 85
               }
             ]
@@ -1499,7 +1493,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "red",
+                  "fixedColor": "#ff6188",
                   "mode": "fixed"
                 }
               }
@@ -1514,7 +1508,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "green",
+                  "fixedColor": "#02E5A8",
                   "mode": "fixed"
                 }
               },
@@ -1608,7 +1602,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1634,18 +1628,49 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 85
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "Bps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -1726,7 +1751,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1752,18 +1777,49 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "ops"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -1844,7 +1900,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1870,11 +1926,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -1942,7 +1998,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1968,7 +2024,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -2054,7 +2110,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -2080,11 +2136,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -2152,7 +2208,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -2178,11 +2234,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -2250,7 +2306,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -2276,11 +2332,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -2356,7 +2412,8 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "#21E2D7"
           },
           "custom": {
             "axisCenteredZero": false,
@@ -2366,7 +2423,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -2392,10 +2449,10 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -2458,7 +2515,7 @@
           "step": 200
         }
       ],
-      "title": "OSD Type Count",
+      "title": "Total Objects",
       "type": "timeseries"
     },
     {
@@ -2480,7 +2537,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -2506,10 +2563,10 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -2631,7 +2688,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(ceph_unclean_pgs{cluster=~\"$cluster|\", })",
+          "expr": "sum(ceph_pg_total{cluster=~\"$cluster|\", }) - sum(ceph_pg_clean{cluster=~\"$cluster|\", })",
           "format": "time_series",
           "interval": "$interval",
           "intervalFactor": 1,
@@ -2711,7 +2768,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(ceph_pg_wait_backfill{cluster=~\"$cluster|\", })",
+          "expr": "sum(ceph_pg_backfill_wait{cluster=~\"$cluster|\", })",
           "format": "time_series",
           "interval": "$interval",
           "intervalFactor": 1,
@@ -2802,7 +2859,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(ceph_pg_backfill{cluster=~\"$cluster|\", })",
+          "expr": "sum(ceph_pg_backfilling{cluster=~\"$cluster|\", })",
           "format": "time_series",
           "interval": "$interval",
           "intervalFactor": 1,
@@ -2859,7 +2916,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -2885,10 +2942,10 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -2907,6 +2964,51 @@
                 "value": {
                   "group": false,
                   "mode": "normal"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#02E5A8"
                 }
               }
             ]
@@ -2994,7 +3096,8 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "fixed",
+            "fixedColor": "#21E2D7"
           },
           "custom": {
             "axisCenteredZero": false,
@@ -3004,7 +3107,7 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 10,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -3030,10 +3133,10 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 80
               }
             ]
@@ -3099,7 +3202,7 @@
             "cardRound": null
           },
           "color": {
-            "cardColor": "#b4ff00",
+            "cardColor": "#02E5A8",
             "colorScale": "sqrt",
             "colorScheme": "interpolateOranges",
             "exponent": 0.5,
@@ -3153,7 +3256,7 @@
             "cellValues": {},
             "color": {
               "exponent": 0.5,
-              "fill": "#b4ff00",
+              "fill": "#02E5A8",
               "mode": "opacity",
               "reverse": false,
               "scale": "exponential",
@@ -3161,7 +3264,7 @@
               "steps": 128
             },
             "exemplars": {
-              "color": "rgba(255,0,255,0.7)"
+              "color": "rgba(247, 9, 151, 0.7)"
             },
             "filterValues": {
               "le": 1e-09
@@ -3230,7 +3333,7 @@
             "cardRound": null
           },
           "color": {
-            "cardColor": "#65c5db",
+            "cardColor": "#21E2D7",
             "colorScale": "sqrt",
             "colorScheme": "interpolateOranges",
             "exponent": 0.5,
@@ -3283,7 +3386,7 @@
             "cellValues": {},
             "color": {
               "exponent": 0.5,
-              "fill": "#65c5db",
+              "fill": "#21E2D7",
               "mode": "opacity",
               "reverse": false,
               "scale": "exponential",
@@ -3291,7 +3394,7 @@
               "steps": 128
             },
             "exemplars": {
-              "color": "rgba(255,0,255,0.7)"
+              "color": "rgba(247, 9, 151, 0.7)"
             },
             "filterValues": {
               "le": 1e-09
@@ -3360,7 +3463,7 @@
             "cardRound": null
           },
           "color": {
-            "cardColor": "#806eb7",
+            "cardColor": "#9932cc",
             "colorScale": "sqrt",
             "colorScheme": "interpolateOranges",
             "exponent": 0.5,
@@ -3413,7 +3516,7 @@
             "cellValues": {},
             "color": {
               "exponent": 0.5,
-              "fill": "#806eb7",
+              "fill": "#9932cc",
               "mode": "opacity",
               "reverse": false,
               "scale": "exponential",
@@ -3421,7 +3524,7 @@
               "steps": 128
             },
             "exemplars": {
-              "color": "rgba(255,0,255,0.7)"
+              "color": "rgba(247, 9, 151, 0.7)"
             },
             "filterValues": {
               "le": 1e-09
@@ -3442,7 +3545,7 @@
               "decimals": 2,
               "min": "0",
               "reverse": false,
-              "unit": "ms"
+              "unit": "s"
             }
           },
           "pluginVersion": "9.4.7",
@@ -3474,7 +3577,7 @@
           "xBucketSize": "",
           "yAxis": {
             "decimals": null,
-            "format": "ms",
+            "format": "s",
             "logBase": 2,
             "max": null,
             "min": "0",
@@ -3491,7 +3594,7 @@
             "cardRound": null
           },
           "color": {
-            "cardColor": "#f9934e",
+            "cardColor": "#ffa352",
             "colorScale": "sqrt",
             "colorScheme": "interpolateOranges",
             "exponent": 0.5,
@@ -3544,7 +3647,7 @@
             "cellValues": {},
             "color": {
               "exponent": 0.5,
-              "fill": "#f9934e",
+              "fill": "#ffa352",
               "mode": "opacity",
               "reverse": false,
               "scale": "exponential",
@@ -3552,7 +3655,7 @@
               "steps": 128
             },
             "exemplars": {
-              "color": "rgba(255,0,255,0.7)"
+              "color": "rgba(247, 9, 151, 0.7)"
             },
             "filterValues": {
               "le": 1e-09
@@ -3573,7 +3676,7 @@
               "decimals": 2,
               "min": "0",
               "reverse": false,
-              "unit": "ms"
+              "unit": "s"
             }
           },
           "pluginVersion": "9.4.7",
@@ -3605,7 +3708,7 @@
           "xBucketSize": "",
           "yAxis": {
             "decimals": null,
-            "format": "ms",
+            "format": "s",
             "logBase": 2,
             "max": null,
             "min": "0",
@@ -3635,7 +3738,7 @@
                 "barAlignment": 0,
                 "drawStyle": "line",
                 "fillOpacity": 10,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3661,17 +3764,48 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
-              "unit": "ms"
+              "unit": "s"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 7,
@@ -3719,7 +3853,7 @@
               "refId": "B"
             }
           ],
-          "title": "Recovery Operations",
+          "title": "OSD Read/Write Op Latency",
           "type": "timeseries"
         },
         {
@@ -3741,7 +3875,7 @@
                 "barAlignment": 0,
                 "drawStyle": "line",
                 "fillOpacity": 10,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3767,17 +3901,48 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
               "unit": "ms"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 7,
@@ -3885,7 +4050,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               }
             ]
           }

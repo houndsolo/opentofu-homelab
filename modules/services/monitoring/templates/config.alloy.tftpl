@@ -66,8 +66,29 @@ loki.source.syslog "network" {
     labels                 = { source = "syslog" }
   }
   relabel_rules = loki.relabel.syslog.rules
-  forward_to    = [loki.write.loki.receiver]
+  forward_to    = [%{ if dedup_hosts != "" }loki.process.syslog.receiver%{ else }loki.write.loki.receiver%{ endif }]
 }
+%{ if dedup_hosts != "" ~}
+
+// VyOS sends every non-kernel line twice: its rsyslog reads the journal (imjournal) and
+// journald's syslog socket (imuxsock, ForwardToSyslog=yes). The imuxsock copy is the
+// message with one space in front. Dropped here for the hosts matching dedup_hosts: lines
+// with exactly one leading space, then a non-space. Kernel lines only come through
+// imjournal. Indented continuation lines (tracebacks) keep both copies. A line that only
+// came through imjournal and starts with one space is lost: boot-time lines from before
+// rsyslog started (~100 per reboot) and the odd line imjournal missed, ~125/day over the
+// 14 VyOS routers in the 2026-11-10 check. The PVE nodes and DNS VMs (rsyslog, one copy
+// with a leading space on every line) and the switches aren't matched. Dropped lines:
+// loki_process_dropped_lines_total{reason="vyos_imuxsock_duplicate"}.
+loki.process "syslog" {
+  stage.match {
+    selector            = "{host=~\"${replace(dedup_hosts, "\\", "\\\\\\\\")}\", app!=\"kernel\"} |~ \"^ [^ ]\""
+    action              = "drop"
+    drop_counter_reason = "vyos_imuxsock_duplicate"
+  }
+  forward_to = [loki.write.loki.receiver]
+}
+%{ endif ~}
 
 loki.relabel "syslog" {
   forward_to = []

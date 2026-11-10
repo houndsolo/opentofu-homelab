@@ -2,15 +2,19 @@
 
 Built by custom.py (python3 -I modules/services/monitoring/dashboards/custom.py) with
 its helpers; see custom.py for the conventions. They query the provisioned Loki
-datasource (uid "loki", the VIP 10.13.11.40:3100), which holds:
+datasource (uid "loki", the VIP 10.13.11.101:3100), which holds:
 
-- source="syslog": everything Alloy's syslog listeners on log01-03 receive (VyOS
+- source="syslog": everything Alloy's syslog listeners on loki01-03 receive (VyOS
   leaves, fw-wan, dhcp01/02, dns01/02, PVE nodes, MikroTik, FS switches, C9800 WLCs).
   Labels host, app (syslog tag; empty for the switches and WLCs, whose raw lines carry
   the Cisco-style %FAC-SEV-MNEMONIC instead), level (syslog severity: informational,
   warning, ...), facility. The Ceph cluster log is app="ceph-cluster", once per mon.
-- source="journal": the journal of mon01, graf01/02 and log01-03 (Alloy): host, unit,
+- source="journal": the journal of mon01, graf01/02 and loki01-03 (Alloy): host, unit,
   app, level (journal priority: info, warning, ...) and container for Podman containers.
+
+VyOS's rsyslog sends every non-kernel line twice (imjournal, and imuxsock with a leading
+space); Alloy drops the imuxsock copy on receipt (templates/config.alloy.tftpl), so lines
+from before that change are in Loki twice.
 
 Two quirks the queries handle:
 
@@ -22,16 +26,23 @@ Two quirks the queries handle:
   Prometheus (leaf-11): host pickers match case-insensitively, so links from the
   Prometheus dashboards can pass their host label as is.
 
+Pickers are used as plain $var, not ${var:regex}: the Loki datasource then regex-escapes the
+picked values itself (with a doubled backslash, as LogQL wants inside "..."). Grafana's regex
+format escapes with a single backslash, which Loki rejects ("invalid char escape") for values
+like frrinit.sh or (sd-pam). The custom All values (.*, the host lists) pass through unescaped.
+
 Line filters come right after the stream selector and the parsers after them, so Loki
 only parses the lines a panel needs. Counts per bucket use $__auto (the step Grafana
 picks for the panel width); totals use $__range.
 """
 from custom import (
-    BLUE, ORANGE_IF_ANY, RED_IF_ANY, STACK_DASH, Board, bargauge, dashboard, fixed_color,
-    mapping, organize, override, panel, q, stat, steps, table, timeseries,
+    BFD_MAP, BGP_MAP, BLUE, MERGE, ORANGE_IF_ANY, RED_IF_ANY, STACK_DASH, Board, bargauge, cell,
+    dashboard, fixed_color, mapping, organize, override, panel, q, stat, state_timeline, steps, table,
+    timeseries,
 )
 
 LOKI = {"type": "loki", "uid": "loki"}
+MIXED = {"type": "datasource", "uid": "-- Mixed --"}
 UIDS = {"overview": "logs-overview", "network": "logs-network", "fw": "logs-fw-wan", "pve": "logs-proxmox",
         "services": "logs-services"}
 LOGS_LINK = {"type": "dashboards", "tags": ["logs"], "asDropdown": True, "title": "Logs dashboards",
@@ -40,19 +51,22 @@ LOGS_LINK = {"type": "dashboards", "tags": ["logs"], "asDropdown": True, "title"
 TIME = "${__url_time_range}"
 
 # Normalises `level` (see the module docstring). The regexp only feeds container lines;
-# lvl_ is dropped again so it doesn't show up as a label.
-LEVEL = (r'| regexp `(?:\blevel="?|\blvl=|^\[|\] )(?P<lvl_>[A-Za-z]+)` '
+# lvl_ is dropped again so it doesn't show up as a label. The last alternative is a leading
+# RFC3339 timestamp: Telegraf and influx-relay ("2026-11-10T05:27:00Z I! Starting", one-letter
+# I/W/E/D codes) and influxd's zap logger ("<ts>\tinfo\t...").
+LEVEL = (r'| regexp `(?:\blevel="?|\blvl=|^\[|\] |^\d{4}-\d\d-\d\dT\S+Z\s+)(?P<lvl_>[A-Za-z]+)` '
          r'| label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}'
          # eq with several arguments: true if $l equals any of them (cheaper than regexReplaceAll,
          # which Loki compiles for every line).
-         r'{{ if eq $l "error" "err" "eror" "crit" "critical" "alert" "emerg" "emergency" "fatal" "panic" }}error'
-         r'{{ else if eq $l "warning" "warn" }}warning{{ else if eq $l "notice" }}notice'
-         r'{{ else if eq $l "debug" "trace" }}debug{{ else }}info{{ end }}` | drop lvl_')
+         r'{{ if eq $l "error" "err" "eror" "e" "crit" "critical" "alert" "emerg" "emergency" "fatal" "panic" }}error'
+         r'{{ else if eq $l "warning" "warn" "w" }}warning{{ else if eq $l "notice" }}notice'
+         r'{{ else if eq $l "debug" "trace" "d" }}debug{{ else }}info{{ end }}` | drop lvl_')
 LEVEL_COLORS = {"error": "red", "warning": "orange", "notice": "blue", "info": "green", "debug": "text"}
 
 NET_HOSTS = "LEAF-[0-9]+|fw-wan|m3[0-9]+-[0-9]+|switch-[0-9]+|c9800-wlc-[0-9]+"
 PVE_HOSTS = "fichina|macbeth|titania|zoness|fortuna|eldarad|venom|greatfox"
-MON_CONTAINERS = "grafana|prometheus|alertmanager|loki|alloy|haproxy|blackbox-exporter|node-exporter|postgres|influxdb"
+MON_CONTAINERS = ("grafana|prometheus|alertmanager|mimir|loki|alloy|haproxy|blackbox-exporter|node-exporter|"
+                  "snmp-exporter|telegraf|influx-relay|influxdb|postgres|postgres-exporter")
 
 
 # --- building blocks -------------------------------------------------------------
@@ -84,8 +98,15 @@ def total(sel):
 
 def per_bucket(title, targets, *, desc="", stack=True, **kw):
     """Lines per $__auto bucket, as stacked bars."""
+    kw.setdefault("no_value", "Nothing in range")
     return on_loki(timeseries(title, targets, desc=desc, draw="bars", fill=70, stack=stack, calcs=("sum", "max"),
                               decimals=0, **kw))
+
+
+def by_total(p):
+    """Sort a per_bucket legend by its Total (sum) column, largest first."""
+    p["options"]["legend"].update(sortBy="Total", sortDesc=True)
+    return p
 
 
 def range_stat(title, sel, *, desc="", thresholds=None, **kw):
@@ -95,8 +116,11 @@ def range_stat(title, sel, *, desc="", thresholds=None, **kw):
 
 
 def top(title, expr, legend, *, n=10, desc="", thresholds=None, links=None, **kw):
-    """Top n series of a count over the time range, as horizontal bars."""
-    p = on_loki(bargauge(title, [lq(f"topk({n}, {expr})", legend, instant=True)], desc=desc, decimals=0,
+    """Top n series of a count over the time range, as horizontal bars, largest first.
+
+    sort_desc: the bar gauge keeps the frame order, and topk's frames come sorted by label.
+    """
+    p = on_loki(bargauge(title, [lq(f"sort_desc(topk({n}, {expr}))", legend, instant=True)], desc=desc, decimals=0,
                          thresholds=thresholds or BLUE, mode="gradient", no_value="Nothing in range", **kw))
     if links:
         p["fieldConfig"]["defaults"]["links"] = [{"title": t, "url": u, "targetBlank": False} for t, u in links]
@@ -130,14 +154,14 @@ def log_table(title, expr, columns, *, desc="", rename=None, widths=None, overri
         sort="Time", desc_sort=True))
 
 
-def history(title, targets, *, desc="", thresholds=None, **kw):
+def history(title, targets, *, desc="", thresholds=None, no_value="", **kw):
     """A status-history grid: one row per series, a cell per bucket coloured by its count."""
     return on_loki(panel("status-history", title, targets, desc=desc, decimals=0,
                          thresholds=thresholds or steps(("green", None), ("orange", 1), ("red", 10)),
                          custom={"fillOpacity": 80, "lineWidth": 0}, options={
                              "showValue": "never", "rowHeight": 0.85, "colWidth": 0.9,
                              "legend": {"showLegend": False, "displayMode": "list", "placement": "bottom"},
-                             "tooltip": {"mode": "single", "sort": "none"}}, no_value="", **kw))
+                             "tooltip": {"mode": "single", "sort": "none"}}, no_value=no_value, **kw))
 
 
 def level_colors():
@@ -197,8 +221,9 @@ def logs_dashboard(key, title, description, b, *, tags=(), variables=(), extra_l
 # --- Logs overview -------------------------------------------------------------------
 
 def overview():
-    sel = '{source=~"${source:regex}", host=~"(?i)${host:regex}", app=~"${app:regex}"}'
-    lines = sel + search() + " " + LEVEL + ' | level=~"${level:regex}"'
+    # ${source}, not $source: tests/monitoring.tftest.hcl rejects "$source" (a datasource variable elsewhere).
+    sel = '{source=~"${source}", host=~"(?i)$host", app=~"$app"}'
+    lines = sel + search() + " " + LEVEL + ' | level=~"$level"'
     # Error and warning panels ignore the level picker.
     leveled = sel + search() + " " + LEVEL
     errors, warnings = leveled + ' | level="error"', leveled + ' | level="warning"'
@@ -209,7 +234,7 @@ def overview():
     b.add(range_stat("Lines in range", lines, desc="Lines matching the pickers in the time range."), 4, 4)
     b.add(on_loki(stat("Lines / s", [lq(f"sum(rate({lines} [5m])) or vector(0)", "lines/s", instant=True)],
                        decimals=1, color_mode="value", thresholds=BLUE, desc="Over the last 5 minutes.")), 4, 4)
-    b.add(range_stat("Errors in range", errors, thresholds=ORANGE_IF_ANY,
+    b.add(range_stat("Errors in range", errors, thresholds=RED_IF_ANY,
                      desc="Lines at error or worse (emerg, alert, crit, err), after normalising container levels."), 4, 4)
     b.add(range_stat("Warnings in range", warnings, thresholds=ORANGE_IF_ANY), 4, 4)
     b.add(on_loki(stat("Hosts sending", [lq(f"count(sum by (host) ({count(sel, '5m')})) or vector(0)", "hosts",
@@ -227,11 +252,14 @@ def overview():
     b.add(per_bucket("Lines by source", [lq(f"sum by (source) ({count(lines)})", "{{source}}")],
                      overrides=[fixed_color("syslog", "blue"), fixed_color("journal", "purple")],
                      desc="syslog: devices and VMs sending syslog; journal: the monitoring and logging VMs' "
-                          "journals (Alloy). The VyOS routers and DHCP VMs currently send every line twice "
-                          "(once with a leading space), so their volume is doubled."), 8, 8)
+                          "journals (Alloy). The VyOS routers and DHCP VMs send every line twice; Alloy keeps one "
+                          "copy, so their volume is doubled only before that change (2026-11)."), 8, 8)
     b.add(per_bucket("Lines by level", [lq(f"sum by (level) ({count(lines)})", "{{level}}")],
                      overrides=level_colors(), desc="Normalised level (see the dashboard description)."), 8, 8)
-    b.add(per_bucket("Lines by host (top 10)", [lq(f"topk(10, sum by (host) ({count(lines)}))", "{{host}}")]), 8, 8)
+    # No topk: in a range query it keeps the top 10 of each bucket, and their union is nearly every host.
+    b.add(by_total(per_bucket("Lines by host", [lq(f"sum by (host) ({count(lines)})", "{{host}}")],
+                              desc="Every selected host, the legend sorted by total. The top hosts over the whole "
+                                   "range: see Noisiest hosts.")), 8, 8)
     b.add(per_bucket("Errors by host", [lq(f"sum by (host) ({count(errors)})", "{{host}}")],
                      desc="Ignores the level picker."), 12, 8)
     b.add(per_bucket("Warnings by host", [lq(f"sum by (host) ({count(warnings)})", "{{host}}")],
@@ -257,8 +285,11 @@ def overview():
           24, 22)
 
     source_var = custom_var("source", "Source", [("journal", "journal"), ("syslog", "syslog")], all_value=".+")
-    host_var = loki_var("host", "Host", '{source=~"${source:regex}"}', "host")
-    app_var = loki_var("app", "App", '{source=~"${source:regex}", host=~"(?i)${host:regex}"}', "app")
+    host_var = loki_var("host", "Host", '{source=~"${source}"}', "host")
+    # Hides Podman's random names of one-shot containers (admiring_haslett: config checks), which the
+    # journal reports as the app; All still includes their lines.
+    app_var = loki_var("app", "App", '{source=~"${source}", host=~"(?i)$host"}', "app",
+                       regex="/^(?![a-z]+_[a-z]+$)(.+)$/")
     return logs_dashboard("overview", "Logs overview",
                           "Every log in Loki: volume by source, level and host, errors and warnings, the noisiest "
                           "hosts and apps, newest errors and a log browser with host/source/app/level/search pickers.",
@@ -267,17 +298,18 @@ def overview():
 
 # --- Network device logs -----------------------------------------------------------
 
-NET = '{source="syslog", host=~"${device:regex}"}'
-WLC = '{source="syslog", host=~"c9800-wlc-[0-9]+"}'
+NET = '{source="syslog", host=~"$device"}'
+WLC_HOSTS = "c9800-wlc-[0-9]+"
 # (name, line regex, description). The regexes cover FRR/kernel/sshd on VyOS, RouterOS,
 # FS (Cisco-like and Ruijie-like) and IOS-XE.
 EVENTS = [
-    ("BGP / BFD", r"ADJCHANGE|\{l_addr: [^}]*\} [A-Za-z]+|(?i:state-change|bfd session|\bbgp\b.*\b(established|idle|notification|hold timer)\b)",
-     "FRR's %ADJCHANGE (bgpd, log-neighbor-changes) on VyOS; RouterOS session state lines "
-     "('<session> {l_addr: .., r_addr: ..} Established/Idle') and 'BFD session was not established'. "
-     "FRR logs BFD state changes only at debug level, so they don't show up here."),
-    ("Interface up/down", r"(?i:\blink is (up|down)\b|\blink (up|down)\b|updown|changed state to (up|down|administratively down)|carrier (lost|acquired))",
-     "Kernel 'Link is Up/Down' (VyOS), RouterOS 'link up/down', Cisco/FS %LINK/%LINEPROTO UPDOWN."),
+    ("BGP / BFD", r"\{l_addr: [^}]*\} [A-Za-z]+|(?i:state-change|bfd session|\bbgp\b.*\b(established|idle|notification|hold timer)\b)",
+     "Log lines: RouterOS session state lines ('<session> {l_addr: .., r_addr: ..} Established/Idle') and "
+     "'BFD session was not established'. FRR on VyOS logs %ADJCHANGE and BFD state changes at informational, "
+     "but VyOS sets 'log syslog notifications', so its sessions come from frr_exporter (Prometheus) instead."),
+    ("Interface up/down", r"(?i:\blink is (up|down)\b|\blink (up|down)\b|\bupdown\b|changed state to (up|down|administratively down)|carrier (lost|acquired))",
+     "Kernel 'Link is Up/Down' (VyOS), RouterOS 'link up/down', Cisco/FS %LINK/%LINEPROTO UPDOWN "
+     "(not systemd's 'ifupdown' units)."),
     ("STP", r"(?i:spantree|\bstp\b|mstp|rstp|topology change|topo(logy)?[ _-]?change|entered (blocking|forwarding|disabled|listening|learning) state)",
      "Spanning tree: topology changes, port role/state changes (also Linux bridge port states on VyOS)."),
     ("Auth failures", r"(?i:failed password|invalid user|authentication failure|login failure|auth fail|login_failed|authentication failed|failed publickey|maximum authentication attempts|bad password)",
@@ -291,22 +323,70 @@ EVENTS = [
      "C9800: access points joining or leaving the controller (%CAPWAPAC_SMGR_TRACE_MESSAGE-5-AP_JOIN_DISJOIN), "
      "AP reboots and AIR state."),
     ("Client failures", r"(?i:client_exclusion|exclusionlist|dot1x.*fail|mab.*fail|webauth.*fail|client.*(fail|reject|exclu|deauth|timeout))",
-     "C9800: wireless clients excluded, failing 802.1X/MAB/web auth or being rejected."),
+     "C9800: wireless clients excluded, failing 802.1X/MAB/web auth or being rejected (WLC lines only)."),
 ]
 EVENT_RE = {name: regex for name, regex, _ in EVENTS}
 ALL_EVENTS = "|".join(f"(?:{regex})" for _, regex, _ in EVENTS)
-BGP_CHANGE = r"ADJCHANGE|\{l_addr: "
-# FRR:      %ADJCHANGE: neighbor eth1(m326-1) in vrf default Down BGP Notification send
-# RouterOS: overlay-leaf-20-1 {l_addr: fd69:255:240::1, r_addr: fd69:255:240::20} Established
-# Each regexp only matches its own format; label_format picks whichever matched.
-BGP_PARSE = (r"| regexp `neighbor (?P<peer_a>[^\s(]+)\s?(?:\((?P<name_a>[^)]*)\))? in vrf (?P<vrf>\S+) "
-             r"(?P<state_a>Up|Down)\s*(?P<reason>[^\n]*)` "
-             r"| regexp `(?P<name_b>\S+) \{l_addr: [^,]+, r_addr: (?P<peer_b>[^}]+)\} (?P<state_b>[A-Za-z]+)` "
-             r"| label_format peer=`{{ or .peer_a .peer_b }}`, peer_name=`{{ or .name_a .name_b }}`, "
-             r"state=`{{ or .state_a .state_b }}`")
-BGP_STATE_MAP = mapping(Up=("Up", "green"), Established=("Established", "green"), Down=("Down", "red"),
-                        Idle=("Idle", "red"), Active=("Active", "orange"), Connect=("Connect", "orange"),
-                        OpenSent=("OpenSent", "orange"), OpenConfirm=("OpenConfirm", "orange"))
+# The wireless categories only count the WLCs' lines: their regexes also match other devices (fw-wan's
+# Telegraf "Client.Timeout exceeded" is no client failure). A label filter after NET keeps the device picker.
+WLC_ONLY = ("AP join/leave", "Client failures")
+NON_WLC_EVENTS = "|".join(f"(?:{regex})" for name, regex, _ in EVENTS if name not in WLC_ONLY)
+
+
+def event_sel(sel, name):
+    """sel's lines of one event category."""
+    return f"{sel} |~ `{EVENT_RE[name]}`" + (f' | host=~"{WLC_HOSTS}"' if name in WLC_ONLY else "")
+
+
+# RouterOS (spines, CRS317): overlay-leaf-20-1 {l_addr: fd69:255:240::1, r_addr: fd69:255:240::20} Established
+ROS_BGP_CHANGE = r"\{l_addr: "
+ROS_BGP_PARSE = r"| regexp `(?P<peer_name>\S+) \{l_addr: [^,]+, r_addr: (?P<peer>[^}]+)\} (?P<state>[A-Za-z]+(?: [a-z]+)*)`"
+BGP_STATE_MAP = mapping(Established=("Established", "green"), Idle=("Idle", "red"), Active=("Active", "orange"),
+                        Connect=("Connect", "orange"), OpenSent=("OpenSent", "orange"),
+                        OpenConfirm=("OpenConfirm", "orange"))
+
+# FRR sessions (VyOS leaves, fw-wan) from frr_exporter in Prometheus. Host labels are lower case
+# there (leaf-11), so the Loki device picker matches case-insensitively.
+FRR = 'host=~"(?i)$device"'
+BGP_KEY = "host, vrf, peer, peer_hostname, afi, safi"
+BFD_KEY = "host, local, peer"
+
+
+def frr_flaps(state, uptime, key, at=""):
+    """Per session: state changes the scrapes saw or uptime restarts, whichever is more.
+
+    A flap shorter than the scrape interval (a bgpd restart) only shows as an uptime restart; a
+    session that went down and stays down only as a state change. at="@ end()" counts over the
+    dashboard range at its end (for filters in range queries).
+    """
+    return (f'max by ({key}) (changes({state}{{{FRR}}}[$__range] {at}) '
+            f'or label_replace(resets({uptime}{{{FRR}}}[$__range] {at}), "via_", "uptime", "", ""))')
+
+
+BGP_FLAPS = frr_flaps("frr_bgp_peer_state", "frr_bgp_peer_uptime_seconds", BGP_KEY)
+BFD_FLAPS = frr_flaps("frr_bfd_peer_state", "frr_bfd_peer_uptime", BFD_KEY)
+
+
+def changed(flaps, state, key, at=""):
+    """Sessions that flapped in the range or aren't up now."""
+    return f"(({flaps}) > 0 or max by ({key}) ({state}{{{FRR}}} {at}) != 1)"
+
+
+def frr_session_table(title, state, uptime, flaps, key, rename, order, state_map, *, desc, no_value):
+    sessions = changed(flaps, state, key)
+    return table(title, [
+        q(f"max by ({key}) (changes({state}{{{FRR}}}[$__range])) and on ({key}) {sessions}", table=True),
+        q(f"max by ({key}) (resets({uptime}{{{FRR}}}[$__range])) and on ({key}) {sessions}", table=True),
+        q(f"max by ({key}) ({state}{{{FRR}}}) and on ({key}) {sessions}", table=True),
+        q(f"max by ({key}) ({uptime}{{{FRR}}}) and on ({key}) {sessions}", table=True),
+    ], desc=desc, no_value=no_value, sort="Restarts", desc_sort=True, transformations=[
+        MERGE, organize(exclude=["Time"], rename={**rename, "Value #A": "State changes", "Value #B": "Restarts",
+                                                  "Value #C": "State now", "Value #D": "Uptime"},
+                        order=[*order, "State changes", "Restarts", "State now", "Uptime"])],
+        overrides=[cell("State now", "color-background"), override("State now", {"mappings": state_map}),
+                   override("Uptime", {"unit": "dtdurations"}),
+                   override("State changes|Restarts", {"thresholds": ORANGE_IF_ANY,
+                                                       "custom.cellOptions": {"type": "color-text"}}, regex=True)])
 # AP Event: AP Name: lylat-AP-1 Mac: 588b.1c93.07e0 Session-IP: 10.3.11.100[5264] 10.3.1.1[5246] Disjoined Heart beat timer expiry
 AP_PARSE = (r"| regexp `AP Name: (?P<ap>\S+) .*?\b(?P<event>Joined|Disjoined)\b\s*(?P<reason>[^\n]*)`")
 
@@ -316,32 +396,69 @@ def network():
     b = Board()
     b.row("Events in range")
     for name, regex, desc in EVENTS:
-        thresholds = ORANGE_IF_ANY if name in ("Auth failures", "Client failures", "BGP / BFD") else BLUE
-        b.add(range_stat(name, f"{sel} |~ `{regex}`", desc=desc, thresholds=thresholds), 3, 4)
+        if name == "BGP / BFD":
+            # Log lines (RouterOS, BFD failures) plus the FRR sessions' flaps from Prometheus.
+            p = stat(name, [lq(total(event_sel(sel, name)), "logs", instant=True),
+                            q(f"(sum({BGP_FLAPS}) or vector(0)) + (sum({BFD_FLAPS}) or vector(0))", "FRR",
+                              instant=True)],
+                     desc=desc + " FRR: BGP and BFD session flaps in range (state changes or uptime restarts, see "
+                                 "the Routing row).", decimals=0, color_mode="value", text_mode="value_and_name",
+                     thresholds=ORANGE_IF_ANY, no_value="0")
+            p["datasource"] = dict(MIXED)
+            b.add(p, 3, 4)
+            continue
+        thresholds = ORANGE_IF_ANY if name in ("Auth failures", "Client failures") else BLUE
+        b.add(range_stat(name, event_sel(sel, name), desc=desc, thresholds=thresholds), 3, 4)
 
     b.row("Timelines")
-    b.add(history("Events per device", [lq(f"sum by (host) ({count(sel + f' |~ `{ALL_EVENTS}`')})", "{{host}}")],
+    # The WLCs count every category, the other devices all but the wireless ones (disjoint hosts, so `or` adds up).
+    per_device = (f"sum by (host) ({count(f'{sel} |~ `{NON_WLC_EVENTS}` | host!~`{WLC_HOSTS}`')}) or "
+                  f"sum by (host) ({count(f'{sel} |~ `{ALL_EVENTS}` | host=~`{WLC_HOSTS}`')})")
+    b.add(history("Events per device", [lq(per_device, "{{host}}")],
                   desc="Every event of the categories above, per device and time bucket (darker = more). "
                        "Only devices with events show up."), 24, 9)
     b.add(per_bucket("Events by category", [
-        lq(f"sum({count(sel + f' |~ `{regex}`')})", name) for name, regex, _ in EVENTS],
+        lq(f"sum({count(event_sel(sel, name))})", name) for name, _, _ in EVENTS],
         desc="One line can count in two categories (a 'login failure' line is also a login line on some "
              "devices)."), 12, 8)
     b.add(per_bucket("Lines per device", [lq(f"sum by (host) ({count(sel)})", "{{host}}")],
-                     desc="All syslog lines of the selected devices. VyOS lines are sent twice (see Logs overview)."),
+                     desc="All syslog lines of the selected devices (VyOS lines once: Alloy drops the duplicate "
+                          "copy, see Logs overview)."),
           12, 8)
 
     b.row("Routing: BGP and BFD")
-    b.add(log_table("BGP session changes", sel + f" |~ `{BGP_CHANGE}` {BGP_PARSE}",
-                    ["host", "peer", "peer_name", "vrf", "state", "reason"],
-                    rename={"host": "Router", "peer": "Peer", "peer_name": "Session / name", "vrf": "VRF",
-                            "state": "State", "reason": "Reason"},
-                    widths={"host": 90, "peer": 230, "peer_name": 150, "vrf": 90, "state": 90},
+    frr_note = ("FRR on the VyOS leaves and fw-wan (frr_exporter, Prometheus; the device picker applies). "
+                "VyOS doesn't send FRR's %ADJCHANGE to syslog (it sets 'log syslog notifications'). ")
+    b.add(frr_session_table(
+        "BGP session changes", "frr_bgp_peer_state", "frr_bgp_peer_uptime_seconds", BGP_FLAPS, BGP_KEY,
+        {"host": "Router", "vrf": "VRF", "peer": "Peer", "peer_hostname": "Peer hostname", "afi": "AFI",
+         "safi": "SAFI"}, ["Router", "VRF", "Peer", "Peer hostname", "AFI", "SAFI"], BGP_MAP,
+        desc=frr_note + "Sessions that changed state at a scrape, restarted (uptime went back: also flaps shorter "
+                        "than the scrape interval, like a bgpd restart) or aren't established now. State changes "
+                        "count both directions (down and up again = 2).",
+        no_value="No BGP session changed in range"), 12, 10)
+    bgp_changed = changed(frr_flaps("frr_bgp_peer_state", "frr_bgp_peer_uptime_seconds", BGP_KEY, "@ end()"),
+                          "frr_bgp_peer_state", BGP_KEY, "@ end()")
+    b.add(state_timeline("BGP session state", [
+        q(f"max by ({BGP_KEY}) (frr_bgp_peer_state{{{FRR}}}) and on ({BGP_KEY}) {bgp_changed}",
+          "{{host}} {{vrf}} {{peer}} {{peer_hostname}} {{afi}}")],
+        mappings=BGP_MAP, thresholds=steps(("red", None), ("green", 1), ("orange", 2)), no_value="No BGP session changed in range",
+        desc=frr_note + "The sessions of the table on the left over time, at scrape resolution: a restart shorter "
+                        "than the scrape interval doesn't show here. Gaps: the exporter wasn't scraped or bgpd was "
+                        "restarting."), 12, 10)
+    b.add(frr_session_table(
+        "BFD session changes", "frr_bfd_peer_state", "frr_bfd_peer_uptime", BFD_FLAPS, BFD_KEY,
+        {"host": "Router", "local": "Local", "peer": "Peer"}, ["Router", "Local", "Peer"], BFD_MAP,
+        desc=frr_note + "BFD sessions that changed state, restarted or aren't up now.",
+        no_value="No BFD session changed in range"), 8, 10)
+    b.add(log_table("RouterOS BGP session changes", sel + f" |~ `{ROS_BGP_CHANGE}` {ROS_BGP_PARSE}",
+                    ["host", "peer_name", "peer", "state"],
+                    rename={"host": "Router", "peer": "Remote address", "peer_name": "Session", "state": "State"},
+                    widths={"host": 90, "peer": 200, "peer_name": 150, "state": 100},
                     overrides=[override("State", {"mappings": BGP_STATE_MAP,
                                                   "custom.cellOptions": {"type": "color-text"}})],
-                    desc="FRR's %ADJCHANGE (VyOS leaves, fw-wan: peer(hostname) in vrf X Up/Down reason) and "
-                         "RouterOS session states (spines, CRS317: session name, remote address, state)."), 12, 10)
-    b.add(logs("BGP / BFD log", f"{sel} |~ `{EVENT_RE['BGP / BFD']}`", desc=EVENTS[0][2]), 12, 10)
+                    desc="RouterOS session state lines (spines, CRS317: session name, remote address, state)."), 8, 10)
+    b.add(logs("BGP / BFD log", f"{sel} |~ `{EVENT_RE['BGP / BFD']}`", desc=EVENTS[0][2]), 8, 10)
 
     b.row("Interfaces and spanning tree")
     ifsel = f"{sel} |~ `{EVENT_RE['Interface up/down']}`"
@@ -359,7 +476,8 @@ def network():
     b.add(logs("Config changes", f"{sel} |~ `{EVENT_RE['Config changes']}`", desc=EVENTS[5][2]), 8, 10)
 
     b.row("Wireless (C9800) and Cisco-style messages")
-    b.add(log_table("AP join/leave", f"{WLC}{search()} |~ `{EVENT_RE['AP join/leave']}` {AP_PARSE}",
+    # NET plus a host filter (event_sel), like the stats: a non-WLC device shows the no-value text.
+    b.add(log_table("AP join/leave", f"{event_sel(sel, 'AP join/leave')} {AP_PARSE}",
                     ["host", "ap", "event", "reason"],
                     rename={"host": "WLC", "ap": "AP", "event": "Event", "reason": "Reason / details"},
                     widths={"host": 100, "ap": 100, "event": 90},
@@ -367,7 +485,7 @@ def network():
                                                                       Disjoined=("Disjoined", "red")),
                                                   "custom.cellOptions": {"type": "color-text"}})],
                     desc=EVENTS[6][2]), 8, 10)
-    b.add(logs("Client failures", f"{WLC}{search()} |~ `{EVENT_RE['Client failures']}`", desc=EVENTS[7][2]), 8, 10)
+    b.add(logs("Client failures", event_sel(sel, "Client failures"), desc=EVENTS[7][2]), 8, 10)
     b.add(top("Message types (range)",
               f'sum by (host, mnemonic) (count_over_time({sel} |= "%" '
               '| regexp `%(?P<mnemonic>[A-Z0-9_]+-[0-7]-[A-Z0-9_]+)` | mnemonic!="" [$__range]))',
@@ -392,7 +510,9 @@ FW_PREFIX = r"^\s*\[ipv[46]-"
 # [ipv4-NAM-deny_data-22-D]IN=guest_vrf OUT=eth5 MAC=... SRC=10.4.0.57 DST=... PROTO=TCP SPT=59081 DPT=7680 ...
 FW_PARSE = (r"| regexp `^\s*\[(?P<family>ipv[46])-(?P<hook>[A-Z]+)-(?P<chain>.+)-(?P<rule>[^-\]]+)-(?P<act>[ADR])\]"
             r"\s*IN=(?P<in>\S*) OUT=(?P<out>\S*)` "
-            r'| logfmt src="SRC", dst="DST", proto="PROTO", spt="SPT", dpt="DPT" '
+            # Not `logfmt src="SRC", ...`: Loki drops renamed logfmt labels in metric queries (sum by
+            # (src) came back as one {} series), so extract the keys and rename them with label_format.
+            r'| logfmt SRC, DST, PROTO, SPT, DPT | label_format src=SRC, dst=DST, proto=PROTO, spt=SPT, dpt=DPT '
             r'| label_format action=`{{ if eq .act "A" }}accept{{ else if eq .act "D" }}drop{{ else }}reject{{ end }}` '
             r"| drop act, __error__, __error_details__")
 FW_ACTION_MAP = mapping(accept=("accept", "green"), drop=("drop", "red"), reject=("reject", "orange"))
@@ -493,10 +613,12 @@ def fw_wan():
 
 # --- Proxmox & Ceph logs -------------------------------------------------------------
 
-PVE = '{source="syslog", host=~"${node:regex}"}'
+PVE = '{source="syslog", host=~"$node"}'
 CEPH = '{app="ceph-cluster", host="${cephmon}"}'
 TASK_RE = (r"<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):"
-           r"(?P<id>[^:]*):[^:]+:\s*(?P<status>[^\n]*)")
+           r"(?P<vmid>[^:]*):[^:]+:\s*(?P<status>[^\n]*)")
+# Only corosync's and pmxcfs's lines: pve-ha-lrm's "startup => wait_for_quorum" is no corosync event.
+COROSYNC = '{source="syslog", host=~"$node", app=~"corosync|pmxcfs"}' + search()
 COROSYNC_RE = (r"(?i:host: \d+ link: \d+ is (up|down)|new membership|members\[|quorum|token has not been "
                r"received|retransmit list|failed to receive)")
 OSD_RE = r"(?i:osd\.\d+ (\[[^\]]*\] )?boot|osd\.\d+ (marked|failed|reported)|marked osd\.\d+|marking osd\.\d+|osd\.\d+ out\b)"
@@ -509,15 +631,15 @@ def proxmox():
     sel = PVE + search()
     b = Board()
     b.row("Proxmox nodes: summary")
-    b.add(range_stat("Errors", f"{sel} {LEVEL} | level=\"error\"", thresholds=ORANGE_IF_ANY,
+    b.add(range_stat("Errors", f"{sel} {LEVEL} | level=\"error\"", thresholds=RED_IF_ANY,
                      desc="Lines at error or worse from the selected nodes."), 3, 4)
     b.add(range_stat("Warnings", f"{sel} {LEVEL} | level=\"warning\"", thresholds=ORANGE_IF_ANY), 3, 4)
     b.add(range_stat("Failed tasks", f'{sel} |= "end task UPID" !~ `: OK\\s*$`', thresholds=ORANGE_IF_ANY,
                      desc="PVE tasks that ended with something other than OK."), 3, 4)
     b.add(range_stat("Tasks started", f'{sel} |= "starting task UPID"'), 3, 4)
-    b.add(range_stat("Corosync events", f'{PVE} |~ `{COROSYNC_RE}`', thresholds=ORANGE_IF_ANY,
-                     desc="Link up/down, membership and quorum changes, token loss."), 3, 4)
-    b.add(range_stat("HA events", '{source="syslog", host=~"${node:regex}", app=~"pve-ha-.*"}',
+    b.add(range_stat("Corosync events", f"{COROSYNC} |~ `{COROSYNC_RE}`", thresholds=ORANGE_IF_ANY,
+                     desc="corosync/pmxcfs: link up/down, membership and quorum changes, token loss."), 3, 4)
+    b.add(range_stat("HA events", '{source="syslog", host=~"$node", app=~"pve-ha-.*"}' + search(),
                      desc="pve-ha-crm/lrm lines (service starts, migrations, fencing)."), 3, 4)
     b.add(range_stat("Auth failures", f'{sel} |~ `(?i)authentication failure|auth fail|failed password|invalid user`',
                      thresholds=ORANGE_IF_ANY, desc="PVE web/API (pveproxy, pvedaemon) and SSH login failures."), 3, 4)
@@ -525,43 +647,52 @@ def proxmox():
 
     b.row("Proxmox nodes: volume")
     b.add(per_bucket("Lines by node", [lq(f"sum by (host) ({count(sel)})", "{{host}}")]), 8, 8)
-    b.add(per_bucket("Lines by app (top 10)", [lq(f"topk(10, sum by (app) ({count(sel)}))", "{{app}}")]), 8, 8)
+    b.add(by_total(per_bucket("Lines by app (top 10 per bucket)", [lq(f"topk(10, sum by (app) ({count(sel)}))",
+                                                                        "{{app}}")],
+                              desc="The 10 busiest apps of each bucket, so more than 10 over the range; the legend "
+                                   "is sorted by total.")), 8, 8)
     b.add(per_bucket("Errors and warnings by node", [
         lq(f'sum by (host, level) ({count(sel + " " + LEVEL + " | level=~`error|warning`")})', "{{host}} {{level}}")],
         desc="Syslog severity err or worse, and warning."), 8, 8)
 
     b.row("Cluster: corosync, pmxcfs, HA")
-    b.add(per_bucket("Corosync events by node", [lq(f"sum by (host) ({count(PVE + f' |~ `{COROSYNC_RE}`')})", "{{host}}")],
-                     desc="Link up/down, membership and quorum changes, token loss."), 8, 10)
-    b.add(logs("corosync / pmxcfs", '{source="syslog", host=~"${node:regex}", app=~"corosync|pmxcfs"}' + search(),
+    b.add(per_bucket("Corosync events by node", [lq(f"sum by (host) ({count(f'{COROSYNC} |~ `{COROSYNC_RE}`')})",
+                                                    "{{host}}")],
+                     no_value="No corosync events in range",
+                     desc="corosync/pmxcfs: link up/down, membership and quorum changes, token loss."), 8, 10)
+    b.add(logs("corosync / pmxcfs", COROSYNC,
                desc="Cluster communication and the cluster filesystem (/etc/pve)."), 8, 10)
-    b.add(logs("HA manager", '{source="syslog", host=~"${node:regex}", app=~"pve-ha-.*"}' + search(),
+    b.add(logs("HA manager", '{source="syslog", host=~"$node", app=~"pve-ha-.*"}' + search(),
                desc="pve-ha-crm (cluster resource manager) and pve-ha-lrm (local resource manager)."), 8, 10)
 
     b.row("Tasks and guests")
     tasks = f'{sel} |= " task UPID:" | regexp `{TASK_RE}`'
     b.add(top("Tasks by type (range)", f'sum by (task) ({count(tasks + " | what=`starting`", "$__range")})', "{{task}}",
               n=15, desc="PVE tasks started in the time range (qmstart, vzdump, vncproxy, ...)."), 6, 10)
-    b.add(log_table("Tasks", tasks, ["host", "user", "what", "task", "id", "status"],
-                    rename={"host": "Node", "user": "User", "what": "Event", "task": "Task", "id": "Guest / ID",
+    # vmid, not id: Loki's log frames already have an "id" field (the row id).
+    b.add(log_table("Tasks", tasks, ["host", "user", "what", "task", "vmid", "status"],
+                    rename={"host": "Node", "user": "User", "what": "Event", "task": "Task", "vmid": "Guest / ID",
                             "status": "Status"},
-                    widths={"host": 90, "user": 110, "what": 70, "task": 110, "id": 90, "status": 160},
-                    overrides=[override("Status", {"mappings": mapping(OK=("OK", "green")),
+                    widths={"host": 90, "user": 110, "what": 70, "task": 110, "vmid": 90, "status": 160},
+                    # Anything but OK (a failed task's error text) in red; starting rows have no status.
+                    overrides=[override("Status", {"mappings": mapping(OK=("OK", "green")) + [
+                        {"type": "regex", "options": {"pattern": "/^(?!OK$).+$/", "result": {"color": "red", "index": 1}}}],
                                                    "custom.cellOptions": {"type": "color-text"}})],
                     desc="Task starts and ends (pvedaemon, pveproxy, pvescheduler, ...)."), 18, 10)
-    b.add(logs("Guest lifecycle", '{source="syslog", host=~"${node:regex}", app=~"qmeventd|qm|pct|lxc.*|pvescheduler"}'
+    b.add(logs("Guest lifecycle", '{source="syslog", host=~"$node", app=~"qmeventd|qm|pct|lxc.*|pvescheduler"}'
                + search(), desc="qmeventd (VM start/stop/cleanup), qm/pct and scheduled jobs."), 12, 10)
     b.add(logs("pvestatd / pveproxy / pvedaemon",
-               '{source="syslog", host=~"${node:regex}", app=~"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall"}'
+               '{source="syslog", host=~"$node", app=~"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall"}'
                + search() + ' !~ `status update time`', desc="PVE daemons, without pvestatd's 'status update time' "
                                                               "lines."), 12, 10)
-    b.add(logs("Kernel errors and warnings", '{source="syslog", host=~"${node:regex}", app="kernel"}' + search()
+    b.add(logs("Kernel errors and warnings", '{source="syslog", host=~"$node", app="kernel"}' + search()
                + ' | level=~"emergency|alert|critical|error|warning"', desc="Kernel lines at warning or worse."), 24, 9)
 
     b.row("Ceph cluster log")
     ceph = CEPH + search()
-    b.add(range_stat("Health checks raised", f'{ceph} |= "Health check failed"', thresholds=ORANGE_IF_ANY,
-                     desc="'Health check failed' lines from the cluster log (one mon's copy, the Ceph mon picker)."),
+    b.add(range_stat("Health checks raised", f'{ceph} |~ "Health check (failed|update)"', thresholds=ORANGE_IF_ANY,
+                     desc="'Health check failed' and 'Health check update' lines from the cluster log (one mon's "
+                          "copy, the Ceph mon picker), as in the panels below."),
           4, 4)
     b.add(range_stat("Health checks cleared", f'{ceph} |= "Health check cleared"', thresholds=steps(("green", None))),
           4, 4)
@@ -578,7 +709,8 @@ def proxmox():
         desc="[INF], [WRN], [ERR] lines of the cluster log; [DBG] (pgmap every few seconds) is left out."), 8, 9)
     b.add(history("Health checks raised", [lq(
         f'sum by (check) ({count(ceph + " |~ `Health check (failed|update)` | regexp `\\((?P<check>[A-Z0-9_]+)\\)\\s*$`")})',
-        "{{check}}")], desc="Health checks raised or updated per bucket, by check code."), 8, 9)
+        "{{check}}")], desc="Health checks raised or updated per bucket, by check code.",
+        no_value="No health checks raised in range"), 8, 9)
     b.add(top("Health checks raised (range)",
               f'sum by (check) ({count(ceph + " |~ `Health check (failed|update)` | regexp `\\((?P<check>[A-Z0-9_]+)\\)\\s*$`", "$__range")})',
               "{{check}}", thresholds=steps(("orange", None)), desc="How often each health check was raised."), 8, 9)
@@ -588,7 +720,7 @@ def proxmox():
     b.add(logs("Cluster log (without DBG)", ceph + ' != "[DBG]"', desc="The cluster log minus [DBG] (pgmap) lines."),
           12, 12)
     b.add(logs("Ceph daemons and kernel client",
-               '{source="syslog", host=~"${node:regex}", app=~"ceph-(osd|mon|mgr|mds|crash|volume).*|kernel"} '
+               '{source="syslog", host=~"$node", app=~"ceph-(osd|mon|mgr|mds|crash|volume).*|kernel"} '
                '|~ `(?i)ceph|osd|libceph|rbd`' + search(),
                desc="Ceph daemons' journal lines and the kernel's libceph/rbd messages on the selected nodes."), 12, 12)
 
@@ -615,9 +747,12 @@ BIND_EVENTS = [
     ("zone transfers", "Transfer completed"),
     ("notifies", "notify from|sending notifies"),
     ("DNSSEC validation", "no valid signature|broken trust chain|insecurity proof failed|verify failed|no valid RRSIG"),
-    ("resolution errors", "(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE)"),
-    ("queries", " query: "),
+    # "deadlock found resolving '<name>/DS/IN': <ip>#53" is a resolver failure too.
+    ("resolution errors", "(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE|"
+                          "deadlock found)"),
 ]
+# No query count: query logging (querylog / a "queries" logging category) is off on purpose, so
+# BIND never logs " query: " lines.
 KEA_EVENTS = [
     ("leases allocated", "DHCP4_LEASE_ALLOC", BLUE),
     ("NAKs", "DHCP4_PACKET_NAK|DHCPNAK", ORANGE_IF_ANY),
@@ -634,17 +769,18 @@ def services():
     b.row("DNS (BIND)")
     for name, regex in BIND_EVENTS:
         thresholds = ORANGE_IF_ANY if name in ("DNSSEC validation", "resolution errors") else BLUE
-        b.add(range_stat(name.capitalize(), f"{DNS} |~ `{regex}`", thresholds=thresholds,
+        b.add(range_stat(name[0].upper() + name[1:], f"{DNS} |~ `{regex}`", thresholds=thresholds,
                          desc=f"BIND lines matching `{regex}` (dns01 + dns02). BIND logs everything at the same "
-                              "level (stderr), so the line decides." + (" Query logging is off unless "
-                                                                         "'querylog' is enabled." if name == "queries" else "")),
-              4, 4)
+                              "level (stderr), so the line decides."),
+              5, 4)
     b.add(on_loki(stat("Lines", [lq(total(DNS), "lines", instant=True)], decimals=0, color_mode="value",
-                       thresholds=BLUE)), 4, 4)
+                       thresholds=BLUE, desc="All BIND lines. Query logging is off on purpose, so queries are "
+                                             "not counted anywhere here.")), 4, 4)
     b.add(per_bucket("BIND messages by kind", [lq(f"sum({count(DNS + f' |~ `{regex}`')})", name)
                                                for name, regex in BIND_EVENTS]
                      + [lq(f"sum({count(DNS + ' !~ `' + '|'.join(r for _, r in BIND_EVENTS) + '`')})", "other")],
-                     desc="Most validation failures are upstream domains with broken DNSSEC, not our zones."), 8, 9)
+                     desc="Most validation failures are upstream domains with broken DNSSEC, not our zones. "
+                          "No query series: query logging is off on purpose."), 8, 9)
     b.add(log_table("Zone transfers", DNS + ' |= "Transfer completed" | regexp `transfer of \'(?P<zone>[^\']+)\' '
                                             'from (?P<primary>\\S+): Transfer completed: (?P<msgs>\\d+) messages, '
                                             '(?P<records>\\d+) records.*serial (?P<serial>\\d+)`',
@@ -681,19 +817,21 @@ def services():
     b.row("keepalived (VIP moves)")
     states = VRRP + ' |~ `Entering (MASTER|BACKUP|FAULT) STATE` | regexp `\\((?P<instance>[^)]+)\\) Entering (?P<state>[A-Z]+) STATE`'
     b.add(top("Became MASTER (range)", f'sum by (instance, host) ({count(states + " | state=`MASTER`", "$__range")})',
-              "{{instance}} → {{host}}", desc="How often each VM took each VRRP instance's VIPs: dns (DNS VIP), "
-                                              "grafana (10.2.11.40), logging (the Loki/syslog VIPs)."), 6, 10)
+              "{{instance}} → {{host}}", n=20,
+              desc="How often each VM took each VRRP instance's VIPs: dns (DNS VIP), grafana (10.2.11.100), "
+                   "logging (Loki/syslog VIP .101), monitoring (.102), mimir (.103), postgres (.104)."), 6, 12)
     b.add(history("VRRP transitions", [lq(f"sum by (instance, host, state) ({count(states)})",
                                           "{{instance}} {{host}} {{state}}")],
-                  thresholds=steps(("blue", None)), desc="Every state change per instance, VM and new state."), 9, 10)
+                  thresholds=steps(("blue", None)), desc="Every state change per instance, VM and new state."), 9, 12)
     b.add(log_table("VRRP state changes", states, ["instance", "host", "state"],
                     rename={"instance": "Instance", "host": "VM", "state": "State"},
                     widths={"instance": 90, "host": 80, "state": 90},
                     overrides=[override("State", {"mappings": VRRP_MAP, "custom.cellOptions": {"type": "color-text"}})],
-                    desc="keepalived's VRRP state changes on dns01/02, graf01/02 and log01-03."), 9, 10)
+                    desc="keepalived's VRRP state changes on dns01/02, graf01/02, loki01-03, mon01/02, mim01-03 "
+                         "and pg01-03."), 9, 12)
 
     b.row("Monitoring and logging stack")
-    mon = '{source="journal", container=~"${container:regex}"}' + search() + " " + LEVEL
+    mon = '{source="journal", container=~"$container"}' + search() + " " + LEVEL
     b.add(per_bucket("Errors and warnings by container", [
         lq(f'sum by (host, container, level) ({count(mon + " | level=~`error|warning`")})',
            "{{host}} {{container}} {{level}}")],
@@ -703,7 +841,7 @@ def services():
     b.add(logs("Errors and warnings", mon + ' | level=~"error|warning"',
                desc="Warnings and errors of the selected containers."), 24, 10)
     b.add(logs("haproxy (S3 to the RGWs)", '{source="journal", container="haproxy"}' + search(),
-               desc="Backend state changes ('Server rgw/rgw1 is DOWN') on log01-03."), 8, 9)
+               desc="Backend state changes ('Server rgw/rgw1 is DOWN') on loki01-03, mim01-03 and pg01-03."), 8, 9)
     b.add(logs("Loki and Alloy (warnings, errors)",
                '{source="journal", container=~"loki|alloy"}' + search() + " " + LEVEL + ' | level=~"error|warning"',
                desc="Loki and Alloy on all VMs, warning or worse."), 8, 9)
@@ -717,7 +855,8 @@ def services():
                              all_value=MON_CONTAINERS, regex=f"/^({MON_CONTAINERS})$/")
     return logs_dashboard("services", "Services logs",
                           "BIND (transfers, validation and resolution errors), Kea DHCP (leases, HA state), keepalived "
-                          "VIP moves, and the monitoring stack's containers (Grafana, Prometheus, Loki, Alloy, haproxy).",
+                          "VIP moves, and the monitoring stack's containers (Grafana, Prometheus, Mimir, Loki, Alloy, "
+                          "haproxy, Telegraf, Postgres).",
                           b, variables=[container_var, SEARCH],
                           extra_links=[url_link("Monitoring stack", STACK_DASH)])
 

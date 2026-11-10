@@ -6,13 +6,15 @@
 The JSON files it writes are committed and provisioned like the community ones,
 so edit this script and re-run it rather than editing them by hand. It needs no
 network access. The Proxmox dashboards (InfluxDB) are built by pve.py, the
-fw-wan ones by fwwan.py and the log dashboards (Loki) by logs.py, which this script
-imports. Each dashboard:
+fw-wan ones by fwwan.py, the log dashboards (Loki) by logs.py, the wireless
+ones (C9800 telemetry, InfluxDB) by wireless.py and Ceph RGW buckets by rgw.py,
+which this script imports. Each dashboard:
 
 - queries the provisioned Prometheus datasource (uid "prometheus") directly;
 - uses the scrape targets' "host" label for names and pickers;
 - carries the "lylat" tag and a "Dashboards" dropdown listing every dashboard
-  with that tag (the overview shows them as buttons), keeping the time range.
+  with that tag (the overview shows them as buttons), keeping the time range;
+- goes through theme.apply_theme() (the desktop palette) before it's written.
 
 Down targets (no exporter yet) simply have no series, so panels count what's
 there; `... or vector(0)` keeps the "down"/"failing" stats at 0 rather than
@@ -24,10 +26,15 @@ import pathlib
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(HERE))  # python3 -I leaves the script's directory off the path
+import theme  # noqa: E402
+from theme import ACCENT, ACCENT2, ACCENT3, ERROR, INFO, OK, WARN_HIGH  # noqa: E402
+
 DS = {"type": "prometheus", "uid": "prometheus"}
 
 NODE_JOBS = 'job=~"node|vyos-node"'
-STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter"'
+STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influx-relay|mimir"'
 NODE_DASH = "/d/node-exporter-full/node-exporter-full"
 FRR_DASH = "/d/frr-evpn-fabric/frr-evpn-fabric"
 PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
@@ -53,29 +60,36 @@ def mapping(**states):
     }}]
 
 
-UP_MAP = mapping(**{"0": ("DOWN", "red"), "1": ("UP", "green")})
-OK_MAP = mapping(**{"0": ("FAILED", "red"), "1": ("OK", "green")})
+# Colors: palette constants from theme.py, or Grafana's names ("green", "orange", ...), which
+# theme.apply_theme() maps to the palette when main() writes the dashboard.
+UP_MAP = mapping(**{"0": ("DOWN", ERROR), "1": ("UP", OK)})
+OK_MAP = mapping(**{"0": ("FAILED", ERROR), "1": ("OK", OK)})
 # frr_exporter: 0 = Down, 1 = Established, 2 = Administratively down.
-BGP_MAP = mapping(**{"0": ("Down", "red"), "1": ("Established", "green"), "2": ("Admin down", "orange")})
-BFD_MAP = mapping(**{"0": ("Down", "red"), "1": ("Up", "green")})
+BGP_MAP = mapping(**{"0": ("Down", ERROR), "1": ("Established", OK), "2": ("Admin down", WARN_HIGH)})
+BFD_MAP = mapping(**{"0": ("Down", ERROR), "1": ("Up", OK)})
 
 
 def steps(*pairs):
     return {"mode": "absolute", "steps": [{"color": c, "value": v} for c, v in pairs]}
 
 
-GREEN = steps(("green", None))
-BLUE = steps(("blue", None))
-RED_IF_ANY = steps(("green", None), ("red", 1))
-ORANGE_IF_ANY = steps(("green", None), ("orange", 1))
-PERCENT = steps(("green", None), ("orange", 75), ("red", 90))
-UP_STEPS = steps(("red", None), ("green", 1))
+GREEN = steps((OK, None))
+BLUE = steps((INFO, None))
+RED_IF_ANY = steps((OK, None), (ERROR, 1))
+ORANGE_IF_ANY = steps((OK, None), (WARN_HIGH, 1))
+PERCENT = steps((OK, None), (WARN_HIGH, 75), (ERROR, 90))
+UP_STEPS = steps((ERROR, None), (OK, 1))
 
 
-def q(expr, legend="__auto", table=False):
-    """A Prometheus target. table=True makes it an instant query in table format."""
+def q(expr, legend="__auto", table=False, instant=False):
+    """A Prometheus target. table=True makes it an instant query in table format.
+
+    instant=True makes it an instant query (time series format) for stats that show the current state:
+    with a range query, lastNotNull keeps a series that ended inside the range (an old instance's
+    last up=0, a replica that was elected before a failover) as an extra, stale tile.
+    """
     t = {"datasource": DS, "editorMode": "code", "expr": expr, "legendFormat": legend,
-         "range": not table, "instant": table}
+         "range": not (table or instant), "instant": table or instant}
     if table:
         t["format"] = "table"
         t["legendFormat"] = ""
@@ -302,7 +316,7 @@ def dashboard(uid, title, description, board, *, tags=(), variables=(), nav_butt
         "time": {"from": time_from, "to": "now"}, "timepicker": {},
         "annotations": {"list": [{
             "builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": True,
-            "hide": True, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts",
+            "hide": True, "iconColor": ACCENT2, "name": "Annotations & Alerts",
             "type": "dashboard"}]},
         "links": [{"type": "dashboards", "tags": ["lylat"], "asDropdown": not nav_buttons,
                    "title": "Dashboards", "includeVars": False, "keepTime": True,
@@ -417,9 +431,13 @@ def overview():
     b.add(table("Firing alerts", [q('max without () (ALERTS{alertstate="firing"})', table=True)],
                 desc="Alertmanager routes to a null receiver for now, so these are only visible here.",
                 no_value="No firing alerts",
-                transformations=[organize(exclude=["Time", "Value", "alertstate", "role"], rename={
+                # Alert-specific labels (reason, address, ...) get names and a fixed place; labels that
+                # only repeat the rule's origin (cluster, ceph's type) are left out.
+                transformations=[organize(exclude=["Time", "Value", "alertstate", "role", "cluster", "type"], rename={
                     "alertname": "Alert", "severity": "Severity", "job": "Job", "host": "Host",
-                    "instance": "Instance"}, order=["Alert", "Severity", "Job", "Host", "Instance"])]),
+                    "instance": "Instance", "reason": "Reason", "address": "Address", "network": "Network",
+                    "vip": "VIP"},
+                    order=["Alert", "Severity", "Job", "Host", "Instance", "Reason", "Address", "Network", "VIP"])]),
           8, 10)
 
     b.row("Probes and fabric")
@@ -479,15 +497,26 @@ def overview():
         ], sort="State", desc_sort=True), 24, 14)
 
     b.row("Traffic")
+    # topk() in a range query picks a new top 10 at every step; `and on (...) topk(..[$__range] @ end())`
+    # picks the 10 busiest over the whole range once and draws only those.
+    eth = 'device=~"eth[0-9]+"'
+    now, whole = "[$__rate_interval]", "[$__range] @ end()"
+
+    def eth_rate(w):
+        return (f"sum by (host, device) (rate(node_network_receive_bytes_total{{{eth}}}{w}) "
+                f"+ rate(node_network_transmit_bytes_total{{{eth}}}{w}))")
+
+    def port_rate(w):
+        return f"rate(ifHCInOctets{w}) + rate(ifHCOutOctets{w})"
+
     b.add(timeseries("Top 10 host/router interfaces (rx + tx)", [
-        q('topk(10, sum by (host, device) (rate(node_network_receive_bytes_total{device=~"eth[0-9]+"}[$__rate_interval]) '
-          '+ rate(node_network_transmit_bytes_total{device=~"eth[0-9]+"}[$__rate_interval])) * 8)', "{{host}} {{device}}"),
-    ], unit="bps", desc="Physical (eth*) interfaces from node_exporter.", calcs=("mean", "max")), 12, 9)
+        q(f"{eth_rate(now)} * 8 and on (host, device) topk(10, {eth_rate(whole)})", "{{host}} {{device}}"),
+    ], unit="bps", desc="Physical (eth*) interfaces from node_exporter: the 10 busiest over the selected range.",
+        calcs=("mean", "max")), 12, 9)
     b.add(timeseries("Top 10 switch ports (rx + tx)", [
-        q("topk(10, (rate(ifHCInOctets[$__rate_interval]) + rate(ifHCOutOctets[$__rate_interval])) * 8)",
-          "{{host}} {{ifName}}"),
-    ], unit="bps", desc="SNMP if_mib counters from the switches and WLCs.", calcs=("mean", "max"),
-        links=[("SNMP Device Summary", SNMP_DASH + "?${__url_time_range}")]), 12, 9)
+        q(f"({port_rate(now)}) * 8 and on (host, ifName) topk(10, {port_rate(whole)})", "{{host}} {{ifName}}"),
+    ], unit="bps", desc="SNMP if_mib counters from the switches and WLCs: the 10 busiest ports over the selected range.",
+        calcs=("mean", "max"), links=[("SNMP Device Summary", SNMP_DASH + "?${__url_time_range}")]), 12, 9)
 
     return dashboard("lylat-overview", "lylat.space overview",
                      "Landing page: target and alert status, Ceph, probes, the EVPN fabric, hosts and top talkers.",
@@ -498,6 +527,10 @@ def overview():
 
 def frr():
     h = 'host=~"$host"'
+    # The Router picker lists every frr_exporter (the DHCP VMs run no BGP/BFD, border leafs carry
+    # only L3 VNIs), so an empty panel says why.
+    no_bgp, no_bfd = "No BGP sessions on the selected router(s)", "No BFD peers on the selected router(s)"
+    no_l2 = "No L2 VNIs on the selected router(s)"
     b = Board()
     b.row("Summary")
     b.add(bgp_summary("{" + h + "}"), 6, 5)
@@ -509,7 +542,7 @@ def frr():
         desc="Session restarts in the selected time range (drops in the session uptime)."), 4, 5)
     b.add(stat("Youngest BGP session", [q(f"min(frr_bgp_peer_uptime_seconds{{{h}}})")], unit="dtdurations",
                color_mode="value", thresholds=steps(("orange", None), ("green", 3600)),
-               desc="Lowest session uptime; orange if a session came up within the last hour."), 4, 5)
+               no_value=no_bgp, desc="Lowest session uptime; orange if a session came up within the last hour."), 4, 5)
     b.add(stat("Exporter problems", [
         q(f'count(up{{job="vyos-frr", {h}}} == 0) or vector(0)', "Targets down"),
         q(f"count(frr_collector_up{{{h}}} == 0) or vector(0)", "Collectors failing"),
@@ -538,15 +571,15 @@ def frr():
         overrides=[cell("State", "color-background"), override("State", {"mappings": BGP_MAP}),
                    override("Uptime", {"unit": "dtdurations"}),
                    override("Msgs rx/s|Msgs tx/s", {"decimals": 2}, regex=True)],
-        sort="Router"), 24, 12)
+        no_value=no_bgp, sort="Router"), 24, 12)
     b.add(state_timeline("BGP session state", [
         q(f"max without (instance, job, role, local_as, peer_as, peer_hostname) (frr_bgp_peer_state{{{h}}})",
           "{{host}} {{peer}} {{afi}}/{{safi}} {{vrf}}"),
     ], mappings=BGP_MAP, thresholds=steps(("red", None), ("green", 1), ("orange", 2)),
-        desc="Gaps mean the router's exporter wasn't scraped."), 24, 14)
+        no_value=no_bgp, desc="Gaps mean the router's exporter wasn't scraped."), 24, 14)
     b.add(timeseries("Established sessions per router", [
         q(f"count by (host) (frr_bgp_peer_state{{{h}}} == 1)", "{{host}}"),
-    ], step=True, fill=0, decimals=0, calcs=("min", "lastNotNull")), 8, 9)
+    ], step=True, fill=0, decimals=0, calcs=("min", "lastNotNull"), no_value=no_bgp), 8, 9)
     b.add(table("Flaps per session in range", [
         q(f"sum by (host, vrf, afi, safi, peer) (resets(frr_bgp_peer_uptime_seconds{{{h}}}[$__range])) > 0", table=True),
     ], no_value="No BGP flaps in range", transformations=[organize(exclude=["Time"], rename={
@@ -555,13 +588,13 @@ def frr():
     b.add(timeseries("BGP messages per router (rx + tx)", [
         q(f"sum by (host) (rate(frr_bgp_peer_message_received_total{{{h}}}[$__rate_interval]) "
           f"+ rate(frr_bgp_peer_message_sent_total{{{h}}}[$__rate_interval]))", "{{host}}"),
-    ], unit="short", desc="Messages per second (updates and keepalives)."), 8, 9)
+    ], unit="short", no_value=no_bgp, desc="Messages per second (updates and keepalives)."), 8, 9)
     b.add(timeseries("Prefixes received", [
         q(f"sum by (host, afi, safi) (frr_bgp_peer_prefixes_received_count_total{{{h}}})", "{{host}} {{afi}}/{{safi}}"),
-    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull")), 12, 9)
+    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull"), no_value=no_bgp), 12, 9)
     b.add(timeseries("Prefixes advertised", [
         q(f"sum by (host, afi, safi) (frr_bgp_peer_prefixes_advertised_count_total{{{h}}})", "{{host}} {{afi}}/{{safi}}"),
-    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull")), 12, 9)
+    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull"), no_value=no_bgp), 12, 9)
 
     b.row("BFD")
     b.add(table("BFD peers", [
@@ -572,27 +605,29 @@ def frr():
             "host": "Router", "local": "Local", "peer": "Peer", "Value #A": "State", "Value #B": "Uptime"},
             order=["Router", "Local", "Peer", "State", "Uptime"])],
         overrides=[cell("State", "color-background"), override("State", {"mappings": BFD_MAP}),
-                   override("Uptime", {"unit": "dtdurations"})], sort="Router"), 10, 11)
+                   override("Uptime", {"unit": "dtdurations"})], no_value=no_bfd, sort="Router"), 10, 11)
     b.add(bargauge("BFD peers up per router", [
         q(f"sum by (host) (frr_bfd_peer_state{{{h}}}) / max by (host) (frr_bfd_peer_count{{{h}}})", "{{host}}"),
     ], unit="percentunit", min_=0, max_=1, thresholds=steps(("red", None), ("orange", 0.01), ("green", 1)),
-        desc="Up / configured BFD peers. Routers without BFD peers (DHCP VMs) are left out."), 6, 11)
+        no_value=no_bfd, desc="Up / configured BFD peers. Routers without BFD peers (DHCP VMs) are left out."), 6, 11)
     b.add(timeseries("BFD peers up", [
         q(f"sum by (host) (frr_bfd_peer_state{{{h}}})", "{{host}}"),
-    ], step=True, fill=0, decimals=0, calcs=("min", "lastNotNull")), 8, 11)
+    ], step=True, fill=0, decimals=0, calcs=("min", "lastNotNull"), no_value=no_bfd), 8, 11)
 
     b.row("EVPN")
     l2 = f'type="L2", {h}'
     b.add(timeseries("Remote VTEPs per router", [
         q(f"max by (host) (frr_bgp_l2vpn_evpn_remote_vtep_count_total{{{l2}}})", "{{host}}"),
-    ], decimals=0, fill=0, step=True, calcs=("min", "lastNotNull"),
+    ], decimals=0, fill=0, step=True, calcs=("min", "lastNotNull"), no_value=no_l2,
         desc="Remote VTEPs of the router's busiest L2 VNI."), 8, 8)
     b.add(timeseries("EVPN MACs per router", [
         q(f"sum by (host) (frr_bgp_l2vpn_evpn_mac_count_total{{{l2}}})", "{{host}}"),
-    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull"), desc="MAC entries over all L2 VNIs (local and remote)."), 8, 8)
+    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull"), no_value=no_l2,
+        desc="MAC entries over all L2 VNIs (local and remote)."), 8, 8)
     b.add(timeseries("EVPN ARP/ND entries per router", [
         q(f"sum by (host) (frr_bgp_l2vpn_evpn_arp_nd_count_total{{{l2}}})", "{{host}}"),
-    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull"), desc="ARP/ND (MAC+IP) entries over all L2 VNIs."), 8, 8)
+    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull"), no_value=no_l2,
+        desc="ARP/ND (MAC+IP) entries over all L2 VNIs."), 8, 8)
 
     def per_vni(metric):
         # Column "lan/9009": tenant VRF without the lylat_ prefix, then the VNI.
@@ -603,15 +638,18 @@ def frr():
                 desc="Columns are tenant VRF / VNI. A 0 means no other leaf has this VNI.",
                 transformations=matrix("segment"), thresholds=steps(("red", None), ("green", 1)),
                 overrides=[override("/", {"custom.cellOptions": {"type": "color-text"}}, regex=True)],
-                sort="Router"), 12, 10)
+                no_value=no_l2, sort="Router"), 12, 10)
     b.add(table("EVPN MACs per L2 VNI", [q(per_vni("frr_bgp_l2vpn_evpn_mac_count_total"), table=True)],
-                desc="Columns are tenant VRF / VNI.", transformations=matrix("segment"), sort="Router"), 12, 10)
+                desc="Columns are tenant VRF / VNI.", transformations=matrix("segment"), no_value=no_l2,
+                sort="Router"), 12, 10)
     b.add(table("ARP/ND entries per L2 VNI", [q(per_vni("frr_bgp_l2vpn_evpn_arp_nd_count_total"), table=True)],
-                desc="Columns are tenant VRF / VNI.", transformations=matrix("segment"), sort="Router"), 12, 10)
+                desc="Columns are tenant VRF / VNI.", transformations=matrix("segment"), no_value=no_l2,
+                sort="Router"), 12, 10)
     b.add(bargauge("EVPN MACs and ARP/ND per tenant VRF", [
         q(f"max by (tenantVrf) (sum by (host, tenantVrf) (frr_bgp_l2vpn_evpn_mac_count_total{{{l2}}}))", "{{tenantVrf}} MACs"),
         q(f"max by (tenantVrf) (sum by (host, tenantVrf) (frr_bgp_l2vpn_evpn_arp_nd_count_total{{{l2}}}))", "{{tenantVrf}} ARP/ND"),
-    ], thresholds=BLUE, decimals=0, desc="Largest count on any router (each leaf sees the whole EVPN table)."), 12, 10)
+    ], thresholds=BLUE, decimals=0, no_value=no_l2,
+        desc="Largest count on any router (each leaf sees the whole EVPN table)."), 12, 10)
 
     b.row("Routes")
     rv = f'{h}, vrf=~"$vrf"'
@@ -627,7 +665,7 @@ def frr():
         desc="Zebra routes that aren't installed in the kernel (normally 0)."), 8, 9)
     b.add(timeseries("BGP RIB entries", [
         q(f"max without (instance, job, role, local_as) (frr_bgp_rib_count_total{{{h}}})", "{{host}} {{afi}}/{{safi}} {{vrf}}"),
-    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull")), 8, 9)
+    ], decimals=0, fill=0, calcs=("min", "max", "lastNotNull"), no_value=no_bgp), 8, 9)
 
     b.row("Exporter")
     b.add(table("frr_exporter collectors", [q(f"max without (instance, job, role) (frr_collector_up{{{h}}})", table=True)],
@@ -691,9 +729,10 @@ def probes():
     b.add(stat("Reply hop limit", [q(f"probe_icmp_reply_hop_limit{{{s}}}", "{{host}}")], text_mode="value_and_name",
                color_mode="value", thresholds=BLUE,
                desc="TTL / hop limit of the reply. 64 minus this is the number of routed hops for Linux hosts."), 6, 8)
-    b.add(stat("IP protocol", [q(f'probe_ip_protocol{{job="blackbox-icmp", host=~"$host"}}', "{{host}}")],
+    b.add(stat("IP protocol", [q(f'probe_ip_protocol{{job="blackbox-icmp", {s}}}', "{{host}}")],
                text_mode="value_and_name", color_mode="value", thresholds=BLUE,
-               desc="Address family the ICMP probe used (4 or 6)."), 6, 8)
+               mappings=mapping(**{"4": ("IPv4", INFO), "6": ("IPv6", INFO)}),
+               desc="Address family the ICMP probe used."), 6, 8)
 
     b.row("HTTP")
     b.add(stat("HTTP status", [q(f"probe_http_status_code{{{s}}}", "{{host}}")], text_mode="value_and_name",
@@ -706,7 +745,8 @@ def probes():
         q(f"probe_http_version{{{s}}}", "{{host}} version"),
         q(f"probe_http_redirects{{{s}}}", "{{host}} redirects"),
         q(f"probe_http_ssl{{{s}}}", "{{host}} TLS"),
-    ], text_mode="value_and_name", color_mode="value", thresholds=BLUE), 6, 8)
+    ], text_mode="value_and_name", color_mode="value", thresholds=BLUE,
+        overrides=[override(" TLS$", {"mappings": mapping(**{"0": ("no TLS", INFO), "1": ("TLS", INFO)})}, regex=True)]), 6, 8)
     b.add(timeseries("HTTP response size", [
         q(f"probe_http_content_length{{{s}}}", "{{host}} content-length"),
         q(f"probe_http_uncompressed_body_length{{{s}}}", "{{host}} body"),
@@ -723,7 +763,7 @@ def probes():
         q(f"probe_dns_serial{{{s}}}", "{{host}}"),
     ], text_mode="value_and_name", color_mode="value", thresholds=BLUE, decimals=0), 4, 8)
     b.add(stat("Serial drift", [
-        q(f"(max(probe_dns_serial{{{s}}}) - min(probe_dns_serial{{{s}}})) or vector(0)"),
+        q(f"max(probe_dns_serial{{{s}}}) - min(probe_dns_serial{{{s}}})"),
     ], thresholds=RED_IF_ANY, desc="Difference between the highest and lowest SOA serial; non-zero means a secondary is behind."), 4, 8)
     b.add(stat("Records in answer", [
         q(f"probe_dns_answer_rrs{{{s}}}", "{{host}} answer"),
@@ -735,8 +775,18 @@ def probes():
     ], unit="s", fill=0), 12, 8)
     b.add(timeseries("Target name resolution", [
         q(probe(f"probe_dns_lookup_time_seconds{{{s}}}"), "{{host}} · {{probe}}"),
-    ], unit="s", fill=0, desc="Time the blackbox exporter spends resolving the target's name. Targets are IPs, "
-                              "so it's near zero."), 12, 8)
+    ], unit="s", fill=0, no_value="No probe matches the selection",  # every probe type, not only DNS
+        desc="Time the blackbox exporter spends resolving the target's name. Targets are IPs, so it's near zero."), 12, 8)
+
+    # The Probe and Target pickers empty the other protocols' rows: say so instead of "No data".
+    no_value = {"Status": "No probe matches the selection", "ICMP": "No ICMP probe selected",
+                "HTTP": "No HTTP probe selected", "DNS": "No DNS probe selected"}
+    row = None
+    for p in b.panels:
+        if p["type"] == "row":
+            row = p["title"]
+        else:
+            p["fieldConfig"]["defaults"].setdefault("noValue", no_value[row])
 
     variables = [
         query_var("job", "Probe", "label_values(probe_success, job)"),
@@ -752,12 +802,12 @@ def probes():
 def stack():
     b = Board()
     b.row("Components")
-    b.add(stat("Component status", [q(f"up{{{STACK_JOBS}}}", "{{job}} {{host}}")], text_mode="value_and_name",
+    b.add(stat("Component status", [q(f"up{{{STACK_JOBS}}}", "{{job}} {{host}}", instant=True)], text_mode="value_and_name",
                mappings=UP_MAP, thresholds=UP_STEPS), 10, 7)
     b.add(stat("Config reloads", [
-        q("prometheus_config_last_reload_successful", "Prometheus"),
-        q("alertmanager_config_last_reload_successful", "Alertmanager"),
-        q("blackbox_exporter_config_last_reload_successful", "Blackbox"),
+        q("prometheus_config_last_reload_successful", "Prometheus {{host}}", instant=True),
+        q("alertmanager_config_last_reload_successful", "Alertmanager {{host}}", instant=True),
+        q("blackbox_exporter_config_last_reload_successful", "Blackbox", instant=True),
     ], text_mode="value_and_name", mappings=OK_MAP, thresholds=UP_STEPS), 4, 7)
     versions = " or ".join(
         # frr_exporter on VyOS doesn't report a version.
@@ -766,71 +816,203 @@ def stack():
         for name, metric in (("Prometheus", "prometheus"), ("Alertmanager", "alertmanager"), ("Grafana", "grafana"),
                              ("blackbox_exporter", "blackbox_exporter"), ("snmp_exporter", "snmp_exporter"),
                              ("node_exporter", "node_exporter"), ("frr_exporter", "frr_exporter"),
-                             ("Loki", "loki"), ("Alloy", "alloy")))
+                             ("Loki", "loki"), ("Alloy", "alloy"), ("Mimir", "cortex")))
     b.add(table("Versions", [q(versions, table=True)],
                 transformations=[organize(exclude=["Time"], rename={
                     "component": "Component", "version": "Version", "Value": "Instances"},
                     order=["Component", "Version", "Instances"])], sort="Component"), 10, 7)
 
     b.row("Prometheus")
-    b.add(stat("Head series", [q("prometheus_tsdb_head_series")], color_mode="value", graph=True, thresholds=BLUE), 4, 5)
-    b.add(stat("Samples / s", [q("sum(rate(prometheus_tsdb_head_samples_appended_total[$__rate_interval]))")],
-               color_mode="value", graph=True, thresholds=BLUE, decimals=0), 4, 5)
-    b.add(stat("TSDB size", [q("prometheus_tsdb_storage_blocks_bytes + prometheus_tsdb_wal_storage_size_bytes "
-                                "+ prometheus_tsdb_head_chunks_storage_size_bytes")],
-               unit="bytes", color_mode="value", graph=True, thresholds=BLUE,
-               desc="Blocks + WAL + head chunks. Retention is capped by time and size in monitoring-config."), 4, 5)
-    b.add(stat("mon01 disk free", [
-        q('100 * node_filesystem_avail_bytes{host="mon01", mountpoint="/"} / node_filesystem_size_bytes{host="mon01", mountpoint="/"}')],
-        unit="percent", decimals=1, color_mode="value", thresholds=steps(("red", None), ("orange", 10), ("green", 25)),
-        desc="Free space on the backend VM's root filesystem, where the Prometheus data lives."), 4, 5)
+    # Two replicas (mon01, mon02) scrape the same targets; per-replica panels use the host label.
+    b.add(stat("Head series", [q('prometheus_tsdb_head_series{job="prometheus"}', "{{host}}")],
+               text_mode="value_and_name", color_mode="value", graph=True, thresholds=BLUE,
+               desc="Per Prometheus replica: both scrape the same targets, so they should be close."), 4, 5)
+    b.add(stat("Samples / s", [q('sum by (host) (rate(prometheus_tsdb_head_samples_appended_total{job="prometheus"}[$__rate_interval]))', "{{host}}")],
+               text_mode="value_and_name", color_mode="value", graph=True, thresholds=BLUE, decimals=0), 4, 5)
+    b.add(stat("TSDB size", [q('prometheus_tsdb_storage_blocks_bytes{job="prometheus"} + prometheus_tsdb_wal_storage_size_bytes{job="prometheus"} '
+                                '+ prometheus_tsdb_head_chunks_storage_size_bytes{job="prometheus"}', "{{host}}")],
+               unit="bytes", text_mode="value_and_name", color_mode="value", graph=True, thresholds=BLUE,
+               desc="Blocks + WAL + head chunks per replica. Retention is capped by time and size in monitoring-config."), 4, 5)
+    b.add(stat("Backend disk free", [
+        q('100 * node_filesystem_avail_bytes{role="monitoring", mountpoint="/"} / node_filesystem_size_bytes{role="monitoring", mountpoint="/"}', "{{host}}")],
+        unit="percent", decimals=1, text_mode="value_and_name", color_mode="value", thresholds=steps(("red", None), ("orange", 10), ("green", 25)),
+        desc="Free space on each backend VM's root filesystem, where the Prometheus and InfluxDB data live."), 4, 5)
     b.add(stat("Rule evaluation failures", [
         q("sum(increase(prometheus_rule_evaluation_failures_total[$__range])) or vector(0)")],
         thresholds=RED_IF_ANY, decimals=0, desc="In the selected time range."), 4, 5)
+    # Two counters, not a sum: a failed send counts in errors (per Alertmanager) and the same alerts
+    # usually in dropped as well.
     b.add(stat("Notifications dropped / errors", [
-        q("(sum(increase(prometheus_notifications_dropped_total[$__range])) + "
-          "sum(increase(prometheus_notifications_errors_total[$__range]))) or vector(0)")],
-        thresholds=RED_IF_ANY, decimals=0, desc="Alerts Prometheus failed to deliver to Alertmanager in the selected range."), 4, 5)
+        q("sum(increase(prometheus_notifications_dropped_total[$__range])) or vector(0)", "dropped"),
+        q("sum(increase(prometheus_notifications_errors_total[$__range])) or vector(0)", "send errors"),
+    ], text_mode="value_and_name", thresholds=RED_IF_ANY, decimals=0,
+        desc="In the selected range: alerts Prometheus dropped (not delivered), and alerts in failed sends to an "
+             "Alertmanager (counted per Alertmanager, so one failure to both counts twice)."), 4, 5)
     b.add(targets_by_job_table(), 8, 10)
     b.add(timeseries("Scrape duration by job (slowest target)", [
         q("max by (job) (scrape_duration_seconds)", "{{job}}")], unit="s", fill=0, calcs=("mean", "max")), 8, 10)
     b.add(timeseries("Samples scraped by job", [
         q("sum by (job) (scrape_samples_scraped)", "{{job}}")], fill=0, stack=False, calcs=("mean", "lastNotNull")), 8, 10)
     b.add(timeseries("Head series and chunks", [
-        q("prometheus_tsdb_head_series", "series"), q("prometheus_tsdb_head_chunks", "chunks")], fill=0), 8, 8)
+        q('prometheus_tsdb_head_series{job="prometheus"}', "{{host}} series"),
+        q('prometheus_tsdb_head_chunks{job="prometheus"}', "{{host}} chunks")], fill=0), 8, 8)
     b.add(timeseries("Storage", [
-        q("prometheus_tsdb_storage_blocks_bytes", "blocks"), q("prometheus_tsdb_wal_storage_size_bytes", "WAL"),
-        q("prometheus_tsdb_head_chunks_storage_size_bytes", "head chunks")], unit="bytes", stack=True), 8, 8)
+        q('prometheus_tsdb_storage_blocks_bytes{job="prometheus"}', "{{host}} blocks"),
+        q('prometheus_tsdb_wal_storage_size_bytes{job="prometheus"}', "{{host}} WAL"),
+        q('prometheus_tsdb_head_chunks_storage_size_bytes{job="prometheus"}', "{{host}} head chunks")], unit="bytes", stack=True), 8, 8)
     b.add(timeseries("Ingestion rate", [
-        q("sum(rate(prometheus_tsdb_head_samples_appended_total[$__rate_interval]))", "samples/s")], fill=10), 8, 8)
+        q('sum by (host) (rate(prometheus_tsdb_head_samples_appended_total{job="prometheus"}[$__rate_interval]))', "{{host}}")], fill=0), 8, 8)
     b.add(timeseries("Rule group evaluation", [
-        q("prometheus_rule_group_last_duration_seconds", "{{rule_group}} duration"),
-        q("prometheus_rule_group_interval_seconds", "{{rule_group}} interval"),
+        q('prometheus_rule_group_last_duration_seconds{job="prometheus"}', "{{host}} {{rule_group}} duration"),
+        q('max by (rule_group) (prometheus_rule_group_interval_seconds{job="prometheus"})', "{{rule_group}} interval"),
     ], unit="s", fill=0, desc="A group whose duration nears its interval misses evaluations."), 8, 8)
     b.add(timeseries("Query duration (p90)", [
-        q('prometheus_engine_query_duration_seconds{quantile="0.9"}', "{{slice}}")], unit="s", fill=0), 8, 8)
-    b.add(timeseries("Scrape interval (p99)", [
-        q('prometheus_target_interval_length_seconds{quantile="0.99"}', "{{interval}}")], unit="s", fill=0,
-        desc="Actual time between scrapes; should track the configured interval."), 8, 8)
+        q('prometheus_engine_query_duration_seconds{job="prometheus", quantile="0.9"}', "{{host}} {{slice}}")], unit="s", fill=0), 8, 8)
+    b.add(timeseries("Remote write to Mimir", [
+        q('sum by (host) (rate(prometheus_remote_storage_samples_total{job="prometheus"}[$__rate_interval]))', "{{host}} sent/s"),
+        q('sum by (host) (rate(prometheus_remote_storage_samples_failed_total{job="prometheus"}[$__rate_interval])) > 0', "{{host}} failed/s"),
+        q('sum by (host) (rate(prometheus_remote_storage_samples_retried_total{job="prometheus"}[$__rate_interval])) > 0', "{{host}} retried/s"),
+        q('max by (host) (prometheus_remote_storage_highest_timestamp_in_seconds{job="prometheus"}) - '
+          'max by (host) (prometheus_remote_storage_queue_highest_sent_timestamp_seconds{job="prometheus"})', "{{host}} lag (s)"),
+    ], fill=0, desc="Both replicas send everything; Mimir's HA tracker keeps one replica's samples (the other's "
+                    "are accepted and discarded, not failed). Lag: newest sample appended vs newest sent."), 8, 8)
+
+    # Mimir on mim01-03 (metrics.tf): long-term store behind both Prometheus replicas (HA tracker).
+    b.row("Mimir (long-term metrics)")
+    mj = 'job="mimir"'
+    b.add(stat("Mimir / haproxy", [q('up{job=~"mimir|haproxy-mimir"}', "{{job}} {{host}}", instant=True)],
+               text_mode="value_and_name", mappings=UP_MAP, thresholds=UP_STEPS,
+               desc="Mimir and haproxy (S3 to the RGWs) on mim01-03. Prometheus pushes to the VIP 10.13.11.103."), 8, 7)
+    b.add(stat("Ring members ACTIVE", [q(f'min by (name) (cortex_ring_members{{{mj}, state="ACTIVE"}})', "{{name}}")],
+               text_mode="value_and_name", thresholds=steps(("red", None), ("orange", 2), ("green", 3)),
+               desc="ACTIVE members of each Mimir ring, as seen by the Mimir that sees fewest. 3 = all Mimir VMs."), 6, 7)
+    b.add(stat("Accepted Prometheus replica", [
+        q(f"max by (replica) (cortex_ha_tracker_elected_replica_status{{{mj}}}) == 1", "{{replica}}", instant=True)],
+        text_mode="name", color_mode="value", thresholds=BLUE,
+        desc="The HA tracker keeps one replica's samples (label __replica__) and drops the other's. It fails over "
+             "when the elected replica sends nothing for 30 s."), 5, 7)
+    b.add(stat("Write problems", [
+        q(f'sum(increase(cortex_discarded_samples_total{{{mj}, reason!="replicas_did_not_match"}}[$__range])) or vector(0)',
+          "discarded samples"),
+        q(f"sum(increase(cortex_ingester_shipper_upload_failures_total{{{mj}}}[$__range])) or vector(0)", "block uploads failed"),
+        q('sum(increase(prometheus_remote_storage_samples_failed_total{job="prometheus"}[$__range])) or vector(0)',
+          "remote_write failed"),
+    ], text_mode="value_and_name", color_mode="value", decimals=0, thresholds=RED_IF_ANY,
+        desc="In the time range: samples Mimir rejected (limits, out of order; not the HA dedup), TSDB blocks that "
+             "failed to upload to S3, samples Prometheus gave up sending."), 5, 7)
+    b.add(timeseries("Samples received / deduplicated", [
+        q(f"sum(rate(cortex_distributor_received_samples_total{{{mj}}}[$__rate_interval]))", "accepted"),
+        q(f"sum(rate(cortex_distributor_deduped_samples_total{{{mj}}}[$__rate_interval]))", "dropped (other replica)"),
+        q(f'sum by (reason) (rate(cortex_discarded_samples_total{{{mj}, reason!="replicas_did_not_match"}}[$__rate_interval])) > 0',
+          "discarded: {{reason}}"),
+    ], fill=0, desc="Samples/s at the distributors: accepted from the elected replica, dropped from the other one, "
+                    "and anything rejected."), 8, 8)
+    b.add(timeseries("Active series", [
+        q(f"sum by (host) (cortex_ingester_active_series{{{mj}}})", "{{host}}")], fill=0, decimals=0,
+        desc="Series each ingester holds (RF 3: every ingester has all of them). The per-tenant limit is "
+             "metrics_settings.max_series (300k)."), 8, 8)
+    b.add(timeseries("Prometheus remote_write", [
+        q('sum by (host) (rate(prometheus_remote_storage_samples_total{job="prometheus"}[$__rate_interval]))', "{{host}} sent/s"),
+        q('sum by (host) (rate(prometheus_remote_storage_samples_retried_total{job="prometheus"}[$__rate_interval])) > 0',
+          "{{host}} retried/s"),
+        q('sum by (host) (rate(prometheus_remote_storage_samples_failed_total{job="prometheus"}[$__rate_interval])) > 0',
+          "{{host}} failed/s"),
+    ], fill=0, desc="Both Prometheus replicas send everything; Mimir keeps one copy."), 8, 8)
+    b.add(timeseries("remote_write lag", [
+        q('max by (host) (prometheus_remote_storage_highest_timestamp_in_seconds{job="prometheus"} - ignoring(remote_name, url) '
+          'group_right prometheus_remote_storage_queue_highest_sent_timestamp_seconds{job="prometheus"})', "{{host}}")],
+        unit="s", fill=0, desc="How far each Prometheus is behind in sending to Mimir. It grows while Mimir is "
+                               "unreachable and drains from the WAL afterwards (alert PrometheusRemoteWriteBehind)."), 8, 8)
+    b.add(timeseries("Blocks to S3 and compaction", [
+        q(f"sum by (host) (increase(cortex_ingester_shipper_uploads_total{{{mj}}}[1h]))", "{{host}} blocks uploaded/h"),
+        q(f"(time() - max(cortex_compactor_last_successful_run_timestamp_seconds{{{mj}}})) / 3600", "hours since compaction"),
+    ], fill=0, desc="Each ingester ships a 2 h block every 2 h; the compactor merges them and applies retention (396 d)."), 8, 8)
+    b.add(timeseries("Query latency (p95)", [
+        q(f'histogram_quantile(0.95, sum by (le, route) (rate(cortex_request_duration_seconds_bucket{{{mj}, '
+          f'route=~"prometheus_api_v1_(query|query_range|series|labels|label_name_values)"}}[$__rate_interval])))', "{{route}}")],
+        unit="s", fill=0, desc="Grafana's queries through the query-frontend (only while someone views a dashboard)."), 8, 8)
+    b.add(timeseries("S3 operations", [
+        q(f"sum by (operation) (rate(thanos_objstore_bucket_operations_total{{{mj}}}[$__rate_interval]))", "{{operation}}"),
+        q(f"sum by (operation) (rate(thanos_objstore_bucket_operation_failures_total{{{mj}}}[$__rate_interval])) > 0",
+          "{{operation}} failed"),
+    ], unit="reqps", fill=0, desc="Requests to the RGWs through each Mimir VM's haproxy."), 8, 8)
+
+    # Grafana's database: the Patroni cluster on pg01-03 (postgres.tf), VIP 10.13.11.104 on the leader.
+    b.row("Postgres (Patroni, Grafana's database)")
+    pj, ej = 'job="patroni"', 'job="etcd"'
+    b.add(stat("Patroni / etcd / exporters", [q('up{job=~"patroni|etcd|postgres|haproxy-postgres"}', "{{job}} {{host}}", instant=True)],
+               text_mode="value_and_name", mappings=UP_MAP, thresholds=UP_STEPS,
+               desc="Patroni REST API, etcd, postgres_exporter and haproxy (S3 to the RGWs) on pg01-03."), 6, 7)
+    b.add(stat("Leader", [q(f"max by (host) (patroni_primary{{{pj}}}) == 1", "{{host}}", instant=True)],
+               text_mode="name", color_mode="value", thresholds=BLUE,
+               desc="The member that holds Patroni's leader key and the VIP 10.13.11.104 (keepalived checks /primary). "
+                    "None or two: alert PatroniNoLeader."), 3, 7)
+    b.add(stat("Members", [
+        q(f"sum(patroni_postgres_running{{{pj}}})", "Postgres running"),
+        q(f"sum(patroni_replica{{{pj}}} == 1 and on (host) patroni_postgres_streaming{{{pj}}} == 1) or vector(0)", "replicas streaming"),
+        q(f"count(etcd_server_has_leader{{{ej}}} == 1) or vector(0)", "etcd with leader"),
+        q('count(node_network_address_info{job="node", role="postgres", address="10.13.11.104"}) or vector(0)', "VIP held"),
+    ], text_mode="value_and_name", color_mode="value", decimals=0, thresholds=BLUE,
+        desc="3 / 2 / 3 / 1 when healthy."), 5, 7)
+    b.add(stat("Timeline / backups", [
+        q(f"max(patroni_postgres_timeline{{{pj}}})", "timeline"),
+        q('max(pg_stat_archiver_last_archive_age{job="postgres"} and on (host) patroni_primary{job="patroni"} == 1)', "WAL archive age (s)"),
+        q('(time() - max(pgbackrest_backup_last_success_timestamp_seconds{job="node"})) / 3600', "hours since backup"),
+        q('sum(increase(pg_stat_archiver_failed_count{job="postgres"}[$__range])) or vector(0)', "archive failures"),
+    ], text_mode="value_and_name", color_mode="value", decimals=0, thresholds=BLUE,
+        desc="The timeline grows by one per failover/switchover. WAL is archived to S3 (pgBackRest) at least every "
+             "archive_timeout (300 s) when Grafana writes; a full backup runs daily on the leader (PITR 14 days)."), 6, 7)
+    b.add(stat("etcd leader changes", [q(f"sum(increase(etcd_server_leader_changes_seen_total{{{ej}}}[$__range])) or vector(0)")],
+               decimals=0, color_mode="value", thresholds=BLUE, desc="In the time range, summed over the members."), 4, 7)
+    b.add(state_timeline("Role", [
+        q(f"patroni_primary{{{pj}}} * 2 + patroni_replica{{{pj}}}", "{{host}}")],
+        mappings=mapping(**{"2": ("leader", "green"), "1": ("replica", "blue"), "0": ("down", "red")}),
+        desc="Which member led when: a failover shows up as the green bar moving."), 8, 8)
+    b.add(timeseries("Replication lag", [
+        q(f"scalar(max(patroni_xlog_location{{{pj}}} and on (host) patroni_primary{{{pj}}} == 1)) - "
+          f"(patroni_xlog_replayed_location{{{pj}}} and on (host) patroni_replica{{{pj}}} == 1)", "{{host}}")],
+        unit="bytes", fill=0, desc="WAL bytes each replica has not replayed yet. Past maximum_lag_on_failover (1 MiB) "
+                                   "it can't become leader (alert PatroniReplicaLag)."), 8, 8)
+    b.add(timeseries("Transactions and connections", [
+        q('sum by (host) (rate(pg_stat_database_xact_commit{job="postgres", datname="grafana"}[$__rate_interval]))', "{{host}} commits/s"),
+        q('sum by (host) (pg_stat_database_numbackends{job="postgres", datname="grafana"})', "{{host}} connections"),
+    ], fill=0, desc="Grafana's database: only the leader takes writes; replicas show 0 commits."), 8, 8)
+    b.add(timeseries("WAL archiving", [
+        q('rate(pg_stat_archiver_archived_count{job="postgres"}[$__rate_interval]) * 300 > 0', "{{host}} segments / 5 min"),
+        q('increase(pg_stat_archiver_failed_count{job="postgres"}[$__rate_interval]) > 0', "{{host}} failed"),
+    ], fill=0, desc="Only the leader archives. Failures mean pgBackRest can't reach S3 (alert PostgresWALArchiveFailing)."), 8, 8)
+    b.add(timeseries("etcd", [
+        q(f"histogram_quantile(0.99, sum by (le, host) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{{{ej}}}[$__rate_interval])))", "{{host}} WAL fsync p99"),
+        q(f"histogram_quantile(0.99, sum by (le, host) (rate(etcd_network_peer_round_trip_time_seconds_bucket{{{ej}}}[$__rate_interval])))", "{{host}} peer RTT p99"),
+    ], unit="s", fill=0, desc="Slow fsyncs or peer round trips cause leader elections (Ceph RBD latency shows up here)."), 8, 8)
+    b.add(timeseries("Database size", [
+        q('pg_database_size_bytes{job="postgres", datname="grafana"}', "{{host}}")], unit="bytes", fill=0), 8, 8)
 
     b.row("Alertmanager")
-    b.add(stat("Alerts", [q("alertmanager_alerts", "{{state}}")], text_mode="value_and_name", color_mode="value",
+    b.add(stat("Alerts", [q("max by (state) (alertmanager_alerts)", "{{state}}")], text_mode="value_and_name", color_mode="value",
+               thresholds=BLUE, desc="The cluster members share alerts and silences: the highest member's count."), 4, 7)
+    b.add(stat("Silences", [q("max by (state) (alertmanager_silences)", "{{state}}")], text_mode="value_and_name", color_mode="value",
                thresholds=BLUE), 4, 7)
-    b.add(stat("Silences", [q("alertmanager_silences", "{{state}}")], text_mode="value_and_name", color_mode="value",
-               thresholds=BLUE), 4, 7)
+    b.add(stat("Cluster", [
+        q('alertmanager_cluster_members{job="alertmanager"}', "{{host}} members", instant=True),
+        q('count by (host) (node_network_address_info{job="node", role="monitoring", address=~"10\\\\.(5|13)\\\\.11\\\\.102"})', "{{host}} holds VIPs",
+          instant=True),
+    ], text_mode="value_and_name", color_mode="value", decimals=0, thresholds=BLUE,
+        desc="Members each Alertmanager sees in its gossip cluster (2 = both backends, over the ha_monitor VLAN), "
+             "and which backend holds the keepalived VIPs 10.5.11.102/10.13.11.102 (2 = both)."), 4, 7)
     b.add(timeseries("Alerts received", [
-        q("sum by (status) (rate(alertmanager_alerts_received_total[$__rate_interval]))", "{{status}}")], fill=0,
-        desc="Per second, from Prometheus."), 8, 7)
+        q("sum by (host, status) (rate(alertmanager_alerts_received_total[$__rate_interval]))", "{{host}} {{status}}")], fill=0,
+        desc="Per second, from both Prometheus replicas and the Loki ruler (each sends to every member)."), 4, 7)
     b.add(timeseries("Notifications by integration", [
         q("sum by (integration) (rate(alertmanager_notifications_total[$__rate_interval])) > 0", "{{integration}} sent"),
         q("sum by (integration) (rate(alertmanager_notifications_failed_total[$__rate_interval])) > 0", "{{integration}} failed"),
         q("sum(rate(alertmanager_notifications_total[$__rate_interval]))", "all integrations"),
     ], fill=0, desc="Everything routes to the null receiver for now, so this stays at 0."), 8, 7)
     b.add(timeseries("Prometheus → Alertmanager", [
-        q("rate(prometheus_notifications_sent_total[$__rate_interval])", "sent/s"),
-        q("rate(prometheus_notifications_errors_total[$__rate_interval])", "errors/s"),
-        q("rate(prometheus_notifications_dropped_total[$__rate_interval])", "dropped/s"),
-        q("prometheus_notifications_queue_length", "queue length"),
+        q('sum by (host) (rate(prometheus_notifications_sent_total{job="prometheus"}[$__rate_interval]))', "{{host}} sent/s"),
+        q('sum by (host) (rate(prometheus_notifications_errors_total{job="prometheus"}[$__rate_interval]))', "{{host}} errors/s"),
+        q('sum by (host) (rate(prometheus_notifications_dropped_total{job="prometheus"}[$__rate_interval]))', "{{host}} dropped/s"),
+        q('prometheus_notifications_queue_length{job="prometheus"}', "{{host}} queue length"),
     ], fill=0), 12, 8)
     b.add(timeseries("Firing alerts by name", [
         q('count by (alertname) (ALERTS{alertstate="firing"})', "{{alertname}}")], fill=10, stack=True, decimals=0), 12, 8)
@@ -854,7 +1036,8 @@ def stack():
         desc="Queries Grafana sends to its datasources (only while someone views a dashboard)."), 8, 8)
     b.add(timeseries("Database connections", [
         q("grafana_database_conn_in_use", "{{host}} in use"), q("grafana_database_conn_open", "{{host}} open"),
-    ], fill=0, decimals=0, desc="Connections to the shared Postgres on mon01."), 8, 8)
+    ], fill=0, decimals=0, desc="Connections from each Grafana to its Postgres (Patroni on pg01-03, through the VIP "
+                                  "10.13.11.104 on the leader)."), 8, 8)
     b.add(timeseries("Grafana alerting", [
         q("grafana_alerting_active_alerts", "{{host}} active alerts"),
         q("rate(grafana_alerting_execution_time_milliseconds_count[$__rate_interval])", "{{host}} evaluations/s"),
@@ -862,9 +1045,9 @@ def stack():
 
     b.row("Loki and Alloy (logs)")
     logs_link = [("Logs overview", LOGS_DASH + "?${__url_time_range}")]
-    b.add(stat("Loki / Alloy / haproxy", [q('up{job=~"loki|alloy|haproxy"}', "{{job}} {{host}}")],
+    b.add(stat("Loki / Alloy / haproxy", [q('up{job=~"loki|alloy|haproxy"}', "{{job}} {{host}}", instant=True)],
                text_mode="value_and_name", mappings=UP_MAP, thresholds=UP_STEPS,
-               desc="Loki and haproxy (S3 to the RGWs) on log01-03, Alloy on every VM that ships logs."), 8, 7)
+               desc="Loki and haproxy (S3 to the RGWs) on loki01-03, Alloy on every VM that ships logs."), 8, 7)
     b.add(stat("Ring members ACTIVE", [q('min by (name) (loki_ring_members{state="ACTIVE"})', "{{name}}")],
                text_mode="value_and_name", thresholds=steps(("red", None), ("orange", 2), ("green", 3)),
                desc="ACTIVE members of each Loki ring, as seen by the Loki that sees fewest. 3 = all log VMs."), 6, 7)
@@ -877,7 +1060,7 @@ def stack():
                    override("memberlist members", {"thresholds": steps(("red", None), ("orange", 2), ("green", 3))}),
                    override("RGWs UP (worst VM)", {"thresholds": steps(("red", None), ("orange", 2), ("green", 3))})],
         desc="Unhealthy ring members (missed heartbeats), memberlist gossip members (VLAN 214), and the fewest "
-             "Ceph RGWs any log VM's haproxy sees UP."), 5, 7)
+             "Ceph RGWs any monitoring VM's haproxy (loki, mim, pg) sees UP."), 5, 7)
     b.add(stat("Flush failures", [
         q("sum(increase(loki_ingester_chunks_flush_failures_total[$__range])) or vector(0)", "chunk flushes"),
         q("sum(increase(loki_write_dropped_entries_total[$__range])) or vector(0)", "Alloy drops"),
@@ -926,6 +1109,33 @@ def stack():
     b.add(timeseries("node / frr exporter scrape duration", [
         q('scrape_duration_seconds{job=~"node|vyos-node|vyos-frr"}', "{{job}} {{host}}")], unit="s", fill=0,
         calcs=("mean", "max")), 8, 8)
+    # Telegraf on each backend (job telegraf): the C9800s' model-driven telemetry -> its InfluxDB bucket wlc.
+    tg = 'job="telegraf"'
+    b.add(timeseries("Telegraf: metrics received", [
+        q(f"sum by (host, input) (rate(internal_gather_metrics_gathered{{{tg}}}[$__rate_interval]))", "{{host}} {{input}}")],
+        unit="short", fill=0, calcs=("mean", "max", "lastNotNull"),
+        desc="Metrics per second from each Telegraf input; cisco_telemetry_mdt is the C9800s' gRPC dial-out "
+             "(one metric per YANG list entry per push). 0 for long fires WlcTelemetryStopped."), 8, 8)
+    b.add(timeseries("Telegraf: InfluxDB writes", [
+        q(f'sum by (host) (rate(internal_write_metrics_written{{{tg}, output="influxdb_v2"}}[$__rate_interval]))', "{{host}} written/s"),
+        q(f'sum by (host) (rate(internal_write_metrics_dropped{{{tg}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} dropped/s"),
+        q(f'sum by (host) (rate(internal_write_errors{{{tg}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} errors/s"),
+    ], fill=0, desc="Metrics each Telegraf wrote to its InfluxDB (bucket wlc); drops and errors only show when non-zero."), 8, 8)
+    b.add(timeseries("Telegraf: output buffer", [
+        q(f'max by (host, output) (internal_write_buffer_size{{{tg}}})', "{{host}} {{output}}"),
+        q(f'max by (output) (internal_write_buffer_limit{{{tg}}})', "{{output}} limit")],
+        fill=0, decimals=0, desc="Metrics waiting to be written. It fills up while InfluxDB is unreachable; "
+                                 "past the limit Telegraf drops the oldest."), 8, 8)
+    # InfluxDB relay on each backend (job influx-relay): VyOS Telegraf -> monitoring VIP -> bucket vyos on every backend.
+    # exported_host="": fw-wan's own Telegraf internal_* metrics pass through the relay (host tag -> exported_host).
+    rl = 'job="influx-relay", exported_host=""'
+    b.add(timeseries("InfluxDB relay (VyOS): writes per InfluxDB", [
+        q(f'sum by (host) (rate(internal_gather_metrics_gathered{{{rl}, input="influxdb_v2_listener"}}[$__rate_interval])) > 0', "{{host}} received/s"),
+        q(f'sum by (host, alias) (rate(internal_write_metrics_written{{{rl}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} -> {{alias}} written/s"),
+        q(f'sum by (host, alias) (rate(internal_write_metrics_dropped{{{rl}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} -> {{alias}} dropped/s"),
+        q(f'max by (host, alias) (internal_write_buffer_size{{{rl}, output="influxdb_v2"}}) > 0', "{{host}} -> {{alias}} queued"),
+    ], fill=0, desc="VyOS writes to the relay on the monitoring VIP (only the VIP holder receives); it copies every "
+                    "write into each backend's InfluxDB. A queue builds while a peer's InfluxDB is down."), 8, 8)
 
     b.row("Resources")
     b.add(timeseries("Process memory", [
@@ -935,8 +1145,9 @@ def stack():
         unit="percentunit", fill=0, desc="CPU seconds per second (1 = one core)."), 12, 8)
 
     return dashboard("monitoring-stack", "Monitoring stack",
-                     "Prometheus, Alertmanager, Grafana and the exporters running on mon01, and the logging stack "
-                     "(Loki rings, ingest, S3 flushes, Alloy).",
+                     "Prometheus, Alertmanager, Grafana, the exporters and Telegraf (C9800 telemetry, InfluxDB relay) on the "
+                     "backends mon01/mon02 (Prometheus HA pair, Alertmanager cluster), "
+                     "and the logging stack (Loki rings, ingest, S3 flushes, Alloy).",
                      b, tags=["prometheus", "alertmanager", "grafana", "loki"])
 
 
@@ -960,8 +1171,8 @@ QUORUM_MAP = mapping(**{"0": ("out of quorum", "red"), "1": ("in quorum", "green
 FILL = steps(("green", None), ("yellow", 0.7), ("orange", 0.85), ("red", 0.95))  # nearfull 0.85, full 0.95
 LAT_S = steps(("green", None), ("yellow", 0.05), ("orange", 0.1), ("red", 0.5))
 LAT_MS = steps(("green", None), ("yellow", 50), ("orange", 100), ("red", 500))
-READ, WRITE, RECOVERY = "blue", "orange", "purple"
-NO_NODE = "No data: node_exporter isn't installed on the PVE nodes yet"
+READ, WRITE, RECOVERY = ACCENT2, ACCENT, ACCENT3  # directions, not states: the accents
+NO_NODE = "No data from node_exporter (job=node, role=proxmox) for this OSD's disk"
 
 POOL_META = "ceph_pool_metadata"
 
@@ -991,7 +1202,7 @@ def lat(metric, window="$__rate_interval", by=None):
 
 
 def rw_overrides(read="Read", write="Write"):
-    """Reads above the axis in blue, writes mirrored below it in orange."""
+    """Reads above the axis in cyan, writes mirrored below it in pink."""
     return [override(f"(?i).*{read}.*", {"color": {"mode": "fixed", "fixedColor": READ}}, regex=True),
             override(f"(?i).*{write}.*", {"color": {"mode": "fixed", "fixedColor": WRITE},
                                           "custom.transform": "negative-Y"}, regex=True)]
@@ -1413,7 +1624,7 @@ def ceph():
         q(f"sum by (ceph_daemon) (increase(ceph_bluestore_slow_committed_kv_count[$__rate_interval]) "
           f"+ increase(ceph_bluestore_slow_aio_wait_count[$__rate_interval])) > 0", "{{ceph_daemon}} BlueStore"),
     ], draw="bars", fill=80, decimals=0, stack=True, calcs=("sum",), legend="table", placement="right",
-        desc="Slow ops counted per interval; bars only where there were any."), 8, 10)
+        no_value="No slow ops in range", desc="Slow ops counted per interval; bars only where there were any."), 8, 10)
     b.add(timeseries("BlueStore kv commit latency per OSD", [
         q(by_osd_host(lat("ceph_bluestore_kv_commit_lat", by="ceph_daemon")), "{{ceph_daemon}} ({{hostname}})")],
         unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right",
@@ -1602,8 +1813,8 @@ def ceph():
         q(f'max by (host) (node_load5{{{node}}}) / count by (host) (node_cpu_seconds_total{{mode="idle", {node}}})', table=True),
         q(f'max by (host) (100 * avg by (host) (rate(node_disk_io_time_seconds_total{{{node}}}[5m]) and on (host, device) {OSD_DISK}))', table=True),
     ], desc="OSD count per host from Ceph; CPU, memory, load and OSD disk busy % from node_exporter "
-            "(job node, role proxmox), joined on the host label. node_exporter isn't installed on the PVE "
-            "nodes yet, so those columns stay empty and Exporter shows DOWN.",
+            "(job node, role proxmox), joined on the host label. Exporter shows DOWN when a node's "
+            "node_exporter isn't scraped.",
         transformations=[MERGE, organize(exclude=["Time"], rename={
             "host": "Host", "Value #A": "OSDs", "Value #B": "Exporter", "Value #C": "CPU", "Value #D": "Memory",
             "Value #E": "Load 5m / CPU", "Value #F": "OSD disks busy"},
@@ -1676,7 +1887,11 @@ def ceph_osd():
         q(f"rate(ceph_osd_op_r{{{o}}}[$__rate_interval])", "Read"),
         q(f"rate(ceph_osd_op_w{{{o}}}[$__rate_interval])", "Write"),
         q(f"rate(ceph_osd_op_rw{{{o}}}[$__rate_interval])", "Read-modify-write"),
-    ], unit="iops", fill=25, gradient="opacity", overrides=rw_overrides()), 8, 9)
+    ], unit="iops", fill=25, gradient="opacity",
+        # Exact names: rw_overrides' regexes match "Read-modify-write" as both Read and Write.
+        overrides=[fixed_color("Read", READ),
+                   override("Write", {"color": {"mode": "fixed", "fixedColor": WRITE}, "custom.transform": "negative-Y"}),
+                   fixed_color("Read-modify-write", "purple")]), 8, 9)
     b.add(timeseries("Throughput", [
         q(f"rate(ceph_osd_op_out_bytes{{{o}}}[$__rate_interval])", "Read"),
         q(f"rate(ceph_osd_op_in_bytes{{{o}}}[$__rate_interval])", "Write"),
@@ -1687,7 +1902,9 @@ def ceph_osd():
         q(lat(f"ceph_osd_op_r_process_latency{{{o}}}"), "Read (processing only)"),
         q(lat(f"ceph_osd_op_w_process_latency{{{o}}}"), "Write (processing only)"),
         q(lat(f"ceph_osd_op_before_queue_op_lat{{{o}}}"), "before queue"),
-    ], unit="s", fill=0, line=2, overrides=[fixed_color("Read", READ), fixed_color("Write", WRITE)],
+    ], unit="s", fill=0, line=2, overrides=[
+        fixed_color("Read", READ), fixed_color("Write", WRITE), fixed_color("Read (processing only)", theme.SERIES[2]),
+        fixed_color("Write (processing only)", theme.SERIES[3]), fixed_color("before queue", theme.SERIES[4])],
         desc="Total latency includes time in the OSD's op queue; processing excludes it."), 8, 9)
     b.add(timeseries("Apply and commit latency", [
         q(f"ceph_osd_apply_latency_ms{{{o}}}", "apply"), q(f"ceph_osd_commit_latency_ms{{{o}}}", "commit"),
@@ -1699,8 +1916,10 @@ def ceph_osd():
     b.add(timeseries("Recovery", [
         q(f"rate(ceph_osd_recovery_bytes{{{o}}}[$__rate_interval])", "bytes/s"),
         q(f"rate(ceph_osd_recovery_ops{{{o}}}[$__rate_interval])", "ops/s"),
-    ], unit="Bps", fill=10, overrides=[override("ops/s", {"unit": "ops", "custom.axisPlacement": "right"}),
-                                       fixed_color("bytes/s", RECOVERY)]), 8, 8)
+    ], unit="Bps", fill=10, overrides=[
+        override("ops/s", {"unit": "ops", "custom.axisPlacement": "right",
+                           "color": {"mode": "fixed", "fixedColor": ACCENT2}}),
+        fixed_color("bytes/s", RECOVERY)]), 8, 8)
 
     b.row("BlueStore")
     b.add(timeseries("BlueStore latency breakdown", [
@@ -1709,12 +1928,17 @@ def ceph_osd():
             ("kv_final_lat", "kv final"), ("txc_commit_lat", "txc commit"), ("txc_submit_lat", "txc submit"),
             ("txc_throttle_lat", "txc throttle"), ("state_aio_wait_lat", "aio wait"),
             ("state_kv_queued_lat", "kv queued"), ("read_lat", "read"), ("write_lat", "write"))
-    ], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right"), 12, 10)
+    ], unit="s", fill=0, calcs=("mean", "max"), legend="table", placement="right",
+        # 11 queries are more than theme.SERIES has colors, so the theme pass leaves them alone: read and
+        # write in the directions' colors, the other nine in the remaining series colors.
+        overrides=[{"matcher": {"id": "byFrameRefID", "options": chr(65 + i)},
+                    "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": c}}]}
+                   for i, c in enumerate([*theme.SERIES[2:], WARN_HIGH, READ, WRITE])]), 12, 10)
     b.add(timeseries("BlueStore slow ops", [
         q(f"increase({m}{{{o}}}[$__rate_interval]) > 0", name) for name, m in BLUESTORE_SLOW.items()
     ] + [q(f"increase(ceph_trackedop_slow_ops_count{{{o}}}[$__rate_interval]) > 0", "tracked ops over 10 s")],
         draw="bars", fill=80, stack=True, decimals=0, calcs=("sum",), legend="table", placement="right",
-        desc="Counted per interval; nothing drawn when there were none."), 12, 10)
+        no_value="No slow ops", desc="Counted per interval; nothing drawn when there were none."), 12, 10)
     b.add(timeseries("Space", [
         q(f"ceph_bluestore_allocated{{{o}}}", "allocated"), q(f"ceph_bluestore_stored{{{o}}}", "stored"),
         q(f"ceph_bluefs_db_used_bytes{{{o}}}", "RocksDB used"),
@@ -1730,7 +1954,7 @@ def ceph_osd():
     b.add(timeseries("Scrubs", [
         q(f"increase(ceph_osd_successful_scrubs_replicated{{{o}}}[$__rate_interval]) > 0", "successful"),
         q(f"increase(ceph_osd_failed_scrubs_replicated{{{o}}}[$__rate_interval]) > 0", "failed"),
-    ], draw="bars", fill=80, decimals=0, calcs=("sum",),
+    ], draw="bars", fill=80, decimals=0, calcs=("sum",), no_value="No scrubs in range",
         overrides=[fixed_color("successful", "green"), fixed_color("failed", "red")]), 12, 7)
     b.add(timeseries("Scrub reads", [
         q(f"rate(ceph_osd_scrub_replicated_read_bytes{{{o}}}[$__rate_interval])", "scrub read bytes/s")],
@@ -1742,8 +1966,10 @@ def ceph_osd():
     def one(expr):
         return f'({expr}) * on (host, device) group_left (ceph_daemon) ({OSD_DISK.replace("ceph_disk_occupation", f"ceph_disk_occupation{{{o}}}")})'
 
+    # One series (the OSD's disk); the {{...}} legend hides that from the theme pass.
     b.add(timeseries("Disk busy", [q(one(f"rate(node_disk_io_time_seconds_total{{{disk}}}[$__rate_interval])"), "{{host}} {{device}}")],
-                     unit="percentunit", min_=0, max_=1, fill=20, no_value=NO_NODE), 8, 8)
+                     unit="percentunit", min_=0, max_=1, fill=20, no_value=NO_NODE,
+                     color={"mode": "fixed", "fixedColor": ACCENT2}), 8, 8)
     b.add(timeseries("Disk IOPS", [
         q(one(f"rate(node_disk_reads_completed_total{{{disk}}}[$__rate_interval])"), "Read"),
         q(one(f"rate(node_disk_writes_completed_total{{{disk}}}[$__rate_interval])"), "Write"),
@@ -1770,16 +1996,20 @@ DASHBOARDS = {
 
 
 def main():
-    sys.modules.setdefault("custom", sys.modules[__name__])  # for pve.py's, fwwan.py's and logs.py's "from custom import ..."
+    sys.modules.setdefault("custom", sys.modules[__name__])  # for the other builders' "from custom import ..."
     sys.path.insert(0, str(HERE))
     sys.dont_write_bytecode = True
     import fwwan
     import logs
     import pve
-    for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS}.items():
+    import rgw
+    import snmp
+    import wireless
+    for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS,
+                       **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
-        dash = build()
+        dash = theme.apply_theme(build())
         out.write_text(json.dumps(dash, indent=2, ensure_ascii=False) + "\n")
         panels = [p for top in dash["panels"] for p in [top, *top.get("panels", [])] if p["type"] != "row"]
         print(f"{rel}: {dash['title']} ({len(panels)} panels)")

@@ -32,7 +32,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "type": "dashboard"
       }
@@ -190,7 +190,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Errors",
           "refId": "A"
@@ -205,11 +205,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -259,7 +259,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Warnings",
           "refId": "A"
@@ -274,11 +274,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -328,7 +328,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` |= \"end task UPID\" !~ `: OK\\s*$` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \"end task UPID\" !~ `: OK\\s*$` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Failed tasks",
           "refId": "A"
@@ -343,11 +343,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -397,7 +397,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` |= \"starting task UPID\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \"starting task UPID\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Tasks started",
           "refId": "A"
@@ -412,7 +412,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -450,7 +450,7 @@
     {
       "type": "stat",
       "title": "Corosync events",
-      "description": "Link up/down, membership and quorum changes, token loss.",
+      "description": "corosync/pmxcfs: link up/down, membership and quorum changes, token loss.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -462,7 +462,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search` |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Corosync events",
           "refId": "A"
@@ -477,11 +477,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -531,7 +531,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\", app=~\"pve-ha-.*\"} [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\", app=~\"pve-ha-.*\"} |~ `(?i)$search` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "HA events",
           "refId": "A"
@@ -546,7 +546,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -596,7 +596,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` |~ `(?i)authentication failure|auth fail|failed password|invalid user` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |~ `(?i)authentication failure|auth fail|failed password|invalid user` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Auth failures",
           "refId": "A"
@@ -611,11 +611,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -665,7 +665,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Lines",
           "refId": "A"
@@ -680,7 +680,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -743,7 +743,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` [$__auto]))",
+          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -758,13 +758,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -807,8 +808,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Lines by app (top 10)",
-      "description": "",
+      "title": "Lines by app (top 10 per bucket)",
+      "description": "The 10 busiest apps of each bucket, so more than 10 over the range; the legend is sorted by total.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -820,7 +821,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (app) (count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` [$__auto])))",
+          "expr": "topk(10, sum by (app) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` [$__auto])))",
           "queryType": "range",
           "legendFormat": "{{app}}",
           "refId": "A"
@@ -835,13 +836,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -867,7 +869,9 @@
             "sum",
             "max"
           ],
-          "showLegend": true
+          "showLegend": true,
+          "sortBy": "Total",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -897,7 +901,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host, level) (count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] )(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~`error|warning` [$__auto]))",
+          "expr": "sum by (host, level) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~`error|warning` [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}} {{level}}",
           "refId": "A"
@@ -912,13 +916,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -975,7 +980,7 @@
     {
       "type": "timeseries",
       "title": "Corosync events by node",
-      "description": "Link up/down, membership and quorum changes, token loss.",
+      "description": "corosync/pmxcfs: link up/down, membership and quorum changes, token loss.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -987,7 +992,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__auto]))",
+          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search` |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -1002,13 +1007,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No corosync events in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -1064,7 +1070,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"${node:regex}\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search`",
+          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1105,7 +1111,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"${node:regex}\", app=~\"pve-ha-.*\"} |~ `(?i)$search`",
+          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"pve-ha-.*\"} |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1159,7 +1165,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(15, sum by (task) (count_over_time({source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<id>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)` | what=`starting` [$__range])))",
+          "expr": "sort_desc(topk(15, sum by (task) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<vmid>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)` | what=`starting` [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{task}}",
           "refId": "A"
@@ -1174,7 +1180,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -1226,7 +1232,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"${node:regex}\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<id>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)`",
+          "expr": "{source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<vmid>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 300,
@@ -1242,7 +1248,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1357,8 +1363,18 @@
                     "options": {
                       "OK": {
                         "text": "OK",
-                        "color": "green",
+                        "color": "#02E5A8",
                         "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "/^(?!OK$).+$/",
+                      "result": {
+                        "color": "#ff6188",
+                        "index": 1
                       }
                     }
                   }
@@ -1412,7 +1428,7 @@
                 "user",
                 "what",
                 "task",
-                "id",
+                "vmid",
                 "status",
                 "Line"
               ]
@@ -1429,7 +1445,7 @@
               "user": "User",
               "what": "Event",
               "task": "Task",
-              "id": "Guest / ID",
+              "vmid": "Guest / ID",
               "status": "Status"
             },
             "indexByName": {
@@ -1438,7 +1454,7 @@
               "user": 2,
               "what": 3,
               "task": 4,
-              "id": 5,
+              "vmid": 5,
               "status": 6,
               "Line": 7
             }
@@ -1468,7 +1484,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"${node:regex}\", app=~\"qmeventd|qm|pct|lxc.*|pvescheduler\"} |~ `(?i)$search`",
+          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"qmeventd|qm|pct|lxc.*|pvescheduler\"} |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1509,7 +1525,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"${node:regex}\", app=~\"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall\"} |~ `(?i)$search` !~ `status update time`",
+          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall\"} |~ `(?i)$search` !~ `status update time`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1550,7 +1566,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"${node:regex}\", app=\"kernel\"} |~ `(?i)$search` | level=~\"emergency|alert|critical|error|warning\"",
+          "expr": "{source=\"syslog\", host=~\"$node\", app=\"kernel\"} |~ `(?i)$search` | level=~\"emergency|alert|critical|error|warning\"",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1592,7 +1608,7 @@
     {
       "type": "stat",
       "title": "Health checks raised",
-      "description": "'Health check failed' lines from the cluster log (one mon's copy, the Ceph mon picker).",
+      "description": "'Health check failed' and 'Health check update' lines from the cluster log (one mon's copy, the Ceph mon picker), as in the panels below.",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -1604,7 +1620,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({app=\"ceph-cluster\", host=\"${cephmon}\"} |~ `(?i)$search` |= \"Health check failed\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({app=\"ceph-cluster\", host=\"${cephmon}\"} |~ `(?i)$search` |~ \"Health check (failed|update)\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Health checks raised",
           "refId": "A"
@@ -1619,11 +1635,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -1688,7 +1704,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1753,11 +1769,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 1
               }
             ]
@@ -1822,11 +1838,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -1891,11 +1907,11 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               }
             ]
@@ -1960,7 +1976,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#6870ff",
                 "value": null
               }
             ]
@@ -2025,13 +2041,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "Nothing in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -2058,7 +2075,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "red"
+                  "fixedColor": "#ff6188"
                 }
               }
             ]
@@ -2073,7 +2090,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "orange"
+                  "fixedColor": "#ffa352"
                 }
               }
             ]
@@ -2088,7 +2105,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "purple"
+                  "fixedColor": "#9932cc"
                 }
               }
             ]
@@ -2103,7 +2120,7 @@
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "blue"
+                  "fixedColor": "#6870ff"
                 }
               }
             ]
@@ -2163,22 +2180,22 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 1
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 10
               }
             ]
           },
           "mappings": [],
           "decimals": 0,
-          "noValue": "",
+          "noValue": "No health checks raised in range",
           "custom": {
             "fillOpacity": 80,
             "lineWidth": 0
@@ -2223,7 +2240,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (check) (count_over_time({app=\"ceph-cluster\", host=\"${cephmon}\"} |~ `(?i)$search` |~ `Health check (failed|update)` | regexp `\\((?P<check>[A-Z0-9_]+)\\)\\s*$` [$__range])))",
+          "expr": "sort_desc(topk(10, sum by (check) (count_over_time({app=\"ceph-cluster\", host=\"${cephmon}\"} |~ `(?i)$search` |~ `Health check (failed|update)` | regexp `\\((?P<check>[A-Z0-9_]+)\\)\\s*$` [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{check}}",
           "refId": "A"
@@ -2238,7 +2255,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": null
               }
             ]
@@ -2413,7 +2430,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"${node:regex}\", app=~\"ceph-(osd|mon|mgr|mds|crash|volume).*|kernel\"} |~ `(?i)ceph|osd|libceph|rbd` |~ `(?i)$search`",
+          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"ceph-(osd|mon|mgr|mds|crash|volume).*|kernel\"} |~ `(?i)ceph|osd|libceph|rbd` |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,

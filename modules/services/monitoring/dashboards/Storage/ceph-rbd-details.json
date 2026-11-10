@@ -6,7 +6,7 @@
         "datasource": "-- Grafana --",
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "showIn": 0,
         "tags": [],
@@ -65,10 +65,43 @@
         "defaults": {
           "custom": {
             "fillOpacity": 8,
-            "showPoints": "never"
+            "showPoints": "never",
+            "gradientMode": "opacity"
           },
           "unit": "iops"
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "fill": 1,
       "fillGradient": 0,
@@ -170,10 +203,43 @@
         "defaults": {
           "custom": {
             "fillOpacity": 8,
-            "showPoints": "never"
+            "showPoints": "never",
+            "gradientMode": "opacity"
           },
           "unit": "Bps"
-        }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "fill": 1,
       "fillGradient": 0,
@@ -275,10 +341,44 @@
         "defaults": {
           "custom": {
             "fillOpacity": 8,
-            "showPoints": "never"
+            "showPoints": "never",
+            "gradientMode": "opacity"
           },
-          "unit": "ns"
-        }
+          "unit": "ns",
+          "noValue": "No I/O on this image"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          }
+        ]
       },
       "fill": 1,
       "fillGradient": 0,
@@ -438,8 +538,8 @@
         "options": [],
         "query": "label_values(ceph_rbd_read_ops{cluster=~\"$cluster|\",  pool=\"$pool\"}, image)",
         "refresh": 1,
-        "regex": "",
-        "sort": 0,
+        "regex": "/^vm-\\d+-disk-\\d+$/",
+        "sort": 1,
         "tagValuesQuery": "",
         "tags": [],
         "tagsQuery": "",

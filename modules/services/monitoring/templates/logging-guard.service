@@ -1,8 +1,14 @@
 # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
 [Unit]
 Description=Limit Loki's ports to loopback and the backend VLAN (nftables table logging_guard)
-Before=network-pre.target loki.service
+# No default dependencies: those add After=basic.target, and with Before=network-pre.target that
+# forms an ordering cycle (basic → guard → network-pre → networkd → wait-online → cloud-init-network
+# → sysinit → basic); systemd then deletes jobs at boot (seen on mim01, 2026-11-10). As nftables.service.
+DefaultDependencies=no
+After=local-fs.target
+Before=network-pre.target shutdown.target loki.service
 Wants=network-pre.target
+Conflicts=shutdown.target
 
 [Service]
 Type=oneshot

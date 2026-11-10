@@ -1,0 +1,1389 @@
+{
+  "id": null,
+  "uid": "wireless-client",
+  "title": "Wireless client (C9800)",
+  "description": "One wireless client (picker: MAC, from the WLCs' telemetry): where it is, signal, rates, throughput, retries and errors over time.",
+  "tags": [
+    "lylat",
+    "network",
+    "wireless"
+  ],
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "timezone": "browser",
+  "fiscalYearStartMonth": 0,
+  "weekStart": "",
+  "liveNow": false,
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "#21E2D7",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat"
+      ],
+      "asDropdown": true,
+      "title": "Dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "wireless"
+      ],
+      "asDropdown": true,
+      "title": "Wireless dashboards",
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "link",
+      "title": "WLC logs",
+      "url": "/d/logs-network/logs-network?var-device=c9800-wlc-1&var-device=c9800-wlc-2&var-search=${client_cisco}",
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "asDropdown": false,
+      "targetBlank": false,
+      "tags": [],
+      "tooltip": ""
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "wlc",
+        "label": "WLC",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb"
+        },
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"wlc\", tag: \"source\",\n  predicate: (r) => r._measurement == \"Cisco-IOS-XE-process-cpu-oper:cpu-usage/cpu-utilization\", start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"wlc\", tag: \"source\",\n  predicate: (r) => r._measurement == \"Cisco-IOS-XE-process-cpu-oper:cpu-usage/cpu-utilization\", start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 0
+      },
+      {
+        "name": "client",
+        "label": "Client (MAC)",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb"
+        },
+        "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and r._field == \"ap_name\" and r.source =~ /^${wlc:regex}$/)\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> unique(column: \"client_mac\")\n  |> keep(columns: [\"client_mac\"])\n  |> rename(columns: {client_mac: \"_value\"})",
+        "definition": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and r._field == \"ap_name\" and r.source =~ /^${wlc:regex}$/)\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> unique(column: \"client_mac\")\n  |> keep(columns: [\"client_mac\"])\n  |> rename(columns: {client_mac: \"_value\"})",
+        "refresh": 2,
+        "multi": false,
+        "includeAll": false,
+        "current": {},
+        "options": [],
+        "sort": 0,
+        "regex": "",
+        "hide": 0
+      },
+      {
+        "name": "client_cisco",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "influxdb"
+        },
+        "query": "import \"strings\"\nimport \"array\"\nm = strings.replaceAll(v: \"${client}\", t: \":\", u: \"\")\ncisco = if strings.strlen(v: m) == 12 then strings.substring(v: m, start: 0, end: 4) + \".\"\n  + strings.substring(v: m, start: 4, end: 8) + \".\" + strings.substring(v: m, start: 8, end: 12)\n  else \"${client}\"\narray.from(rows: [{_value: cisco}])",
+        "definition": "import \"strings\"\nimport \"array\"\nm = strings.replaceAll(v: \"${client}\", t: \":\", u: \"\")\ncisco = if strings.strlen(v: m) == 12 then strings.substring(v: m, start: 0, end: 4) + \".\"\n  + strings.substring(v: m, start: 4, end: 8) + \".\" + strings.substring(v: m, start: 8, end: 12)\n  else \"${client}\"\narray.from(rows: [{_value: cisco}])",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {},
+        "options": [],
+        "sort": 0,
+        "regex": "",
+        "hide": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Now",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Client",
+      "description": "The selected client now (empty when it isn't associated). Download/upload over the last 3 minutes.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nimport \"regexp\"\nimport \"strings\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and (r._field == \"ap_name\" or r._field == \"co_state\" or r._field == \"ms_radio_type\") and r.source =~ /^${wlc:regex}$/ and r.client_mac == \"${client}\")\n  |> last()\n  |> pivot(rowKey: [\"source\", \"client_mac\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.client_mac, ap: r.ap_name, state: r.co_state, source: r.source,\n      band: if strings.containsStr(v: r.ms_radio_type, substr: \"24-ghz\") or strings.containsStr(v: r.ms_radio_type, substr: \"24ghz\") then \"2.4 GHz\"\n            else if strings.containsStr(v: r.ms_radio_type, substr: \"6ghz\") or strings.containsStr(v: r.ms_radio_type, substr: \"6-ghz\") then \"6 GHz\"\n            else \"5 GHz\",\n      protocol: strings.replaceAll(v: regexp.findString(r: /dot11[a-z]+/, v: r.ms_radio_type), t: \"dot11\", u: \"802.11\")}))",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/dot11-oper-data\" and (r._field == \"vap_ssid\" or r._field == \"current_channel\" or r._field == \"ms_wifi/wpa_version\" or r._field == \"ms_wifi/auth_key_mgmt\" or r._field == \"ms_assoc_time\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> last()\n  |> pivot(rowKey: [\"source\", \"ms_mac_address\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.ms_mac_address, ssid: r.vap_ssid, channel: r.current_channel,\n      security: r[\"ms_wifi/wpa_version\"] + \" \" + r[\"ms_wifi/auth_key_mgmt\"],\n      connected: float(v: uint(v: v.timeRangeStop) - uint(v: time(v: r.ms_assoc_time))) / 1000000000.0}))",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"most_recent_rssi\" or r._field == \"most_recent_snr\" or r._field == \"speed\" or r._field == \"current_rate\" or r._field == \"spatial_stream\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> last()\n  |> pivot(rowKey: [\"source\", \"ms_mac_address\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.ms_mac_address, rssi: r.most_recent_rssi, snr: r.most_recent_snr,\n      speed: r.speed * 1000000, mcs: r.current_rate, nss: r.spatial_stream}))",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 10m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"bytes_tx\" or r._field == \"bytes_rx\" or r._field == \"data_retries\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: 3m, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> pivot(rowKey: [\"source\", \"ms_mac_address\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.ms_mac_address, down: r.bytes_tx * 8.0, up: r.bytes_rx * 8.0,\n      retries: r.data_retries}))",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/sisf-db-mac\" and r._field == \"ipv4_binding/ip_key/ip_addr\" and r.source =~ /^${wlc:regex}$/ and r.mac_addr == \"${client}\")\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({mac: r.mac_addr, ip: r._value}))",
+          "refId": "E"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "noValue": "Client not associated in the last 3 minutes"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RSSI"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ff6188",
+                      "value": null
+                    },
+                    {
+                      "color": "#ffa352",
+                      "value": -80
+                    },
+                    {
+                      "color": "#ffd27a",
+                      "value": -70
+                    },
+                    {
+                      "color": "#02E5A8",
+                      "value": -60
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "dBm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SNR"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ff6188",
+                      "value": null
+                    },
+                    {
+                      "color": "#ffa352",
+                      "value": 15
+                    },
+                    {
+                      "color": "#ffd27a",
+                      "value": 25
+                    },
+                    {
+                      "color": "#02E5A8",
+                      "value": 35
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "unit",
+                "value": "dB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "client-status-run": {
+                        "text": "run",
+                        "color": "#02E5A8",
+                        "index": 0
+                      },
+                      "client-status-authenticating": {
+                        "text": "auth",
+                        "color": "#ffa352",
+                        "index": 1
+                      },
+                      "client-status-ip-learn": {
+                        "text": "IP learn",
+                        "color": "#ffa352",
+                        "index": 2
+                      },
+                      "client-status-webauth-pending": {
+                        "text": "webauth",
+                        "color": "#ffa352",
+                        "index": 3
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Connected for"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Download"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Upload"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bps"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Retries"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "displayName",
+                "value": "Retries/s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": null
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "mac",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "renameByName": {
+              "mac": "Client",
+              "ip": "IP",
+              "ap": "AP",
+              "ssid": "SSID",
+              "band": "Band",
+              "protocol": "Protocol",
+              "channel": "Channel",
+              "rssi": "RSSI",
+              "snr": "SNR",
+              "speed": "Rate",
+              "mcs": "MCS",
+              "nss": "Streams",
+              "down": "Download",
+              "up": "Upload",
+              "retries": "Retries",
+              "state": "State",
+              "security": "Security",
+              "connected": "Connected for",
+              "source": "WLC"
+            },
+            "indexByName": {
+              "mac": 0,
+              "ip": 1,
+              "ap": 2,
+              "ssid": 3,
+              "band": 4,
+              "protocol": 5,
+              "channel": 6,
+              "rssi": 7,
+              "snr": 8,
+              "speed": 9,
+              "mcs": 10,
+              "nss": 11,
+              "down": 12,
+              "up": 13,
+              "retries": 14,
+              "state": 15,
+              "security": 16,
+              "connected": 17,
+              "source": 18
+            }
+          }
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "type": "row",
+      "title": "Signal and rate",
+      "collapsed": false,
+      "id": 3,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Signal",
+      "description": "RSSI (dBm, at the AP) and SNR (dB). Below about -75 dBm / 20 dB, rates and retries suffer.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"most_recent_rssi\" or r._field == \"most_recent_snr\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: if r._field == \"most_recent_rssi\" then \"RSSI (dBm)\" else \"SNR (dB)\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          },
+          "noValue": "Client not seen in this time range (pick a client / WLC)"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RSSI (dBm)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#6870ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SNR (dB)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#02E5A8"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": null
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "PHY rate and streams",
+      "description": "Current PHY data rate and spatial streams.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and r._field == \"speed\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> map(fn: (r) => ({r with _value: float(v: r._value) * 1000000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"PHY rate\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and r._field == \"spatial_stream\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"Spatial streams\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "stepAfter",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          },
+          "noValue": "Client not seen in this time range (pick a client / WLC)"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "PHY rate"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Spatial streams"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": null
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traffic",
+      "collapsed": false,
+      "id": 6,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Throughput",
+      "description": "Download (sent to the client) up, upload down. Counters refresh every 90 s.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "every = if int(v: v.windowPeriod) > int(v: 3m) then v.windowPeriod else 3m\nfrom(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"bytes_tx\" or r._field == \"bytes_rx\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: every, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with _value: (if r._field == \"bytes_tx\" then 8.0 else -8.0) * r._value}))\n  |> map(fn: (r) => ({r with series: if r._field == \"bytes_tx\" then \"download\" else \"upload\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "opacity"
+          },
+          "noValue": "Client not seen in this time range (pick a client / WLC)"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "download"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "upload"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": null
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Packets",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "every = if int(v: v.windowPeriod) > int(v: 3m) then v.windowPeriod else 3m\nfrom(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"pkts_tx\" or r._field == \"pkts_rx\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: every, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with _value: if r._field == \"pkts_tx\" then r._value else -r._value}))\n  |> map(fn: (r) => ({r with series: if r._field == \"pkts_tx\" then \"download\" else \"upload\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "opacity"
+          },
+          "noValue": "Client not seen in this time range (pick a client / WLC)"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "download"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "upload"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": null
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Retries, drops and errors",
+      "description": "Per second. data_retries are frames the AP sent again; tx_total_drops frames it gave up on; decrypt_failed/mic_* point at key or security problems.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "every = if int(v: v.windowPeriod) > int(v: 3m) then v.windowPeriod else 3m\nfrom(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"data_retries\" or r._field == \"tx_retries\" or r._field == \"tx_excessive_retries\" or r._field == \"tx_total_drops\" or r._field == \"decrypt_failed\" or r._field == \"mic_mismatch\" or r._field == \"mic_missing\" or r._field == \"duplicate_rcv\" or r._field == \"policy_errs\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: every, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with series: r._field}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          },
+          "noValue": "Client not seen in this time range (pick a client / WLC)"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "data_retries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#21E2D7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tx_retries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#6870ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tx_excessive_retries"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8f95ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tx_total_drops"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ffd27a"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duplicate_rcv"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#02E5A8"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "policy_errs"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9932cc"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "decrypt_failed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ff6188"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mic_mismatch"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F70997"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mic_missing"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#C9499C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": null
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      }
+    },
+    {
+      "type": "row",
+      "title": "Where",
+      "collapsed": false,
+      "id": 10,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "panels": []
+    },
+    {
+      "type": "state-timeline",
+      "title": "AP, SSID and channel",
+      "description": "Roams (AP), SSID and channel changes; gaps are times the client wasn't associated.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and r._field == \"ap_name\" and r.source =~ /^${wlc:regex}$/ and r.client_mac == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"AP\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/dot11-oper-data\" and r._field == \"vap_ssid\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"SSID\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/dot11-oper-data\" and r._field == \"current_channel\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with _value: \"ch \" + string(v: r._value)}))\n  |> map(fn: (r) => ({r with series: \"Channel\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          },
+          "noValue": "Client not seen in this time range (pick a client / WLC)"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": null
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "alignValue": "left",
+        "rowHeight": 0.85,
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      }
+    }
+  ]
+}

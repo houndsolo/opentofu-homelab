@@ -9,7 +9,7 @@
         },
         "enable": true,
         "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
+        "iconColor": "#21E2D7",
         "name": "Annotations & Alerts",
         "target": {
           "limit": 100,
@@ -103,14 +103,14 @@
             "mode": "percentage",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               },
               {
-                "color": "dark-yellow",
+                "color": "#997f4b",
                 "value": 70
               },
               {
-                "color": "dark-red",
+                "color": "#993b53",
                 "value": 90
               }
             ]
@@ -230,14 +230,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-green"
+                "color": "#028b66"
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 85
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 95
               }
             ]
@@ -313,14 +313,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-green"
+                "color": "#028b66"
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 85
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 95
               }
             ]
@@ -386,14 +386,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-green"
+                "color": "#028b66"
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 80
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 90
               }
             ]
@@ -469,19 +469,20 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-green"
+                "color": "#028b66"
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 10
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 25
               }
             ]
           },
-          "unit": "percent"
+          "unit": "percent",
+          "noValue": "No swap"
         },
         "overrides": []
       },
@@ -551,14 +552,14 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-green"
+                "color": "#028b66"
               },
               {
-                "color": "orange",
+                "color": "#ffa352",
                 "value": 80
               },
               {
-                "color": "red",
+                "color": "#ff6188",
                 "value": 90
               }
             ]
@@ -594,7 +595,7 @@
         {
           "editorMode": "code",
           "exemplar": false,
-          "expr": "(\n  (node_filesystem_size_bytes{instance=\"$node\", job=\"$job\", mountpoint=\"/\", fstype!=\"rootfs\"}\n   - node_filesystem_avail_bytes{instance=\"$node\", job=\"$job\", mountpoint=\"/\", fstype!=\"rootfs\"})\n  / node_filesystem_size_bytes{instance=\"$node\", job=\"$job\", mountpoint=\"/\", fstype!=\"rootfs\"}\n) * 100\n",
+          "expr": "(\n  (node_filesystem_size_bytes{instance=\"$node\", job=\"$job\", mountpoint=~\"/|/usr/lib/live/mount/persistence\", fstype!=\"rootfs\"}\n   - node_filesystem_avail_bytes{instance=\"$node\", job=\"$job\", mountpoint=~\"/|/usr/lib/live/mount/persistence\", fstype!=\"rootfs\"})\n  / node_filesystem_size_bytes{instance=\"$node\", job=\"$job\", mountpoint=~\"/|/usr/lib/live/mount/persistence\", fstype!=\"rootfs\"}\n) * 100\n",
           "format": "time_series",
           "instant": true,
           "range": false,
@@ -631,7 +632,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               }
             ]
           },
@@ -711,7 +712,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -792,7 +793,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -873,7 +874,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -917,7 +918,7 @@
         {
           "editorMode": "code",
           "exemplar": false,
-          "expr": "node_filesystem_size_bytes{instance=\"$node\",job=\"$job\",mountpoint=\"/\",fstype!=\"rootfs\"}",
+          "expr": "node_filesystem_size_bytes{instance=\"$node\",job=\"$job\",mountpoint=~\"/|/usr/lib/live/mount/persistence\",fstype!=\"rootfs\"}",
           "format": "time_series",
           "instant": true,
           "range": false,
@@ -955,7 +956,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#02E5A8",
                 "value": null
               }
             ]
@@ -1043,7 +1044,7 @@
             "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1072,7 +1073,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               }
             ]
           },
@@ -1088,7 +1089,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#890F02",
+                  "fixedColor": "#993b53",
                   "mode": "fixed"
                 }
               }
@@ -1103,7 +1104,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#052B51",
+                  "fixedColor": "#2a2f68",
                   "mode": "fixed"
                 }
               }
@@ -1118,7 +1119,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#EAB839",
+                  "fixedColor": "#ffd27a",
                   "mode": "fixed"
                 }
               }
@@ -1133,7 +1134,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#0A437C",
+                  "fixedColor": "#3f449b",
                   "mode": "fixed"
                 }
               }
@@ -1148,7 +1149,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#6D1F62",
+                  "fixedColor": "#95075c",
                   "mode": "fixed"
                 }
               }
@@ -1260,7 +1261,7 @@
             "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 40,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1289,7 +1290,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               }
             ]
           },
@@ -1305,7 +1306,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#BF1B00",
+                  "fixedColor": "#ff6188",
                   "mode": "fixed"
                 }
               }
@@ -1320,7 +1321,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#E0F9D7",
+                  "fixedColor": "#7fedc8",
                   "mode": "fixed"
                 }
               },
@@ -1346,7 +1347,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#052B51",
+                  "fixedColor": "#2a2f68",
                   "mode": "fixed"
                 }
               }
@@ -1361,7 +1362,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#7EB26D",
+                  "fixedColor": "#02E5A8",
                   "mode": "fixed"
                 }
               }
@@ -1461,8 +1462,8 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 40,
-            "gradientMode": "none",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1490,7 +1491,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               }
             ]
           },
@@ -1575,8 +1576,8 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 40,
-            "gradientMode": "none",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
@@ -1606,7 +1607,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "#02E5A8"
               }
             ]
           },
@@ -1679,8 +1680,8 @@
                 "barAlignment": 0,
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
-                "fillOpacity": 70,
-                "gradientMode": "none",
+                "fillOpacity": 50,
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -1709,7 +1710,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -1725,7 +1726,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#052B51",
+                      "fixedColor": "#2a2f68",
                       "mode": "fixed"
                     }
                   }
@@ -1740,7 +1741,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#890F02",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -1755,7 +1756,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#BF1B00",
+                      "fixedColor": "#ff6188",
                       "mode": "fixed"
                     }
                   }
@@ -1770,7 +1771,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#6D1F62",
+                      "fixedColor": "#95075c",
                       "mode": "fixed"
                     }
                   }
@@ -1785,7 +1786,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#A06D99",
+                      "fixedColor": "#F70997",
                       "mode": "fixed"
                     }
                   }
@@ -1800,7 +1801,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#CCB1C8",
+                      "fixedColor": "#f24fae",
                       "mode": "fixed"
                     }
                   }
@@ -1815,7 +1816,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#EAB839",
+                      "fixedColor": "#ffd27a",
                       "mode": "fixed"
                     }
                   }
@@ -1830,7 +1831,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#0A437C",
+                      "fixedColor": "#3f449b",
                       "mode": "fixed"
                     }
                   }
@@ -2001,7 +2002,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 40,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -2030,7 +2031,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -2046,7 +2047,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#CFFAFF",
+                      "fixedColor": "#8debdd",
                       "mode": "fixed"
                     }
                   }
@@ -2061,7 +2062,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#7EB26D",
+                      "fixedColor": "#02E5A8",
                       "mode": "fixed"
                     }
                   }
@@ -2076,7 +2077,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#EAB839",
+                      "fixedColor": "#ffd27a",
                       "mode": "fixed"
                     }
                   }
@@ -2091,7 +2092,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#0A50A1",
+                      "fixedColor": "#535acd",
                       "mode": "fixed"
                     }
                   }
@@ -2106,7 +2107,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#E24D42",
+                      "fixedColor": "#ff6188",
                       "mode": "fixed"
                     }
                   }
@@ -2121,7 +2122,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#806EB7",
+                      "fixedColor": "#9932cc",
                       "mode": "fixed"
                     }
                   }
@@ -2136,7 +2137,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#052B51",
+                      "fixedColor": "#2a2f68",
                       "mode": "fixed"
                     }
                   }
@@ -2151,7 +2152,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#698097",
+                      "fixedColor": "#6870ff",
                       "mode": "fixed"
                     }
                   }
@@ -2166,7 +2167,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#BF1B00",
+                      "fixedColor": "#ff6188",
                       "mode": "fixed"
                     }
                   }
@@ -2321,8 +2322,8 @@
                 "barAlignment": 0,
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
-                "fillOpacity": 40,
-                "gradientMode": "none",
+                "fillOpacity": 25,
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -2350,7 +2351,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -2439,8 +2440,8 @@
                 "barAlignment": 0,
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
-                "fillOpacity": 40,
-                "gradientMode": "none",
+                "fillOpacity": 25,
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -2468,7 +2469,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -2558,7 +2559,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -2586,7 +2587,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -2673,8 +2674,8 @@
                 "barAlignment": 0,
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
-                "fillOpacity": 40,
-                "gradientMode": "none",
+                "fillOpacity": 25,
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -2702,7 +2703,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -2792,7 +2793,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -2821,7 +2822,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -2910,7 +2911,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -2939,7 +2940,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -3006,8 +3007,8 @@
                 "barAlignment": 0,
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
-                "fillOpacity": 40,
-                "gradientMode": "none",
+                "fillOpacity": 25,
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3036,7 +3037,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -3105,7 +3106,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 10,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3133,7 +3134,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -3161,6 +3162,96 @@
                   {
                     "id": "custom.transform",
                     "value": "negative-Y"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "CPU some"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "Memory some"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "Memory full"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "I/O some"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "I/O full"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#ffd27a"
+                    }
                   }
                 ]
               }
@@ -3285,7 +3376,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3314,7 +3405,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -3330,7 +3421,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -3412,7 +3503,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3441,13 +3532,74 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -3536,7 +3688,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3565,13 +3717,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -3642,7 +3825,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3671,13 +3854,74 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -3769,7 +4013,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3798,7 +4042,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -3814,7 +4058,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "green",
+                      "fixedColor": "#02E5A8",
                       "mode": "fixed"
                     }
                   }
@@ -3829,7 +4073,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-blue",
+                      "fixedColor": "#3f449b",
                       "mode": "fixed"
                     }
                   }
@@ -3907,7 +4151,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -3936,13 +4180,74 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -4032,7 +4337,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4061,13 +4366,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -4138,7 +4474,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4167,7 +4503,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -4197,7 +4533,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -4283,7 +4619,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4312,13 +4648,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -4391,7 +4758,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4420,17 +4787,64 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
-              "unit": "bytes"
+              "unit": "bytes",
+              "noValue": "N/A on this host"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -4512,7 +4926,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4541,13 +4955,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -4619,7 +5064,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4648,13 +5093,74 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -4743,7 +5249,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4772,13 +5278,45 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "bytes"
+              "unit": "bytes",
+              "noValue": "N/A on this host"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -4849,7 +5387,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4877,7 +5415,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -4893,6 +5431,36 @@
                   {
                     "id": "custom.transform",
                     "value": "negative-Y"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
                   }
                 ]
               }
@@ -4967,7 +5535,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -4995,7 +5563,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -5011,6 +5579,36 @@
                   {
                     "id": "custom.transform",
                     "value": "negative-Y"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
                   }
                 ]
               }
@@ -5085,7 +5683,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -5114,7 +5712,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -5151,7 +5749,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -5238,7 +5836,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -5267,7 +5865,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -5283,7 +5881,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -5366,7 +5964,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -5395,7 +5993,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -5425,7 +6023,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -5520,7 +6118,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -5549,17 +6147,63 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -5639,7 +6283,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -5668,11 +6312,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -5810,7 +6455,8 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "fixed",
+                "fixedColor": "#21E2D7"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -5822,7 +6468,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -5851,7 +6497,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -5919,7 +6565,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -5948,11 +6594,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -5964,7 +6611,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -6057,7 +6704,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -6086,11 +6733,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -6102,7 +6750,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -6195,7 +6843,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -6224,7 +6872,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -6254,7 +6902,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -6345,7 +6993,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -6374,13 +7022,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "ops"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -6451,7 +7130,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -6479,10 +7158,10 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 0.8
                   }
                 ]
@@ -6602,11 +7281,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "hertz"
+              "unit": "hertz",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -6628,7 +7308,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -6661,7 +7341,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "blue",
+                      "fixedColor": "#6870ff",
                       "mode": "fixed"
                     }
                   },
@@ -6758,7 +7438,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -6786,7 +7466,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -6855,7 +7535,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -6884,11 +7564,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "ops"
+              "unit": "ops",
+              "noValue": "N/A on this host"
             },
             "overrides": []
           },
@@ -6953,7 +7634,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -6982,7 +7663,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -7012,7 +7693,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -7103,7 +7784,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7132,11 +7813,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "celsius"
+              "unit": "celsius",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -7148,7 +7830,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -7258,7 +7940,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7286,11 +7968,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "percent"
+              "unit": "percent",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -7302,7 +7985,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -7375,7 +8058,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7404,11 +8087,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "rotrpm"
+              "unit": "rotrpm",
+              "noValue": "N/A on this host"
             },
             "overrides": []
           },
@@ -7484,7 +8168,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7514,11 +8198,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": []
           },
@@ -7583,7 +8268,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7611,13 +8296,59 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "s"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -7688,7 +8419,8 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "fixed",
+                "fixedColor": "#21E2D7"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -7700,7 +8432,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7728,7 +8460,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -7797,7 +8529,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7825,13 +8557,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -7926,7 +8689,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -7955,11 +8718,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -7971,7 +8735,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -7986,7 +8750,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -8069,7 +8833,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 10,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -8097,12 +8861,12 @@
                 {
                   "options": {
                     "0": {
-                      "color": "red",
+                      "color": "#ff6188",
                       "index": 1,
                       "text": "DOWN"
                     },
                     "1": {
-                      "color": "green",
+                      "color": "#02E5A8",
                       "index": 0,
                       "text": "OK"
                     }
@@ -8116,15 +8880,16 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red"
+                    "color": "#ff6188"
                   },
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": 0.5
                   }
                 ]
               },
-              "unit": "bool_yes_no"
+              "unit": "bool_yes_no",
+              "noValue": "N/A on this host"
             },
             "overrides": []
           },
@@ -8213,7 +8978,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -8241,11 +9006,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -8257,7 +9023,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#F2495C",
+                      "fixedColor": "#ff6188",
                       "mode": "fixed"
                     }
                   }
@@ -8272,7 +9038,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#73BF69",
+                      "fixedColor": "#02E5A8",
                       "mode": "fixed"
                     }
                   }
@@ -8287,7 +9053,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "#C8F2C2",
+                      "fixedColor": "#7fedc8",
                       "mode": "fixed"
                     }
                   }
@@ -8302,7 +9068,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -8317,7 +9083,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-blue",
+                      "fixedColor": "#3f449b",
                       "mode": "fixed"
                     }
                   }
@@ -8426,7 +9192,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -8455,11 +9221,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": []
           },
@@ -8524,7 +9291,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -8553,11 +9320,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "eps"
+              "unit": "eps",
+              "noValue": "N/A on this host"
             },
             "overrides": []
           },
@@ -8622,7 +9390,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -8651,11 +9419,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "eps"
+              "unit": "eps",
+              "noValue": "N/A on this host"
             },
             "overrides": []
           },
@@ -8734,7 +9503,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -8762,7 +9531,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -8790,7 +9559,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -8865,7 +9634,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -8893,7 +9662,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -8921,7 +9690,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9000,7 +9769,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9028,7 +9797,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9056,7 +9825,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9133,7 +9902,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9162,7 +9931,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9178,7 +9947,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9264,7 +10033,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9293,7 +10062,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9309,7 +10078,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9377,7 +10146,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9406,7 +10175,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9422,7 +10191,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9490,7 +10259,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9518,7 +10287,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9546,7 +10315,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9621,7 +10390,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9649,7 +10418,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9665,7 +10434,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9751,7 +10520,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9779,7 +10548,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9795,7 +10564,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "orange",
+                      "fixedColor": "#ffa352",
                       "mode": "fixed"
                     }
                   }
@@ -9863,7 +10632,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9892,7 +10661,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -9960,7 +10729,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -9990,7 +10759,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10068,7 +10837,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10097,7 +10866,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10179,7 +10948,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10207,7 +10976,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10300,7 +11069,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10328,7 +11097,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10419,7 +11188,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10447,7 +11216,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10538,7 +11307,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10566,7 +11335,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10635,7 +11404,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10663,7 +11432,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10732,7 +11501,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10760,7 +11529,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10851,7 +11620,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10879,7 +11648,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -10961,7 +11730,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -10989,7 +11758,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -11071,7 +11840,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -11099,7 +11868,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -11190,7 +11959,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -11218,7 +11987,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -11287,7 +12056,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -11316,7 +12085,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -11384,7 +12153,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -11413,11 +12182,12 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "short"
+              "unit": "short",
+              "noValue": "N/A on this host"
             },
             "overrides": [
               {
@@ -11429,7 +12199,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -11520,7 +12290,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -11550,7 +12320,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -11567,7 +12337,7 @@
                     "id": "color",
                     "value": {
                       "mode": "fixed",
-                      "fixedColor": "red"
+                      "fixedColor": "#ff6188"
                     }
                   },
                   {
@@ -11647,7 +12417,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -11720,7 +12490,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -11809,7 +12579,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -11838,13 +12608,89 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -11947,7 +12793,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -11976,13 +12822,74 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -12062,7 +12969,8 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "fixed",
+                "fixedColor": "#21E2D7"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -12074,7 +12982,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12103,7 +13011,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -12173,7 +13081,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12202,13 +13110,74 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -12300,7 +13269,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12329,13 +13298,59 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -12417,7 +13432,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12446,13 +13461,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -12526,7 +13572,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12555,13 +13601,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -12635,7 +13712,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12663,7 +13740,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -12756,7 +13833,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12784,10 +13861,10 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
@@ -12858,7 +13935,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -12886,7 +13963,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -12906,7 +13983,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -13000,7 +14077,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -13028,7 +14105,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -13044,6 +14121,66 @@
                   {
                     "id": "custom.transform",
                     "value": "negative-Y"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
                   }
                 ]
               }
@@ -13138,7 +14275,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -13166,10 +14303,10 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
@@ -13186,6 +14323,36 @@
                   {
                     "id": "custom.transform",
                     "value": "negative-Y"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
                   }
                 ]
               }
@@ -13262,7 +14429,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -13290,7 +14457,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -13306,6 +14473,66 @@
                   {
                     "id": "custom.transform",
                     "value": "negative-Y"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
                   }
                 ]
               }
@@ -13400,7 +14627,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -13428,10 +14655,10 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
@@ -13448,6 +14675,66 @@
                   {
                     "id": "custom.transform",
                     "value": "negative-Y"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
                   }
                 ]
               }
@@ -13542,7 +14829,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -13571,13 +14858,149 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "pps"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "F"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#ffd27a"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "G"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#C9499C"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "H"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#ff6188"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "I"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#8f95ff"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -13708,7 +15131,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -13736,17 +15159,168 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
               },
               "unit": "pps"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "F"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#ffd27a"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "G"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#C9499C"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "H"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#ff6188"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "I"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#8f95ff"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "J"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#D0D9C4"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -13892,7 +15466,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -13920,13 +15494,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "pps"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -13998,7 +15603,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14026,7 +15631,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -14042,7 +15647,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -14119,7 +15724,8 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "fixed",
+                "fixedColor": "#21E2D7"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -14131,7 +15737,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14160,7 +15766,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -14229,7 +15835,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14257,13 +15863,74 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -14354,7 +16021,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14383,13 +16050,44 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "eps"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -14462,7 +16160,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14487,18 +16185,94 @@
               "links": [],
               "mappings": [],
               "min": 0,
-              "noValue": "0",
+              "noValue": "N/A on this host",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -14601,7 +16375,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14626,18 +16400,109 @@
               "links": [],
               "mappings": [],
               "min": 0,
-              "noValue": "0",
+              "noValue": "N/A on this host",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#02E5A8"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#9932cc"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "E"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6870ff"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "F"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#ffd27a"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -14744,7 +16609,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14773,13 +16638,45 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
-              "unit": "bytes"
+              "unit": "bytes",
+              "noValue": "N/A on this host"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#F70997"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#21E2D7"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 10,
@@ -14864,7 +16761,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14892,10 +16789,10 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "red",
+                    "color": "#ff6188",
                     "value": 80
                   }
                 ]
@@ -14953,7 +16850,8 @@
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
+                "mode": "fixed",
+                "fixedColor": "#21E2D7"
               },
               "custom": {
                 "axisBorderShow": false,
@@ -14965,7 +16863,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -14993,7 +16891,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -15062,7 +16960,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -15091,7 +16989,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -15121,7 +17019,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   }
@@ -15223,7 +17121,7 @@
                 "barWidthFactor": 0.6,
                 "drawStyle": "line",
                 "fillOpacity": 20,
-                "gradientMode": "none",
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
@@ -15252,7 +17150,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   }
                 ]
               },
@@ -15268,7 +17166,7 @@
                   {
                     "id": "color",
                     "value": {
-                      "fixedColor": "dark-red",
+                      "fixedColor": "#993b53",
                       "mode": "fixed"
                     }
                   },
@@ -15371,14 +17269,14 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "#02E5A8"
                   },
                   {
-                    "color": "dark-red",
+                    "color": "#993b53",
                     "value": 0
                   },
                   {
-                    "color": "green",
+                    "color": "#02E5A8",
                     "value": 1
                   }
                 ]

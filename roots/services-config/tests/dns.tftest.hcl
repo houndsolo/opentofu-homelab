@@ -198,8 +198,8 @@ run "dns_journal_to_loki" {
   assert {
     condition = (
       length(terraform_data.dns_syslog) == 2 &&
-      strcontains(local.dns_syslog_script, base64encode(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.40", port = 514, level = "info" }))) &&
-      strcontains(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.40", port = 514, level = "info" }), "target=\"10.20.11.40\"")
+      strcontains(local.dns_syslog_script, base64encode(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.101", port = 514, level = "info" }))) &&
+      strcontains(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.101", port = 514, level = "info" }), "target=\"10.20.11.101\"")
     )
     error_message = "Forward both DNS VMs' journals to the mgmt Loki VIP over TCP by default."
   }
@@ -216,6 +216,30 @@ run "dns_syslog_disabled" {
 
 run "reject_bad_dns_syslog_level" {
   command = plan
-  variables { dns_syslog = { host = "10.20.11.40", level = "verbose" } }
+  variables { dns_syslog = { host = "10.20.11.101", level = "verbose" } }
   expect_failures = [var.dns_syslog]
+}
+
+run "dns_node_exporter" {
+  command = plan
+  assert {
+    condition = (
+      length(terraform_data.dns_node_exporter) == 2 &&
+      strcontains(local.dns_node_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "docker.io/prom/node-exporter:v1.12.1", listen = "10.20.53.1:9100" }))) &&
+      strcontains(local.dns_node_exporter_script.dns02, "http://10.20.53.2:9100/metrics") &&
+      # The collectors of monitoring-config's VMs, and the D-Bus socket the systemd one needs.
+      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.20.53.1:9100" }), "\nExec=--path.rootfs=/host --web.listen-address=10.20.53.1:9100 --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
+      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.20.53.1:9100" }), "\nVolume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro\n")
+    )
+    error_message = "node_exporter on both DNS VMs, listening on their management address :9100, with the processes/tcpstat/interrupts/systemd collectors."
+  }
+}
+
+run "dns_node_exporter_disabled" {
+  command = plan
+  variables { dns_node_exporter = null }
+  assert {
+    condition     = length(terraform_data.dns_node_exporter) == 0
+    error_message = "dns_node_exporter = null installs nothing."
+  }
 }

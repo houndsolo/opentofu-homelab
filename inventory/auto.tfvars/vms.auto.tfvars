@@ -110,6 +110,12 @@ vms = {
         vlan_id      = 13
         ipv4_address = "10.13.11.30/16"
       },
+      {
+        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.13.11.102) and Alertmanager gossip.
+        bridge       = "vmbr4000"
+        vlan_id      = 215
+        ipv4_address = "10.21.13.30/24"
+      },
     ]
     config = {
       tags         = ["debian", "monitoring", "opentofu"]
@@ -120,14 +126,15 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
-  graf01 = {
+  mon02 = {
+    # Prometheus/Alertmanager/InfluxDB replica of mon01 (Postgres stays on mon01 only).
     owner              = "services-vms"
-    role               = "grafana"
-    node               = "venom"
+    role               = "monitoring"
+    node               = "macbeth"
     vm_id              = 1131
     image              = "debian13"
     management_address = "10.20.11.31/16"
-    # No OOB default gateway is configured here.
+    # No OOB default gateway is configured here. Same NIC order as mon01.
     network_devices = [
       {
         bridge       = "vmbr4000"
@@ -136,30 +143,35 @@ vms = {
         ipv4_gateway = "10.2.0.5"
       },
       {
-        # Isolated monitoring backend (lylat_monitor VRF): mon01 + Grafana HA.
+        bridge       = "vmbr100"
+        ipv4_address = "10.5.11.31/16"
+      },
+      {
+        # Isolated monitoring backend (lylat_monitor VRF): Grafana and Mimir.
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.11.31/16"
       },
       {
-        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.40) and alerting HA (9094).
+        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.13.11.102) and Alertmanager gossip.
         bridge       = "vmbr4000"
-        vlan_id      = 213
-        ipv4_address = "10.21.11.31/24"
+        vlan_id      = 215
+        ipv4_address = "10.21.13.31/24"
       },
     ]
     config = {
       tags         = ["debian", "monitoring", "opentofu"]
-      cpu_cores    = 2
-      memory_mb    = 4096
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 200 # Prometheus TSDB + InfluxDB.
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
   }
-  graf02 = {
+  graf01 = {
     owner              = "services-vms"
     role               = "grafana"
-    node               = "eldarad"
+    node               = "venom"
     vm_id              = 1132
     image              = "debian13"
     management_address = "10.20.11.32/16"
@@ -178,7 +190,7 @@ vms = {
         ipv4_address = "10.13.11.32/16"
       },
       {
-        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.40) and alerting HA (9094).
+        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
         vlan_id      = 213
         ipv4_address = "10.21.11.32/24"
@@ -192,57 +204,46 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
-  log01 = {
+  graf02 = {
     owner              = "services-vms"
-    role               = "logging"
-    node               = "zoness"
+    role               = "grafana"
+    node               = "eldarad"
     vm_id              = 1133
     image              = "debian13"
     management_address = "10.20.11.33/16"
+    # No OOB default gateway is configured here.
     network_devices = [
       {
-        # Internet (image pulls) via the lylat_infra gateway.
         bridge       = "vmbr4000"
         vlan_id      = 2
         ipv4_address = "10.2.11.33/16"
         ipv4_gateway = "10.2.0.5"
       },
       {
-        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
+        # Isolated monitoring backend (lylat_monitor VRF): mon01 + Grafana HA.
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.11.33/16"
       },
       {
-        # Monitoring network: syslog and log pushes from devices and PVE nodes.
-        bridge       = "vmbr100"
-        ipv4_address = "10.5.11.33/16"
-      },
-      {
-        # Ceph public network: the local RGW (S3 for Loki) talks to the mons and OSDs.
-        bridge       = "vmbr27"
-        ipv4_address = "10.27.11.33/16"
-      },
-      {
-        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
-        vlan_id      = 214
-        ipv4_address = "10.21.12.33/24"
+        vlan_id      = 213
+        ipv4_address = "10.21.11.33/24"
       },
     ]
     config = {
-      tags         = ["debian", "logging", "opentofu"]
-      cpu_cores    = 4
-      memory_mb    = 8192
-      disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
+      tags         = ["debian", "monitoring", "opentofu"]
+      cpu_cores    = 2
+      memory_mb    = 4096
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
   }
-  log02 = {
+  loki01 = {
     owner              = "services-vms"
     role               = "logging"
-    node               = "titania"
+    node               = "zoness"
     vm_id              = 1134
     image              = "debian13"
     management_address = "10.20.11.34/16"
@@ -286,10 +287,10 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
-  log03 = {
+  loki02 = {
     owner              = "services-vms"
     role               = "logging"
-    node               = "fortuna"
+    node               = "titania"
     vm_id              = 1135
     image              = "debian13"
     management_address = "10.20.11.35/16"
@@ -329,6 +330,310 @@ vms = {
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  loki03 = {
+    owner              = "services-vms"
+    role               = "logging"
+    node               = "fortuna"
+    vm_id              = 1136
+    image              = "debian13"
+    management_address = "10.20.11.36/16"
+    network_devices = [
+      {
+        # Internet (image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.36/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.36/16"
+      },
+      {
+        # Monitoring network: syslog and log pushes from devices and PVE nodes.
+        bridge       = "vmbr100"
+        ipv4_address = "10.5.11.36/16"
+      },
+      {
+        # Ceph public network: the local RGW (S3 for Loki) talks to the mons and OSDs.
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.36/16"
+      },
+      {
+        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 214
+        ipv4_address = "10.21.12.36/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "logging", "opentofu"]
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+
+  mim01 = {
+    owner              = "services-vms"
+    role               = "metrics"
+    node               = "fichina"
+    vm_id              = 1137
+    image              = "debian13"
+    management_address = "10.20.11.37/16"
+    network_devices = [
+      {
+        # Internet (image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.37/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: remote_write from mon01/mon02, Grafana queries, VIP 10.13.11.103.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.37/16"
+      },
+      {
+        # Ceph public network: haproxy to the RGWs (S3 for Mimir blocks).
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.37/16"
+      },
+      {
+        # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 216
+        ipv4_address = "10.21.14.37/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "metrics", "opentofu"]
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 60 # Mimir WAL, recent blocks and index headers; blocks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  mim02 = {
+    owner              = "services-vms"
+    role               = "metrics"
+    node               = "venom"
+    vm_id              = 1138
+    image              = "debian13"
+    management_address = "10.20.11.38/16"
+    network_devices = [
+      {
+        # Internet (image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.38/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: remote_write from mon01/mon02, Grafana queries, VIP 10.13.11.103.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.38/16"
+      },
+      {
+        # Ceph public network: haproxy to the RGWs (S3 for Mimir blocks).
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.38/16"
+      },
+      {
+        # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 216
+        ipv4_address = "10.21.14.38/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "metrics", "opentofu"]
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 60 # Mimir WAL, recent blocks and index headers; blocks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  mim03 = {
+    owner              = "services-vms"
+    role               = "metrics"
+    node               = "eldarad"
+    vm_id              = 1139
+    image              = "debian13"
+    management_address = "10.20.11.39/16"
+    network_devices = [
+      {
+        # Internet (image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.39/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: remote_write from mon01/mon02, Grafana queries, VIP 10.13.11.103.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.39/16"
+      },
+      {
+        # Ceph public network: haproxy to the RGWs (S3 for Mimir blocks).
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.39/16"
+      },
+      {
+        # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 216
+        ipv4_address = "10.21.14.39/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "metrics", "opentofu"]
+      cpu_cores    = 4
+      memory_mb    = 8192
+      disk_size_gb = 60 # Mimir WAL, recent blocks and index headers; blocks live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+
+  pg01 = {
+    # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
+    owner              = "services-vms"
+    role               = "postgres"
+    node               = "titania"
+    vm_id              = 1140
+    image              = "debian13"
+    management_address = "10.20.11.40/16"
+    network_devices = [
+      {
+        # Internet (Debian packages, image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.40/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: Grafana -> Postgres on the VIP 10.13.11.104, scrapes.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.40/16"
+      },
+      {
+        # Ceph public network: haproxy to the RGWs (pgBackRest WAL archive and base backups in S3).
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.40/16"
+      },
+      {
+        # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 217
+        ipv4_address = "10.21.15.40/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "opentofu", "postgres"]
+      cpu_cores    = 2
+      memory_mb    = 4096
+      disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  pg02 = {
+    # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
+    owner              = "services-vms"
+    role               = "postgres"
+    node               = "fortuna"
+    vm_id              = 1141
+    image              = "debian13"
+    management_address = "10.20.11.41/16"
+    network_devices = [
+      {
+        # Internet (Debian packages, image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.41/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: Grafana -> Postgres on the VIP 10.13.11.104, scrapes.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.41/16"
+      },
+      {
+        # Ceph public network: haproxy to the RGWs (pgBackRest WAL archive and base backups in S3).
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.41/16"
+      },
+      {
+        # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 217
+        ipv4_address = "10.21.15.41/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "opentofu", "postgres"]
+      cpu_cores    = 2
+      memory_mb    = 4096
+      disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  pg03 = {
+    # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
+    owner              = "services-vms"
+    role               = "postgres"
+    node               = "venom"
+    vm_id              = 1142
+    image              = "debian13"
+    management_address = "10.20.11.42/16"
+    network_devices = [
+      {
+        # Internet (Debian packages, image pulls) via the lylat_infra gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.42/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Isolated monitoring backend: Grafana -> Postgres on the VIP 10.13.11.104, scrapes.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.42/16"
+      },
+      {
+        # Ceph public network: haproxy to the RGWs (pgBackRest WAL archive and base backups in S3).
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.42/16"
+      },
+      {
+        # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
+        bridge       = "vmbr4000"
+        vlan_id      = 217
+        ipv4_address = "10.21.15.42/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "opentofu", "postgres"]
+      cpu_cores    = 2
+      memory_mb    = 4096
+      disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
