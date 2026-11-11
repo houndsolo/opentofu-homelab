@@ -1,0 +1,1 @@
+../../inventory/auto.tfvars/proxmox-settings.auto.tfvars

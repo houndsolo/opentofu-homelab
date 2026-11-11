@@ -1,0 +1,1 @@
+../../inventory/schema/proxmox-settings.tf

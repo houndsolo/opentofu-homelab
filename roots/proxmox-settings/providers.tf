@@ -1,0 +1,1 @@
+../../inventory/provider-config/proxmox-providers.tf

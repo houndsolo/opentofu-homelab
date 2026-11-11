@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo"
-roots=(proxmox-download-files proxmox-network fabric-vms fabric-spines fabric-leaves services-vms services-config monitoring-config workloads)
+roots=(proxmox-download-files proxmox-network proxmox-settings fabric-vms fabric-spines fabric-leaves services-vms services-config monitoring-config workloads)
 usage() {
   cat <<'EOF'
 Usage: tooling/walk-roots.sh [--no-secrets] [--list] [ROOT ...]
