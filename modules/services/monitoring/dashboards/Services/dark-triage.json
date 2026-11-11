@@ -538,7 +538,7 @@
     {
       "type": "stat",
       "title": "App",
-      "description": "Blackbox probes of /api/health on the VIP (dark-triage, 10.2.100.100) and each node: 200 only when the app reaches its database (Patroni VIP 10.13.11.104).",
+      "description": "Blackbox probes of /api/health on the VIP (dark-triage, 10.2.11.105) and each node: 200 only when the app reaches its database (Patroni VIP 10.13.11.104).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

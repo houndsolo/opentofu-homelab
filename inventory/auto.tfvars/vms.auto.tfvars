@@ -128,33 +128,33 @@ vms = {
   }
   triage01 = {
     # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system), HA pair with triage02:
-    # Podman Quadlet + keepalived (VIP 10.2.100.100) deployed by services-config (ticketing.tf),
-    # data in Postgres (Patroni). VMID and addresses encode .100.1.
+    # Podman Quadlet + keepalived (VIP 10.2.11.105) deployed by services-config (ticketing.tf),
+    # data in Postgres (Patroni). Same last octet everywhere (.43), like the monitoring VMs.
     owner              = "services-vms"
     role               = "ticketing"
     node               = "fichina"
-    vm_id              = 10001
+    vm_id              = 1143
     image              = "debian13"
-    management_address = "10.20.100.1/16"
+    management_address = "10.20.11.43/16"
     network_devices = [
       {
         # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
         bridge       = "vmbr4000"
         vlan_id      = 2
-        ipv4_address = "10.2.100.1/16"
+        ipv4_address = "10.2.11.43/16"
         ipv4_gateway = "10.2.0.5"
       },
       {
         # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) for the app's database.
         bridge       = "vmbr4000"
         vlan_id      = 13
-        ipv4_address = "10.13.100.1/16"
+        ipv4_address = "10.13.11.43/16"
       },
       {
-        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.100.100.
+        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.11.105.
         bridge       = "vmbr4000"
         vlan_id      = 218
-        ipv4_address = "10.21.100.1/24"
+        ipv4_address = "10.21.16.43/24"
       },
     ]
     config = {
@@ -168,33 +168,33 @@ vms = {
   }
   triage02 = {
     # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system), HA pair with triage01:
-    # Podman Quadlet + keepalived (VIP 10.2.100.100) deployed by services-config (ticketing.tf),
-    # data in Postgres (Patroni). VMID and addresses encode .100.2.
+    # Podman Quadlet + keepalived (VIP 10.2.11.105) deployed by services-config (ticketing.tf),
+    # data in Postgres (Patroni). Same last octet everywhere (.44), like the monitoring VMs.
     owner              = "services-vms"
     role               = "ticketing"
     node               = "titania"
-    vm_id              = 10002
+    vm_id              = 1144
     image              = "debian13"
-    management_address = "10.20.100.2/16"
+    management_address = "10.20.11.44/16"
     network_devices = [
       {
         # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
         bridge       = "vmbr4000"
         vlan_id      = 2
-        ipv4_address = "10.2.100.2/16"
+        ipv4_address = "10.2.11.44/16"
         ipv4_gateway = "10.2.0.5"
       },
       {
         # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) for the app's database.
         bridge       = "vmbr4000"
         vlan_id      = 13
-        ipv4_address = "10.13.100.2/16"
+        ipv4_address = "10.13.11.44/16"
       },
       {
-        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.100.100.
+        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.11.105.
         bridge       = "vmbr4000"
         vlan_id      = 218
-        ipv4_address = "10.21.100.2/24"
+        ipv4_address = "10.21.16.44/24"
       },
     ]
     config = {

@@ -95,7 +95,7 @@ def triage():
                          instant=True)],
                mappings=mapping(**{"0": ("DOWN", ERROR), "1": ("UP", OK)}), thresholds=steps((ERROR, None), (OK, 1)),
                text_mode="value_and_name", no_value="no probe",
-               desc="Blackbox probes of /api/health on the VIP (dark-triage, 10.2.100.100) and each node: 200 only "
+               desc="Blackbox probes of /api/health on the VIP (dark-triage, 10.2.11.105) and each node: 200 only "
                     "when the app reaches its database (Patroni VIP 10.13.11.104)."), 3, 4)
 
     b.row("Open queue")

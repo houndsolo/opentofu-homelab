@@ -48,7 +48,7 @@ l2vnis = {
   ha_triage = {
     vni         = 9218
     vlan_id     = 218
-    prefix      = "10.21.100.0/24"
-    description = "dark-triage keepalived adverts (triage01-02 .1-.2; VIP 10.2.100.100 on VLAN 2)"
+    prefix      = "10.21.16.0/24"
+    description = "dark-triage keepalived adverts (triage01-02 .43-.44; VIP 10.2.11.105 on VLAN 2)"
   }
 }

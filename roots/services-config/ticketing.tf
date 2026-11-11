@@ -29,8 +29,8 @@ variable "ticketing" {
     }), {})
     ports = optional(list(number), [80, 3000])
     # keepalived VIP on VLAN 2 (dark-triage.lylat.space points here). null = no keepalived.
-    vip       = optional(string, "10.2.100.100/16")
-    router_id = optional(number, 106) # unique VRID (Grafana 100, Loki 101, monitoring 102, Mimir 103, Postgres 104)
+    vip       = optional(string, "10.2.11.105/16")
+    router_id = optional(number, 105) # = the VIP's last octet, like Grafana 100, Loki 101, monitoring 102, Mimir 103, Postgres 104
     ha_l2vni  = optional(string, "ha_triage")
   })
   default = {}
@@ -40,7 +40,7 @@ variable "ticketing" {
       (var.ticketing.vip == null || (can(cidrhost(var.ticketing.vip, 0)) && strcontains(var.ticketing.vip, "/"))) &&
       var.ticketing.router_id >= 1 && var.ticketing.router_id <= 255, false
     )
-    error_message = "ticketing.vip must be an IPv4 address with prefix length (e.g. 10.2.100.100/16), router_id 1..255."
+    error_message = "ticketing.vip must be an IPv4 address with prefix length (e.g. 10.2.11.105/16), router_id 1..255."
   }
 }
 
