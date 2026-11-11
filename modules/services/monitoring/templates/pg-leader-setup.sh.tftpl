@@ -36,6 +36,18 @@ GRANT pg_monitor TO pgmon;
 SELECT 'CREATE DATABASE grafana OWNER grafana' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'grafana') \gexec
 SQL
 echo "roles grafana, pgmon and database grafana present"
+%{ for app in apps ~}
+
+# App database ${app} (postgres_apps): role and database of the same name, password from roles.env.
+runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -q <<'SQL'
+\getenv app_pw PG_APP_${upper(app)}_PASSWORD
+SELECT 'CREATE ROLE ${app} LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${app}') \gexec
+ALTER ROLE ${app} LOGIN PASSWORD :'app_pw';
+SELECT 'CREATE DATABASE ${app} OWNER ${app}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${app}') \gexec
+REVOKE ALL ON DATABASE ${app} FROM PUBLIC;
+SQL
+echo "role and database ${app} present"
+%{ endfor ~}
 
 # The S3 keys come from the environment too (PGBACKREST_REPO1_S3_KEY*). stanza-create is a
 # no-op on an existing, matching stanza.

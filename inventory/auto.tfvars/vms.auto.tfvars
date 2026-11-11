@@ -143,6 +143,12 @@ vms = {
         ipv4_address = "10.2.100.1/16"
         ipv4_gateway = "10.2.0.5"
       },
+      {
+        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) for the app's database.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.100.1/16"
+      },
     ]
     config = {
       tags         = ["debian", "ticketing", "opentofu"]

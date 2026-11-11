@@ -10,6 +10,16 @@ locals {
 
   # Address and interface name on the backend VLAN (VIP) and the Postgres HA VLAN; the
   # management NIC is eth0 and network_devices[i] is eth<i+1>.
+  # Backend-VLAN addresses of the VMs of each app database (see module "monitoring" postgres_apps).
+  postgres_app_clients = {
+    triage = sort(flatten([
+      for name, vm in var.vms : [
+        for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
+        if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+      ] if vm.role == "ticketing"
+    ]))
+  }
+
   postgres_nic = {
     for name in keys(local.postgres_vms) : name => {
       ha = try(one([

@@ -371,6 +371,25 @@ variable "postgres_settings" {
   }
 }
 
+variable "postgres_apps" {
+  description = "Application databases on the Patroni cluster: database = role = key; clients = the app VMs' backend addresses (pg_hba hostssl + postgres-guard). Passwords in postgres_app_passwords."
+  type = map(object({
+    clients = list(string)
+  }))
+  default = {}
+  validation {
+    condition     = alltrue([for k, a in var.postgres_apps : can(regex("^[a-z][a-z0-9_]{0,30}$", k)) && !contains(["grafana", "postgres", "pgmon", "replicator"], k) && alltrue([for ip in a.clients : can(cidrhost("${ip}/32", 0))])])
+    error_message = "postgres_apps: keys are lowercase [a-z][a-z0-9_] (not grafana/postgres/pgmon/replicator), clients are IPv4 addresses."
+  }
+}
+
+variable "postgres_app_passwords" {
+  description = "Password per postgres_apps key."
+  sensitive   = true
+  type        = map(string)
+  default     = {}
+}
+
 variable "postgres_secrets" {
   description = "pgBackRest's S3 bucket and keys (RGW user), the Patroni superuser/replication/REST API and postgres_exporter passwords and the VRRP password (8 characters at most). Grafana's role uses secrets.grafana_db_password. null leaves the cluster out."
   sensitive   = true

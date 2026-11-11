@@ -302,6 +302,10 @@ module "monitoring" {
     }
   }
   postgres_settings = var.postgres_settings
+  # Application databases (role = database = key): dark-triage (role "ticketing" VMs) connects from
+  # its backend VLAN address with the shared password from app-db.secret.auto.tfvars.
+  postgres_apps          = { for app, clients in local.postgres_app_clients : app => { clients = clients } if length(clients) > 0 && contains(keys(var.app_db_passwords), app) }
+  postgres_app_passwords = var.app_db_passwords
   postgres_secrets = var.postgres_s3 == null ? null : {
     s3_bucket            = var.postgres_s3.bucket
     s3_access_key        = var.postgres_s3.access_key

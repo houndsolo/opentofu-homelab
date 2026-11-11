@@ -2,7 +2,7 @@
 # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
 # Postgres listens on every address (the VIP moves to the Patroni leader), and Patroni's REST
 # API and etcd answer on the HA VLAN, so their ports are limited here (pg_hba narrows 5432 further):
-#   5432 (Postgres)          loopback, the Grafana VMs and the Patroni members' HA addresses
+#   5432 (Postgres)          loopback, the Grafana VMs, postgres_apps clients and the members' HA addresses
 #   8008 (Patroni REST)      loopback, the members (leader race, pg_rewind checks) and Prometheus
 #   2379, 2380 (etcd)        loopback and the members
 #   2381 (etcd /metrics)     Prometheus
@@ -14,7 +14,7 @@ table inet postgres_guard {
   chain input {
     type filter hook input priority filter - 10; policy accept;
     iif "lo" accept
-    tcp dport 5432 ip saddr { ${join(", ", distinct(concat(clients, members)))} } accept
+    tcp dport 5432 ip saddr { ${join(", ", distinct(concat(clients, members, apps)))} } accept
     tcp dport 8008 ip saddr { ${join(", ", distinct(concat(members, scrapers)))} } accept
     tcp dport { 2379, 2380 } ip saddr { ${join(", ", members)} } accept
     tcp dport 2381 ip saddr { ${join(", ", scrapers)} } accept

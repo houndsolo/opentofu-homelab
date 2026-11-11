@@ -432,3 +432,10 @@ variable "rgw_bucket_alerts" {
     error_message = "rgw_bucket_alerts.quota_ratio must be in (0, 1] and quota_horizon_days positive."
   }
 }
+
+variable "app_db_passwords" {
+  description = "Postgres passwords of application databases on the Patroni cluster (git-ignored app-db.secret.auto.tfvars, shared with services-config). An app gets its role/database only when it has a password here and VMs to connect from."
+  sensitive   = true
+  type        = map(string)
+  default     = {}
+}
