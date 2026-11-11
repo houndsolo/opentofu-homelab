@@ -1,5 +1,5 @@
 #!/bin/bash
-# dark_triage deploy (services-config ticketing.tf): build the pinned commit, install the Quadlet unit.
+# dark-triage deploy (services-config ticketing.tf): build the pinned commit, install the Quadlet unit.
 set -euo pipefail
 umask 077
 command -v podman >/dev/null
@@ -25,9 +25,9 @@ systemctl restart dark-triage.service
 
 for i in $(seq 1 30); do
   code=$(curl -s -o /dev/null -w '%%{http_code}' --max-time 3 'http://${listen}:${ports[0]}/' || true)
-  case "$code" in 2??|3??|401) echo "dark_triage is up on ${listen} (HTTP $code)"; exit 0 ;; esac
+  case "$code" in 2??|3??|401) echo "dark-triage is up on ${listen} (HTTP $code)"; exit 0 ;; esac
   sleep 2
 done
-echo "dark_triage did not answer on http://${listen}:${ports[0]}/" >&2
+echo "dark-triage did not answer on http://${listen}:${ports[0]}/" >&2
 journalctl -u dark-triage.service -n 30 --no-pager >&2
 exit 1

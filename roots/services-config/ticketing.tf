@@ -1,12 +1,12 @@
-# dark_triage helpdesk (github.com/houndsolo/vc-ticketing-system): Python stdlib + SQLite, user
+# dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system): Python stdlib + SQLite, user
 # accounts (admin/user roles). The first start bootstraps the admin account from ADMIN_USERNAME /
 # ADMIN_PASSWORD (ignored once users exist; the admin then creates the other users). Built on the VM from a pinned commit and run as a rootful Podman Quadlet
 # container, published on the VM's VLAN 2 address (:80 and :3000). Data: /var/lib/dark-triage.
 variable "ticketing" {
-  description = "dark_triage source (pinned commit) and listen ports. null = don't deploy."
+  description = "dark-triage source (pinned commit) and listen ports. null = don't deploy."
   type = object({
     repo   = optional(string, "houndsolo/vc-ticketing-system")
-    commit = optional(string, "5873ca06003ab4ee6157cea05b0341bd7c252b52")
+    commit = optional(string, "ca58eb81fc85253bad75b36aa1a1981d9776a9bb")
     admin  = optional(string, "admin") # bootstrap admin username
     ports  = optional(list(number), [80, 3000])
   })
@@ -77,12 +77,12 @@ resource "terraform_data" "ticketing" {
 }
 
 output "ticketing_url" {
-  description = "dark_triage helpdesk URL(s)."
+  description = "dark-triage helpdesk URL(s)."
   value       = { for name, ip in local.ticketing_listen : name => "http://${ip}/ (http://dark-triage.lylat.space/)" }
 }
 
 output "ticketing_admin_password" {
-  description = "dark_triage bootstrap admin password (user: var.ticketing.admin; tofu output -raw ticketing_admin_password). Only used when the database has no users yet."
+  description = "dark-triage bootstrap admin password (user: var.ticketing.admin; tofu output -raw ticketing_admin_password). Only used when the database has no users yet."
   value       = var.ticketing != null ? random_password.ticketing[0].result : null
   sensitive   = true
 }

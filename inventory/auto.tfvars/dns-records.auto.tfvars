@@ -1,7 +1,8 @@
 # Custom records for lylat.space. Uncomment and replace example values.
 # Proxmox management A records are generated automatically by services-config.
 dns_hosts = {
-  dark-triage = { A = "10.2.100.1" } # dark_triage helpdesk on triage01 (services-config ticketing.tf)
+  dark-triage = { A = "10.2.100.1" }                   # dark-triage helpdesk on triage01 (services-config ticketing.tf)
+  triage      = { CNAME = "dark-triage.lylat.space." } # short name for dark-triage
   # greatfox = { A = "10.20.7.20", AAAA = "fd69:20::20" }
   # www      = { CNAME = "greatfox.lylat.space." }
   # "@"      = { MX = "10 mail.lylat.space.", TXT = "example text" }

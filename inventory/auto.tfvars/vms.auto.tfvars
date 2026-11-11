@@ -127,7 +127,7 @@ vms = {
     }
   }
   triage01 = {
-    # dark_triage helpdesk (github.com/houndsolo/vc-ticketing-system): one Podman Quadlet
+    # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system): one Podman Quadlet
     # container deployed by services-config (ticketing.tf). VMID and addresses encode .100.1.
     owner              = "services-vms"
     role               = "ticketing"
