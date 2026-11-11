@@ -126,6 +126,33 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  triage01 = {
+    # dark_triage helpdesk (github.com/houndsolo/vc-ticketing-system): one Podman Quadlet
+    # container deployed by services-config (ticketing.tf). VMID and addresses encode .100.1.
+    owner              = "services-vms"
+    role               = "ticketing"
+    node               = "fichina"
+    vm_id              = 10001
+    image              = "debian13"
+    management_address = "10.20.100.1/16"
+    network_devices = [
+      {
+        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.100.1/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+    ]
+    config = {
+      tags         = ["debian", "ticketing", "opentofu"]
+      cpu_cores    = 2
+      memory_mb    = 2048
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   mon02 = {
     # Prometheus/Alertmanager/InfluxDB replica of mon01 (Postgres stays on mon01 only).
     owner              = "services-vms"

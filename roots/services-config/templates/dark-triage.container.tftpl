@@ -1,0 +1,21 @@
+# Managed by OpenTofu (services-config, ticketing.tf). Local edits are overwritten.
+[Unit]
+Description=dark_triage helpdesk
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=dark-triage
+EnvironmentFile=/etc/dark-triage/env
+Volume=/var/lib/dark-triage:/app/data
+%{ for p in ports ~}
+PublishPort=${listen}:${p}:3000
+%{ endfor ~}
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
