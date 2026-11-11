@@ -6,7 +6,7 @@ variable "ticketing" {
   description = "dark-triage source (pinned commit) and listen ports. null = don't deploy."
   type = object({
     repo   = optional(string, "houndsolo/vc-ticketing-system")
-    commit = optional(string, "8c24e1e2dfe8836ec590a4adef232c436d797112")
+    commit = optional(string, "f9bffc80e4ddc6965cb75535beb02eb27f440386")
     admin  = optional(string, "admin") # bootstrap admin username
     ports  = optional(list(number), [80, 3000])
   })
