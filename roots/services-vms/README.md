@@ -112,6 +112,34 @@ service: mon .30-.31, graf .32-.33, loki .34-.36, mim .37-.39, pg .40-.42; VIPs 
 (one octet per service, VRRP router id = that octet). VM IDs stay what they were when
 created (1130-1142), so since the re-addressing they no longer match the octet.
 
+## Proxmox HA
+
+Every service VM is an **HA resource** (`ha = { group = "<role>" }` in `inventory/auto.tfvars/vms.auto.tfvars`).
+The app-level HA (keepalived VIPs, Patroni, Kea HA) moves the *service* to a surviving member within
+seconds; Proxmox HA brings the *dead member* back on another node within a few minutes (fencing,
+then a restart from Ceph RBD), so each pair/trio is redundant again without anyone touching it.
+
+| What | Where | Effect |
+|---|---|---|
+| `proxmox_haresource` `vm:<id>` | `modules/proxmox/vm/ha.tf` | state `started`, `failback`, 1 restart / 1 relocation |
+| `proxmox_harule` `home-<vm>` (node-affinity, non-strict) | `modules/proxmox/vm/ha.tf` | prefers the inventory `node`, may run anywhere, fails back home |
+| `proxmox_harule` `spread-<group>` (negative resource-affinity) | `ha.tf` | VMs of one group never share a node (no two Patroni members, both DNS servers, ... on one node) |
+| `migrate = true` for HA VMs | `modules/proxmox/vm/main.tf` | a `node_name` change live-migrates (HA-aware) instead of replacing the VM |
+
+Groups (`tofu output ha_groups`): dhcp, dns, grafana, logging, metrics, monitoring, postgres, ticketing.
+
+Operating HA VMs:
+
+- **Stopping one** for longer than a reboot: set `ha.state = "stopped"` and apply, or
+  `ha-manager set vm:<id> --state stopped` (the next apply restores the inventory value).
+  A plain `qm stop` becomes an HA request too.
+- **Node maintenance**: `ha-manager crm-command node-maintenance enable <node>` moves its HA VMs away
+  (respecting the spread rules); `... disable <node>` lets failback bring them home.
+- **Fencing**: every node that runs an HA resource arms its watchdog. A node that loses corosync
+  quorum reboots itself before its VMs are restarted elsewhere.
+- The WLC pair (vm:20901/20902) and the HA containers/VMs outside this repo (ct:660, ct:666, ct:7001,
+  vm:2802, vm:20101) keep their hand-made HA config.
+
 ## Good to know
 
 - **Keep static addresses out of the DHCP pools.** Today's pools are

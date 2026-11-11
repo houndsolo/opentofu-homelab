@@ -6,7 +6,9 @@ resource "proxmox_virtual_environment_vm" "this" {
   tags            = local.config.tags
   started         = local.config.started
   keyboard_layout = local.config.keyboard_layout
-  migrate         = local.config.migrate
+  # HA VMs: a node_name change (HA moved it, or the inventory node changed) live-migrates the VM
+  # (HA-aware in the provider) instead of destroying and recreating it.
+  migrate         = local.config.migrate || var.vm.ha != null
   on_boot         = local.config.on_boot
   reboot          = local.config.reboot
   stop_on_destroy = local.config.stop_on_destroy

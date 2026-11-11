@@ -2,6 +2,7 @@ vms = {
   dns01 = {
     owner              = "services-vms"
     role               = "dns"
+    ha                 = { group = "dns" } # Proxmox HA; never on a node with another dns VM
     node               = "venom"
     vm_id              = 5301
     image              = "debian13"
@@ -32,6 +33,7 @@ vms = {
   dns02 = {
     owner              = "services-vms"
     role               = "dns"
+    ha                 = { group = "dns" } # Proxmox HA; never on a node with another dns VM
     node               = "eldarad"
     vm_id              = 5302
     image              = "debian13"
@@ -62,6 +64,7 @@ vms = {
   dhcp01 = {
     owner              = "services-vms"
     role               = "dhcp"
+    ha                 = { group = "dhcp" } # Proxmox HA; never on a node with another dhcp VM
     node               = "venom"
     vm_id              = 6701
     image              = "vyos"
@@ -75,6 +78,7 @@ vms = {
   dhcp02 = {
     owner              = "services-vms"
     role               = "dhcp"
+    ha                 = { group = "dhcp" } # Proxmox HA; never on a node with another dhcp VM
     node               = "eldarad"
     vm_id              = 6702
     image              = "vyos"
@@ -88,6 +92,7 @@ vms = {
   mon01 = {
     owner              = "services-vms"
     role               = "monitoring"
+    ha                 = { group = "monitoring" } # Proxmox HA; never on a node with another monitoring VM
     node               = "zoness"
     vm_id              = 1130
     image              = "debian13"
@@ -132,6 +137,7 @@ vms = {
     # data in Postgres (Patroni). Same last octet everywhere (.43), like the monitoring VMs.
     owner              = "services-vms"
     role               = "ticketing"
+    ha                 = { group = "ticketing" } # Proxmox HA; never on a node with another ticketing VM
     node               = "fichina"
     vm_id              = 1143
     image              = "debian13"
@@ -172,6 +178,7 @@ vms = {
     # data in Postgres (Patroni). Same last octet everywhere (.44), like the monitoring VMs.
     owner              = "services-vms"
     role               = "ticketing"
+    ha                 = { group = "ticketing" } # Proxmox HA; never on a node with another ticketing VM
     node               = "titania"
     vm_id              = 1144
     image              = "debian13"
@@ -210,6 +217,7 @@ vms = {
     # Prometheus/Alertmanager/InfluxDB replica of mon01 (Postgres stays on mon01 only).
     owner              = "services-vms"
     role               = "monitoring"
+    ha                 = { group = "monitoring" } # Proxmox HA; never on a node with another monitoring VM
     node               = "macbeth"
     vm_id              = 1131
     image              = "debian13"
@@ -251,6 +259,7 @@ vms = {
   graf01 = {
     owner              = "services-vms"
     role               = "grafana"
+    ha                 = { group = "grafana" } # Proxmox HA; never on a node with another grafana VM
     node               = "venom"
     vm_id              = 1132
     image              = "debian13"
@@ -287,6 +296,7 @@ vms = {
   graf02 = {
     owner              = "services-vms"
     role               = "grafana"
+    ha                 = { group = "grafana" } # Proxmox HA; never on a node with another grafana VM
     node               = "eldarad"
     vm_id              = 1133
     image              = "debian13"
@@ -323,6 +333,7 @@ vms = {
   loki01 = {
     owner              = "services-vms"
     role               = "logging"
+    ha                 = { group = "logging" } # Proxmox HA; never on a node with another logging VM
     node               = "zoness"
     vm_id              = 1134
     image              = "debian13"
@@ -370,6 +381,7 @@ vms = {
   loki02 = {
     owner              = "services-vms"
     role               = "logging"
+    ha                 = { group = "logging" } # Proxmox HA; never on a node with another logging VM
     node               = "titania"
     vm_id              = 1135
     image              = "debian13"
@@ -417,6 +429,7 @@ vms = {
   loki03 = {
     owner              = "services-vms"
     role               = "logging"
+    ha                 = { group = "logging" } # Proxmox HA; never on a node with another logging VM
     node               = "fortuna"
     vm_id              = 1136
     image              = "debian13"
@@ -465,6 +478,7 @@ vms = {
   mim01 = {
     owner              = "services-vms"
     role               = "metrics"
+    ha                 = { group = "metrics" } # Proxmox HA; never on a node with another metrics VM
     node               = "fichina"
     vm_id              = 1137
     image              = "debian13"
@@ -507,6 +521,7 @@ vms = {
   mim02 = {
     owner              = "services-vms"
     role               = "metrics"
+    ha                 = { group = "metrics" } # Proxmox HA; never on a node with another metrics VM
     node               = "venom"
     vm_id              = 1138
     image              = "debian13"
@@ -549,6 +564,7 @@ vms = {
   mim03 = {
     owner              = "services-vms"
     role               = "metrics"
+    ha                 = { group = "metrics" } # Proxmox HA; never on a node with another metrics VM
     node               = "eldarad"
     vm_id              = 1139
     image              = "debian13"
@@ -593,6 +609,7 @@ vms = {
     # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
     owner              = "services-vms"
     role               = "postgres"
+    ha                 = { group = "postgres" } # Proxmox HA; never on a node with another postgres VM
     node               = "titania"
     vm_id              = 1140
     image              = "debian13"
@@ -636,6 +653,7 @@ vms = {
     # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
     owner              = "services-vms"
     role               = "postgres"
+    ha                 = { group = "postgres" } # Proxmox HA; never on a node with another postgres VM
     node               = "fortuna"
     vm_id              = 1141
     image              = "debian13"
@@ -679,6 +697,7 @@ vms = {
     # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
     owner              = "services-vms"
     role               = "postgres"
+    ha                 = { group = "postgres" } # Proxmox HA; never on a node with another postgres VM
     node               = "venom"
     vm_id              = 1142
     image              = "debian13"

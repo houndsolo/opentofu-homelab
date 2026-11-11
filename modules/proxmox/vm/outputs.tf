@@ -22,3 +22,8 @@ output "network_devices" {
   description = "Ordered extra NICs, excluding the management NIC."
   value       = var.vm.network_devices
 }
+
+output "ha_resource_id" {
+  description = "HA resource ID (vm:<id>), or null when the VM isn't HA-managed."
+  value       = var.vm.ha == null ? null : proxmox_haresource.this[0].resource_id
+}
