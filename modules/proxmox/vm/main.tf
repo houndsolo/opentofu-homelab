@@ -6,8 +6,8 @@ resource "proxmox_virtual_environment_vm" "this" {
   tags            = local.config.tags
   started         = local.config.started
   keyboard_layout = local.config.keyboard_layout
-  # HA VMs: a node_name change (HA moved it, or the inventory node changed) live-migrates the VM
-  # (HA-aware in the provider) instead of destroying and recreating it.
+  # HA VMs migrate (HA-aware in the provider) rather than being replaced if node_name ever
+  # changes. node_name itself is ignored after creation (lifecycle below).
   migrate         = local.config.migrate || var.vm.ha != null
   on_boot         = local.config.on_boot
   reboot          = local.config.reboot
@@ -134,6 +134,11 @@ resource "proxmox_virtual_environment_vm" "this" {
   timeout_stop_vm     = local.config.timeout_stop_vm
 
   lifecycle {
+    # var.vm.node only places a new VM. Afterwards the VM may run anywhere (Proxmox HA recovery,
+    # load balancing, maintenance, a manual migration) without a plan diff; changing `node` in
+    # the inventory doesn't move an existing VM either (migrate it in Proxmox).
+    ignore_changes = [node_name]
+
     precondition {
       condition     = length(var.vm.config.ssh_pubkeys) == 0 || (local.config.cloud_init && local.config.user_data_file_id == null)
       error_message = "config.ssh_pubkeys requires cloud-init enabled and no custom user_data_file_id."

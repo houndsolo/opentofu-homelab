@@ -121,10 +121,10 @@ then a restart from Ceph RBD), so each pair/trio is redundant again without anyo
 
 | What | Where | Effect |
 |---|---|---|
-| `proxmox_haresource` `vm:<id>` | `modules/proxmox/vm/ha.tf` | state `started`, `failback`, 1 restart / 1 relocation |
-| `proxmox_harule` `home-<vm>` (node-affinity, non-strict) | `modules/proxmox/vm/ha.tf` | prefers the inventory `node`, may run anywhere, fails back home |
+| `proxmox_haresource` `vm:<id>` | `modules/proxmox/vm/ha.tf` | state `started`, 1 restart / 1 relocation, no home node |
 | `proxmox_harule` `spread-<group>` (negative resource-affinity) | `ha.tf` | VMs of one group never share a node (no two Patroni members, both DNS servers, ... on one node) |
-| `migrate = true` for HA VMs | `modules/proxmox/vm/main.tf` | a `node_name` change live-migrates (HA-aware) instead of replacing the VM |
+| `ignore_changes = [node_name]` (every VM of the module) | `modules/proxmox/vm/main.tf` | the inventory `node` only places a new VM; a VM running elsewhere is no plan diff |
+| `migrate = true` for HA VMs | `modules/proxmox/vm/main.tf` | kept, in case `node_name` is ever planned to change |
 
 Groups (`tofu output ha_groups`): dhcp, dns, grafana, logging, metrics, monitoring, postgres, ticketing.
 
@@ -134,7 +134,9 @@ Operating HA VMs:
   `ha-manager set vm:<id> --state stopped` (the next apply restores the inventory value).
   A plain `qm stop` becomes an HA request too.
 - **Node maintenance**: `ha-manager crm-command node-maintenance enable <node>` moves its HA VMs away
-  (respecting the spread rules); `... disable <node>` lets failback bring them home.
+  (respecting the spread rules). They stay where HA put them afterwards (no home node).
+- **Moving a VM**: migrate it in Proxmox (or let HA). Changing `node` in the inventory no longer
+  moves an existing VM: node_name is ignored after creation, for every VM built by this module.
 - **Fencing**: every node that runs an HA resource arms its watchdog. A node that loses corosync
   quorum reboots itself before its VMs are restarted elsewhere.
 - The WLC pair (vm:20901/20902) and the HA containers/VMs outside this repo (ct:660, ct:666, ct:7001,

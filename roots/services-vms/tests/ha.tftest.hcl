@@ -25,6 +25,6 @@ run "ha_groups" {
       for g, names in local.ha_groups :
       length(distinct([for n in names : var.vms[n].node])) == length(names)
     ])
-    error_message = "The inventory itself already places each HA group on separate nodes (otherwise HA would migrate VMs right away)."
+    error_message = "The inventory creates each HA group's VMs on separate nodes (otherwise HA would migrate one right away)."
   }
 }

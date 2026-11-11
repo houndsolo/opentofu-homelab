@@ -1,7 +1,8 @@
 # Proxmox VE HA across VMs: every HA group (vms.<name>.ha.group) with two or more VMs gets a
 # negative resource-affinity rule, so HA never places two of them on one node (a node failure
-# must not take out two Patroni members, both DNS servers, ...). The per-VM HA resource and its
-# home-node rule are in modules/proxmox/vm/ha.tf.
+# must not take out two Patroni members, both DNS servers, ...). There is no home node: HA may
+# run a VM anywhere else, and the VM resource ignores node_name after creation. The per-VM HA
+# resource is in modules/proxmox/vm/ha.tf.
 #
 # App-level HA (keepalived VIPs, Patroni, Kea HA) moves the *service* within seconds; Proxmox HA
 # brings the *dead member* back on another node within minutes (fencing + restart), so the

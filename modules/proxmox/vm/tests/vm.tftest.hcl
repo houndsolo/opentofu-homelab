@@ -162,8 +162,8 @@ run "cloud_init_dns_per_vm" {
 run "no_ha_by_default" {
   command = plan
   assert {
-    condition     = length(proxmox_haresource.this) == 0 && length(proxmox_harule.home) == 0 && proxmox_virtual_environment_vm.this.migrate == false
-    error_message = "Without vm.ha there is no HA resource or rule, and node_name changes keep the default (replace)."
+    condition     = length(proxmox_haresource.this) == 0 && proxmox_virtual_environment_vm.this.migrate == false
+    error_message = "Without vm.ha there is no HA resource and migrate keeps its default."
   }
 }
 
@@ -181,21 +181,12 @@ run "ha_vm" {
   assert {
     condition = (
       proxmox_haresource.this[0].resource_id == "vm:1140" && proxmox_haresource.this[0].state == "started" &&
-      proxmox_haresource.this[0].failback == true && proxmox_haresource.this[0].max_restart == 1 &&
-      proxmox_haresource.this[0].max_relocate == 1
+      proxmox_haresource.this[0].max_restart == 1 && proxmox_haresource.this[0].max_relocate == 1
     )
-    error_message = "An HA VM is an HA resource vm:<id>, started, with failback and 1 restart/relocation."
-  }
-  assert {
-    condition = (
-      proxmox_harule.home[0].rule == "home-pg01" && proxmox_harule.home[0].type == "node-affinity" &&
-      proxmox_harule.home[0].nodes == tomap({ titania = 2 }) && proxmox_harule.home[0].strict == false &&
-      proxmox_harule.home[0].resources == toset(["vm:1140"])
-    )
-    error_message = "An HA VM prefers its inventory node through a non-strict node-affinity rule."
+    error_message = "An HA VM is an HA resource vm:<id>, started, with 1 restart/relocation (no home node)."
   }
   assert {
     condition     = proxmox_virtual_environment_vm.this.migrate == true && output.ha_resource_id == "vm:1140"
-    error_message = "HA VMs migrate (never get replaced) when node_name changes, and export their HA resource ID."
+    error_message = "HA VMs keep migrate = true and export their HA resource ID."
   }
 }
