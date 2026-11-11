@@ -25,11 +25,21 @@ sysctl -q -p /etc/sysctl.d/90-dark-triage.conf
 install -d -m 0755 /etc/dark-triage /etc/containers/systemd
 install -d -m 0750 -o 1000 -g 1000 /var/lib/dark-triage
 printf '%s' '${env_b64}' | base64 -d > "$stage/env"
-install -m 0600 -o root -g root "$stage/env" /etc/dark-triage/env
 printf '%s' '${unit_b64}' | base64 -d > "$stage/dark-triage.container"
+# Restart the app only when its unit, env or image changed (or it isn't running): a deploy that
+# only changes keepalived must not interrupt the node holding the VIP.
+changed=0
+cmp -s "$stage/env" /etc/dark-triage/env || changed=1
+cmp -s "$stage/dark-triage.container" /etc/containers/systemd/dark-triage.container || changed=1
+install -m 0600 -o root -g root "$stage/env" /etc/dark-triage/env
 install -m 0644 "$stage/dark-triage.container" /etc/containers/systemd/dark-triage.container
-systemctl daemon-reload
-systemctl restart dark-triage.service
+if [ $changed -eq 1 ] || ! systemctl is-active --quiet dark-triage.service; then
+  systemctl daemon-reload
+  systemctl restart dark-triage.service
+  echo "dark-triage restarted"
+else
+  echo "dark-triage unchanged, not restarted"
+fi
 
 healthy=0
 for i in $(seq 1 45); do
