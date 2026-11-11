@@ -1,0 +1,4 @@
+#!/bin/sh
+# Managed by OpenTofu (services-config). keepalived health check: dark-triage on this node answers
+# /api/health with 200, which it only does when it reaches its database.
+exec /usr/bin/curl -sf -o /dev/null --max-time 3 '${url}'

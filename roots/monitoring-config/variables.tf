@@ -223,7 +223,9 @@ variable "blackbox_http_targets" {
   default = {
     netbox       = "http://10.2.0.40:8000/login/"
     "llama-v100" = "http://10.12.0.10:8080/health"
-    dark-triage  = "http://10.2.100.1/api/health" # 200 only when the app reaches its database
+    dark-triage  = "http://10.2.100.100/api/health" # the VIP; 200 only when the app reaches its database
+    triage01     = "http://10.2.100.1/api/health"
+    triage02     = "http://10.2.100.2/api/health"
   }
 }
 

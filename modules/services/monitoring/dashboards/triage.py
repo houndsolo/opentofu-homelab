@@ -91,10 +91,12 @@ def triage():
                thresholds=steps((OK, None)), desc="Resolved tickets last updated in the past 7 days."), 3, 4)
     b.add(stat("Oldest open", [one(f"SELECT extract(epoch FROM now() - min(created::timestamptz)) FROM tickets WHERE {OPEN}")],
                unit="dtdurations", decimals=0, thresholds=AGE, color_mode="value", no_value="none open"), 3, 4)
-    b.add(stat("App", [q('probe_success{job="blackbox-http_2xx", host="dark-triage"}', instant=True)],
+    b.add(stat("App", [q('probe_success{job="blackbox-http_2xx", host=~"dark-triage|triage0[0-9]"}', "{{host}}",
+                         instant=True)],
                mappings=mapping(**{"0": ("DOWN", ERROR), "1": ("UP", OK)}), thresholds=steps((ERROR, None), (OK, 1)),
-               no_value="no probe", desc="Blackbox probe of /api/health: 200 only when the app reaches its "
-                                         "database (Patroni VIP 10.13.11.104)."), 3, 4)
+               text_mode="value_and_name", no_value="no probe",
+               desc="Blackbox probes of /api/health on the VIP (dark-triage, 10.2.100.100) and each node: 200 only "
+                    "when the app reaches its database (Patroni VIP 10.13.11.104)."), 3, 4)
 
     b.row("Open queue")
     b.add(bargauge("By priority", [counts(PRIO_COLORS, "priority")], overrides=fixed_colors(PRIO_COLORS),

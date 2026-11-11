@@ -127,8 +127,9 @@ vms = {
     }
   }
   triage01 = {
-    # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system): one Podman Quadlet
-    # container deployed by services-config (ticketing.tf). VMID and addresses encode .100.1.
+    # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system), HA pair with triage02:
+    # Podman Quadlet + keepalived (VIP 10.2.100.100) deployed by services-config (ticketing.tf),
+    # data in Postgres (Patroni). VMID and addresses encode .100.1.
     owner              = "services-vms"
     role               = "ticketing"
     node               = "fichina"
@@ -148,6 +149,52 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.100.1/16"
+      },
+      {
+        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.100.100.
+        bridge       = "vmbr4000"
+        vlan_id      = 218
+        ipv4_address = "10.21.100.1/24"
+      },
+    ]
+    config = {
+      tags         = ["debian", "ticketing", "opentofu"]
+      cpu_cores    = 2
+      memory_mb    = 2048
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  triage02 = {
+    # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system), HA pair with triage01:
+    # Podman Quadlet + keepalived (VIP 10.2.100.100) deployed by services-config (ticketing.tf),
+    # data in Postgres (Patroni). VMID and addresses encode .100.2.
+    owner              = "services-vms"
+    role               = "ticketing"
+    node               = "titania"
+    vm_id              = 10002
+    image              = "debian13"
+    management_address = "10.20.100.2/16"
+    network_devices = [
+      {
+        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.100.2/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) for the app's database.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.100.2/16"
+      },
+      {
+        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.100.100.
+        bridge       = "vmbr4000"
+        vlan_id      = 218
+        ipv4_address = "10.21.100.2/24"
       },
     ]
     config = {

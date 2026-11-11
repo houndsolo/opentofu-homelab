@@ -538,7 +538,7 @@
     {
       "type": "stat",
       "title": "App",
-      "description": "Blackbox probe of /api/health: 200 only when the app reaches its database (Patroni VIP 10.13.11.104).",
+      "description": "Blackbox probes of /api/health on the VIP (dark-triage, 10.2.100.100) and each node: 200 only when the app reaches its database (Patroni VIP 10.13.11.104).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -550,8 +550,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "probe_success{job=\"blackbox-http_2xx\", host=\"dark-triage\"}",
-          "legendFormat": "__auto",
+          "expr": "probe_success{job=\"blackbox-http_2xx\", host=~\"dark-triage|triage0[0-9]\"}",
+          "legendFormat": "{{host}}",
           "range": false,
           "instant": true,
           "refId": "A"
@@ -606,7 +606,7 @@
         },
         "colorMode": "background",
         "graphMode": "none",
-        "textMode": "auto",
+        "textMode": "value_and_name",
         "justifyMode": "auto",
         "orientation": "auto",
         "wideLayout": true,

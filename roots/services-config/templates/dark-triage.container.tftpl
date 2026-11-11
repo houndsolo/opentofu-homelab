@@ -9,8 +9,11 @@ Image=${image}
 ContainerName=dark-triage
 EnvironmentFile=/etc/dark-triage/env
 Volume=/var/lib/dark-triage:/app/data
+# The node's own VLAN 2 address and the keepalived VIP (bound on both nodes: ip_nonlocal_bind).
+%{ for a in addresses ~}
 %{ for p in ports ~}
-PublishPort=${listen}:${p}:3000
+PublishPort=${a}:${p}:3000
+%{ endfor ~}
 %{ endfor ~}
 
 [Service]

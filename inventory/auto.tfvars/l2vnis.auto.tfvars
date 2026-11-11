@@ -45,4 +45,10 @@ l2vnis = {
     prefix      = "10.21.15.0/24"
     description = "Patroni: Postgres streaming replication, etcd peers/clients, Patroni REST API, keepalived (pg01-03 .40-.42; VIP 10.13.11.104 on VLAN 13)"
   }
+  ha_triage = {
+    vni         = 9218
+    vlan_id     = 218
+    prefix      = "10.21.100.0/24"
+    description = "dark-triage keepalived adverts (triage01-02 .1-.2; VIP 10.2.100.100 on VLAN 2)"
+  }
 }
