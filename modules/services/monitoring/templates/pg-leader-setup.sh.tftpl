@@ -48,6 +48,24 @@ REVOKE ALL ON DATABASE ${app} FROM PUBLIC;
 SQL
 echo "role and database ${app} present"
 %{ endfor ~}
+%{ for app, grants in grafana ~}
+
+# Read-only role ${app}_grafana for Grafana's datasource (postgres_apps.${app}.grafana_grants).
+# The app creates its tables on first start, so a missing table only warns here; the next
+# deploy grants it.
+runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -q <<'SQL'
+\getenv ro_pw PG_APP_${upper(app)}_GRAFANA_PASSWORD
+SELECT 'CREATE ROLE ${app}_grafana LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${app}_grafana') \gexec
+ALTER ROLE ${app}_grafana LOGIN PASSWORD :'ro_pw' CONNECTION LIMIT 10;
+ALTER ROLE ${app}_grafana SET default_transaction_read_only = on;
+GRANT CONNECT ON DATABASE ${app} TO ${app}_grafana;
+SQL
+for grant in %{ for g in grants }'${g}' %{ endfor }; do
+  runuser -u postgres -- psql -X -q -d ${app} -c "GRANT $grant TO ${app}_grafana" || echo "warning: GRANT $grant failed (table not created yet?)" >&2
+done
+runuser -u postgres -- psql -X -q -d ${app} -c "GRANT USAGE ON SCHEMA public TO ${app}_grafana"
+echo "read-only role ${app}_grafana present"
+%{ endfor ~}
 
 # The S3 keys come from the environment too (PGBACKREST_REPO1_S3_KEY*). stanza-create is a
 # no-op on an existing, matching stanza.

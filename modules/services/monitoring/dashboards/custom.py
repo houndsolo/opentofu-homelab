@@ -2004,9 +2004,10 @@ def main():
     import pve
     import rgw
     import snmp
+    import triage
     import wireless
     for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS,
-                       **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS}.items():
+                       **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS, **triage.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = theme.apply_theme(build())

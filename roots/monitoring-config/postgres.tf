@@ -20,6 +20,16 @@ locals {
     ]))
   }
 
+  # What Grafana's read-only role may read (the dark-triage dashboard): tickets and comments, and
+  # only the non-secret user columns. Never password hashes, sessions or API token hashes.
+  postgres_app_grafana_grants = {
+    triage = [
+      "SELECT ON tickets",
+      "SELECT ON comments",
+      "SELECT (id, username, display_name, role, disabled, is_bot, color, created, last_login) ON users",
+    ]
+  }
+
   postgres_nic = {
     for name in keys(local.postgres_vms) : name => {
       ha = try(one([

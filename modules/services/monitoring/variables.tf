@@ -375,6 +375,10 @@ variable "postgres_apps" {
   description = "Application databases on the Patroni cluster: database = role = key; clients = the app VMs' backend addresses (pg_hba hostssl + postgres-guard). Passwords in postgres_app_passwords."
   type = map(object({
     clients = list(string)
+    # Non-empty: a read-only role "<app>_grafana" (password postgres_app_passwords["<app>_grafana"])
+    # gets these privileges in the app's database ("SELECT ON tickets", "SELECT (id, name) ON users"),
+    # pg_hba admits it from the Grafana VMs, and Grafana gets a PostgreSQL datasource (uid = app).
+    grafana_grants = optional(list(string), [])
   }))
   default = {}
   validation {

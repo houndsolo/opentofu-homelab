@@ -48,6 +48,7 @@ locals {
   # Prometheus from the backends' backend-VLAN addresses.
   pg_grafana_clients = sort([for g in values(var.grafana) : g.backend_address])
   pg_app_clients     = sort(distinct(flatten([for a in values(var.postgres_apps) : a.clients])))
+  pg_grafana_apps    = sort([for app, a in var.postgres_apps : app if length(a.grafana_grants) > 0])
   pg_scrapers        = sort([for b in values(var.backends) : b.backend_address])
 
   pgbackrest = "pgbackrest --stanza=${local.pg_scope}"
@@ -167,6 +168,7 @@ locals {
           [for ip in local.pg_members : "host all postgres ${ip}/32 scram-sha-256"], # pg_rewind, Patroni
           [for ip in local.pg_grafana_clients : "hostssl grafana grafana ${ip}/32 scram-sha-256"],
           flatten([for app, a in var.postgres_apps : [for ip in a.clients : "hostssl ${app} ${app} ${ip}/32 scram-sha-256"]]),
+          flatten([for app in local.pg_grafana_apps : [for ip in local.pg_grafana_clients : "hostssl ${app} ${app}_grafana ${ip}/32 scram-sha-256"]]),
         )
       }
 
@@ -187,6 +189,7 @@ locals {
   pg_roles_env = local.postgres_enabled ? join("", concat(
     ["PG_GRAFANA_PASSWORD=${var.secrets.grafana_db_password}\n", "PG_MONITOR_PASSWORD=${local.pg_secrets.monitor_password}\n"],
     [for app in keys(var.postgres_apps) : "PG_APP_${upper(app)}_PASSWORD=${var.postgres_app_passwords[app]}\n"],
+    [for app in local.pg_grafana_apps : "PG_APP_${upper(app)}_GRAFANA_PASSWORD=${var.postgres_app_passwords["${app}_grafana"]}\n"],
   )) : ""
   pg_exporter_env = local.postgres_enabled ? (
     "DATA_SOURCE_NAME=postgresql://pgmon:${urlencode(local.pg_secrets.monitor_password)}@127.0.0.1:5432/postgres?sslmode=disable\n"
@@ -388,7 +391,7 @@ locals {
           { path = "${local.pg_conf}/s3.env", mode = "0600", owner = "root", content = local.pg_s3_env, restart = [], reload = [] },
           { path = "/etc/systemd/system/patroni.service.d/lylat.conf", mode = "0644", owner = "root", content = file("${path.module}/templates/patroni-dropin.conf"), restart = [], reload = [] },
           { path = "${local.pg_conf}/roles.env", mode = "0600", owner = "root", content = local.pg_roles_env, restart = ["pg-leader-setup"], reload = [] },
-          { path = "/usr/local/sbin/pg-leader-setup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-leader-setup.sh.tftpl", { name = name, stanza = local.pg_scope, apps = sort(keys(var.postgres_apps)) }), restart = ["pg-leader-setup"], reload = [] },
+          { path = "/usr/local/sbin/pg-leader-setup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-leader-setup.sh.tftpl", { name = name, stanza = local.pg_scope, apps = sort(keys(var.postgres_apps)), grafana = { for app in local.pg_grafana_apps : app => var.postgres_apps[app].grafana_grants } }), restart = ["pg-leader-setup"], reload = [] },
           { path = "/etc/systemd/system/pg-leader-setup.service", mode = "0644", owner = "root", content = file("${path.module}/templates/pg-leader-setup.service"), restart = ["pg-leader-setup"], reload = [] },
           { path = "/etc/pgbackrest/pgbackrest.conf", mode = "0644", owner = "root", content = local.pgbackrest_conf, restart = [], reload = [] },
           { path = "/usr/local/sbin/pg-backup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-backup.sh.tftpl", { stanza = local.pg_scope, textfile_dir = local.pg_textfile }), restart = [], reload = [] },

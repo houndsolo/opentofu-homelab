@@ -341,7 +341,19 @@ locals {
         # views (alert list panels, Alerting > Data source-managed), so each alert shows once.
         jsonData = merge({ timeInterval = "30s" }, name == local.primary ? {} : { manageAlerts = false })
       }],
-    local.loki_datasource) # logging.tf
+      local.loki_datasource, # logging.tf
+      # Read-only PostgreSQL datasources of the app databases on the Patroni cluster (postgres.tf).
+      [for app in local.pg_grafana_apps : {
+        name     = app == "triage" ? "dark-triage" : app
+        uid      = app
+        type     = "grafana-postgresql-datasource"
+        access   = "proxy"
+        url      = "${local.pg_vip}:5432"
+        user     = "${app}_grafana"
+        jsonData = { database = app, sslmode = "require", postgresVersion = 1700, timescaledb = false, maxOpenConns = 5, maxIdleConns = 2, connMaxLifetime = 14400 }
+        # Expanded by Grafana from grafana.env.
+        secureJsonData = { password = "$PG_APP_${upper(app)}_GRAFANA_PASSWORD" }
+    }])
   })
 
   # Dashboards: dashboards/<Folder>/<name>.json becomes Grafana folder <Folder>.
@@ -767,7 +779,7 @@ locals {
             path    = "${local.grafana_conf}/grafana.env"
             mode    = "0600"
             owner   = "root"
-            content = "GF_SECURITY_ADMIN_PASSWORD=${var.secrets.grafana_admin_password}\nGF_SECURITY_SECRET_KEY=${var.secrets.grafana_secret_key}\nGF_DATABASE_PASSWORD=${var.secrets.grafana_db_password}\nINFLUXDB_TOKEN=${var.secrets.influxdb_admin_token}\n"
+            content = "GF_SECURITY_ADMIN_PASSWORD=${var.secrets.grafana_admin_password}\nGF_SECURITY_SECRET_KEY=${var.secrets.grafana_secret_key}\nGF_DATABASE_PASSWORD=${var.secrets.grafana_db_password}\nINFLUXDB_TOKEN=${var.secrets.influxdb_admin_token}\n${join("", [for app in local.pg_grafana_apps : "PG_APP_${upper(app)}_GRAFANA_PASSWORD=${var.postgres_app_passwords["${app}_grafana"]}\n"])}"
             restart = ["grafana"]
             reload  = []
           },

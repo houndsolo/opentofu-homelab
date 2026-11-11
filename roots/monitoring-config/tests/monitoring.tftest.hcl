@@ -140,6 +140,7 @@ run "inventory_targets" {
         "Proxmox/proxmox-node.json"                        = "proxmox-node"
         "Proxmox/proxmox-overview.json"                    = "proxmox-overview"
         "Proxmox/proxmox-storage.json"                     = "proxmox-storage"
+        "Services/dark-triage.json"                        = "dark-triage"
         "Storage/ceph-cluster.json"                        = "ceph-cluster"
         "Storage/ceph-osd.json"                            = "ceph-osd"
         "Storage/ceph-rgw-buckets.json"                    = "ceph-rgw-buckets"
