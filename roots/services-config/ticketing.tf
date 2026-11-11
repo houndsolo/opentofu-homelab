@@ -78,7 +78,7 @@ resource "terraform_data" "ticketing" {
 
 output "ticketing_url" {
   description = "dark_triage helpdesk URL(s)."
-  value       = { for name, ip in local.ticketing_listen : name => "http://${ip}/ (http://triage.lylat.space/)" }
+  value       = { for name, ip in local.ticketing_listen : name => "http://${ip}/ (http://dark-triage.lylat.space/)" }
 }
 
 output "ticketing_admin_password" {
