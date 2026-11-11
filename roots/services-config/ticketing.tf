@@ -11,7 +11,7 @@ variable "ticketing" {
     # Postgres on the Patroni cluster (monitoring-config postgres_apps creates role + database
     # "triage" and allows the app VM's backend address). Used only when app_db_passwords has
     # a "triage" entry and postgres = true; otherwise the app keeps SQLite in /var/lib/dark-triage.
-    postgres = optional(bool, false)
+    postgres = optional(bool, true)
     database = optional(object({
       host = optional(string, "10.13.11.104") # Patroni VIP (backend VLAN 13)
       port = optional(number, 5432)
