@@ -18,6 +18,15 @@ locals {
     "set interfaces vxlan vxlan0 mac '${local.vtep_mac}'",
     "set interfaces vxlan vxlan0 mtu '${var.fabric.settings.vxlan_mtu}'",
     "set interfaces vxlan vxlan0 parameters external",
+    # ARP/ND suppression (EVPN): the bridge answers ARP/NS for remote hosts from the neighbour
+    # entries zebra installs from type-2 MAC+IP routes instead of flooding them to every VTEP.
+    # VyOS applies it as `bridge link set dev vxlan0 neigh_suppress on learning off` when the
+    # vxlan interface is configured (after the bridge, priority 460 > 319), which also re-asserts
+    # learning off at boot: br0's `disable-learning` alone was lost on LEAF-20 after a reboot.
+    # Any change under `vxlan0 parameters` rebuilds vxlan0 live (VyOS interfaces_vxlan.py). On
+    # 2026-11-11 that left routed (L3VNI) traffic broken on the rebuilt leaves until they were
+    # rebooted: after changing these parameters, reboot the leaf (one at a time).
+    "set interfaces vxlan vxlan0 parameters neighbor-suppress",
     "set interfaces vxlan vxlan0 parameters nolearning",
     "set interfaces vxlan vxlan0 parameters vni-filter",
     "set interfaces vxlan vxlan0 source-address '${local.vtep_ipv6}'",
