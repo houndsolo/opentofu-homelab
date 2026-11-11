@@ -1,11 +1,13 @@
-# dark_triage helpdesk (github.com/houndsolo/vc-ticketing-system): Python stdlib + SQLite, one
-# shared ACCESS_PASSWORD. Built on the VM from a pinned commit and run as a rootful Podman Quadlet
+# dark_triage helpdesk (github.com/houndsolo/vc-ticketing-system): Python stdlib + SQLite, user
+# accounts (admin/user roles). The first start bootstraps the admin account from ADMIN_USERNAME /
+# ADMIN_PASSWORD (ignored once users exist; the admin then creates the other users). Built on the VM from a pinned commit and run as a rootful Podman Quadlet
 # container, published on the VM's VLAN 2 address (:80 and :3000). Data: /var/lib/dark-triage.
 variable "ticketing" {
   description = "dark_triage source (pinned commit) and listen ports. null = don't deploy."
   type = object({
     repo   = optional(string, "houndsolo/vc-ticketing-system")
-    commit = optional(string, "378739c5a6681973ddc0c3cb98cf9387836470cf")
+    commit = optional(string, "e418aa9c9e1783b19863d3019d7448cd71bea498")
+    admin  = optional(string, "admin") # bootstrap admin username
     ports  = optional(list(number), [80, 3000])
   })
   default = {}
@@ -36,7 +38,7 @@ locals {
         listen = local.ticketing_listen[name]
         ports  = var.ticketing.ports
       }))
-      env_b64 = base64encode("ACCESS_PASSWORD=${random_password.ticketing[0].result}\n")
+      env_b64 = base64encode("ADMIN_USERNAME=${var.ticketing.admin}\nADMIN_PASSWORD=${random_password.ticketing[0].result}\n")
     })
   }
 }
@@ -79,8 +81,8 @@ output "ticketing_url" {
   value       = { for name, ip in local.ticketing_listen : name => "http://${ip}/ (http://triage.lylat.space/)" }
 }
 
-output "ticketing_password" {
-  description = "dark_triage shared ACCESS_PASSWORD (tofu output -raw ticketing_password)."
+output "ticketing_admin_password" {
+  description = "dark_triage bootstrap admin password (user: var.ticketing.admin; tofu output -raw ticketing_admin_password). Only used when the database has no users yet."
   value       = var.ticketing != null ? random_password.ticketing[0].result : null
   sensitive   = true
 }
