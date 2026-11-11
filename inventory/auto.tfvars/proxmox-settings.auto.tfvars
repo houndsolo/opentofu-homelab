@@ -30,7 +30,7 @@ proxmox_settings = {
   # Every host (cluster nodes and greatfox).
   dns = {
     domain  = "lylat.space"
-    servers = ["1.1.1.1"]
+    servers = ["10.8.53.53", "1.1.1.1"]
   }
   time_zone = "America/New_York"
 
