@@ -1,9 +1,12 @@
 # Managed by OpenTofu (roots/services-config). Forwards everything journald hands to
-# rsyslog (ForwardToSyslog=yes), plus the kernel log, to the Loki/Alloy syslog receiver:
-# TCP, RFC 5424, octet-counted. A disk-assisted queue rides out a receiver outage.
+# rsyslog (ForwardToSyslog=yes), plus the kernel log, to every Loki/Alloy syslog receiver
+# (each logging VM's own mgmt address; Loki drops the identical copies): TCP, RFC 5424,
+# octet-counted. Each receiver has its own disk-assisted queue to ride out an outage of
+# that VM; timeoutEnqueue=0 makes a full queue drop instead of stalling the others.
 # The final `stop` keeps rsyslog from also writing /var/log/*: the journal stays the
 # local log store.
 if prifilt("*.${level}") then {
+%{ for host in hosts ~}
   action(
     type="omfwd"
     target="${host}"
@@ -13,11 +16,13 @@ if prifilt("*.${level}") then {
     TCP_Framing="octet-counted"
     queue.type="LinkedList"
     queue.size="20000"
-    queue.filename="loki-fwd"
+    queue.filename="loki-fwd-${replace(host, ".", "-")}"
     queue.maxDiskSpace="128m"
     queue.saveOnShutdown="on"
+    queue.timeoutEnqueue="0"
     action.resumeRetryCount="-1"
     action.resumeInterval="10"
   )
+%{ endfor ~}
 }
 stop

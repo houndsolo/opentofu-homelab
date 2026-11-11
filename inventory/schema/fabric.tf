@@ -23,7 +23,7 @@ variable "fabric" {
       # Remote syslog on every leaf (`system syslog remote`), RFC 5424 with the timezone;
       # TCP adds octet-counted framing. null = don't manage it.
       leaf_syslog = optional(object({
-        host     = string           # the receiver, e.g. the Loki/Alloy VIP on the management network
+        hosts    = list(string)     # receivers, each gets every message: the logging VMs' own mgmt addresses
         vrf      = optional(string) # VRF the leaf sends from; null = default VRF
         port     = optional(number, 514)
         protocol = optional(string, "tcp") # tcp or udp
@@ -57,8 +57,9 @@ variable "fabric" {
   validation {
     condition = (
       var.fabric.settings.leaf_syslog == null ||
-      contains(["tcp", "udp"], try(var.fabric.settings.leaf_syslog.protocol, ""))
+      (contains(["tcp", "udp"], try(var.fabric.settings.leaf_syslog.protocol, "")) &&
+      length(try(var.fabric.settings.leaf_syslog.hosts, [])) > 0)
     )
-    error_message = "fabric.settings.leaf_syslog.protocol must be tcp or udp."
+    error_message = "fabric.settings.leaf_syslog.protocol must be tcp or udp, and hosts must not be empty."
   }
 }

@@ -308,7 +308,7 @@ variable "logging_settings" {
     vips = optional(object({
       backend    = optional(string, "10.13.11.101/16")
       monitoring = optional(string, "10.5.11.101/16")
-      mgmt       = optional(string, "10.20.11.101/16")
+      # No mgmt VIP: syslog senders on the management network use each logging VM's own address.
     }), {})
     vrrp_router_id        = optional(number, 101)
     rgw_endpoints         = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"]) # macbeth, titania, venom

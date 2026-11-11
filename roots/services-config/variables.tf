@@ -136,31 +136,32 @@ variable "dhcp_prometheus_exporters" {
 }
 
 variable "dhcp_syslog" {
-  description = "Remote syslog from each DHCP VM (RFC 5424 over TCP by default), sent from this VRF. Default: the Loki/Alloy VIP on the management network (monitoring-config). null = don't manage it."
+  description = "Remote syslog from each DHCP VM (RFC 5424 over TCP by default) to every host in `hosts`, sent from this VRF. Default: the logging VMs' own mgmt addresses (loki01-03, monitoring-config; no VIP on mgmt). null = don't manage it."
   type = object({
-    host     = string
+    hosts    = list(string)
     vrf      = optional(string)
     port     = optional(number, 514)
     protocol = optional(string, "tcp")
     facility = optional(string, "all")
     level    = optional(string, "info")
   })
-  default = { host = "10.20.11.101", vrf = "mgmt" }
+  default = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }
 }
 
 variable "dns_syslog" {
-  description = "Forward each DNS VM's journal (BIND included) with rsyslog to this syslog receiver over TCP (RFC 5424, octet-counted), from the management network. Default: the Loki/Alloy VIP (monitoring-config). null = don't install it."
+  description = "Forward each DNS VM's journal (BIND included) with rsyslog to every syslog receiver in `hosts` over TCP (RFC 5424, octet-counted), from the management network. Default: the logging VMs' own mgmt addresses (loki01-03, monitoring-config; no VIP on mgmt). null = don't install it."
   type = object({
-    host  = string
+    hosts = list(string)
     port  = optional(number, 514)
     level = optional(string, "info")
   })
-  default = { host = "10.20.11.101" }
+  default = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"] }
   validation {
     condition = var.dns_syslog == null || (
-      can(regex("^[A-Za-z0-9.:-]+$", try(var.dns_syslog.host, ""))) &&
+      length(try(var.dns_syslog.hosts, [])) > 0 &&
+      alltrue([for h in try(var.dns_syslog.hosts, [""]) : can(regex("^[A-Za-z0-9.:-]+$", h))]) &&
       contains(["debug", "info", "notice", "warning", "err", "crit", "alert", "emerg"], try(var.dns_syslog.level, ""))
     )
-    error_message = "dns_syslog.host must be a plain host name or address and level a syslog severity."
+    error_message = "dns_syslog.hosts must be a non-empty list of plain host names or addresses, and level a syslog severity."
   }
 }

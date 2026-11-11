@@ -200,12 +200,10 @@ variable "logging" {
     backend_address    = string # backend VLAN: Loki HTTP API (Grafana, Alloy pushes), scrapes
     ha_address         = string # HA VLAN: Loki ring (memberlist, ingester gRPC) and VRRP adverts
     monitoring_address = string # monitoring network: syslog from devices and PVE nodes
-    mgmt_address       = string # management network: syslog from the VyOS leaves/DHCP VMs (mgmt VRF)
     interfaces = object({       # the VM's interface name on each of those networks (VRRP)
       ha         = string
       backend    = string
       monitoring = string
-      mgmt       = string
     })
   }))
   default = {}
@@ -217,7 +215,8 @@ variable "logging_settings" {
     vips = optional(object({
       backend    = optional(string, "10.13.11.101/16") # Grafana datasource, Alloy pushes from the other VMs
       monitoring = optional(string, "10.5.11.101/16")  # syslog from devices and PVE nodes
-      mgmt       = optional(string, "10.20.11.101/16") # syslog from the VyOS leaves and DHCP VMs (mgmt VRF)
+      # No VIP on the management network: the VyOS leaves, DHCP and DNS VMs send syslog to
+      # every logging VM's own mgmt address (Loki drops the identical copies).
     }), {})
     vrrp_router_id        = optional(number, 101)
     rgw_endpoints         = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])

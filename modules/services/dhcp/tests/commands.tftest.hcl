@@ -133,7 +133,7 @@ run "no_syslog_by_default" {
 run "syslog_tcp_on_management_vrf" {
   command = plan
   variables {
-    syslog = { host = "10.20.11.40", vrf = "mgmt" }
+    syslog = { hosts = ["10.20.11.40", "10.20.11.41"], vrf = "mgmt" }
   }
   assert {
     condition = (
@@ -142,16 +142,18 @@ run "syslog_tcp_on_management_vrf" {
       contains(vyoscmd_commands.this.commands, "set system syslog remote 10.20.11.40 protocol 'tcp'") &&
       contains(vyoscmd_commands.this.commands, "set system syslog remote 10.20.11.40 format include-timezone") &&
       contains(vyoscmd_commands.this.commands, "set system syslog remote 10.20.11.40 format octet-counted") &&
-      contains(vyoscmd_commands.this.commands, "set system syslog remote 10.20.11.40 vrf 'mgmt'")
+      contains(vyoscmd_commands.this.commands, "set system syslog remote 10.20.11.40 vrf 'mgmt'") &&
+      contains(vyoscmd_commands.this.commands, "set system syslog remote 10.20.11.41 format octet-counted") &&
+      contains(vyoscmd_commands.this.commands, "set system syslog remote 10.20.11.41 vrf 'mgmt'")
     )
-    error_message = "Send RFC 5424 syslog over TCP with octet-counted framing from the management VRF."
+    error_message = "Send RFC 5424 syslog over TCP with octet-counted framing from the management VRF, to every host."
   }
 }
 
 run "syslog_udp_has_no_tcp_framing" {
   command = plan
   variables {
-    syslog = { host = "10.5.11.40", protocol = "udp" }
+    syslog = { hosts = ["10.5.11.40"], protocol = "udp" }
   }
   assert {
     condition = (
@@ -165,7 +167,7 @@ run "syslog_udp_has_no_tcp_framing" {
 run "reject_unknown_syslog_protocol" {
   command = plan
   variables {
-    syslog = { host = "10.20.11.40", protocol = "tls" }
+    syslog = { hosts = ["10.20.11.40"], protocol = "tls" }
   }
   expect_failures = [var.syslog]
 }

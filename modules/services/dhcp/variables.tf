@@ -66,9 +66,9 @@ variable "prometheus_exporters" {
 }
 
 variable "syslog" {
-  description = "Remote syslog (`system syslog remote`), RFC 5424; TCP adds octet-counted framing. vrf null = default VRF. null = don't manage it."
+  description = "Remote syslog (`system syslog remote`) to every host in `hosts`, RFC 5424; TCP adds octet-counted framing. vrf null = default VRF. null = don't manage it."
   type = object({
-    host     = string
+    hosts    = list(string)
     vrf      = optional(string)
     port     = optional(number, 514)
     protocol = optional(string, "tcp")
@@ -77,8 +77,8 @@ variable "syslog" {
   })
   default = null
   validation {
-    condition     = var.syslog == null || contains(["tcp", "udp"], try(var.syslog.protocol, ""))
-    error_message = "syslog.protocol must be tcp or udp."
+    condition     = var.syslog == null || (contains(["tcp", "udp"], try(var.syslog.protocol, "")) && length(try(var.syslog.hosts, [])) > 0)
+    error_message = "syslog.protocol must be tcp or udp, and hosts must not be empty."
   }
 }
 

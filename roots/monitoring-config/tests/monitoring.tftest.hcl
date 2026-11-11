@@ -597,11 +597,10 @@ run "logging" {
         vips = [
           { cidr = "10.13.11.101/16", interface = "eth2" },
           { cidr = "10.5.11.101/16", interface = "eth3" },
-          { cidr = "10.20.11.101/16", interface = "eth0" },
         ]
       })))
     )])
-    error_message = "keepalived: vrid 101 over eth5 (HA VLAN), VIPs on eth2/eth3/eth0, priorities 150/100/50."
+    error_message = "keepalived: vrid 101 over eth5 (HA VLAN), VIPs on eth2/eth3 (none on mgmt), priorities 150/100/50."
   }
 
   assert {
@@ -653,11 +652,11 @@ run "logging" {
       strcontains(module.monitoring.prometheus_config, "10.13.11.35:9100") &&
       strcontains(module.monitoring.units.loki02["node-exporter"], "--collector.netdev.address-info") &&
       length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "logging"]) == 1 &&
-      length([for r in one([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules if g.name == "logging"]) : r if r.alert == "LoggingVIPNotHeldOnce"]) == 3 &&
+      length([for r in one([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules if g.name == "logging"]) : r if r.alert == "LoggingVIPNotHeldOnce"]) == 2 &&
       strcontains(module.monitoring.prometheus_rules, "loki_ingester_chunks_flush_failures_total") &&
       strcontains(module.monitoring.prometheus_rules, "loki_source_syslog_entries_total")
     )
-    error_message = "Prometheus scrapes Loki, haproxy, Alloy and node_exporter on the logging VMs over the backend VLAN, with logging alerts (one VIP rule per VIP)."
+    error_message = "Prometheus scrapes Loki, haproxy, Alloy and node_exporter on the logging VMs over the backend VLAN, with logging alerts (one VIP rule per VIP: backend and monitoring, none on mgmt)."
   }
 
   assert {

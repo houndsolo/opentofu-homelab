@@ -13,9 +13,10 @@ fabric = {
     leaf_ntp_vrf             = "mgmt"
     # Scraped by monitoring-config (jobs vyos-node / vyos-frr).
     leaf_prometheus_exporters = { vrf = "mgmt" }
-    # Syslog (TCP 514, RFC 5424) to the Loki/Alloy VIP on the management network
-    # (monitoring-config, loki01-03).
-    leaf_syslog = { host = "10.20.11.101", vrf = "mgmt" }
+    # Syslog (TCP 514, RFC 5424) to every logging VM's own mgmt address (loki01-03,
+    # monitoring-config). No VIP on mgmt: each Alloy forwards to Loki, which drops the
+    # identical copies (same stream, timestamp and line).
+    leaf_syslog = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }
     # Spines: UDP 514 (RFC 3164) to the Loki/Alloy VIP on the monitoring network, sent
     # from their VLAN 5 address (10.5.0.<n>).
     spine_syslog = { host = "10.5.11.101" }

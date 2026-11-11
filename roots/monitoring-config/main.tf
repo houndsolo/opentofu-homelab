@@ -262,12 +262,10 @@ module "monitoring" {
       ha_address         = try(n.ha.address, "0.0.0.0")
       backend_address    = try(n.backend.address, "0.0.0.0")
       monitoring_address = try(n.monitoring.address, "0.0.0.0")
-      mgmt_address       = try(n.mgmt.address, "0.0.0.0")
       interfaces = {
         ha         = try(n.ha.interface, "none")
         backend    = try(n.backend.interface, "none")
         monitoring = try(n.monitoring.interface, "none")
-        mgmt       = try(n.mgmt.interface, "none")
       }
     }
   }

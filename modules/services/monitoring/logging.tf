@@ -218,7 +218,7 @@ locals {
       ha_interface  = vm.interfaces.ha
       ha_address    = vm.ha_address
       peers         = [for a in local.logging_ring_peers : a if a != vm.ha_address]
-      vips          = [for net in ["backend", "monitoring", "mgmt"] : { cidr = local.logging_vips[net], interface = vm.interfaces[net] }]
+      vips          = [for net in ["backend", "monitoring"] : { cidr = local.logging_vips[net], interface = vm.interfaces[net] }]
     })
   }
 

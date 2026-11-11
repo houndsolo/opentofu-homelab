@@ -198,10 +198,11 @@ run "dns_journal_to_loki" {
   assert {
     condition = (
       length(terraform_data.dns_syslog) == 2 &&
-      strcontains(local.dns_syslog_script, base64encode(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.101", port = 514, level = "info" }))) &&
-      strcontains(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { host = "10.20.11.101", port = 514, level = "info" }), "target=\"10.20.11.101\"")
+      strcontains(local.dns_syslog_script, base64encode(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], port = 514, level = "info" }))) &&
+      alltrue([for i in [34, 35, 36] : strcontains(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], port = 514, level = "info" }), "target=\"10.20.11.${i}\"")]) &&
+      !strcontains(local.dns_syslog_script, "10.20.11.101")
     )
-    error_message = "Forward both DNS VMs' journals to the mgmt Loki VIP over TCP by default."
+    error_message = "Forward both DNS VMs' journals to every logging VM's own mgmt address (no VIP) over TCP by default."
   }
 }
 
@@ -216,7 +217,7 @@ run "dns_syslog_disabled" {
 
 run "reject_bad_dns_syslog_level" {
   command = plan
-  variables { dns_syslog = { host = "10.20.11.101", level = "verbose" } }
+  variables { dns_syslog = { hosts = ["10.20.11.34"], level = "verbose" } }
   expect_failures = [var.dns_syslog]
 }
 
@@ -242,4 +243,10 @@ run "dns_node_exporter_disabled" {
     condition     = length(terraform_data.dns_node_exporter) == 0
     error_message = "dns_node_exporter = null installs nothing."
   }
+}
+
+run "reject_empty_dns_syslog_hosts" {
+  command = plan
+  variables { dns_syslog = { hosts = [] } }
+  expect_failures = [var.dns_syslog]
 }
