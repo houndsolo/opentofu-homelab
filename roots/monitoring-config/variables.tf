@@ -395,6 +395,8 @@ variable "postgres_settings" {
     max_connections            = optional(number, 200)
     parameters                 = optional(map(string), {})
     etcd_initial_cluster_state = optional(string, "new")
+    etcd_heartbeat_interval    = optional(number, 300)  # ms; slow Ceph RBD fsync (DT-017)
+    etcd_election_timeout      = optional(number, 3000) # ms; ~10x the heartbeat
     grafana_on_cluster         = optional(bool, false) # step 5 of runbook-postgres.md
     legacy_on_primary          = optional(bool, true)  # step 7 (later): false removes mon01's Postgres container
     bootstrap_from_backup      = optional(bool, false) # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)

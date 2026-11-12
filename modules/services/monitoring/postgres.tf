@@ -208,6 +208,12 @@ locals {
       initial-cluster-token       = local.pg_scope
       # "new" bootstraps the three together; a rebuilt member joins with "existing" (README).
       initial-cluster-state     = local.pgs.etcd_initial_cluster_state
+      # Slow disk: the data dir is on Ceph RBD, where WAL fsync p99 is 125-355 ms (etcd wants < 10 ms).
+      # The defaults (100/1000 ms) made leaders miss heartbeats hourly and re-elect (DT-017). The etcd
+      # tuning guide: heartbeat ~ the fsync/round-trip time, election ~ 10x the heartbeat. Patroni
+      # (ttl 30 s, loop_wait 10 s) easily rides out a 3 s election. Same values on every member.
+      heartbeat-interval = local.pgs.etcd_heartbeat_interval
+      election-timeout   = local.pgs.etcd_election_timeout
       listen-metrics-urls       = "http://${vm.backend_address}:2381"
       auto-compaction-mode      = "periodic"
       auto-compaction-retention = "1h"

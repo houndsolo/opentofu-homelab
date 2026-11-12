@@ -96,6 +96,15 @@ run "postgres_cluster" {
   }
 
   assert {
+    # Slow Ceph RBD fsync (DT-017): heartbeat 300 ms, election 3000 ms on every member (defaults 100/1000).
+    condition = alltrue([for name in ["pg01", "pg02", "pg03"] : (
+      yamldecode(module.monitoring.etcd_configs[name]).heartbeat-interval == 300 &&
+      yamldecode(module.monitoring.etcd_configs[name]).election-timeout == 3000
+    )])
+    error_message = "etcd runs with heartbeat-interval 300 ms and election-timeout 3000 ms (slow-disk tuning, DT-017)."
+  }
+
+  assert {
     # No passwords in the Patroni config; pg_hba: Grafana (TLS) from graf01/02's backend addresses,
     # replication and the superuser only from the members.
     condition = (

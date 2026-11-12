@@ -347,6 +347,8 @@ variable "postgres_settings" {
     max_connections            = optional(number, 200)              # cluster-wide: only at bootstrap, later via pgctl edit-config
     parameters                 = optional(map(string), {})          # extra/overriding local postgresql.conf parameters
     etcd_initial_cluster_state = optional(string, "new")            # "existing" when a rebuilt member rejoins (README)
+    etcd_heartbeat_interval    = optional(number, 300)              # ms (etcd default 100): Ceph RBD fsync p99 is 125-355 ms (DT-017)
+    etcd_election_timeout      = optional(number, 3000)             # ms (etcd default 1000): ~10x the heartbeat, per the etcd tuning guide
     grafana_on_cluster         = optional(bool, false)              # Grafana uses the VIP (after the runbook's dump/restore)
     legacy_on_primary          = optional(bool, true)               # keep the primary backend's Postgres container
     bootstrap_from_backup      = optional(bool, false)              # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
@@ -365,9 +367,11 @@ variable "postgres_settings" {
       can(regex("^[a-z0-9][a-z0-9-]*$", var.postgres_settings.cluster_name)) &&
       length(var.postgres_settings.rgw_endpoints) > 0 && alltrue([for e in var.postgres_settings.rgw_endpoints : can(regex("^[0-9.]+:[0-9]+$", e))]) &&
       var.postgres_settings.retention_days >= 1 && contains(["new", "existing"], var.postgres_settings.etcd_initial_cluster_state) &&
+      var.postgres_settings.etcd_heartbeat_interval >= 10 && var.postgres_settings.etcd_election_timeout >= 5 * var.postgres_settings.etcd_heartbeat_interval &&
+      var.postgres_settings.etcd_election_timeout <= 50000 &&
       alltrue([for k, v in var.postgres_settings.package_versions : can(regex("^[a-z0-9.+-]+$", k)) && can(regex("^[A-Za-z0-9.+~:*-]+$", v))])
     )
-    error_message = "postgres_settings: vip is an IPv4 CIDR, vrrp_router_id 1..255, cluster_name lowercase [a-z0-9-], rgw_endpoints \"IP:port\", retention_days >= 1, etcd_initial_cluster_state new|existing, package_versions package => version glob."
+    error_message = "postgres_settings: vip is an IPv4 CIDR, vrrp_router_id 1..255, cluster_name lowercase [a-z0-9-], rgw_endpoints \"IP:port\", retention_days >= 1, etcd_initial_cluster_state new|existing, etcd_heartbeat_interval >= 10 ms, etcd_election_timeout 5x the heartbeat .. 50000 ms, package_versions package => version glob."
   }
 }
 
