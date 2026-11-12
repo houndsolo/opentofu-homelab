@@ -28,3 +28,29 @@ run "ha_groups" {
     error_message = "The inventory creates each HA group's VMs on separate nodes (otherwise HA would migrate one right away)."
   }
 }
+
+# A group larger than the cluster gets no rule (PVE would drop it as infeasible). With only two
+# cluster nodes, the 3-VM groups (postgres, logging, metrics) lose their rule; pairs keep theirs.
+run "ha_group_larger_than_cluster" {
+  command = plan
+  variables {
+    nodes = {
+      management_prefix = "10.20.7.0/24"
+      cluster_api_node  = "fichina"
+      proxmox = {
+        fichina  = { id = 11 }
+        macbeth  = { id = 12 }
+        greatfox = { id = 20, standalone = true }
+      }
+    }
+  }
+  assert {
+    condition = (
+      local.ha_cluster_node_count == 2 &&
+      !contains(keys(proxmox_harule.spread), "postgres") && !contains(keys(proxmox_harule.spread), "logging") &&
+      contains(keys(proxmox_harule.spread), "dns") && length(local.ha_groups.postgres) == 3
+    )
+    error_message = "Groups with more VMs than cluster nodes get no spread rule; smaller groups keep theirs."
+  }
+  expect_failures = [check.ha_group_size]
+}

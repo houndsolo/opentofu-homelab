@@ -7,12 +7,13 @@ variable "vm" {
     management_address = optional(string, "dhcp")
     gateway            = optional(string)
     # Proxmox VE HA (services-vms): the VM becomes an HA resource that the cluster restarts on another
-    # node when its node dies, on any node HA picks (no home node), but never on a node with another
-    # VM of the same `group` (negative resource-affinity rule). Disks must be on shared storage
+    # node when its node dies, on any node HA picks (no home node). With a `group`, never on a node
+    # with another VM of that group (negative resource-affinity rule); `ha = {}` is a plain HA
+    # resource with no placement rule. Disks must be on shared storage
     # (ceph_rbd). Stopping it by hand: set state = "stopped" here, or
     # `ha-manager set vm:<id> --state stopped` (the next apply restores this value).
     ha = optional(object({
-      group        = string                      # anti-affinity set, e.g. "postgres"
+      group        = optional(string)            # anti-affinity set, e.g. "postgres"; null = no rule
       state        = optional(string, "started") # started | stopped | disabled | ignored
       max_restart  = optional(number, 1)         # restart attempts on the same node
       max_relocate = optional(number, 1)         # relocation attempts to other nodes

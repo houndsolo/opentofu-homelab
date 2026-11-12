@@ -9,12 +9,13 @@ variable "vms" {
     management_address = optional(string)
     gateway            = optional(string)
     # Proxmox VE HA (services-vms): the VM becomes an HA resource that the cluster restarts on another
-    # node when its node dies, on any node HA picks (no home node), but never on a node with another
-    # VM of the same `group` (negative resource-affinity rule). Disks must be on shared storage
+    # node when its node dies, on any node HA picks (no home node). With a `group`, never on a node
+    # with another VM of that group (negative resource-affinity rule); `ha = {}` is a plain HA
+    # resource with no placement rule. Disks must be on shared storage
     # (ceph_rbd). Stopping it by hand: set state = "stopped" here, or
     # `ha-manager set vm:<id> --state stopped` (the next apply restores this value).
     ha = optional(object({
-      group        = string                      # anti-affinity set, e.g. "postgres"
+      group        = optional(string)            # anti-affinity set, e.g. "postgres"; null = no rule
       state        = optional(string, "started") # started | stopped | disabled | ignored
       max_restart  = optional(number, 1)         # restart attempts on the same node
       max_relocate = optional(number, 1)         # relocation attempts to other nodes
@@ -96,13 +97,13 @@ variable "vms" {
     condition = alltrue([
       for vm in values(var.vms) : vm.ha == null || try(
         vm.owner == "services-vms" && vm.node != null &&
-        can(regex("^[a-z][a-z0-9-]{0,40}$", vm.ha.group)) &&
+        (vm.ha.group == null || can(regex("^[a-z][a-z0-9-]{0,40}$", vm.ha.group))) &&
         contains(["started", "stopped", "disabled", "ignored"], vm.ha.state) &&
         vm.ha.max_restart >= 0 && vm.ha.max_restart <= 10 &&
         vm.ha.max_relocate >= 0 && vm.ha.max_relocate <= 10, false
       )
     ])
-    error_message = "ha applies only to services-vms VMs with a node; group is lowercase [a-z][a-z0-9-], state started|stopped|disabled|ignored, max_restart/max_relocate 0..10."
+    error_message = "ha applies only to services-vms VMs with a node; group (optional) is lowercase [a-z][a-z0-9-], state started|stopped|disabled|ignored, max_restart/max_relocate 0..10."
   }
   validation {
     condition = alltrue([

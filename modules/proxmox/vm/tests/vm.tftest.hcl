@@ -190,3 +190,24 @@ run "ha_vm" {
     error_message = "HA VMs keep migrate = true and export their HA resource ID."
   }
 }
+
+run "ha_vm_without_group" {
+  command = plan
+  variables {
+    name = "solo01"
+    vm = {
+      node               = "titania"
+      vm_id              = 1199
+      management_address = "10.20.11.99/16"
+      ha                 = {}
+    }
+  }
+  assert {
+    condition = (
+      proxmox_haresource.this[0].resource_id == "vm:1199" && proxmox_haresource.this[0].state == "started" &&
+      proxmox_haresource.this[0].comment == "Managed by OpenTofu: solo01" &&
+      proxmox_virtual_environment_vm.this.migrate == true && output.ha_resource_id == "vm:1199"
+    )
+    error_message = "ha = {} is a plain HA resource (no group in the comment), still migrate = true."
+  }
+}

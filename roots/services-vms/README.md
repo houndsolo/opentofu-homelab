@@ -127,6 +127,9 @@ then a restart from Ceph RBD), so each pair/trio is redundant again without anyo
 | `migrate = true` for HA VMs | `modules/proxmox/vm/main.tf` | kept, in case `node_name` is ever planned to change |
 
 Groups (`tofu output ha_groups`): dhcp, dns, grafana, logging, metrics, monitoring, postgres, ticketing.
+`ha = {}` (no `group`) makes a VM a plain HA resource with no affinity rule.
+A group needs 2..<cluster node count> VMs (7 today) for a rule: PVE drops a larger negative rule as
+infeasible, so tofu doesn't create one either and the `ha_group_size` check warns at plan time.
 
 Operating HA VMs:
 
