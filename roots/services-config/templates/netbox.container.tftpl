@@ -17,6 +17,11 @@ HealthCmd=/opt/netbox/health.sh
 HealthInterval=15s
 HealthTimeout=3s
 HealthStartPeriod=90s
+# /metrics (METRICS_ENABLED): Granian runs several worker processes, so django-prometheus must
+# aggregate them through a shared directory or each scrape returns one worker's counters. Fresh
+# (tmpfs) on every start, as prometheus_client's multiprocess mode requires.
+Environment=PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus-multiproc
+Tmpfs=/tmp/prometheus-multiproc:rw,mode=1777
 # The node's own VLAN 2 address and the keepalived VIP (bound on both nodes: ip_nonlocal_bind).
 %{ for a in addresses ~}
 %{ for p in ports ~}

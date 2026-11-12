@@ -12,6 +12,7 @@ locals {
   dhcp_vms       = { for name, vm in local.service_vms : name => vm if vm.role == "dhcp" }
   logging_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "logging" }
   valkey_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "valkey" }
+  netbox_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "netbox" }
   deploy_vms     = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
@@ -111,6 +112,7 @@ locals {
       [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "grafana" } }],
       [for name in keys(local.dns_vms) : { host = name, address = local.mgmt[name], labels = { role = "dns" } }],
       [for name in keys(local.valkey_vms) : { host = name, address = local.mgmt[name], labels = { role = "valkey" } }],
+      [for name in keys(local.netbox_vms) : { host = name, address = local.mgmt[name], labels = { role = "netbox" } }],
       [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
       [for name, n in local.metrics_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "metrics" } } if local.mimir_enabled],
       [for name, n in local.postgres_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "postgres" } } if local.postgres_enabled],
@@ -130,7 +132,15 @@ locals {
     ceph     = [for name in var.ceph_mgr_nodes : { host = name, address = local.pve_nodes[name] } if contains(keys(local.pve_nodes), name)]
     # Valkey + Sentinel exporters (services-config valkey-monitoring.tf) on the mgmt address.
     valkey = [for name in sort(keys(local.valkey_vms)) : { host = name, address = local.mgmt[name] }]
-    snmp   = var.snmp_targets
+    # NetBox's /metrics (django-prometheus) on each node's own service address (the NIC with the
+    # default gateway; port 80 is published there), not the VIP, so each node is scraped.
+    netbox = [for name in sort(keys(local.netbox_vms)) : {
+      host = name
+      address = split("/", one([
+        for nic in local.nics[name] : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null
+      ]))[0]
+    }]
+    snmp = var.snmp_targets
     blackbox = {
       icmp     = [for host, address in var.blackbox_icmp_targets : { host = host, target = address }]
       http_2xx = [for host, url in var.blackbox_http_targets : { host = host, target = url }]

@@ -173,7 +173,13 @@ locals {
     local.mimir_scrape_configs,    # metrics.tf
     local.postgres_scrape_configs, # postgres.tf
     local.valkey_scrape_configs,   # valkey.tf
-    local.relay_scrape_configs,    # backends.tf
+    # NetBox (django-prometheus; services-config runs it in multiprocess mode, so one scrape
+    # covers every Granian worker).
+    length(var.targets.netbox) == 0 ? [] : [{
+      job_name       = "netbox"
+      static_configs = [for t in var.targets.netbox : { targets = ["${t.address}:80"], labels = { host = t.host } }]
+    }],
+    local.relay_scrape_configs, # backends.tf
   )
 
   # One per backend: the same scrapes and rules, only __replica__ differs. Mimir's HA

@@ -127,6 +127,7 @@ variable "targets" {
     ceph     = optional(list(object({ host = string, address = string })), [])                       # Ceph mgr prometheus module, :9283 (every mgr host)
     telegraf = optional(list(object({ host = string, address = string })), [])                       # Telegraf prometheus-client output on VyOS routers, :9273
     valkey   = optional(list(object({ host = string, address = string })), [])                       # Valkey (:9121) and Sentinel (:9355) redis_exporters
+    netbox   = optional(list(object({ host = string, address = string })), [])                       # NetBox /metrics on each node's service address, :80
     snmp = map(object({                                                                              # job suffix => host => IP
       modules         = list(string)
       auth            = string

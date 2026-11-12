@@ -1,0 +1,67 @@
+# Host monitoring for the NetBox VMs (netbox.tf), like the DNS and Valkey VMs: node_exporter
+# (dns-node-exporter.tf's Quadlet) on the management address :9100, where monitoring-config's
+# node job scrapes it, and the journal (NetBox's container logs included) to Loki with the DNS
+# VMs' rsyslog forwarder (dns_syslog's receivers). NetBox's own /metrics is scraped on each
+# node's VLAN 2 address (monitoring-config job netbox). Separate from terraform_data.netbox, so
+# changing it never restarts NetBox.
+variable "netbox_monitoring" {
+  description = "node_exporter and journal-to-Loki on the role = \"netbox\" VMs. null = don't install them."
+  type = object({
+    node_exporter_image = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
+  })
+  default = {}
+}
+
+locals {
+  netbox_monitoring_scripts = var.netbox_monitoring == null ? {} : {
+    for name, vm in local.netbox_vms : name => {
+      node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
+        unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
+          image  = var.netbox_monitoring.node_exporter_image
+          listen = "${split("/", vm.management_address)[0]}:9100"
+        }))
+        listen = "${split("/", vm.management_address)[0]}:9100"
+      })
+      syslog = local.dns_syslog_script
+    }
+  }
+}
+
+resource "terraform_data" "netbox_monitoring" {
+  for_each = local.netbox_monitoring_scripts
+
+  triggers_replace = [
+    sha256(jsonencode(each.value)),
+    local.netbox_vms[each.key].management_address,
+    local.netbox_vms[each.key].vm_id,
+    local.netbox_vms[each.key].config.ssh_username,
+  ]
+
+  connection {
+    type        = "ssh"
+    host        = split("/", local.netbox_vms[each.key].management_address)[0]
+    user        = local.netbox_vms[each.key].config.ssh_username
+    private_key = file(pathexpand(var.ssh_private_key_path))
+    timeout     = "5m"
+  }
+
+  provisioner "remote-exec" {
+    inline = ["install -d -m 0700 /tmp/tofu-netbox-mon-${self.id}"]
+  }
+
+  provisioner "file" {
+    content     = each.value.node_exporter
+    destination = "/tmp/tofu-netbox-mon-${self.id}/node-exporter.sh"
+  }
+
+  provisioner "file" {
+    content     = coalesce(each.value.syslog, "#!/bin/bash\n# dns_syslog = null: no journal forwarding\n")
+    destination = "/tmp/tofu-netbox-mon-${self.id}/rsyslog-loki.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "rc=0; d=/tmp/tofu-netbox-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/rsyslog-loki.sh || rc=$?; rm -rf $d; exit $rc",
+    ]
+  }
+}
