@@ -17,7 +17,15 @@ if unknown:
     parser.error(f"Unknown providers: {', '.join(sorted(unknown))}")
 go = shutil.which("go")
 if not go:
-    parser.error("Go >= 1.26.0 is required; run nix-shell --run 'tooling/build-all'")
+    # Go is only needed for the provider builds, so the everyday shell (shell.nix) has none:
+    # re-run this script inside tooling/build-shell.nix, which brings Go 1.26.
+    import os, shlex, sys
+    nix_shell = shutil.which("nix-shell")
+    if os.environ.get("LYLAT_BUILD_SHELL") or not nix_shell:
+        parser.error("Go >= 1.26.0 is required (install Go, or Nix to use tooling/build-shell.nix)")
+    os.environ["LYLAT_BUILD_SHELL"] = "1"
+    command = shlex.join([str(Path(__file__).resolve()), *sys.argv[1:]])
+    os.execv(nix_shell, [nix_shell, str(repo / "tooling/build-shell.nix"), "--run", command])
 try:
     # Match the builder's GOOS/GOARCH rather than assuming the host architecture.
     target = "_".join(subprocess.check_output([go, "env", "GOOS", "GOARCH"], text=True).split())

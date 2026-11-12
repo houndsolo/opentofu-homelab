@@ -1,14 +1,14 @@
-# Use the nixpkgs package collection configured on this machine.
+# The everyday shell: OpenTofu, Python with python-hcl2 (tooling/with-secrets) and git, with
+# TF_CLI_CONFIG_FILE pointing at the local provider mirror. direnv loads it automatically
+# (.envrc, cached by nix-direnv); `nix-shell` works too. Go is only needed to build the providers:
+# that lives in tooling/build-shell.nix, which the build scripts enter by themselves.
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  # Use Go 1.26 if available. Otherwise, use the default Go package.
-  go = pkgs.go_1_26 or pkgs.go;
-
   tofu = pkgs.opentofu;
   hcl2 = pkgs.python3Packages.python-hcl2;
 
-  # Python with the HCL parser used by the inventory tests.
+  # Python with the HCL parser that tooling/with-secrets uses.
   python = pkgs.python3.withPackages (pythonPackages: [
     pythonPackages.python-hcl2
   ]);
@@ -16,10 +16,6 @@ let
 in
 
 # Stop with a clear error if a required version is too old.
-assert pkgs.lib.assertMsg
-  (pkgs.lib.versionAtLeast go.version "1.26.0")
-  "Go >= 1.26.0 is required. Select a newer nixpkgs channel.";
-
 assert pkgs.lib.assertMsg
   (pkgs.lib.versionAtLeast tofu.version "1.11.6")
   "OpenTofu >= 1.11.6 is required. Select a newer nixpkgs channel.";
@@ -29,19 +25,12 @@ assert pkgs.lib.assertMsg
   "python-hcl2 >= 7.3.1 is required. Select a newer nixpkgs channel.";
 
 pkgs.mkShell {
-  # Make these tools available inside nix-shell.
+  # Make these tools available in the shell.
   packages = [
-    go
     python
     pkgs.git
     tofu
   ];
-
-  # Use the supplied Go compiler. Do not download another toolchain.
-  GOTOOLCHAIN = "local";
-
-  # Disable Go integration with C code for these provider builds.
-  CGO_ENABLED = "0";
 
   # Resolve the local/mechanic/* providers from the repo's provider mirror.
   shellHook = ''

@@ -9,6 +9,7 @@
 inventory/auto.tfvars.secret/
 tooling/tests/__pycache__/
 .env
+.direnv/
 .provider-build/
 .tofu-provider-mirror/
 crash.log

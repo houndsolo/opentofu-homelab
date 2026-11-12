@@ -76,7 +76,7 @@ providers/   source code for the custom Proxmox, VyOS and RouterOS providers
 | [providers/](providers/README.md) | Git submodules with the source of the three custom providers |
 | [tooling/](tooling/README.md) | Scripts to build the providers, load secrets and walk the roots in order |
 | [examples/](examples/README.md) | Commented example values. Nothing loads these automatically. |
-| `shell.nix` | A Nix shell with the right versions of Go, OpenTofu, Python and git |
+| `shell.nix`, `.envrc` | The everyday shell: OpenTofu, Python (+ `python-hcl2`) and git, loaded by direnv (or `nix-shell`); Go for the provider builds is in `tooling/build-shell.nix` |
 
 ## OpenTofu in two minutes
 
@@ -207,9 +207,10 @@ exist:
   Proxmox (`10.20.7.x`), spines (`10.20.0.x`), leaves (`10.20.10.x`) and service
   VMs (`10.20.53.x`, `10.20.67.x`). It also needs TCP port 53 on the primary DNS
   server (`10.8.53.1`).
-- **The tools.** Either [Nix](https://nixos.org/download/) (for `nix-shell`), or
-  install them yourself: Go ≥ 1.26, OpenTofu ≥ 1.11.6, Python 3 with
-  `python-hcl2` ≥ 7.3.1, and git.
+- **The tools.** Either [Nix](https://nixos.org/download/) (with
+  [direnv](https://direnv.net/) + [nix-direnv](https://github.com/nix-community/nix-direnv),
+  or plain `nix-shell`), or install them yourself: OpenTofu ≥ 1.11.6, Python 3
+  with `python-hcl2` ≥ 7.3.1, git, and Go ≥ 1.26 for building the providers.
 - **GitHub SSH access.** The provider submodules use `git@github.com:` URLs, so
   you need an SSH key on GitHub. See [providers/](providers/README.md) for an
   HTTPS alternative.
@@ -222,17 +223,20 @@ Run these from the top of the repository:
 # 1. Download the provider source code (the git submodules under providers/).
 git submodule update --init --recursive
 
-# 2. Enter the development shell: Go, OpenTofu, Python + python-hcl2, git.
-#    It also sets TF_CLI_CONFIG_FILE, which tells OpenTofu to look for the custom
-#    providers in the local mirror built in step 3.
-nix-shell
+# 2. Load the development shell: OpenTofu, Python + python-hcl2, git. It also sets
+#    TF_CLI_CONFIG_FILE, which tells OpenTofu to look for the custom providers in
+#    the local mirror built in step 3. With direnv + nix-direnv this happens every
+#    time you cd into the repo (cached; ~0.1 s); allow it once. Or use nix-shell.
+direnv allow        # or: nix-shell
 
 # 3. Build the three custom providers and install them into that mirror
-#    (.tofu-provider-mirror/). This also writes the CLI config nix-shell points at.
+#    (.tofu-provider-mirror/). This also writes the CLI config the shell points at.
+#    Go is only needed here: without Go on PATH the script re-runs itself in
+#    tooling/build-shell.nix, which brings Go 1.26.
 tooling/build-all
 
-# 4. Only if you're NOT using nix-shell: point OpenTofu at the mirror yourself,
-#    in every new shell (or in your shell profile).
+# 4. Only if you're using neither direnv nor nix-shell: point OpenTofu at the
+#    mirror yourself, in every new shell (or in your shell profile).
 export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
 
 # 5. Put your credentials in the per-provider secret files, and link each file

@@ -1,7 +1,7 @@
 # Tooling
 
 Scripts to build the providers, load secrets and walk through the roots. Run
-them from the top of the repo, inside `nix-shell`.
+them from the top of the repo, in the dev shell (direnv or `nix-shell`; see below).
 
 | File | What it is | When you use it |
 | --- | --- | --- |
@@ -18,16 +18,26 @@ them from the top of the repo, inside `nix-shell`.
 
 ## The development shell
 
-`nix-shell`, using `shell.nix` at the top of the repo, gives you:
+`shell.nix` at the top of the repo is the everyday shell. direnv loads it when
+you `cd` into the repo (`.envrc`: `use nix`; nix-direnv caches it in `.direnv/`
+and re-evaluates only when `shell.nix` or the tfrc changes), or run `nix-shell`.
+In a script or non-interactive shell, use `direnv exec . tofu ...`. It gives you:
 
-- **Go ≥ 1.26.** `GOTOOLCHAIN=local` stops Go from downloading a different
-  toolchain, and `CGO_ENABLED=0` makes static builds.
 - **OpenTofu ≥ 1.11.6.**
 - **Python 3 with `python-hcl2` ≥ 7.3.1**, which `with-secrets` uses.
 - **git.**
 - **`TF_CLI_CONFIG_FILE`**, already pointing at
   `tooling/local-provider.generated.tfrc`, so OpenTofu finds the locally built
   providers (see below).
+
+Go is only needed to build the providers, so it lives in `tooling/build-shell.nix`
+(**Go ≥ 1.26**, `GOTOOLCHAIN=local` so Go doesn't download another toolchain,
+`CGO_ENABLED=0` for static builds). `build-providers` and `build-all` enter it by
+themselves when Go isn't on PATH.
+
+Startup time: `<nixpkgs>` should resolve to a store path (`NIX_PATH=nixpkgs=/nix/store/...`).
+With the NixOS default `nixpkgs=flake:nixpkgs`, every lookup re-hashes the nixpkgs tree
+(~4 s per `nix-shell`); a0-nix pins it with `nix.nixPath`.
 
 `shell.nix` uses your configured nixpkgs channel (`<nixpkgs>`). If that channel's
 versions are too old, it stops with a message. You can point it at a newer
@@ -79,7 +89,7 @@ tooling/build-all proxmox vyoscmd    # or only the ones you name
 
 ### Pointing OpenTofu at the mirror
 
-Inside `nix-shell` this is already done for you. Outside it, run:
+In the dev shell (direnv or `nix-shell`) this is already done for you. Outside it, run:
 
 ```sh
 export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
@@ -222,7 +232,7 @@ import script's node and interface lists. Read them before you run them.
 ## Tests
 
 ```sh
-# From the top of the repo, inside nix-shell
+# From the top of the repo, in the dev shell (direnv or nix-shell)
 python3 -m unittest discover -s tooling/tests
 ```
 
