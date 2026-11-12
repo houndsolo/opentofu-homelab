@@ -321,7 +321,7 @@ variable "metrics_secrets" {
 }
 
 variable "postgres" {
-  description = "Patroni members (role = \"postgres\": PostgreSQL 17, Patroni, etcd, pgBackRest, keepalived, haproxy to the RGWs, exporters, Alloy), keyed by VM name. Name order sets the VRRP priority (first election only). Empty, or postgres_secrets = null, leaves the cluster out (Grafana stays on the primary backend's Postgres)."
+  description = "Patroni members (role = \"postgres\": PostgreSQL (postgres_settings.pg_major, PGDG), Patroni, etcd, pgBackRest, keepalived, haproxy to the RGWs, exporters, Alloy), keyed by VM name. Name order sets the VRRP priority (first election only). Empty, or postgres_secrets = null, leaves the cluster out (Grafana stays on the primary backend's Postgres)."
   type = map(object({
     backend_address = string # backend VLAN: Grafana -> the VIP, scrapes; holds the VIP
     ha_address      = string # Postgres HA VLAN: replication, etcd, Patroni REST, VRRP adverts
