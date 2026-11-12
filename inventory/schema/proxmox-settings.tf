@@ -8,6 +8,7 @@ variable "proxmox_settings" {
       DNS and the time zone per node, there is no cluster-wide setting.
     - nodes: per-node overrides of dns / time_zone.
     Not manageable by the provider (left as they are): tag-style, allowed-tags, u2f/webauthn.
+    tag-style (ordering=config + color-map) is set by hand; see proxmox-settings.auto.tfvars.
   EOT
   type = object({
     datacenter = optional(map(object({

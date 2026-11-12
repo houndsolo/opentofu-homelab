@@ -1,6 +1,11 @@
 # Proxmox VE host-level settings (roots/proxmox-settings). Filled from the live settings on
 # 2026-11-11 (GET /cluster/options, /nodes/<node>/dns, /nodes/<node>/time). An attribute left out
 # (null) is not managed. Not manageable by the provider: tag-style, allowed-tags (edit in the UI).
+# The bpg proxmox_cluster_options resource has no tag-style attribute and never sends or deletes it,
+# so tofu leaves it alone. Set by hand on 2026-11-11 (cluster and greatfox, pvesh as root):
+#   ordering=config (show tags in config order: opentofu tag, OS tag, function tags) and color-map
+#   with vyos=yellow, opentofu=purple, debian=dark red, nixos=blue, grafana=orange, netbox=green.
+#   Full value: tmp/agents/pve-tags.md.
 proxmox_settings = {
   datacenter = {
     # The lylat cluster (datacenter.cfg, through fichina's API).

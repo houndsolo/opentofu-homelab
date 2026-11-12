@@ -23,7 +23,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "dns", "opentofu"]
+      tags         = ["opentofu", "debian", "dns"]
       cpu_cores    = 2
       memory_mb    = 3072
       ssh_username = "mechanic"
@@ -54,7 +54,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "dns", "opentofu"]
+      tags         = ["opentofu", "debian", "dns"]
       cpu_cores    = 2
       memory_mb    = 3072
       ssh_username = "mechanic"
@@ -70,7 +70,7 @@ vms = {
     image              = "vyos"
     management_address = "10.20.67.1/16"
     config = {
-      tags      = ["dhcp", "opentofu", "vyos"]
+      tags      = ["opentofu", "vyos", "dhcp"]
       cpu_cores = 2
       memory_mb = 2048
     }
@@ -84,7 +84,7 @@ vms = {
     image              = "vyos"
     management_address = "10.20.67.2/16"
     config = {
-      tags      = ["dhcp", "opentofu", "vyos"]
+      tags      = ["opentofu", "vyos", "dhcp"]
       cpu_cores = 2
       memory_mb = 2048
     }
@@ -123,7 +123,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "monitoring", "opentofu"]
+      tags         = ["opentofu", "debian", "monitoring"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 200 # Prometheus TSDB + InfluxDB + Grafana Postgres.
@@ -164,7 +164,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "ticketing", "opentofu"]
+      tags         = ["opentofu", "debian", "ticketing"]
       cpu_cores    = 2
       memory_mb    = 2048
       disk_size_gb = 10
@@ -205,7 +205,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "ticketing", "opentofu"]
+      tags         = ["opentofu", "debian", "ticketing"]
       cpu_cores    = 2
       memory_mb    = 2048
       disk_size_gb = 10
@@ -248,7 +248,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "monitoring", "opentofu"]
+      tags         = ["opentofu", "debian", "monitoring"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 200 # Prometheus TSDB + InfluxDB.
@@ -286,7 +286,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "monitoring", "opentofu"]
+      tags         = ["opentofu", "debian", "monitoring"]
       cpu_cores    = 2
       memory_mb    = 4096
       ssh_username = "mechanic"
@@ -323,7 +323,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "monitoring", "opentofu"]
+      tags         = ["opentofu", "debian", "monitoring"]
       cpu_cores    = 2
       memory_mb    = 4096
       ssh_username = "mechanic"
@@ -370,7 +370,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "logging", "opentofu"]
+      tags         = ["opentofu", "debian", "logging"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
@@ -418,7 +418,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "logging", "opentofu"]
+      tags         = ["opentofu", "debian", "logging"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
@@ -466,7 +466,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "logging", "opentofu"]
+      tags         = ["opentofu", "debian", "logging"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 60 # Loki WAL and caches; chunks live in Ceph (RGW).
@@ -510,7 +510,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "metrics", "opentofu"]
+      tags         = ["opentofu", "debian", "metrics"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 60 # Mimir WAL, recent blocks and index headers; blocks live in Ceph (RGW).
@@ -553,7 +553,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "metrics", "opentofu"]
+      tags         = ["opentofu", "debian", "metrics"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 60 # Mimir WAL, recent blocks and index headers; blocks live in Ceph (RGW).
@@ -596,7 +596,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "metrics", "opentofu"]
+      tags         = ["opentofu", "debian", "metrics"]
       cpu_cores    = 4
       memory_mb    = 8192
       disk_size_gb = 60 # Mimir WAL, recent blocks and index headers; blocks live in Ceph (RGW).
@@ -641,7 +641,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "opentofu", "postgres"]
+      tags         = ["opentofu", "debian", "postgres"]
       cpu_cores    = 2
       memory_mb    = 4096
       disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
@@ -685,7 +685,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "opentofu", "postgres"]
+      tags         = ["opentofu", "debian", "postgres"]
       cpu_cores    = 2
       memory_mb    = 4096
       disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
@@ -729,24 +729,12 @@ vms = {
       },
     ]
     config = {
-      tags         = ["debian", "opentofu", "postgres"]
+      tags         = ["opentofu", "debian", "postgres"]
       cpu_cores    = 2
       memory_mb    = 4096
       disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
-    }
-  }
-
-  lab01 = {
-    owner = "workloads"
-    node  = "venom"
-    vm_id = 401
-    image = "debian13"
-    config = {
-      tags      = ["debian", "lab", "opentofu"]
-      cpu_cores = 4
-      memory_mb = 4096
     }
   }
 }

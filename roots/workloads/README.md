@@ -6,9 +6,8 @@ This root creates every VM in
 There's nothing special about these VMs. Nothing configures them afterwards, and
 they get no generated NICs.
 
-Today there's one: `lab01` on venom (VM ID 401, `debian13`, and 4 cores and
-4096 MB set in its `config`). It has no `management_address`, so cloud-init uses
-DHCP on its management NIC (`vmbr0`).
+Today there are none (`lab01`, VM 401 on venom, was removed on 2026-11-11). A VM
+without a `management_address` gets DHCP on its management NIC (`vmbr0`).
 
 ## Adding a workload VM
 

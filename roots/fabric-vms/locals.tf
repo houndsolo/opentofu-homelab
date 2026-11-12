@@ -21,7 +21,7 @@ locals {
       },
       {
         config = merge(
-          { started = true, tags = ["opentofu", "vtep", "vyos"] },
+          { started = true, tags = ["opentofu", "vyos", "vtep"] },
           { for key, value in try(local.overrides[name].config, {}) : key => value if value != null },
         )
       },

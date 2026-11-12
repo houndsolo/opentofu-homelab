@@ -45,7 +45,7 @@ each layer of the lab:
                vmbr4000        VLAN-aware bridge inside the Proxmox host
                    │
        ┌───────────┼───────────┐
-     dns01       dhcp01      lab01  ...    VMs; each NIC is tagged with a VLAN
+     dns01       dhcp01      pg01   ...    VMs; each NIC is tagged with a VLAN
 ```
 
 VMs on a Proxmox host don't connect to the physical network directly. Their NICs
