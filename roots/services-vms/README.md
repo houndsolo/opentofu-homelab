@@ -101,8 +101,8 @@ created like the DNS VMs:
 the NICs listed in the inventory, with addresses, user and keys set by
 cloud-init. Their software is deployed by
 [monitoring-config](../monitoring-config/README.md). services-config ignores
-these roles, and no DNS records are generated for them (their mgmt names are
-listed by hand in `dns-records.auto.tfvars`). All of them have a NIC on
+these roles, apart from their DNS names: like every VM they get `<vm>` (VLAN 2)
+and `<vm>.mgmt` records, generated from the inventory. All of them have a NIC on
 VLAN 13 (`10.13.0.0/16`, the isolated `lylat_monitor` VRF): Grafana reaches the
 datasources (Prometheus, InfluxDB, Loki, Mimir) and Postgres over it. Each HA
 group has its own HA L2VNI for keepalived and gossip/memberlist: `ha_grafana`

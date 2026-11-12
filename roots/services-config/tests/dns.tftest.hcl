@@ -35,7 +35,7 @@ run "custom_records" {
   command = plan
   variables {
     dns_hosts = {
-      greatfox    = { A = "10.20.7.20", AAAA = "fd69:20::20" }
+      greatfox    = { AAAA = "fd69:20::20" } # next to greatfox's generated A
       www         = { CNAME = "greatfox.lylat.space." }
       "@"         = { MX = "10 mail.lylat.space.", TXT = "hello world" }
       sub         = { NS = "dns01.lylat.space." }
@@ -50,6 +50,7 @@ run "custom_records" {
   assert {
     condition = (
       dns_aaaa_record_set.records["greatfox|AAAA"].addresses == toset(["fd69:20::20"]) &&
+      dns_a_record_set.records["greatfox|A"].addresses == toset(["10.20.7.20"]) &&
       dns_cname_record.records["www|CNAME"].cname == "greatfox.lylat.space." &&
       dns_txt_record_set.records["@|TXT"].txt == toset(["hello world"]) &&
       dns_txt_record_set.records["@|TXT"].name == null &&
@@ -62,6 +63,62 @@ run "custom_records" {
     )
     error_message = "Map all eight supported types, repeated values and apex names into native resources."
   }
+}
+
+# Names generated from the inventory (vms.auto.tfvars, vips.auto.tfvars): <vm> on the service NIC,
+# <vm>.mgmt on the management address, <vip> on each VIP, and the PTRs.
+run "inventory_records" {
+  command = plan
+  assert {
+    condition = (
+      dns_a_record_set.records["netbox01|A"].addresses == toset(["10.2.11.45"]) &&
+      dns_a_record_set.records["netbox01.mgmt|A"].addresses == toset(["10.20.11.45"]) &&
+      dns_a_record_set.records["netbox|A"].addresses == toset(["10.2.11.106"]) &&
+      dns_a_record_set.records["fichina.mgmt|A"].addresses == toset(["10.20.7.11"]) &&
+      dns_a_record_set.records["leaf-11.mgmt|A"].addresses == toset(["10.20.10.11"])
+    )
+    error_message = "VMs get <vm> (service NIC) and <vm>.mgmt; VIPs and mgmt aliases for hosts/leaves are generated."
+  }
+  assert {
+    condition = (
+      dns_a_record_set.records["dhcp01|A"].addresses == toset(["10.20.67.1"]) &&
+      !contains(keys(dns_a_record_set.records), "dns01|A") &&
+      dns_a_record_set.records["dns01.mgmt|A"].addresses == toset(["10.20.53.1"])
+    )
+    error_message = "A VM without a gateway NIC (dhcp01) gets <vm> on its management address; the DNS VMs' <vm> records stay in the seed zone."
+  }
+  assert {
+    condition = (
+      dns_ptr_record.reverse["10.20.11.45"].ptr == "netbox01.mgmt.lylat.space." &&
+      dns_ptr_record.reverse["10.2.11.45"].ptr == "netbox01.lylat.space." &&
+      dns_ptr_record.reverse["10.2.11.106"].ptr == "netbox.lylat.space." &&
+      dns_ptr_record.reverse["10.20.7.11"].ptr == "fichina.lylat.space."
+    )
+    error_message = "PTRs: management addresses -> <vm>.mgmt (hosts keep the short name), service NICs -> <vm>, VIPs -> <vip>."
+  }
+}
+
+run "reject_generated_override" {
+  command = plan
+  variables { dns_hosts = { netbox01 = { A = "10.20.11.45" } } }
+  expect_failures = [check.dns_hosts_not_generated]
+}
+
+run "reject_vip_drift" {
+  command = plan
+  variables { netbox = { vip = "10.2.11.107/16" } }
+  expect_failures = [check.vips_match_services_config]
+}
+
+run "reject_shared_vrid_between_roles" {
+  command = plan
+  variables {
+    vips = {
+      a = { address = "10.2.11.200/16", vrid = 200, role = "netbox" }
+      b = { address = "10.2.11.201/16", vrid = 200, role = "ticketing" }
+    }
+  }
+  expect_failures = [var.vips]
 }
 
 run "reject_mixed_rrset_ttls" {

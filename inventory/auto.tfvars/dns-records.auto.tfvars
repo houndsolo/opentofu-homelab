@@ -1,8 +1,13 @@
-# Custom records for lylat.space. Uncomment and replace example values.
-# Proxmox management A records are generated automatically by services-config.
+# Hand-made records for lylat.space: only what the inventory doesn't know. services-config generates
+# the rest (roots/services-config/dns-records.tf):
+#   <vm>         every service/workload VM's service address (the NIC with the default gateway)
+#   <vm>.mgmt    every VM's management address (also <node>.mgmt, leaf-<id>.mgmt, spine-<id>.mgmt)
+#   <vip>        every keepalived VIP in vips.auto.tfvars (grafana, logs, loki, influxdb, monitoring,
+#                mimir, postgres, dark-triage, netbox, dns)
+#   <node>, leaf-<id>, spine-<id>, and the DNS servers' own records
+# A name here that is also generated fails the dns_hosts_not_generated check.
 dns_hosts = {
-  dark-triage = { A = "10.2.11.105" }                  # dark-triage helpdesk on triage01 (services-config ticketing.tf)
-  triage      = { CNAME = "dark-triage.lylat.space." } # short name for dark-triage
+  triage = { CNAME = "dark-triage.lylat.space." } # short name for dark-triage
   # greatfox = { A = "10.20.7.20", AAAA = "fd69:20::20" }
   # www      = { CNAME = "greatfox.lylat.space." }
   # "@"      = { MX = "10 mail.lylat.space.", TXT = "example text" }
@@ -20,38 +25,16 @@ dns_hosts = {
   automation0 = { A = "10.20.250.255" }
   nixos       = { A = "10.20.250.255" }
   arch        = { A = "10.9.9.69" }
-  netbox      = { A = "10.2.11.106" } # NetBox HA VIP (netbox01/02, services-config netbox.tf)
 
-  # Monitoring stack (roots/monitoring-config). Hosts on their mgmt addresses.
-  mon01  = { A = "10.20.11.30" }
-  mon02  = { A = "10.20.11.31" }
-  graf01 = { A = "10.20.11.32" }
-  graf02 = { A = "10.20.11.33" }
-  loki01 = { A = "10.20.11.34" }
-  loki02 = { A = "10.20.11.35" }
-  loki03 = { A = "10.20.11.36" }
-  mim01  = { A = "10.20.11.37" }
-  mim02  = { A = "10.20.11.38" }
-  mim03  = { A = "10.20.11.39" }
-  pg01   = { A = "10.20.11.40" }
-  pg02   = { A = "10.20.11.41" }
-  pg03   = { A = "10.20.11.42" }
-  # Grafana's Postgres: the Patroni leader's VIP (keepalived on pg01-03) on the isolated
-  # backend VLAN 13 (lylat_monitor VRF): only reachable from that VLAN.
-  postgres = { A = "10.13.11.104" }
   # Backend UIs on the monitoring network (vmbr100): Prometheus :9090,
-  # Alertmanager :9093, InfluxDB :8086. The unsuffixed names stay on mon01,
-  # except influxdb: the monitoring VIP (keepalived on mon01/mon02).
+  # Alertmanager :9093, InfluxDB :8086. The unsuffixed names stay on mon01
+  # (influxdb is the monitoring VIP, see vips.auto.tfvars).
   prometheus         = { A = "10.5.11.30" }
   alertmanager       = { A = "10.5.11.30" }
-  influxdb           = { A = "10.5.11.102" }
   prometheus-mon02   = { A = "10.5.11.31" }
   alertmanager-mon02 = { A = "10.5.11.31" }
   influxdb-mon01     = { A = "10.5.11.30" }
   influxdb-mon02     = { A = "10.5.11.31" }
-  # Loki/Alloy VIP (keepalived on loki01-03) on the monitoring network: syslog
-  # TCP/UDP 514 from devices and PVE nodes.
-  logs = { A = "10.5.11.101" }
 }
 
 # Use this list for multiple records with the same owner/type or custom TTLs.
@@ -59,8 +42,4 @@ dns_records = [
   # { name = "app", type = "A", data = "10.8.10.1", ttl = 60 },
   # { name = "app", type = "A", data = "10.8.10.2", ttl = 60 },
   # { name = "@", type = "TXT", data = "another text value" },
-
-  # Grafana :3000 on VLAN 2: the keepalived VIP held by graf01 or graf02
-  # (monitoring-config grafana_vrrp). Matches grafana_root_url.
-  { name = "grafana", type = "A", data = "10.2.11.100" },
 ]

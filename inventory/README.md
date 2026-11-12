@@ -59,7 +59,8 @@ root will silently stop seeing your changes.
 | `vms.auto.tfvars` | `vms` | Every individual VM: owner, role, placement, NICs, overrides | proxmox-download-files, fabric-vms, services-vms, services-config, workloads |
 | `vnis.auto.tfvars` | `vnis` | VRFs (L3VNIs), VLANs (L2VNIs), route-targets, DHCP scopes | fabric-leaves, services-vms, services-config |
 | `l2vnis.auto.tfvars` | `l2vnis` | Standalone L2VNIs for HA peer traffic (no VRF, no gateway, no DHCP): DHCP 9211, DNS 9212, Grafana 9213, logging 9214, all in `10.21.0.0/16` | fabric-leaves, services-vms, services-config |
-| `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Your own DNS records in `lylat.space` | services-config |
+| `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Your own DNS records in `lylat.space` (only what the inventory doesn't generate) | services-config |
+| `vips.auto.tfvars` | `vips` | Every keepalived VIP: DNS name, address, VRID, role | services-config (DNS), monitoring-config (checks) |
 
 
 ### nodes.auto.tfvars: Proxmox hosts
@@ -475,10 +476,26 @@ dns_records = [                  # for several values of one type, or a custom T
 ]
 ```
 
-Some names are generated automatically: the Proxmox hosts, `leaf-<ID>`,
-`spine-<ID>` and the DHCP VMs. A `dns_hosts` entry with one of those names
-**replaces all of that name's generated records**. The format rules are in
+Most names are generated, so you don't list them: every VM as `<vm>` (its
+service NIC) and `<vm>.mgmt` (its management address), every VIP from
+`vips.auto.tfvars`, the Proxmox hosts, `leaf-<ID>` and `spine-<ID>` (each also as
+`<name>.mgmt`). A `dns_hosts` entry may add other record types to a generated
+name, but redefining a generated type fails the plan. The format rules are in
 [services-config](../roots/services-config/README.md#dns-records).
+
+### vips.auto.tfvars: keepalived VIPs
+
+```hcl
+vips = {
+  netbox = { address = "10.2.11.106/16", vrid = 106, role = "netbox" }   # key = DNS name
+}
+```
+
+One entry per VIP, keyed by its DNS name. services-config publishes the A and
+PTR records; services-config and monitoring-config check that each service's own
+VIP setting (`netbox.vip`, `grafana_vrrp`, `postgres_settings.vip`, ...) matches.
+Addresses must be unique, and a VRID belongs to one role (it is also the VMAC's
+last byte, `00:00:5e:00:01:<vrid>`).
 
 ### ssh_pubkeys.tf: named SSH public keys
 

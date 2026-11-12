@@ -177,11 +177,19 @@ These are created automatically from the inventory. You don't need to list them:
 
 | Name | Points to | Example |
 | --- | --- | --- |
-| each Proxmox host (cluster and standalone) | `cidrhost(nodes.management_prefix, ID)` | `venom.lylat.space` → `10.20.7.17` |
-| `leaf-<ID>`, for every physical leaf and every Proxmox host | `cidrhost(fabric.settings.management_prefix, ID)` | `leaf-17` → `10.20.10.17`, `leaf-20` → `10.20.10.20` |
-| `spine-<ID>` | the spine's `management_ip` | `spine-1` → `10.20.0.5` |
-| each DHCP VM (`role = "dhcp"`) | its management address | `dhcp01` → `10.20.67.1` |
-| `dns01`, `dns02`, plus the SOA and apex NS records | the DNS service address | created by the seed zone (bootstrap), not by the DNS provider |
+| `<vm>`, for every service and workload VM | the NIC with the default gateway (VLAN 2 for most service VMs); a VM without one gets its management address | `netbox01` → `10.2.11.45`, `dhcp01` → `10.20.67.1` |
+| `<vm>.mgmt` | the VM's `management_address` | `netbox01.mgmt` → `10.20.11.45` |
+| `<vip>`, every VIP in [`vips.auto.tfvars`](../../inventory/auto.tfvars/vips.auto.tfvars) | the VIP | `netbox` → `10.2.11.106`, `postgres` → `10.13.11.104` |
+| each Proxmox host (cluster and standalone), and `<host>.mgmt` | `cidrhost(nodes.management_prefix, ID)` | `venom` and `venom.mgmt` → `10.20.7.17` |
+| `leaf-<ID>` and `leaf-<ID>.mgmt`, for every physical leaf and every Proxmox host | `cidrhost(fabric.settings.management_prefix, ID)` | `leaf-17` → `10.20.10.17`, `leaf-20` → `10.20.10.20` |
+| `spine-<ID>` and `spine-<ID>.mgmt` | the spine's `management_ip` | `spine-1` → `10.20.0.5` |
+| `dns01`, `dns02`, plus the SOA and apex NS records | the DNS service address | created by the seed zone (bootstrap), not by the DNS provider (`dns01.mgmt` is generated) |
+
+Every management address has a name under `mgmt.lylat.space`, so `search mgmt.lylat.space` on an
+admin box makes plain names (`ssh netbox01`) reach the management network. PTRs follow: a VM's
+management address resolves to `<vm>.mgmt.lylat.space`, its service address to `<vm>.lylat.space`
+(when several names share an address, the shortest wins, so hosts keep `venom.lylat.space`).
+The fabric VMs (vteps) have no `<vm>` names; they are the `leaf-<ID>` names.
 
 ### Your records
 
@@ -221,17 +229,19 @@ The format rules, all checked during `plan`:
 
 ### When your names match generated ones
 
-A `dns_hosts` entry **replaces everything generated for that name**, not just
-the record types it lists. For example, `greatfox` is generated with an A record:
+A `dns_hosts` entry can **add other record types** to a generated name, but it
+**can't redefine a generated type**: change the inventory instead (the VM's NICs,
+or `vips.auto.tfvars`). The `dns_hosts_not_generated` check fails the plan
+otherwise. For example, `greatfox` is generated with an A record:
 
 ```hcl
-# Replaces the generated record: greatfox now has ONLY this AAAA, and no A.
+# Adds an AAAA next to the generated A.
 dns_hosts = { greatfox = { AAAA = "fd69:20::20" } }
 
-# Keeps an A and adds the AAAA, because the entry lists both.
-dns_hosts = { greatfox = { A = "10.20.7.20", AAAA = "fd69:20::20" } }
+# Rejected: greatfox's A is generated.
+dns_hosts = { greatfox = { A = "10.20.7.99" } }
 
-# Or leave dns_hosts alone, and add to the generated record with dns_records:
+# Or add to the generated record with dns_records:
 dns_records = [
   { name = "greatfox", type = "AAAA", data = "fd69:20::20" }, # TTL defaults to 300
 ]

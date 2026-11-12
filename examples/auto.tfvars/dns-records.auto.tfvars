@@ -1,7 +1,8 @@
-# Names are relative to lylat.space. This map replaces generated records for
-# the same owner, so include A here if you also want to add AAAA to that host.
+# Names are relative to lylat.space. VMs, VIPs, Proxmox hosts, leaves and spines
+# are generated from the inventory; an entry here may add other types to such a
+# name (greatfox's AAAA next to its generated A), but not redefine a generated one.
 dns_hosts = {
-  greatfox    = { A = "10.20.7.20", AAAA = "fd69:20::20" }
+  greatfox    = { AAAA = "fd69:20::20" }
   www         = { CNAME = "greatfox.lylat.space." } # Absolute target ends in a dot.
   mail        = { A = "10.8.25.1" }
   "@"         = { MX = "10 mail.lylat.space.", TXT = "v=spf1 -all" }

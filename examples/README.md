@@ -66,10 +66,10 @@ changes nothing. Use them as a reference when you edit the real files in
   want it to actually appear on a device.
 - **The VyOS image needs your own snippet.** The image entry expects your own
   cloud-init snippet (`vyos_api.yml`) that enables the VyOS API.
-- **A `dns_hosts` entry replaces a generated name entirely.** As the DNS
-  example's comment says, if you use a generated name such as `greatfox`, list
-  every type you want it to keep (for example, its A record as well as a new
-  AAAA). Otherwise, add to it with `dns_records`. See
+- **Generated names can't be redefined in `dns_hosts`.** VMs, VIPs, Proxmox
+  hosts, leaves and spines get their names from the inventory. A `dns_hosts`
+  entry may add another type to such a name (an AAAA next to `greatfox`'s
+  generated A), but not redefine a generated one. See
   [services-config](../roots/services-config/README.md#when-your-names-match-generated-ones).
 - **Real credentials never go in the examples.** The passwords example shows
   every variable in one file, which is the format the single-file `with-secrets`
