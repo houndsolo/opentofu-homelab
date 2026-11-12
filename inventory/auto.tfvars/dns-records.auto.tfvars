@@ -26,6 +26,13 @@ dns_hosts = {
   nixos       = { A = "10.20.250.255" }
   arch        = { A = "10.9.9.69" }
 
+  # Cisco C9800-CL WLCs (hand-managed, not in the VM inventory). <wlc> = Vlan5 (10.5.x),
+  # <wlc>.mgmt = GigabitEthernet1 out-of-band management.
+  wlc01        = { A = "10.5.1.1" }
+  "wlc01.mgmt" = { A = "10.20.1.1" }
+  wlc02        = { A = "10.5.1.2" }
+  "wlc02.mgmt" = { A = "10.20.1.2" }
+
   # Backend UIs on the monitoring network (vmbr100): Prometheus :9090,
   # Alertmanager :9093, InfluxDB :8086. The unsuffixed names stay on mon01
   # (influxdb is the monitoring VIP, see vips.auto.tfvars).
