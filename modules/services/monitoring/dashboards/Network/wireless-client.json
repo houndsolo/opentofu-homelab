@@ -5,6 +5,7 @@
   "description": "One wireless client (picker: MAC, from the WLCs' telemetry): where it is, signal, rates, throughput, retries and errors over time.",
   "tags": [
     "lylat",
+    "lylat-network",
     "network",
     "wireless"
   ],

@@ -3,6 +3,7 @@
   "title": "SNMP Interface Throughput (community)",
   "tags": [
     "lylat",
+    "lylat-network",
     "snmp"
   ],
   "style": "dark",

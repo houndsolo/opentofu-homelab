@@ -2276,6 +2276,7 @@
   "style": "dark",
   "tags": [
     "lylat",
+    "lylat-proxmox",
     "proxmox"
   ],
   "templating": {

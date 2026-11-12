@@ -8,6 +8,7 @@
     "grafana",
     "loki",
     "lylat",
+    "lylat-monitoring",
     "prometheus"
   ],
   "editable": true,

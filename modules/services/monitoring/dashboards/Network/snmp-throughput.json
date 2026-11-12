@@ -5,6 +5,7 @@
   "description": "Interface traffic, link utilisation, errors and operational state. Interface indices are local to each device; when selecting several devices, selected indices apply to each device.",
   "tags": [
     "lylat",
+    "lylat-network",
     "network",
     "snmp"
   ],

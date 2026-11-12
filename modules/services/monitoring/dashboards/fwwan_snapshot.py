@@ -494,8 +494,8 @@ CHAINS = {
         },
         "101": {
           "action": "accept",
-          "description": "",
-          "match": "dst 10.2.0.40, dport 8000, proto tcp"
+          "description": "NetBox VIP (netbox01/02)",
+          "match": "dst 10.2.11.106, dport 80,8000, proto tcp"
         }
       }
     },

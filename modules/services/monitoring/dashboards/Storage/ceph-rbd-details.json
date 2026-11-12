@@ -474,7 +474,8 @@
   "tags": [
     "ceph",
     "ceph-mixin",
-    "lylat"
+    "lylat",
+    "lylat-storage"
   ],
   "templating": {
     "list": [

@@ -13,7 +13,8 @@ which this script imports. Each dashboard:
 - queries the provisioned Prometheus datasource (uid "prometheus") directly;
 - uses the scrape targets' "host" label for names and pickers;
 - carries the "lylat" tag and a "Dashboards" dropdown listing every dashboard
-  with that tag (the overview shows them as buttons), keeping the time range;
+  with that tag, keeping the time range; plus a "lylat-<folder>" category tag
+  (theme.categorize), and the overview shows one dropdown per category instead;
 - goes through theme.apply_theme() (the desktop palette) before it's written.
 
 Down targets (no exporter yet) simply have no series, so panels count what's
@@ -306,8 +307,9 @@ class Board:
         self.line_h = max(self.line_h, y - self.y)
 
 
-def dashboard(uid, title, description, board, *, tags=(), variables=(), nav_buttons=False,
+def dashboard(uid, title, description, board, *, tags=(), variables=(), nav_links=None,
               time_from="now-6h", extra_links=()):
+    # nav_links replaces the "Dashboards" dropdown (the overview's per-category dropdowns).
     return {
         "id": None, "uid": uid, "title": title, "description": description,
         "tags": sorted(set(tags) | {"lylat"}), "editable": True, "graphTooltip": 1,
@@ -318,9 +320,10 @@ def dashboard(uid, title, description, board, *, tags=(), variables=(), nav_butt
             "builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"}, "enable": True,
             "hide": True, "iconColor": ACCENT2, "name": "Annotations & Alerts",
             "type": "dashboard"}]},
-        "links": [{"type": "dashboards", "tags": ["lylat"], "asDropdown": not nav_buttons,
-                   "title": "Dashboards", "includeVars": False, "keepTime": True,
-                   "icon": "external link", "targetBlank": False, "tooltip": "", "url": ""}]
+        "links": (list(nav_links) if nav_links is not None else [{
+            "type": "dashboards", "tags": ["lylat"], "asDropdown": True,
+            "title": "Dashboards", "includeVars": False, "keepTime": True,
+            "icon": "external link", "targetBlank": False, "tooltip": "", "url": ""}])
                  + [dict(link) for link in extra_links],
         "templating": {"list": list(variables)},
         "panels": board.panels,
@@ -520,7 +523,7 @@ def overview():
 
     return dashboard("lylat-overview", "lylat.space overview",
                      "Landing page: target and alert status, Ceph, probes, the EVPN fabric, hosts and top talkers.",
-                     b, tags=["overview"], nav_buttons=True, time_from="now-3h")
+                     b, tags=["overview"], nav_links=theme.category_links(), time_from="now-3h")
 
 
 # --- FRR / EVPN fabric ---------------------------------------------------------
@@ -2010,10 +2013,15 @@ def main():
                        **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS, **triage.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
-        dash = theme.apply_theme(build())
+        dash = theme.apply_theme(theme.categorize(build(), rel))
         out.write_text(json.dumps(dash, indent=2, ensure_ascii=False) + "\n")
         panels = [p for top in dash["panels"] for p in [top, *top.get("panels", [])] if p["type"] != "row"]
         print(f"{rel}: {dash['title']} ({len(panels)} panels)")
+    # Every folder with dashboards must be a category, or the overview wouldn't link it.
+    folders = {f.parent.name for f in HERE.glob("*/*.json")} - {"Overview"}
+    missing = folders - set(theme.CATEGORIES)
+    if missing:
+        raise SystemExit(f"folders not in theme.CATEGORIES (the overview's dropdowns): {sorted(missing)}")
 
 
 if __name__ == "__main__":

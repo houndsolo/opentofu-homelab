@@ -5,6 +5,7 @@
   "description": "The C9800 WLCs from model-driven telemetry (InfluxDB bucket wlc): controllers, APs and radios, channel use and RF, SSIDs and clients.",
   "tags": [
     "lylat",
+    "lylat-network",
     "network",
     "wireless"
   ],

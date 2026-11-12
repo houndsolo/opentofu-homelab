@@ -5,7 +5,8 @@
   "description": "BIND (transfers, validation and resolution errors), Kea DHCP (leases, HA state), keepalived VIP moves, and the monitoring stack's containers (Grafana, Prometheus, Mimir, Loki, Alloy, haproxy, Telegraf, Postgres).",
   "tags": [
     "logs",
-    "lylat"
+    "lylat",
+    "lylat-logs"
   ],
   "editable": true,
   "graphTooltip": 1,

@@ -805,7 +805,7 @@ def main():
         upstream_title = dash["title"]
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(theme.apply_theme(adapt(dash, spec, rel)), indent=2, ensure_ascii=False) + "\n")
+        out.write_text(json.dumps(theme.apply_theme(theme.categorize(adapt(dash, spec, rel), rel)), indent=2, ensure_ascii=False) + "\n")
         print(f"{rel}: {upstream_title} ({source})")
 
 

@@ -5,6 +5,7 @@
   "description": "The PVE nodes, guests and storages at a glance, from the PVE metric server data in InfluxDB.",
   "tags": [
     "lylat",
+    "lylat-proxmox",
     "proxmox"
   ],
   "editable": true,

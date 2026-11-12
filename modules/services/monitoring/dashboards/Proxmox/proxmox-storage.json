@@ -5,6 +5,7 @@
   "description": "PVE storages: capacity, use, growth and when they fill up; Ceph-backed ones link to Ceph.",
   "tags": [
     "lylat",
+    "lylat-proxmox",
     "proxmox"
   ],
   "editable": true,

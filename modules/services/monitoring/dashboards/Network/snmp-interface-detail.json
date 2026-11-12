@@ -1534,6 +1534,7 @@
   "style": "dark",
   "tags": [
     "lylat",
+    "lylat-network",
     "snmp"
   ],
   "templating": {

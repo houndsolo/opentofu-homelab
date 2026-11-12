@@ -6,7 +6,8 @@
   "tags": [
     "ceph",
     "logs",
-    "lylat"
+    "lylat",
+    "lylat-logs"
   ],
   "editable": true,
   "graphTooltip": 1,

@@ -17351,7 +17351,8 @@
   "schemaVersion": 41,
   "tags": [
     "linux",
-    "lylat"
+    "lylat",
+    "lylat-hosts"
   ],
   "templating": {
     "list": [

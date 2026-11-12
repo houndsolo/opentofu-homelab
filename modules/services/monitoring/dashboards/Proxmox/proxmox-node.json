@@ -5,6 +5,7 @@
   "description": "One PVE node in depth: CPU, load, memory, swap, root disk, NICs, its guests and storages.",
   "tags": [
     "lylat",
+    "lylat-proxmox",
     "proxmox"
   ],
   "editable": true,

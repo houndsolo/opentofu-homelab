@@ -268,3 +268,28 @@ def apply_theme(dash):
         _series_colors(panel)
         _graph_style(panel)
     return dash
+
+
+# --- Categories ----------------------------------------------------------------
+# Every dashboard also gets a "lylat-<folder>" tag from its provisioning folder (the first
+# component of its path, e.g. Storage/ceph-osd.json -> lylat-storage), so a dashboards link can
+# list one folder. The overview shows one dropdown per category, in this order.
+CATEGORIES = ("Proxmox", "Storage", "Hosts", "Network", "Edge", "Services", "Probes", "Logs", "Monitoring")
+
+
+def category_tag(folder):
+    return f"lylat-{folder.lower()}"
+
+
+def categorize(dash, rel):
+    """Add the category tag of the dashboard's folder (in place; returns it)."""
+    folder = rel.split("/")[0]
+    dash["tags"] = sorted(set(dash.get("tags", [])) | {category_tag(folder)})
+    return dash
+
+
+def category_links():
+    """One dashboards dropdown per category (the overview's header)."""
+    return [{"type": "dashboards", "tags": [category_tag(c)], "asDropdown": True, "title": c,
+             "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
+             "tooltip": "", "url": ""} for c in CATEGORIES]

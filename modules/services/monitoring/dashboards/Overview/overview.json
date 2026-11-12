@@ -5,6 +5,7 @@
   "description": "Landing page: target and alert status, Ceph, probes, the EVPN fabric, hosts and top talkers.",
   "tags": [
     "lylat",
+    "lylat-overview",
     "overview"
   ],
   "editable": true,
@@ -41,10 +42,122 @@
     {
       "type": "dashboards",
       "tags": [
-        "lylat"
+        "lylat-proxmox"
       ],
-      "asDropdown": false,
-      "title": "Dashboards",
+      "asDropdown": true,
+      "title": "Proxmox",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-storage"
+      ],
+      "asDropdown": true,
+      "title": "Storage",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-hosts"
+      ],
+      "asDropdown": true,
+      "title": "Hosts",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-network"
+      ],
+      "asDropdown": true,
+      "title": "Network",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-edge"
+      ],
+      "asDropdown": true,
+      "title": "Edge",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-services"
+      ],
+      "asDropdown": true,
+      "title": "Services",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-probes"
+      ],
+      "asDropdown": true,
+      "title": "Probes",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-logs"
+      ],
+      "asDropdown": true,
+      "title": "Logs",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "lylat-monitoring"
+      ],
+      "asDropdown": true,
+      "title": "Monitoring",
       "includeVars": false,
       "keepTime": true,
       "icon": "external link",

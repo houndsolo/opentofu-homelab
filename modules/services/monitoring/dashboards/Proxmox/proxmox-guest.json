@@ -5,6 +5,7 @@
   "description": "Every VM and container, and one in depth: state, CPU, memory, balloon, pressure, disk and network.",
   "tags": [
     "lylat",
+    "lylat-proxmox",
     "proxmox"
   ],
   "editable": true,

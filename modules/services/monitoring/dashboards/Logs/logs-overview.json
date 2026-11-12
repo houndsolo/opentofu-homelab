@@ -5,7 +5,8 @@
   "description": "Every log in Loki: volume by source, level and host, errors and warnings, the noisiest hosts and apps, newest errors and a log browser with host/source/app/level/search pickers.",
   "tags": [
     "logs",
-    "lylat"
+    "lylat",
+    "lylat-logs"
   ],
   "editable": true,
   "graphTooltip": 1,
