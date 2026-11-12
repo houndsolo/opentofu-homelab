@@ -48,9 +48,12 @@ vrrp_instance logging {
     auth_type PASS
     auth_pass ${auth_pass}
   }
+  # use_vmac: each VIP sits on a macvlan with the VRRP virtual MAC 00:00:5e:00:01:<VRID>, so its MAC
+  # never changes on failover (with ARP suppression the new MASTER's gratuitous ARP doesn't reach
+  # same-VLAN hosts, DT-045); only its EVPN location moves. Adverts stay on the HA L2VNI.
   virtual_ipaddress {
 %{ for vip in vips ~}
-    ${vip.cidr} dev ${vip.interface}
+    ${vip.cidr} dev ${vip.interface} use_vmac
 %{ endfor ~}
   }
   # A client NIC going down is a FAULT too: its VIP would be unreachable here.
