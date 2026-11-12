@@ -14,10 +14,10 @@ from theme import ACCENT, ACCENT2, INFO, TEXT_MUTED, WARN
 
 TRIAGE = {"type": "grafana-postgresql-datasource", "uid": "triage"}
 APP = "http://dark-triage.lylat.space"
-OPEN = "status <> 'Resolved'"
+OPEN = "status NOT IN ('Resolved', 'Canceled')"
 PRIO_ORDER = "CASE t.priority WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END"
 PRIO_COLORS = {"Critical": ERROR, "High": WARN_HIGH, "Medium": WARN, "Low": TEXT_MUTED}
-STATUS_COLORS = {"Open": TEXT_MUTED, "In progress": ACCENT2, "Waiting": WARN, "Resolved": OK}
+STATUS_COLORS = {"Open": TEXT_MUTED, "In progress": ACCENT2, "Waiting": WARN, "Resolved": OK, "Canceled": TEXT_MUTED}
 COUNT = steps((INFO, None))
 ATTENTION = steps((OK, None), (WARN_HIGH, 1), (ERROR, 5))
 AGE = steps((OK, None), (WARN, 7 * 86400), (ERROR, 30 * 86400))
@@ -83,7 +83,7 @@ def triage():
     b.add(stat("Waiting", [one("SELECT count(*) FROM tickets WHERE status = 'Waiting'")],
                thresholds=steps((WARN, None))), 3, 4)
     b.add(stat("Needs attention", [one(f"SELECT count(*) FROM tickets WHERE {OPEN} AND priority IN ('High', 'Critical')")],
-               thresholds=ATTENTION, desc="Open tickets with priority High or Critical."), 3, 4)
+               thresholds=ATTENTION, desc="Open tickets (not Resolved or Canceled) with priority High or Critical."), 3, 4)
     b.add(stat("Unassigned", [one(f"SELECT count(*) FROM tickets WHERE {OPEN} AND assignee_id IS NULL")],
                thresholds=steps((OK, None), (WARN, 1)), desc="Open tickets nobody is assigned to."), 3, 4)
     b.add(stat("Resolved, 7 days", [one("SELECT count(*) FROM tickets WHERE status = 'Resolved' "
@@ -102,7 +102,7 @@ def triage():
     b.add(bargauge("By priority", [counts(PRIO_COLORS, "priority")], overrides=fixed_colors(PRIO_COLORS),
                    thresholds=COUNT, decimals=0, mode="gradient"), 6, 7)
     b.add(bargauge("By status", [counts(["Open", "In progress", "Waiting"], "status")],
-                   overrides=fixed_colors({k: v for k, v in STATUS_COLORS.items() if k != "Resolved"}),
+                   overrides=fixed_colors({k: v for k, v in STATUS_COLORS.items() if k not in ("Resolved", "Canceled")}),
                    thresholds=COUNT, decimals=0, mode="gradient"), 6, 7)
     b.add(per_row(bargauge("By service", [sql(f"""SELECT service AS "Service", count(*) AS "Open"
         FROM tickets WHERE {OPEN} GROUP BY 1 ORDER BY 2 DESC, 1""")], thresholds=steps((ACCENT, None)),
@@ -128,7 +128,7 @@ def triage():
         desc="Resolved = the last update of tickets that are Resolved now (the app keeps no resolve time)."), 12, 8)
     b.add(timeseries("Open backlog", [sql("""SELECT d AS time, (SELECT count(*) FROM tickets t
             WHERE t.created::timestamptz <= d + interval '1 day'
-              AND NOT (t.status = 'Resolved' AND t.updated::timestamptz <= d + interval '1 day')) AS "Open"
+              AND NOT (t.status IN ('Resolved', 'Canceled') AND t.updated::timestamptz <= d + interval '1 day')) AS "Open"
           FROM generate_series(date_trunc('day', $__timeFrom()::timestamptz), $__timeTo()::timestamptz,
                                interval '1 day') AS d ORDER BY 1""", "time_series")],
         fill=20, line=2, decimals=0, calcs=("min", "max", "lastNotNull"), step=True,

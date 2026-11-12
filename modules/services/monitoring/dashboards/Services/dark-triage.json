@@ -85,7 +85,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT count(*) FROM tickets WHERE status <> 'Resolved'",
+          "rawSql": "SELECT count(*) FROM tickets WHERE status NOT IN ('Resolved', 'Canceled')",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -263,7 +263,7 @@
     {
       "type": "stat",
       "title": "Needs attention",
-      "description": "Open tickets with priority High or Critical.",
+      "description": "Open tickets (not Resolved or Canceled) with priority High or Critical.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "triage"
@@ -274,7 +274,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT count(*) FROM tickets WHERE status <> 'Resolved' AND priority IN ('High', 'Critical')",
+          "rawSql": "SELECT count(*) FROM tickets WHERE status NOT IN ('Resolved', 'Canceled') AND priority IN ('High', 'Critical')",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -345,7 +345,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT count(*) FROM tickets WHERE status <> 'Resolved' AND assignee_id IS NULL",
+          "rawSql": "SELECT count(*) FROM tickets WHERE status NOT IN ('Resolved', 'Canceled') AND assignee_id IS NULL",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -475,7 +475,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT extract(epoch FROM now() - min(created::timestamptz)) FROM tickets WHERE status <> 'Resolved'",
+          "rawSql": "SELECT extract(epoch FROM now() - min(created::timestamptz)) FROM tickets WHERE status NOT IN ('Resolved', 'Canceled')",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -647,7 +647,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT count(*) FILTER (WHERE priority = 'Critical') AS \"Critical\", count(*) FILTER (WHERE priority = 'High') AS \"High\", count(*) FILTER (WHERE priority = 'Medium') AS \"Medium\", count(*) FILTER (WHERE priority = 'Low') AS \"Low\" FROM tickets WHERE status <> 'Resolved'",
+          "rawSql": "SELECT count(*) FILTER (WHERE priority = 'Critical') AS \"Critical\", count(*) FILTER (WHERE priority = 'High') AS \"High\", count(*) FILTER (WHERE priority = 'Medium') AS \"Medium\", count(*) FILTER (WHERE priority = 'Low') AS \"Low\" FROM tickets WHERE status NOT IN ('Resolved', 'Canceled')",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -774,7 +774,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT count(*) FILTER (WHERE status = 'Open') AS \"Open\", count(*) FILTER (WHERE status = 'In progress') AS \"In progress\", count(*) FILTER (WHERE status = 'Waiting') AS \"Waiting\" FROM tickets WHERE status <> 'Resolved'",
+          "rawSql": "SELECT count(*) FILTER (WHERE status = 'Open') AS \"Open\", count(*) FILTER (WHERE status = 'In progress') AS \"In progress\", count(*) FILTER (WHERE status = 'Waiting') AS \"Waiting\" FROM tickets WHERE status NOT IN ('Resolved', 'Canceled')",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -886,7 +886,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT service AS \"Service\", count(*) AS \"Open\" FROM tickets WHERE status <> 'Resolved' GROUP BY 1 ORDER BY 2 DESC, 1",
+          "rawSql": "SELECT service AS \"Service\", count(*) AS \"Open\" FROM tickets WHERE status NOT IN ('Resolved', 'Canceled') GROUP BY 1 ORDER BY 2 DESC, 1",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -950,7 +950,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT coalesce(a.display_name, 'Unassigned') AS \"Assignee\", count(*) AS \"Open\" FROM tickets t LEFT JOIN users a ON a.id = t.assignee_id WHERE t.status <> 'Resolved' GROUP BY 1 ORDER BY 2 DESC, 1",
+          "rawSql": "SELECT coalesce(a.display_name, 'Unassigned') AS \"Assignee\", count(*) AS \"Open\" FROM tickets t LEFT JOIN users a ON a.id = t.assignee_id WHERE t.status NOT IN ('Resolved', 'Canceled') GROUP BY 1 ORDER BY 2 DESC, 1",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -1014,7 +1014,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT 'DT-' || lpad(t.id::text, 3, '0') AS \"Ticket\", t.title AS \"Subject\", t.type AS \"Type\", t.priority AS \"Priority\", t.status AS \"Status\", t.service AS \"Service\", coalesce(r.display_name, t.requester) AS \"Requested by\", coalesce(a.display_name, 'Unassigned') AS \"Assignee\", extract(epoch FROM now() - t.created::timestamptz) AS \"Age\", t.updated::timestamptz AS \"Updated\" FROM tickets t LEFT JOIN users r ON r.id = t.requester_id LEFT JOIN users a ON a.id = t.assignee_id WHERE t.status <> 'Resolved' ORDER BY CASE t.priority WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END, t.created",
+          "rawSql": "SELECT 'DT-' || lpad(t.id::text, 3, '0') AS \"Ticket\", t.title AS \"Subject\", t.type AS \"Type\", t.priority AS \"Priority\", t.status AS \"Status\", t.service AS \"Service\", coalesce(r.display_name, t.requester) AS \"Requested by\", coalesce(a.display_name, 'Unassigned') AS \"Assignee\", extract(epoch FROM now() - t.created::timestamptz) AS \"Age\", t.updated::timestamptz AS \"Updated\" FROM tickets t LEFT JOIN users r ON r.id = t.requester_id LEFT JOIN users a ON a.id = t.assignee_id WHERE t.status NOT IN ('Resolved', 'Canceled') ORDER BY CASE t.priority WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END, t.created",
           "format": "table",
           "rawQuery": true,
           "editorMode": "code",
@@ -1163,6 +1163,11 @@
                         "text": "Resolved",
                         "color": "#02E5A8",
                         "index": 3
+                      },
+                      "Canceled": {
+                        "text": "Canceled",
+                        "color": "#a0aa9e",
+                        "index": 4
                       }
                     }
                   }
@@ -1380,7 +1385,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "triage"
           },
-          "rawSql": "SELECT d AS time, (SELECT count(*) FROM tickets t WHERE t.created::timestamptz <= d + interval '1 day' AND NOT (t.status = 'Resolved' AND t.updated::timestamptz <= d + interval '1 day')) AS \"Open\" FROM generate_series(date_trunc('day', $__timeFrom()::timestamptz), $__timeTo()::timestamptz, interval '1 day') AS d ORDER BY 1",
+          "rawSql": "SELECT d AS time, (SELECT count(*) FROM tickets t WHERE t.created::timestamptz <= d + interval '1 day' AND NOT (t.status IN ('Resolved', 'Canceled') AND t.updated::timestamptz <= d + interval '1 day')) AS \"Open\" FROM generate_series(date_trunc('day', $__timeFrom()::timestamptz), $__timeTo()::timestamptz, interval '1 day') AS d ORDER BY 1",
           "format": "time_series",
           "rawQuery": true,
           "editorMode": "code",
@@ -1940,6 +1945,11 @@
                         "text": "Resolved",
                         "color": "#02E5A8",
                         "index": 3
+                      },
+                      "Canceled": {
+                        "text": "Canceled",
+                        "color": "#a0aa9e",
+                        "index": 4
                       }
                     }
                   }
