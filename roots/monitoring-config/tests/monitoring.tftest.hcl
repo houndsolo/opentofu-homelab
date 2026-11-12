@@ -445,6 +445,26 @@ run "snmp_v3_auths" {
   }
 }
 
+# The MikroTik jobs walk mikrotik_lite, a slim copy of the bundled mikrotik module (DT-023).
+run "snmp_mikrotik_lite" {
+  command = plan
+
+  assert {
+    condition = (
+      strcontains(module.monitoring.units.mon01["snmp-exporter"], "Volume=/etc/monitoring/snmp-exporter/mikrotik_lite.yml:/etc/snmp_exporter/mikrotik_lite.yml:ro") &&
+      strcontains(module.monitoring.units.mon01["snmp-exporter"], "--config.file=/etc/snmp_exporter/snmp.yml --config.file=/etc/snmp_exporter/mikrotik_lite.yml") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "--config.file=/etc/snmp_exporter/mikrotik_lite.yml") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "--dry-run")
+    )
+    error_message = "The exporter loads mikrotik_lite.yml next to the bundled snmp.yml, and the deploy dry-runs that set (DT-023)."
+  }
+
+  assert {
+    condition     = !strcontains(module.monitoring.prometheus_config, "- \"mikrotik\"\n")
+    error_message = "No job walks the bundled mikrotik module (the whole MIKROTIK-MIB); use mikrotik_lite."
+  }
+}
+
 # The MikroTik SNMP jobs get a longer timeout (their walks take 8-10 s); the others keep the global one.
 run "snmp_scrape_timeouts" {
   command = plan
@@ -462,10 +482,10 @@ run "snmp_scrape_timeouts" {
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"snmp-mikrotik-hr\"\n  \"metrics_path\": \"/snmp\"\n  \"params\":\n    \"auth\":\n    - \"public_v2\"\n    \"module\":\n    - \"hrDevice\"\n    - \"hrStorage\"\n    - \"hrSystem\"\n  \"relabel_configs\"") &&
-      strcontains(module.monitoring.prometheus_config, "\"job_name\": \"snmp-spines\"\n  \"metrics_path\": \"/snmp\"\n  \"params\":\n    \"auth\":\n    - \"public_v2\"\n    \"module\":\n    - \"if_mib\"\n    - \"mikrotik\"\n    - \"system\"\n  \"relabel_configs\"") &&
+      strcontains(module.monitoring.prometheus_config, "\"job_name\": \"snmp-spines\"\n  \"metrics_path\": \"/snmp\"\n  \"params\":\n    \"auth\":\n    - \"public_v2\"\n    \"module\":\n    - \"if_mib\"\n    - \"mikrotik_lite\"\n    - \"system\"\n  \"relabel_configs\"") &&
       length(regexall("\"targets\":\n    - \"10\\.5\\.0\\.[3-6]\"", module.monitoring.prometheus_config)) == 8
     )
-    error_message = "snmp-mikrotik-hr walks hrDevice/hrStorage/hrSystem on the 4 MikroTiks (global interval and timeout); the slow jobs keep if_mib/mikrotik/system."
+    error_message = "snmp-mikrotik-hr walks hrDevice/hrStorage/hrSystem on the 4 MikroTiks (global interval and timeout); the slow jobs walk if_mib/mikrotik_lite/system."
   }
 }
 

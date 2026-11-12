@@ -175,15 +175,17 @@ variable "snmp_targets" {
       targets = { "switch-1" = "10.5.0.1", "switch-2" = "10.5.0.2" }
     }
     mikrotik-access = {
-      modules = ["if_mib", "mikrotik", "system"]
+      # mikrotik_lite: only what the dashboards use, not the whole MIKROTIK-MIB (DT-023).
+      modules = ["if_mib", "mikrotik_lite", "system"]
       # Not a typo: the vlan5 addresses are crossed vs mgmt (m317-1 = 10.20.0.3 / 10.5.0.4), per the devices and NetBox.
       targets = { "m317-1" = "10.5.0.4", "m317-2" = "10.5.0.3" }
-      # RouterOS walks take 8-10 s (m317-2 hit the 10 s default), and two Prometheus poll them.
+      # RouterOS walks are slow (the bundled mikrotik module took 5-17 s); two Prometheus poll them.
+      # mikrotik_lite walks ~half the PDUs (median 5.5 s); the 30s/20s headroom stays for now.
       scrape_interval = "30s"
       scrape_timeout  = "20s"
     }
     spines = {
-      modules         = ["if_mib", "mikrotik", "system"]
+      modules         = ["if_mib", "mikrotik_lite", "system"]
       targets         = { "m326-1" = "10.5.0.5", "m326-2" = "10.5.0.6" }
       scrape_interval = "30s"
       scrape_timeout  = "20s"

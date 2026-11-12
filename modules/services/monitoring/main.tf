@@ -16,7 +16,21 @@ locals {
   pve_enabled = nonsensitive(var.pve_exporter_token != null)
   # Same for whether SNMPv3 auths were given.
   snmp_auths_enabled = nonsensitive(length(var.snmp_auths) > 0)
-  snmp_auths_path    = "${local.backend_conf}/snmp-exporter/auths.yml"
+  snmp_conf          = "${local.backend_conf}/snmp-exporter"
+  snmp_auths_path    = "${local.snmp_conf}/auths.yml"
+  # Extra modules on top of the image's bundled snmp.yml (snmp_exporter merges every --config.file):
+  # mikrotik_lite, the bundled "mikrotik" module cut down to what the dashboards use (DT-023;
+  # snmp/build-mikrotik-lite.sh regenerates it).
+  snmp_module_files = { "mikrotik_lite.yml" = file("${path.module}/snmp/mikrotik_lite.yml") }
+  snmp_config_files = concat(
+    ["/etc/snmp_exporter/snmp.yml"],
+    [for f in keys(local.snmp_module_files) : "/etc/snmp_exporter/${f}"],
+    local.snmp_auths_enabled ? ["/etc/snmp_exporter/auths.yml"] : [],
+  )
+  snmp_volumes = concat(
+    [for f in keys(local.snmp_module_files) : "${local.snmp_conf}/${f}:/etc/snmp_exporter/${f}:ro"],
+    local.snmp_auths_enabled ? ["${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro"] : [],
+  )
   snmp_auths_yml = local.snmp_auths_enabled ? yamlencode({
     auths = {
       for name, a in var.snmp_auths : name => {
@@ -437,13 +451,13 @@ locals {
         reload = true
       }
       snmp-exporter = {
-        description = "Prometheus SNMP exporter (bundled snmp.yml, plus SNMPv3 auths when given)"
+        description = "Prometheus SNMP exporter (bundled snmp.yml, mikrotik_lite, plus SNMPv3 auths when given)"
         image       = var.images.snmp_exporter
         # The probes go to the container by name; the backend address is for the other
         # replica's self-scrape (job snmp-exporter), like Prometheus's own port.
         publish = ["${b.backend_address}:9116:9116"]
-        volumes = local.snmp_auths_enabled ? ["${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro"] : []
-        exec    = local.snmp_auths_enabled ? ["--config.file=/etc/snmp_exporter/snmp.yml", "--config.file=/etc/snmp_exporter/auths.yml"] : []
+        volumes = local.snmp_volumes
+        exec    = [for f in local.snmp_config_files : "--config.file=${f}"]
       }
       blackbox-exporter = {
         description = "Prometheus blackbox exporter"
@@ -585,6 +599,14 @@ locals {
         reload  = []
       }] : [],
       local.alloy_files[host], # logging.tf
+      [for f, content in local.snmp_module_files : {
+        path    = "${local.snmp_conf}/${f}"
+        mode    = "0644"
+        owner   = "root"
+        content = content
+        restart = ["snmp-exporter"]
+        reload  = []
+      }],
       local.snmp_auths_enabled ? [{
         # SNMPv3 credentials; the exporter image runs as root.
         path    = local.snmp_auths_path
@@ -622,7 +644,7 @@ locals {
       ],
       host == local.primary ? [{ path = "${local.backend_data}/postgres", mode = "0700", owner = "user|${var.images.postgres}|postgres" }] : [],
       local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
-      local.snmp_auths_enabled ? [{ path = "${local.backend_conf}/snmp-exporter", mode = "0755", owner = "root" }] : [],
+      [{ path = local.snmp_conf, mode = "0755", owner = "root" }],
       local.alloy_dirs,
       local.wlc_dirs[host],  # telemetry.tf
       local.backend_ha_dirs, # backends.tf
@@ -640,9 +662,9 @@ locals {
       "podman run --rm --network=none --user 0 --entrypoint amtool -v \"$root${local.backend_conf}/alertmanager:/etc/alertmanager:ro\" '${var.images.alertmanager}' check-config /etc/alertmanager/alertmanager.yml",
       "podman run --rm --network=none --user 0 -v \"$root${local.backend_conf}/blackbox:/etc/blackbox_exporter:ro\" '${var.images.blackbox_exporter}' --config.check --config.file=/etc/blackbox_exporter/config.yml",
       local.alloy_validation[host],
-      ], local.snmp_auths_enabled ? [
-      "podman run --rm --network=none -v \"$root${local.snmp_auths_path}:/etc/snmp_exporter/auths.yml:ro\" '${var.images.snmp_exporter}' --dry-run --config.file=/etc/snmp_exporter/snmp.yml --config.file=/etc/snmp_exporter/auths.yml",
-    ] : [], local.wlc_validations[host], local.backend_ha_validations, local.relay_validations) # telemetry.tf, backends.tf
+      # Loads the bundled snmp.yml with our modules (and auths) exactly as the container does.
+      "podman run --rm --network=none ${join(" ", [for v in local.snmp_volumes : "-v \"$root${v}\""])} '${var.images.snmp_exporter}' --dry-run ${join(" ", [for f in local.snmp_config_files : "--config.file=${f}"])}",
+    ], local.wlc_validations[host], local.backend_ha_validations, local.relay_validations) # telemetry.tf, backends.tf
   }
 
   backend_health = {
