@@ -323,7 +323,16 @@ locals {
         volumes     = []
         env         = {}
         env_files   = ["${local.pg_conf}/postgres-exporter.env"]
-        exec        = ["--web.listen-address=${vm.backend_address}:9187"]
+        # Off by default, used by the Databases dashboards: pg_stat_checkpointer (PG 17+ moved the
+        # checkpoint counters out of pg_stat_bgwriter), postmaster start time, transactions open
+        # > 1 min, xid/multixact age per database.
+        exec = [
+          "--web.listen-address=${vm.backend_address}:9187",
+          "--collector.stat_checkpointer",
+          "--collector.postmaster",
+          "--collector.long_running_transactions",
+          "--collector.database_wraparound",
+        ]
         user        = null
         caps        = []
         podman_args = []

@@ -2002,6 +2002,7 @@ def main():
     sys.modules.setdefault("custom", sys.modules[__name__])  # for the other builders' "from custom import ..."
     sys.path.insert(0, str(HERE))
     sys.dont_write_bytecode = True
+    import databases
     import fwwan
     import logs
     import pve
@@ -2010,7 +2011,8 @@ def main():
     import triage
     import wireless
     for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS,
-                       **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS, **triage.DASHBOARDS}.items():
+                       **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS, **triage.DASHBOARDS,
+                       **databases.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = theme.apply_theme(theme.categorize(build(), rel))

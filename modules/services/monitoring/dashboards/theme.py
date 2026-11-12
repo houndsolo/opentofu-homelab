@@ -274,7 +274,7 @@ def apply_theme(dash):
 # Every dashboard also gets a "lylat-<folder>" tag from its provisioning folder (the first
 # component of its path, e.g. Storage/ceph-osd.json -> lylat-storage), so a dashboards link can
 # list one folder. The overview shows one dropdown per category, in this order.
-CATEGORIES = ("Proxmox", "Storage", "Hosts", "Network", "Edge", "Services", "Probes", "Logs", "Monitoring")
+CATEGORIES = ("Proxmox", "Storage", "Hosts", "Network", "Edge", "Services", "Databases", "Probes", "Logs", "Monitoring")
 
 
 def category_tag(folder):
