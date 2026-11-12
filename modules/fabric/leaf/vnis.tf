@@ -33,12 +33,13 @@ locals {
     l2vni.vni => l2vni
   }
   #
-  # Standalone L2VNIs (no VRF/SVI/gateway) for this node's role, keyed by VNI.
+  # Standalone L2VNIs (no VRF/SVI/gateway) for this node's role, keyed by VNI. The standalone
+  # Proxmox host's leaf only gets the ones marked on_standalone (none of the HA segments).
   #
   role_l2only_vnis = {
     for name, l2 in var.l2vnis :
     tostring(l2.vni) => merge(l2, { name = name })
-    if contains(l2.roles, var.leaf.role)
+    if contains(l2.roles, var.leaf.role) && (!var.leaf.standalone || l2.on_standalone)
   }
 
   # Anything to put on the VXLAN fabric at all.

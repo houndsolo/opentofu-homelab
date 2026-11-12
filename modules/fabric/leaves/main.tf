@@ -5,6 +5,7 @@ locals {
     for name, node in var.nodes.proxmox : name => {
       role             = "proxmox"
       proxmox_node     = name
+      standalone       = node.standalone
       id               = node.id
       access_interface = "eth${length(var.fabric.spines) + 1}"
       spine_uplink     = null
@@ -14,5 +15,5 @@ locals {
 
 output "leaves" {
   description = "Physical fabric.leaves plus one virtual leaf per Proxmox host."
-  value       = merge(var.fabric.leaves, local.proxmox_leaves)
+  value       = merge({ for name, leaf in var.fabric.leaves : name => merge(leaf, { standalone = false }) }, local.proxmox_leaves)
 }

@@ -2,6 +2,8 @@ variable "l2vnis" {
   description = <<-EOT
     Standalone L2VNIs: pure bridged segments with no VRF, no SVI/anycast gateway and no DHCP.
     Used for unicast HA peer traffic (VRRP adverts, Kea HA, memberlist, alerting gossip).
+    They go only to leaves whose role is in `roles` (default: the Proxmox hosts' virtual leaves,
+    never the border leaves), and not to the standalone host's leaf unless `on_standalone`.
     `prefix` is not configured on the fabric; it is the source of truth for the hosts on the segment.
   EOT
   default     = {}
@@ -11,6 +13,9 @@ variable "l2vnis" {
     prefix      = string
     description = optional(string, "")
     roles       = optional(set(string), ["proxmox"])
+    # Also on the standalone host's leaf (greatfox, not in the cluster). Off by default: the HA
+    # segments only connect VMs on the cluster nodes.
+    on_standalone = optional(bool, false)
   }))
 
   validation {
