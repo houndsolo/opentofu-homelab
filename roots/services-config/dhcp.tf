@@ -43,7 +43,10 @@ module "dhcp" {
 
   ha_prefix            = var.l2vnis["ha_dhcp"].prefix
   vnis                 = var.vnis
-  default_name_servers = concat(local.dns_vip == null ? [] : [local.dns_vip], values(local.dns_addresses))
+  # Only the DNS VIP (DT-051): keepalived moves it to the healthy DNS node, and vyoscmd sorts multi-value
+  # nodes as text, so a list with the node addresses would put .1/.2 ahead of the VIP. Without a VIP, fall
+  # back to the node addresses.
+  default_name_servers = local.dns_vip != null ? [local.dns_vip] : values(local.dns_addresses)
   interface_macs       = module.dhcp_macs.interface_macs[each.key]
   name                 = each.key
   management_ip        = each.value.local_management_ip

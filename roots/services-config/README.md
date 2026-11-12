@@ -66,7 +66,7 @@ transfers.
 | `dhcp_syslog` | `{ host = "10.20.11.101", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
 | `dns_node_exporter` | `{}` (image `docker.io/prom/node-exporter:v1.12.1`, port 9100) | node_exporter on each DNS VM ([`dns-node-exporter.tf`](dns-node-exporter.tf)): a Podman Quadlet with host networking, listening on the VM's management address `:9100`, where monitoring-config's `node` job scrapes it. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it. |
 | `dns_syslog` | `{ host = "10.20.11.101" }` | rsyslog on each DNS VM forwards its journal (BIND included) to this receiver over TCP; also takes `port` (514) and `level` (`info`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
-| `dns_vrrp` | `{ vip = "10.8.53.53/16", router_id = 53 }` | keepalived VIP for the DNS pair: on BIND's service NIC, adverts unicast over the `ha_dns` L2VNI. BIND listens on it and DHCP hands it out first. `null` skips it. See [The DNS VIP](#the-dns-vip). |
+| `dns_vrrp` | `{ vip = "10.8.53.53/16", router_id = 53 }` | keepalived VIP for the DNS pair: on BIND's service NIC, adverts unicast over the `ha_dns` L2VNI. BIND listens on it and DHCP hands out only the VIP. `null` skips it. See [The DNS VIP](#the-dns-vip). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
 
 The root also reads `vms`, `vnis`, `nodes` and `fabric` from the inventory.
@@ -320,7 +320,7 @@ Each DHCP VM gets one `vyoscmd_commands` resource (`<name>-dhcp`), with
    is never touched.
 5. **Pools.** One pool for each VLAN with a `dhcp.scope`. Each pool sets the
    default router (the anycast gateway), domain name, search list, name servers
-   (the DNS VIP, then the DNS service addresses), lease time, ranges and `subnet-id` (the VNI). By
+   (only the DNS VIP; the DNS service addresses if `dns_vrrp` is null), lease time, ranges and `subnet-id` (the VNI). By
    default it also marks the pool authoritative. The defaults are listed in
    [inventory](../../inventory/README.md#vnisautotfvars-vrfs-vlans-and-dhcp-scopes).
 
@@ -338,8 +338,6 @@ set service dhcp-server listen-interface 'eth3'
 set service dhcp-server shared-network-name l2vni9008 authoritative
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option default-router '10.8.0.5'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.53'
-set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.1'
-set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.2'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 range 0 start '10.8.5.1'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 range 0 stop '10.8.5.99'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 subnet-id '9008'
@@ -435,5 +433,6 @@ restarts BIND; redeploys reload keepalived, which keeps the current MASTER):
 - **Election.** Both start BACKUP with `nopreempt`; `dns_primary` gets priority 150 for the first
   election only. A failed check (`dig` for the lylat.space SOA on the VM's own address) puts the node
   in FAULT and releases the VIP.
-- **DHCP** hands out the VIP first, then both service addresses.
+- **DHCP** hands out only the VIP (DT-051). The vyoscmd provider sorts multi-value nodes as text, so a
+  list with the service addresses would put .1/.2 ahead of the VIP, and the VIP already moves to the healthy node.
 
