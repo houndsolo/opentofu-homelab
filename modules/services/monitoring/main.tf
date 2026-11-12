@@ -244,8 +244,14 @@ locals {
   ceph_node_sel = (var.settings.ceph_node_selector != null ? var.settings.ceph_node_selector
     : length(var.targets.pve) == 0 ? "" : "host=~\"${join("|", sort([for t in var.targets.pve : t.host]))}\""
   )
+  # Groups from the Ceph mixin that reference metrics which don't exist on a
+  # non-cephadm (PVE) cluster are skipped (DT-039).
+  ceph_alert_skip = toset(["hardware", "nvmeof", "rbdmirror", "cephadm"])
+  ceph_alert_groups = [for g in yamldecode(file("${path.module}/rules/ceph-mixin/prometheus_alerts.yml")).groups : g
+    if !contains(local.ceph_alert_skip, g.name)
+  ]
   ceph_alerts_yml = local.ceph_alerts_enabled ? yamlencode({
-    groups = [for g in yamldecode(file("${path.module}/rules/ceph-mixin/prometheus_alerts.yml")).groups : {
+    groups = [for g in local.ceph_alert_groups : {
       name = g.name
       rules = [for r in g.rules : merge(r, {
         # 1: node_x{...} -> node_x{<sel>,...}; 2: a bare node_x -> node_x{<sel>} (now

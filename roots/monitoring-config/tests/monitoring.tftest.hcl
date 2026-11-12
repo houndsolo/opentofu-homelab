@@ -336,10 +336,11 @@ run "exporters_and_ceph_alerts" {
   }
 
   assert {
-    # The vendored ceph-mixin alerts, all 99, in rules/ceph.yml on both backends.
+    # The vendored ceph-mixin alerts, minus the 4 groups that reference metrics
+    # which don't exist on a non-cephadm (PVE) cluster (DT-039).
     condition = (
-      length(yamldecode(module.monitoring.prometheus_ceph_rules).groups) == 16 &&
-      length(flatten([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : g.rules])) == 99 &&
+      length(yamldecode(module.monitoring.prometheus_ceph_rules).groups) == 12 &&
+      length(flatten([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : g.rules])) == 56 &&
       contains(flatten([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : [for r in g.rules : r.alert]]), "CephHealthWarning") &&
       contains(flatten([for g in yamldecode(module.monitoring.prometheus_ceph_rules).groups : [for r in g.rules : r.alert]]), "CephFilesystemOffline") &&
       alltrue([for name in ["mon01", "mon02"] : (
@@ -347,7 +348,7 @@ run "exporters_and_ceph_alerts" {
         strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "check rules /etc/prometheus/rules/ceph.yml")
       )])
     )
-    error_message = "Both backends load the ceph-mixin's alert rules as rules/ceph.yml and check them with promtool."
+    error_message = "Both backends load the ceph-mixin's alert rules as rules/ceph.yml (hardware/nvmeof/rbdmirror/cephadm groups skipped) and check them with promtool."
   }
 
   assert {

@@ -23,10 +23,12 @@ frontend s3
 
 backend rgw
   balance roundrobin
-  # An anonymous GET / on RGW returns 200 (empty bucket list).
-  option httpchk GET /
+  # HEAD / returns 200 with no body, so haproxy closes cleanly and RGW doesn't
+  # log "complete_request() returned Connection reset by peer" (DT-028).
+  option httpchk
+  http-check send meth HEAD uri / ver HTTP/1.1 hdr Host rgw
   http-check expect status 200
-  default-server check inter 5s fall 3 rise 2
+  default-server check inter 15s fall 3 rise 2
 %{ for i, endpoint in endpoints ~}
   server rgw${i + 1} ${endpoint}
 %{ endfor ~}
