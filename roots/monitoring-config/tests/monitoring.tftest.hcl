@@ -158,14 +158,26 @@ run "inventory_targets" {
   }
 
   assert {
-    # Every dashboard is in the "Dashboards" dropdown (links to tag lylat), and the overview shows them as buttons.
+    # Every dashboard carries the lylat tag and its folder's category tag (lylat-<folder>). Every
+    # dashboard but the overview has one "Dashboards" dropdown (tag lylat); the overview instead has
+    # one dropdown per category folder (tag lylat-<category>), and every non-overview folder is one
+    # of those categories, so no dashboard is missing from the overview.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
       contains(jsondecode(content).tags, "lylat") &&
-      length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "lylat")]) == 1
-      )]) && alltrue([for l in jsondecode(module.monitoring.dashboards["Overview/overview.json"]).links :
-      !l.asDropdown if l.type == "dashboards"
+      contains(jsondecode(content).tags, "lylat-${lower(split("/", rel)[0])}") &&
+      (rel == "Overview/overview.json" ||
+      length([for l in jsondecode(content).links : l if l.type == "dashboards" && l.tags == ["lylat"]]) == 1)
+      )]) && alltrue([
+      for l in jsondecode(module.monitoring.dashboards["Overview/overview.json"]).links :
+      l.asDropdown && length(l.tags) == 1 && startswith(l.tags[0], "lylat-") if l.type == "dashboards"
+      ]) && length([
+      for l in jsondecode(module.monitoring.dashboards["Overview/overview.json"]).links : l if l.type == "dashboards" && l.tags == ["lylat"]
+      ]) == 0 && alltrue([
+      for rel in keys(module.monitoring.dashboards) :
+      contains([for l in jsondecode(module.monitoring.dashboards["Overview/overview.json"]).links : l.tags[0] if l.type == "dashboards"], "lylat-${lower(split("/", rel)[0])}")
+      if split("/", rel)[0] != "Overview"
     ])
-    error_message = "Every dashboard carries the lylat tag and a dashboard-links entry for it."
+    error_message = "Every dashboard carries lylat + lylat-<folder> and a Dashboards dropdown; the overview has one dropdown per category folder, covering every folder."
   }
 
   assert {
