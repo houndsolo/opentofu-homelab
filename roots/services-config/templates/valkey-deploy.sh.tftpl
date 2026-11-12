@@ -1,0 +1,99 @@
+#!/bin/bash
+# Valkey + Sentinel deploy (services-config valkey.tf). Installs Debian's valkey-server and
+# valkey-sentinel, writes the configs, restarts a service only when its config changed, and
+# fails unless this node ends up healthy (primary, or a replica in sync with the primary).
+set -euo pipefail
+umask 077
+stage=$(mktemp -d /tmp/tofu-valkey.XXXXXX)
+trap 'rm -rf "$stage"' EXIT
+me='${address}'
+
+if ! dpkg -s valkey-server valkey-sentinel nftables >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -q
+  apt-get install -y -q --no-install-recommends valkey-server valkey-sentinel nftables
+fi
+
+# Firewall first: 6379/26379 only for the trio and the NetBox VMs (own table, loaded at boot).
+printf '%s' '${nft_b64}' | base64 -d > "$stage/valkey.nft"
+nft -c -f "$stage/valkey.nft"
+install -m 0644 -o root -g root "$stage/valkey.nft" /etc/nftables-valkey.nft
+cat > "$stage/valkey-nft.service" <<'UNIT'
+# Managed by OpenTofu (services-config, valkey.tf).
+[Unit]
+Description=nftables rules for Valkey/Sentinel
+Before=valkey-server.service valkey-sentinel.service
+Wants=network-pre.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables-valkey.nft
+ExecStop=/usr/sbin/nft delete table inet valkey
+[Install]
+WantedBy=multi-user.target
+UNIT
+install -m 0644 "$stage/valkey-nft.service" /etc/systemd/system/valkey-nft.service
+systemctl daemon-reload
+systemctl enable --quiet valkey-nft.service
+systemctl restart valkey-nft.service
+
+# The current primary, as the running Sentinels see it (any of them); before the first Sentinel
+# runs, the first VM by name is the primary.
+primary=""
+for s in $me ${join(" ", peers)}; do
+  p=$(timeout 3 valkey-cli -h "$s" -p 26379 --raw SENTINEL get-master-addr-by-name '${master_name}' 2>/dev/null | head -1 || true)
+  if [[ "$p" =~ ^[0-9.]+$ ]]; then primary=$p; break; fi
+done
+[ -n "$primary" ] || primary='${initial_primary}'
+echo "valkey: primary is $primary (this node $me)"
+
+# valkey.conf: the managed settings plus replicaof the current primary (none on the primary).
+printf '%s' '${server_b64}' | base64 -d > "$stage/valkey.conf"
+[ "$primary" = "$me" ] || printf 'replicaof %s 6379\n' "$primary" >> "$stage/valkey.conf"
+# Compare against what the last deploy wrote (Sentinel rewrites the live file).
+if ! cmp -s "$stage/valkey.conf" /etc/valkey/.valkey.conf.tofu || ! systemctl is-active --quiet valkey-server.service; then
+  install -m 0640 -o valkey -g valkey "$stage/valkey.conf" /etc/valkey/valkey.conf
+  install -m 0600 -o root -g root "$stage/valkey.conf" /etc/valkey/.valkey.conf.tofu
+  systemctl enable --quiet valkey-server.service
+  systemctl restart valkey-server.service
+  echo "valkey-server restarted"
+else
+  echo "valkey-server unchanged, not restarted"
+fi
+
+# sentinel.conf: only the first time or when the managed settings change (Sentinel rewrites it).
+printf '%s' '${sentinel_b64}' | base64 -d > "$stage/sentinel.base"
+sed "s/__PRIMARY__/$primary/" "$stage/sentinel.base" > "$stage/sentinel.conf"
+if ! cmp -s "$stage/sentinel.base" /etc/valkey/.sentinel.conf.tofu || ! systemctl is-active --quiet valkey-sentinel.service; then
+  install -m 0640 -o valkey -g valkey "$stage/sentinel.conf" /etc/valkey/sentinel.conf
+  install -m 0600 -o root -g root "$stage/sentinel.base" /etc/valkey/.sentinel.conf.tofu
+  systemctl enable --quiet valkey-sentinel.service
+  systemctl restart valkey-sentinel.service
+  echo "valkey-sentinel restarted"
+else
+  echo "valkey-sentinel unchanged, not restarted"
+fi
+
+# Health: valkey answers; a replica is connected to the primary and in sync; Sentinel knows the primary.
+export REDISCLI_AUTH
+REDISCLI_AUTH=$(sed -n 's/^requirepass //p' /etc/valkey/.valkey.conf.tofu)
+ok=0
+for i in $(seq 1 30); do
+  role=$(valkey-cli -h 127.0.0.1 --raw INFO replication 2>/dev/null | tr -d '\r' || true)
+  if [ "$primary" = "$me" ]; then
+    grep -q '^role:master' <<<"$role" && ok=1
+  else
+    grep -q '^role:slave' <<<"$role" && grep -q '^master_link_status:up' <<<"$role" && ok=1
+  fi
+  sp=$(valkey-cli -h 127.0.0.1 -p 26379 --raw SENTINEL get-master-addr-by-name '${master_name}' 2>/dev/null | head -1 || true)
+  [ "$sp" = "$primary" ] || ok=0
+  [ $ok -eq 1 ] && break
+  sleep 2
+done
+if [ $ok -ne 1 ]; then
+  echo "valkey is not healthy on $me (expected primary $primary)" >&2
+  printf '%s\n' "$role" >&2
+  journalctl -u valkey-server.service -u valkey-sentinel.service -n 30 --no-pager >&2
+  exit 1
+fi
+echo "valkey is healthy on $me ($(grep '^role:' <<<"$role")), sentinel sees primary $sp"

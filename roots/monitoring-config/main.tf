@@ -302,8 +302,9 @@ module "monitoring" {
     }
   }
   postgres_settings = var.postgres_settings
-  # Application databases (role = database = key): dark-triage (role "ticketing" VMs) connects from
-  # its backend VLAN address with the shared password from app-db.secret.auto.tfvars.
+  # Application databases (role = database = key): dark-triage (role "ticketing" VMs) and NetBox
+  # (role "netbox" VMs) connect from their backend VLAN addresses with the shared passwords from
+  # app-db.secret.auto.tfvars.
   postgres_apps = {
     for app, clients in local.postgres_app_clients : app => {
       clients        = clients

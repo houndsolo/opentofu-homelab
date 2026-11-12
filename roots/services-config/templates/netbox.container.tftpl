@@ -1,0 +1,33 @@
+# Managed by OpenTofu (services-config, netbox.tf). Local edits are overwritten.
+[Unit]
+Description=NetBox (web UI and API)
+Wants=network-online.target
+RequiresMountsFor=/var/lib/netbox
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=netbox
+User=netbox:root
+EnvironmentFile=/etc/netbox/env
+Volume=/var/lib/netbox/media:/opt/netbox/netbox/media
+Volume=/var/lib/netbox/reports:/opt/netbox/netbox/reports
+Volume=/var/lib/netbox/scripts:/opt/netbox/netbox/scripts
+HealthCmd=/opt/netbox/health.sh
+HealthInterval=15s
+HealthTimeout=3s
+HealthStartPeriod=90s
+# The node's own VLAN 2 address and the keepalived VIP (bound on both nodes: ip_nonlocal_bind).
+%{ for a in addresses ~}
+%{ for p in ports ~}
+PublishPort=${a}:${p}:8080
+%{ endfor ~}
+%{ endfor ~}
+
+[Service]
+Restart=always
+# The first start on an empty database runs every migration (several minutes).
+TimeoutStartSec=1200
+
+[Install]
+WantedBy=multi-user.target

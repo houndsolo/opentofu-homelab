@@ -1,0 +1,96 @@
+#!/bin/bash
+# NetBox deploy (services-config netbox.tf): pull the pinned image, install the Quadlet units and
+# (HA) keepalived. Fails, without touching the other node, if NetBox isn't healthy.
+set -euo pipefail
+umask 077
+command -v podman >/dev/null
+stage=$(mktemp -d /tmp/tofu-netbox.XXXXXX)
+trap 'rm -rf "$stage"' EXIT
+
+podman image exists '${image}' || podman pull -q '${image}' >/dev/null
+
+%{ if ha ~}
+# The VIP is published on both nodes; only the MASTER holds it.
+printf 'net.ipv4.ip_nonlocal_bind = 1\n' > /etc/sysctl.d/90-netbox.conf
+chmod 0644 /etc/sysctl.d/90-netbox.conf
+sysctl -q -p /etc/sysctl.d/90-netbox.conf
+%{ endif ~}
+
+install -d -m 0755 /etc/netbox /etc/containers/systemd /var/lib/netbox
+%{ if cephfs ~}
+# CephFS /netbox at /var/lib/netbox (kernel client; mount.ceph comes with ceph-common).
+if ! command -v mount.ceph >/dev/null; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -q
+  apt-get install -y -q --no-install-recommends ceph-common
+fi
+install -d -m 0755 /etc/ceph
+printf '%s' '${cephfs_key_b64}' | base64 -d > "$stage/cephfs.secret"
+install -m 0600 -o root -g root "$stage/cephfs.secret" /etc/ceph/netbox.secret
+printf '%s' '${mount_b64}' | base64 -d > "$stage/var-lib-netbox.mount"
+if ! cmp -s "$stage/var-lib-netbox.mount" /etc/systemd/system/var-lib-netbox.mount; then
+  install -m 0644 "$stage/var-lib-netbox.mount" /etc/systemd/system/var-lib-netbox.mount
+  systemctl daemon-reload
+  if mountpoint -q /var/lib/netbox; then systemctl restart var-lib-netbox.mount; fi
+fi
+systemctl enable --quiet var-lib-netbox.mount
+systemctl start var-lib-netbox.mount
+mountpoint -q /var/lib/netbox
+echo "cephfs mounted at /var/lib/netbox"
+%{ endif ~}
+# The image runs as netbox (uid 999), group root.
+for d in media reports scripts; do install -d -m 0775 -o 999 -g 0 /var/lib/netbox/$d; done
+printf '%s' '${env_b64}' | base64 -d > "$stage/env"
+printf '%s' '${unit_b64}' | base64 -d > "$stage/netbox.container"
+printf '%s' '${worker_b64}' | base64 -d > "$stage/netbox-worker.container"
+# Restart only when the units, env or image changed (or it isn't running): a deploy that only
+# changes keepalived must not interrupt the node holding the VIP.
+changed=0
+cmp -s "$stage/env" /etc/netbox/env || changed=1
+cmp -s "$stage/netbox.container" /etc/containers/systemd/netbox.container || changed=1
+cmp -s "$stage/netbox-worker.container" /etc/containers/systemd/netbox-worker.container || changed=1
+install -m 0600 -o root -g root "$stage/env" /etc/netbox/env
+install -m 0644 "$stage/netbox.container" /etc/containers/systemd/netbox.container
+install -m 0644 "$stage/netbox-worker.container" /etc/containers/systemd/netbox-worker.container
+if [ $changed -eq 1 ] || ! systemctl is-active --quiet netbox.service || ! systemctl is-active --quiet netbox-worker.service; then
+  systemctl daemon-reload
+  systemctl restart netbox.service
+  systemctl restart netbox-worker.service
+  echo "netbox restarted"
+else
+  echo "netbox unchanged, not restarted"
+fi
+
+# The first start on an empty database runs every migration: allow 15 minutes.
+healthy=0
+for i in $(seq 1 180); do
+  code=$(curl -s -o /dev/null -w '%%{http_code}' --max-time 3 'http://${listen}/login/' || true)
+  if [ "$code" = 200 ]; then echo "netbox is healthy on ${listen} (/login/ 200)"; healthy=1; break; fi
+  sleep 5
+done
+if [ $healthy -ne 1 ]; then
+  echo "netbox is not healthy on http://${listen}/login/ (last HTTP $code)" >&2
+  journalctl -u netbox.service -n 40 --no-pager >&2
+  exit 1
+fi
+systemctl is-active --quiet netbox-worker.service
+
+%{ if ha ~}
+printf '%s' '${keepalived_b64}' | base64 -d > "$stage/keepalived.conf"
+printf '%s' '${check_b64}' | base64 -d > "$stage/chk_netbox.sh"
+if ! command -v keepalived >/dev/null; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -q
+  apt-get install -y -q --no-install-recommends keepalived
+fi
+install -d -m 0755 /etc/keepalived
+# enable_script_security: the check must be root-owned and not writable by others.
+install -m 0755 -o root -g root "$stage/chk_netbox.sh" /etc/keepalived/chk_netbox.sh
+keepalived -t -f "$stage/keepalived.conf"
+install -m 0600 -o root -g root "$stage/keepalived.conf" /etc/keepalived/keepalived.conf
+systemctl enable --quiet keepalived.service
+# Reload keeps the VRRP state (no VIP move); start only when not running yet.
+if systemctl is-active --quiet keepalived.service; then systemctl reload keepalived.service; else systemctl start keepalived.service; fi
+systemctl is-active --quiet keepalived.service
+echo "keepalived running"
+%{ endif ~}

@@ -1,0 +1,58 @@
+# Managed by OpenTofu (services-config, netbox.tf). Local edits are overwritten.
+# VRRP for the NetBox VIP on ${host}: adverts go unicast over the HA L2VNI (${ha_interface}),
+# the VIP sits on the VLAN 2 NIC (${interface}).
+
+global_defs {
+  router_id ${host}
+  script_user nobody nogroup
+  enable_script_security
+  vrrp_garp_master_refresh 60
+}
+
+# No weight: a failing check puts the node in FAULT, which releases the VIP. (With
+# nopreempt a lowered priority would never move it.)
+# Every 3 s, at most 2 s each (timeout < interval, so checks never overlap; curl gives up after 1.5 s, before keepalived kills it);
+# 3 failures (~9 s) put the node in FAULT, 2 successes make it eligible again.
+vrrp_script chk_netbox {
+  script "/etc/keepalived/chk_netbox.sh"
+  interval 3
+  timeout 2
+  fall 3
+  rise 2
+  init_fail
+}
+
+vrrp_instance netbox {
+  # Both start BACKUP and nobody preempts: priority only decides the first election, and a
+  # recovered node doesn't pull the VIP back (no second interruption, fewer EVPN moves).
+  state BACKUP
+  nopreempt
+  interface ${ha_interface}
+  virtual_router_id ${router_id}
+  priority ${priority}
+  advert_int 1
+  unicast_src_ip ${ha_address}
+  unicast_peer {
+%{ for peer in peers ~}
+    ${peer}
+%{ endfor ~}
+  }
+  authentication {
+    auth_type PASS
+    auth_pass ${auth_pass}
+  }
+  # use_vmac: the VIP sits on a macvlan with the VRRP virtual MAC 00:00:5e:00:01:<VRID>, so its MAC
+  # never changes on failover. With ARP suppression on the fabric, the new MASTER's gratuitous ARP
+  # doesn't reach same-VLAN hosts, so a VIP whose MAC changed stayed broken for them (DT-045); with
+  # a fixed MAC only its EVPN location moves (MAC mobility), and every cached ARP entry stays right.
+  # Adverts still go unicast over the HA L2VNI (the instance's interface).
+  virtual_ipaddress {
+    ${vip} dev ${interface} use_vmac
+  }
+  track_interface {
+    ${interface}
+  }
+  track_script {
+    chk_netbox
+  }
+}

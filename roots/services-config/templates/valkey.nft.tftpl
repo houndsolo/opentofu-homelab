@@ -1,0 +1,16 @@
+#!/usr/sbin/nft -f
+# Managed by OpenTofu (services-config, valkey.tf): Valkey (6379) and Sentinel (26379) only for
+# the Valkey trio and the NetBox VMs. Everything else on this VM is untouched (own table).
+table inet valkey
+delete table inet valkey
+table inet valkey {
+  set clients {
+    type ipv4_addr
+    elements = { 127.0.0.1, ${join(", ", clients)} }
+  }
+  chain input {
+    type filter hook input priority filter - 5; policy accept;
+    tcp dport { 6379, 26379 } ip saddr @clients accept
+    tcp dport { 6379, 26379 } drop
+  }
+}

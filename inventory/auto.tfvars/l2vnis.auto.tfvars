@@ -51,4 +51,10 @@ l2vnis = {
     prefix      = "10.21.16.0/24"
     description = "dark-triage keepalived adverts (triage01-02 .43-.44; VIP 10.2.11.105 on VLAN 2)"
   }
+  ha_netbox = {
+    vni         = 9219
+    vlan_id     = 219
+    prefix      = "10.21.17.0/24"
+    description = "NetBox keepalived adverts (netbox01-02 .45-.46; VIP 10.2.11.106 on VLAN 2)"
+  }
 }

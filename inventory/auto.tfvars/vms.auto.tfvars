@@ -213,6 +213,205 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  netbox01 = {
+    # NetBox (IPAM/DCIM), HA pair with netbox02: netbox + netbox-worker as Podman Quadlets and keepalived
+    # (VIP 10.2.11.106, netbox.lylat.space) deployed by services-config (netbox.tf). Data in Postgres
+    # (Patroni, database "netbox"), cache and task queue in Valkey via Sentinel (valkey01-03).
+    owner              = "services-vms"
+    role               = "netbox"
+    ha                 = { group = "netbox" } # Proxmox HA; never on a node with another netbox VM
+    node               = "macbeth"
+    vm_id              = 1145
+    image              = "debian13"
+    management_address = "10.20.11.45/16"
+    network_devices = [
+      {
+        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.45/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) and the Valkey Sentinels.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.45/16"
+      },
+      {
+        # Ceph public network: CephFS (/netbox) mounted at /var/lib/netbox, NetBox's media,
+        # scripts and reports shared by both nodes.
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.45/16"
+      },
+      {
+        # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.2.11.106.
+        bridge       = "vmbr4000"
+        vlan_id      = 219
+        ipv4_address = "10.21.17.45/24"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "netbox"]
+      cpu_cores    = 2
+      memory_mb    = 4096
+      disk_size_gb = 20
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  netbox02 = {
+    # NetBox (IPAM/DCIM), HA pair with netbox01: netbox + netbox-worker as Podman Quadlets and keepalived
+    # (VIP 10.2.11.106, netbox.lylat.space) deployed by services-config (netbox.tf). Data in Postgres
+    # (Patroni, database "netbox"), cache and task queue in Valkey via Sentinel (valkey01-03).
+    owner              = "services-vms"
+    role               = "netbox"
+    ha                 = { group = "netbox" } # Proxmox HA; never on a node with another netbox VM
+    node               = "venom"
+    vm_id              = 1146
+    image              = "debian13"
+    management_address = "10.20.11.46/16"
+    network_devices = [
+      {
+        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.46/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) and the Valkey Sentinels.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.46/16"
+      },
+      {
+        # Ceph public network: CephFS (/netbox) mounted at /var/lib/netbox, NetBox's media,
+        # scripts and reports shared by both nodes.
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.46/16"
+      },
+      {
+        # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.2.11.106.
+        bridge       = "vmbr4000"
+        vlan_id      = 219
+        ipv4_address = "10.21.17.46/24"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "netbox"]
+      cpu_cores    = 2
+      memory_mb    = 4096
+      disk_size_gb = 20
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  valkey01 = {
+    # Valkey + Sentinel for NetBox (cache and task queue), trio valkey01-03: valkey01 starts as the
+    # primary, the others replicate; the three Sentinels (quorum 2) promote a replica if the primary
+    # dies. Deployed by services-config (valkey.tf). No VIP: NetBox asks the Sentinels for the primary.
+    owner              = "services-vms"
+    role               = "valkey"
+    ha                 = { group = "valkey" } # Proxmox HA; never on a node with another valkey VM
+    node               = "fichina"
+    vm_id              = 1147
+    image              = "debian13"
+    management_address = "10.20.11.47/16"
+    network_devices = [
+      {
+        # VLAN 2, static, outside the DHCP pool. Default route via the anycast gateway (apt).
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.47/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Backend VLAN 13: Valkey (6379) and Sentinel (26379) for NetBox, replication between the trio.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.47/16"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "valkey"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  valkey02 = {
+    # Valkey + Sentinel for NetBox (cache and task queue), trio valkey01-03: valkey01 starts as the
+    # primary, the others replicate; the three Sentinels (quorum 2) promote a replica if the primary
+    # dies. Deployed by services-config (valkey.tf). No VIP: NetBox asks the Sentinels for the primary.
+    owner              = "services-vms"
+    role               = "valkey"
+    ha                 = { group = "valkey" } # Proxmox HA; never on a node with another valkey VM
+    node               = "titania"
+    vm_id              = 1148
+    image              = "debian13"
+    management_address = "10.20.11.48/16"
+    network_devices = [
+      {
+        # VLAN 2, static, outside the DHCP pool. Default route via the anycast gateway (apt).
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.48/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Backend VLAN 13: Valkey (6379) and Sentinel (26379) for NetBox, replication between the trio.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.48/16"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "valkey"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  valkey03 = {
+    # Valkey + Sentinel for NetBox (cache and task queue), trio valkey01-03: valkey01 starts as the
+    # primary, the others replicate; the three Sentinels (quorum 2) promote a replica if the primary
+    # dies. Deployed by services-config (valkey.tf). No VIP: NetBox asks the Sentinels for the primary.
+    owner              = "services-vms"
+    role               = "valkey"
+    ha                 = { group = "valkey" } # Proxmox HA; never on a node with another valkey VM
+    node               = "fortuna"
+    vm_id              = 1149
+    image              = "debian13"
+    management_address = "10.20.11.49/16"
+    network_devices = [
+      {
+        # VLAN 2, static, outside the DHCP pool. Default route via the anycast gateway (apt).
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.49/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # Backend VLAN 13: Valkey (6379) and Sentinel (26379) for NetBox, replication between the trio.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.49/16"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "valkey"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   mon02 = {
     # Prometheus/Alertmanager/InfluxDB replica of mon01 (Postgres stays on mon01 only).
     owner              = "services-vms"

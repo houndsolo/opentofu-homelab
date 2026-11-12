@@ -1,0 +1,24 @@
+# Managed by OpenTofu (services-config, netbox.tf). Local edits are overwritten.
+[Unit]
+Description=NetBox worker (background jobs from the Valkey task queue)
+Wants=network-online.target
+RequiresMountsFor=/var/lib/netbox
+After=network-online.target netbox.service
+
+[Container]
+Image=${image}
+ContainerName=netbox-worker
+User=netbox:root
+EnvironmentFile=/etc/netbox/env
+Volume=/var/lib/netbox/media:/opt/netbox/netbox/media
+Volume=/var/lib/netbox/reports:/opt/netbox/netbox/reports
+Volume=/var/lib/netbox/scripts:/opt/netbox/netbox/scripts
+# Straight to the worker (the entrypoint's migrations run in the netbox container).
+Exec=/opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

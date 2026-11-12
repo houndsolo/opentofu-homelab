@@ -212,7 +212,7 @@ variable "blackbox_icmp_targets" {
   type        = map(string)
   default = {
     "fw-wan" = "10.20.10.255"
-    netbox   = "10.2.0.40"
+    netbox   = "10.2.11.106" # NetBox VIP
     v100     = "10.12.0.10"
   }
 }
@@ -221,11 +221,13 @@ variable "blackbox_http_targets" {
   description = "host => URL for HTTP 2xx probes."
   type        = map(string)
   default = {
-    netbox       = "http://10.2.0.40:8000/login/"
+    netbox       = "http://10.2.11.106/login/" # NetBox VIP (netbox01/02)
     "llama-v100" = "http://10.12.0.10:8080/health"
     dark-triage  = "http://10.2.11.105/api/health" # the VIP; 200 only when the app reaches its database
     triage01     = "http://10.2.11.43/api/health"
     triage02     = "http://10.2.11.44/api/health"
+    netbox01     = "http://10.2.11.45/login/" # NetBox HA pair (services-config netbox.tf)
+    netbox02     = "http://10.2.11.46/login/"
   }
 }
 

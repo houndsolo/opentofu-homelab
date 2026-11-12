@@ -1,0 +1,17 @@
+# Managed by OpenTofu (services-config, valkey.tf), with one exception: the Sentinels own the
+# "replicaof" line (they rewrite this file on failover), and a deploy writes it to match the
+# primary the Sentinels report.
+bind ${address} 127.0.0.1
+port 6379
+protected-mode yes
+daemonize no
+pidfile /run/valkey/valkey-server.pid
+logfile ""
+dir /var/lib/valkey
+requirepass ${password}
+masterauth ${password}
+replica-announce-ip ${address}
+# The task queue must survive a restart; the cache shares the instance (database 1).
+appendonly yes
+maxmemory ${maxmemory}
+maxmemory-policy noeviction

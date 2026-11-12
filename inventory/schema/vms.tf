@@ -88,9 +88,9 @@ variable "vms" {
     condition = alltrue([
       for vm in values(var.vms) :
       contains(["fabric-vms", "services-vms", "workloads"], vm.owner) &&
-      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp", "monitoring", "grafana", "logging", "metrics", "postgres", "ticketing"], vm.role)))
+      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp", "monitoring", "grafana", "logging", "metrics", "postgres", "ticketing", "netbox", "valkey"], vm.role)))
     ])
-    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns, dhcp, monitoring, grafana, logging, metrics, postgres or ticketing) applies only to services-vms."
+    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox or valkey) applies only to services-vms."
   }
 
   validation {

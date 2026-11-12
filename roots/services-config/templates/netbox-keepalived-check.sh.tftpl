@@ -1,0 +1,4 @@
+#!/bin/sh
+# Managed by OpenTofu (services-config). keepalived health check: NetBox on this node serves its
+# login page (the same check as the image's health.sh).
+exec /usr/bin/curl -sf -o /dev/null --max-time 1.5 '${url}'

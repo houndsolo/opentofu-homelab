@@ -1,0 +1,19 @@
+# Managed by OpenTofu (services-config, valkey.tf) as a starting point: Sentinel rewrites this
+# file at runtime (current primary, known replicas and sentinels, epochs). A deploy only replaces
+# it the first time or when these settings change.
+port 26379
+bind ${address} 127.0.0.1
+# No password on Sentinel (NetBox's client doesn't send one); nftables limits 26379 to the
+# NetBox and Valkey VMs.
+protected-mode no
+daemonize no
+pidfile /run/valkey/valkey-sentinel.pid
+logfile ""
+dir /var/lib/valkey
+sentinel announce-ip ${address}
+sentinel resolve-hostnames no
+sentinel monitor ${master_name} __PRIMARY__ 6379 ${quorum}
+sentinel auth-pass ${master_name} ${password}
+sentinel down-after-milliseconds ${master_name} ${down_after_ms}
+sentinel failover-timeout ${master_name} ${failover_timeout_ms}
+sentinel parallel-syncs ${master_name} 1

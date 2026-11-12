@@ -1,0 +1,16 @@
+# Managed by OpenTofu (services-config, netbox.tf). CephFS /netbox: NetBox's media, scripts and
+# reports, shared by the NetBox VMs (kernel client over the Ceph public network NIC).
+[Unit]
+Description=CephFS for NetBox (media, scripts, reports)
+Wants=network-online.target
+After=network-online.target
+
+[Mount]
+What=${what}
+Where=/var/lib/netbox
+Type=ceph
+Options=${options}
+TimeoutSec=60
+
+[Install]
+WantedBy=remote-fs.target

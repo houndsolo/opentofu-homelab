@@ -18,6 +18,12 @@ locals {
         if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
       ] if vm.role == "ticketing"
     ]))
+    netbox = sort(flatten([
+      for name, vm in var.vms : [
+        for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
+        if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+      ] if vm.role == "netbox"
+    ]))
   }
 
   # What Grafana's read-only role may read (the dark-triage dashboard): tickets and comments, and
