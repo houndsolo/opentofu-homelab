@@ -14,6 +14,7 @@ locals {
       [
         "set interfaces dummy ${var.fabric.settings.loopback_interface} address '${local.vtep_ipv6}/128'",
         "set interfaces dummy ${var.fabric.settings.loopback_interface} address '${local.router_id}/32'",
+        "set interfaces dummy ${var.fabric.settings.loopback_interface} description 'loopback'",
         "set interfaces dummy ${var.fabric.settings.loopback_interface} mtu '${var.fabric.settings.outer_mtu}'",
       ],
       length(local.l2vnis) > 0 ? [
