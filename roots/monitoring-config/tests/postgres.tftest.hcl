@@ -78,19 +78,24 @@ run "postgres_cluster" {
   assert {
     # Replication, REST and etcd on the Postgres HA VLAN (217); everything listens everywhere for the VIP.
     condition = alltrue([for name, i in { pg01 = 40, pg02 = 41, pg03 = 42 } : (
-      yamldecode(module.monitoring.patroni_configs[name]).scope == "lylat-pg" &&
+      yamldecode(module.monitoring.patroni_configs[name]).scope == "lylat-pg18" &&
+      yamldecode(module.monitoring.patroni_configs[name]).postgresql.data_dir == "/var/lib/postgresql/patroni/18" &&
+      yamldecode(module.monitoring.patroni_configs[name]).postgresql.bin_dir == "/usr/lib/postgresql/18/bin" &&
       yamldecode(module.monitoring.patroni_configs[name]).name == name &&
       yamldecode(module.monitoring.patroni_configs[name]).restapi.connect_address == "10.21.15.${i}:8008" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.connect_address == "10.21.15.${i}:5432" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.listen == "0.0.0.0:5432" &&
       yamldecode(module.monitoring.patroni_configs[name]).etcd3.hosts == ["10.21.15.40:2379", "10.21.15.41:2379", "10.21.15.42:2379"] &&
       yamldecode(module.monitoring.patroni_configs[name]).bootstrap.dcs.failsafe_mode == true &&
-      yamldecode(module.monitoring.patroni_configs[name]).postgresql.parameters.archive_command == "pgbackrest --stanza=lylat-pg archive-push %p" &&
+      yamldecode(module.monitoring.patroni_configs[name]).postgresql.parameters.archive_command == "pgbackrest --stanza=lylat-pg18 archive-push %p" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.parameters.password_encryption == "scram-sha-256" &&
       yamldecode(module.monitoring.etcd_configs[name]).listen-peer-urls == "http://10.21.15.${i}:2380" &&
       yamldecode(module.monitoring.etcd_configs[name]).listen-metrics-urls == "http://10.13.11.${i}:2381" &&
       yamldecode(module.monitoring.etcd_configs[name]).initial-cluster == "pg01=http://10.21.15.40:2380,pg02=http://10.21.15.41:2380,pg03=http://10.21.15.42:2380" &&
-      yamldecode(module.monitoring.etcd_configs[name]).initial-cluster-state == "new"
+      yamldecode(module.monitoring.etcd_configs[name]).initial-cluster-state == "new" &&
+      # etcd keeps cluster_name across Postgres majors: a new data dir/token would be a new etcd cluster.
+      yamldecode(module.monitoring.etcd_configs[name]).data-dir == "/var/lib/etcd/lylat-pg" &&
+      yamldecode(module.monitoring.etcd_configs[name]).initial-cluster-token == "lylat-pg"
     )])
     error_message = "Patroni and etcd use the HA VLAN addresses 10.21.15.40-42; etcd metrics on the backend VLAN."
   }
@@ -149,6 +154,8 @@ run "postgres_cluster" {
       strcontains(module.monitoring.pgbackrest_conf, "repo1-s3-bucket=postgres") &&
       strcontains(module.monitoring.pgbackrest_conf, "repo1-storage-port=7443") &&
       strcontains(module.monitoring.pgbackrest_conf, "repo1-retention-full=14") &&
+      strcontains(module.monitoring.pgbackrest_conf, "repo1-path=/lylat-pg18\n") &&
+      strcontains(module.monitoring.pgbackrest_conf, "[lylat-pg18]\npg1-path=/var/lib/postgresql/patroni/18\n") &&
       !strcontains(module.monitoring.pgbackrest_conf, "MOCKPGKEY") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), base64encode("PGBACKREST_REPO1_S3_KEY=MOCKPGKEY\nPGBACKREST_REPO1_S3_KEY_SECRET=mockpgsecretmockpgsecret\n"))
     )
@@ -158,13 +165,46 @@ run "postgres_cluster" {
   assert {
     # Packages, services in order, Patroni reloaded (never restarted) by deploys.
     condition = (
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for pkg in keepalived jq postgresql-17 patroni python3-etcd etcd-server etcd-client pgbackrest; do") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for pkg in keepalived jq postgresql-18 patroni python3-etcd etcd-server etcd-client pgbackrest; do") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for svc in postgres-guard haproxy etcd patroni pg-leader-setup postgres-exporter alloy node-exporter keepalived; do") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/patroni/config.yml' '0644' 'root' '' 'patroni'") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "pg_dropcluster --stop 17 main") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 17.*)")
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "pg_dropcluster --stop 18 main") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 18.*)") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 4.1.*)") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 2.60.*)") &&
+      !strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "postgresql-17") &&
+      !strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "/17/")
     )
-    error_message = "The deploy installs the Debian packages, starts guard -> etcd -> Patroni -> keepalived and only reloads Patroni."
+    error_message = "The deploy installs the packages (PostgreSQL 18), starts guard -> etcd -> Patroni -> keepalived and only reloads Patroni."
+  }
+
+  assert {
+    # PGDG: source + pin + key installed (and apt lists refreshed) before any package, outside
+    # versions upgraded, and package scripts can't (re)start a service (policy-rc.d) meanwhile.
+    condition = (
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), base64encode(file("../../modules/services/monitoring/templates/pgdg.asc"))) &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/apt/sources.list.d/pgdg.sources' '0644' 'root' '' ''") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for f in /etc/apt/keyrings/pgdg.asc /etc/apt/preferences.d/pgdg.pref /etc/apt/sources.list.d/pgdg.sources; do") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for spec in 'etcd-server=3.5.*' 'patroni=4.1.*' 'pgbackrest=2.60.*' 'postgresql-18=18.*'; do") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "printf '#!/bin/sh\\nexit 101\\n' > \"$policy_rc\"") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), base64encode(<<-EOT
+        # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+        # PGDG supplies the Patroni stack only; every other package stays Debian's.
+        Package: *
+        Pin: release o=apt.postgresql.org
+        Pin-Priority: 100
+
+        Package: postgresql-18 postgresql-client-18 postgresql-common postgresql-client-common libpq5 patroni pgbackrest
+        Pin: release o=apt.postgresql.org
+        Pin-Priority: 600
+      EOT
+      )) &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "[ \"$codename-pgdg\" = 'trixie-pgdg' ]") &&
+      # The other roles' deploys have no PGDG step and are rendered as before.
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "policy-rc.d") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "echo \"installed packages:$missing\"")
+    )
+    error_message = "The Postgres deploy sets up the PGDG repository (pinned to the Patroni stack) before installing, upgrades packages outside their series and keeps package scripts from starting services."
   }
 
   assert {
@@ -282,7 +322,7 @@ run "postgres_bootstrap_from_backup" {
   assert {
     condition = (
       yamldecode(module.monitoring.patroni_configs.pg01).bootstrap.method == "pgbackrest" &&
-      yamldecode(module.monitoring.patroni_configs.pg01).bootstrap.pgbackrest.command == "pgbackrest --stanza=lylat-pg --delta --type=time '--target=2026-11-20 12:00:00+00' --target-action=promote restore" &&
+      yamldecode(module.monitoring.patroni_configs.pg01).bootstrap.pgbackrest.command == "pgbackrest --stanza=lylat-pg18 --delta --type=time '--target=2026-11-20 12:00:00+00' --target-action=promote restore" &&
       yamldecode(module.monitoring.patroni_configs.pg01).bootstrap.pgbackrest.keep_existing_recovery_conf == true &&
       !can(yamldecode(module.monitoring.patroni_configs.pg02).bootstrap.dcs.method)
     )
@@ -297,4 +337,32 @@ run "postgres_bootstrap_default_initdb" {
     condition     = !can(yamldecode(module.monitoring.patroni_configs.pg01).bootstrap.method)
     error_message = "By default Patroni bootstraps with initdb."
   }
+}
+
+run "postgres_major_override" {
+  command = plan
+
+  variables {
+    postgres_settings = { pg_major = 19, package_versions = { patroni = "4.2.*" } }
+  }
+
+  assert {
+    condition = (
+      yamldecode(module.monitoring.patroni_configs.pg01).scope == "lylat-pg19" &&
+      yamldecode(module.monitoring.patroni_configs.pg01).postgresql.data_dir == "/var/lib/postgresql/patroni/19" &&
+      yamldecode(module.monitoring.etcd_configs.pg01).data-dir == "/var/lib/etcd/lylat-pg" &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for spec in 'patroni=4.2.*' 'postgresql-19=19.*'; do")
+    )
+    error_message = "pg_major selects the packages, data dir, Patroni scope and stanza; package_versions replaces the default series (postgresql-<major> is added)."
+  }
+}
+
+run "postgres_major_invalid" {
+  command = plan
+
+  variables {
+    postgres_settings = { pg_major = 16.5 }
+  }
+
+  expect_failures = [var.postgres_settings]
 }

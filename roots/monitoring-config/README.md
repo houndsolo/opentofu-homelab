@@ -757,25 +757,33 @@ Live steps: `~/network_automation/mon-ha/runbook-postgres.md`.
 
 ```
 graf01/02 --sslmode=require--> VIP 10.13.11.104:5432 (keepalived on the Patroni leader; check = Patroni /primary)
-   leader pgNN: Postgres 17 <-- streaming replication (VLAN 217) -- 2 replicas (pg_rewind, slots)
+   leader pgNN: Postgres 18 <-- streaming replication (VLAN 217) -- 2 replicas (pg_rewind, slots)
    Patroni x3 <--> etcd x3 (DCS, VLAN 217)      archive_command / daily full backup --> pgBackRest
-   --> https://127.0.0.1:7443 haproxy --> RGWs (bucket postgres, path /lylat-pg, PITR 14 days)
+   --> https://127.0.0.1:7443 haproxy --> RGWs (bucket postgres, path /lylat-pg18, PITR 14 days)
 ```
 
 | Network | pg01/02/03 | Used for |
 | --- | --- | --- |
 | mgmt (`eth0`) | 10.20.11.40-42 | SSH |
-| VLAN 2 (`eth1`) | 10.2.11.40-42 | default route: Debian packages, images |
+| VLAN 2 (`eth1`) | 10.2.11.40-42 | default route: Debian/PGDG packages, images |
 | VLAN 13 (`eth2`) | 10.13.11.40-42 | backend: Grafana -> VIP `10.13.11.104`, scrapes (8008, 2381, 9187, 9100, 8405) |
 | vmbr27 (`eth3`) | 10.27.11.40-42 | Ceph public network: haproxy -> RGWs |
 | VLAN 217 (`eth4`, L2VNI `ha_postgres`) | 10.21.15.40-42 | replication, etcd (2379/2380), Patroni REST (8008), keepalived (vrid 104) |
 
-- **Debian 13 packages, not containers**, for the database: Patroni starts/stops Postgres itself and
+- **Packages, not containers**, for the database: Patroni starts/stops Postgres itself and
   `archive_command` needs pgBackRest next to it; the only image with all of it is Spilo (Kubernetes-oriented,
-  env-generated config, its own WAL-G cron). Debian ships exactly mon01's Postgres 17.11, Patroni 4.0.7,
-  etcd 3.5.16 and pgBackRest 2.55.1. `postgres_settings.package_versions` pins the series (the deploy fails
-  on another), unattended-upgrades skips them; upgrade them rolling (runbook). haproxy, postgres_exporter,
-  node_exporter and Alloy are Quadlet containers as everywhere else.
+  env-generated config, its own WAL-G cron). PostgreSQL 18 (`postgres_settings.pg_major`), Patroni 4.1 and
+  pgBackRest 2.60 come from the PGDG repository (`apt.postgresql.org`, `trixie-pgdg`; Debian 13 has 17 only),
+  etcd 3.5 from Debian. The deploy installs the PGDG source, key and an apt pin (only the Patroni stack from
+  PGDG) before any package. `postgres_settings.package_versions` pins the series: a package outside it is
+  upgraded to the apt candidate, and the deploy fails if that doesn't match either. Package scripts can't
+  start or restart services during the deploy (`policy-rc.d`), unattended-upgrades skips the stack; upgrade
+  minors rolling (runbook). haproxy, postgres_exporter, node_exporter and Alloy are Quadlet containers as
+  everywhere else.
+- **A new Postgres major is a rebuild**, not pg_upgrade: `pg_major` gives it its own Patroni scope and
+  pgBackRest stanza (`<cluster_name><pg_major>`, now `lylat-pg18`) and data dir
+  (`/var/lib/postgresql/patroni/<major>`); etcd keeps `cluster_name`. The data moves by dump/restore. The
+  17 -> 18 run (2026-11-12): DT-046 (steps and rollback recipe in its description).
 - **pgBackRest** only speaks HTTPS to S3, so each member's haproxy terminates TLS on `127.0.0.1:7443` with the
   host's snakeoil certificate (unverified: loopback). S3 keys: `postgres_s3` in `postgres.secret.auto.tfvars`
   (git-ignored), on the VMs only in `/etc/postgres-ha/s3.env` (0600).

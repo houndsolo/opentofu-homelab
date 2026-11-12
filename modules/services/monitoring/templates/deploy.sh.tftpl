@@ -24,18 +24,54 @@ echo "images present: ${length(images)}"
 %{ if length(packages) > 0 ~}
 
 # Debian packages: installed in deploy mode only (check mode installs nothing).
+%{ if apt != null ~}
+if [ "$mode" = deploy ]; then
+%{ for command in apt.setup ~}
+  ${command}
+%{ endfor ~}
+fi
+%{ endif ~}
 missing=""
 for pkg in ${join(" ", packages)}; do
   dpkg-query -W -f='$${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed" || missing+=" $pkg"
 done
+%{ if apt != null ~}
+# Installed, but outside the accepted series: reinstalled at the apt candidate (an upgrade).
+for spec in ${join(" ", [for pkg, pattern in apt.versions : "'${pkg}=${pattern}'"])}; do
+  pkg=$${spec%%=*}
+  v=$(dpkg-query -W -f='$${Status} $${Version}' "$pkg" 2>/dev/null) || continue
+  case $v in "install ok installed "*) v=$${v##* } ;; *) continue ;; esac
+  # shellcheck disable=SC2254 # the series is a glob
+  case $v in $${spec#*=}) ;; *) case " $missing " in *" $pkg "*) ;; *) missing+=" $pkg" ;; esac ;; esac
+done
+%{ endif ~}
 if [ -n "$missing" ]; then
   if [ "$mode" = check ]; then
     echo "would install packages:$missing"
   else
     export DEBIAN_FRONTEND=noninteractive
+%{ if apt != null ~}
+    # Package scripts start or restart no service meanwhile (an upgraded patroni would restart
+    # with the old config): the services start below, once their config is installed.
+    policy_rc=""
+    if [ ! -e /usr/sbin/policy-rc.d ]; then
+      policy_rc=/usr/sbin/policy-rc.d
+      printf '#!/bin/sh\nexit 101\n' > "$policy_rc"
+      chmod 0755 "$policy_rc"
+    fi
+    apt_opts="-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+    apt_rc=0
+    # shellcheck disable=SC2086
+    apt-get install -y -q --no-install-recommends $apt_opts $missing >/dev/null ||
+      { apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends $apt_opts $missing >/dev/null; } || apt_rc=$?
+    if [ -n "$policy_rc" ]; then rm -f "$policy_rc"; fi
+    [ "$apt_rc" = 0 ] || { echo "apt-get install failed ($apt_rc):$missing" >&2; exit "$apt_rc"; }
+    echo "installed or upgraded packages:$missing"
+%{ else ~}
     apt-get install -y -q --no-install-recommends $missing >/dev/null ||
       { apt-get update -q >/dev/null && apt-get install -y -q --no-install-recommends $missing >/dev/null; }
     echo "installed packages:$missing"
+%{ endif ~}
   fi
 fi
 %{ endif ~}

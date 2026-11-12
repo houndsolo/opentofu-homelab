@@ -250,6 +250,7 @@ locals {
       state_file = "${local.metrics_conf}/.tofu-quadlets"
       images     = [var.images.haproxy, var.images.mimir, var.images.alloy, var.images.node_exporter]
       packages   = ["keepalived"]
+      apt        = null
       dirs = concat(
         [
           { path = local.quadlet_dir, mode = "0755", owner = "root" },

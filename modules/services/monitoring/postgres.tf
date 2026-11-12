@@ -1,7 +1,7 @@
 # Postgres HA for Grafana: a Patroni cluster on the role = "postgres" VMs (pg01-03).
 #
-# Each member runs, from Debian 13 packages: PostgreSQL 17 (Patroni owns the process and the
-# data directory), Patroni, etcd (the DCS: 3 members, peers and clients on the Postgres HA
+# Each member runs, from packages: PostgreSQL 18 (Patroni owns the process and the data
+# directory), Patroni, etcd (the DCS: 3 members, peers and clients on the Postgres HA
 # VLAN), pgBackRest (WAL archive + daily full backups in a Ceph RGW bucket, PITR) and
 # keepalived (the VIP on the backend VLAN follows the Patroni leader: its check is Patroni's
 # /primary). In containers (Quadlet), like the other roles: haproxy (TLS on 127.0.0.1:7443 ->
@@ -11,10 +11,17 @@
 # Why packages and not containers for the database: Patroni has to start and stop Postgres
 # itself and archive_command has to find pgBackRest next to it, so they belong in one place.
 # The only maintained image with all three is Spilo (Kubernetes-oriented, configured through
-# generated env, its own cron/WAL-G, several Postgres majors in ~1.5 GB). Debian 13 ships
-# exactly mon01's Postgres (17.11), Patroni 4.0.7, etcd 3.5.16 and pgBackRest 2.55.1 with
-# security support; postgres_settings.package_versions pins the series (the deploy fails if
-# another version is installed) and unattended-upgrades leaves them alone (rolling upgrades).
+# generated env, its own cron/WAL-G, several Postgres majors in ~1.5 GB). etcd (3.5) comes
+# from Debian 13; PostgreSQL 18, Patroni 4.1 and pgBackRest 2.60 from the PGDG repository
+# (apt.postgresql.org; Debian 13 has PostgreSQL 17 only), pinned to exactly those packages
+# (pgdg.pref). postgres_settings.package_versions pins the series (the deploy upgrades a
+# package outside it to the apt candidate and fails if that doesn't match either) and
+# unattended-upgrades leaves them alone (rolling minor upgrades).
+#
+# A new major (postgres_settings.pg_major) is a rebuild: its own Patroni scope and pgBackRest
+# stanza ("<cluster_name><pg_major>", e.g. lylat-pg18) and data dir, so the old cluster's etcd
+# keys, backups and data stay untouched for a rollback; the data moves by dump/restore
+# (17 -> 18: DT-046). etcd keeps cluster_name (its data dir and cluster token).
 #
 # Grafana switches to the VIP only when postgres_settings.grafana_on_cluster is true (after
 # the dump/restore of the runbook); mon01's Postgres container stays until
@@ -22,7 +29,9 @@
 
 locals {
   pg_conf     = "/etc/postgres-ha"
-  pg_data_dir = "/var/lib/postgresql/patroni/17"
+  pg_major    = local.pgs.pg_major
+  pg_data_dir = "/var/lib/postgresql/patroni/${local.pg_major}"
+  pg_bin_dir  = "/usr/lib/postgresql/${local.pg_major}/bin"
   pg_textfile = "/var/lib/node_exporter/textfile"
 
   postgres_enabled = length(var.postgres) > 0 && nonsensitive(var.postgres_secrets != null)
@@ -30,10 +39,11 @@ locals {
     s3_bucket        = "", s3_access_key = "", s3_secret_key = "", superuser_password = "", replication_password = ""
     restapi_password = "", monitor_password = "", vrrp_password = ""
   }
-  pg_names = sort(keys(var.postgres))
-  pgs      = var.postgres_settings
-  pg_vip   = split("/", local.pgs.vip)[0]
-  pg_scope = local.pgs.cluster_name
+  pg_names   = sort(keys(var.postgres))
+  pgs        = var.postgres_settings
+  pg_vip     = split("/", local.pgs.vip)[0]
+  pg_scope   = "${local.pgs.cluster_name}${local.pg_major}" # Patroni scope, pgBackRest stanza and repo path
+  etcd_scope = local.pgs.cluster_name                       # etcd data dir and cluster token: unchanged across majors
 
   # Grafana (main.tf): the VIP once cut over, mon01's Postgres until then. mon01's container
   # is never dropped while Grafana still uses it.
@@ -125,7 +135,7 @@ locals {
         listen          = "0.0.0.0:5432"
         connect_address = "${vm.ha_address}:5432" # replication and pg_rewind over the HA VLAN
         data_dir        = local.pg_data_dir
-        bin_dir         = "/usr/lib/postgresql/17/bin"
+        bin_dir         = local.pg_bin_dir
         pgpass          = "/var/lib/postgresql/.pgpass.patroni"
         use_unix_socket = true
         authentication = {
@@ -199,21 +209,21 @@ locals {
   etcd_yml = {
     for name, vm in var.postgres : name => yamlencode({
       name                        = name
-      data-dir                    = "/var/lib/etcd/${local.pg_scope}"
+      data-dir                    = "/var/lib/etcd/${local.etcd_scope}"
       listen-peer-urls            = "http://${vm.ha_address}:2380"
       listen-client-urls          = "http://${vm.ha_address}:2379,http://127.0.0.1:2379"
       advertise-client-urls       = "http://${vm.ha_address}:2379"
       initial-advertise-peer-urls = "http://${vm.ha_address}:2380"
       initial-cluster             = join(",", [for peer in local.pg_names : "${peer}=http://${var.postgres[peer].ha_address}:2380"])
-      initial-cluster-token       = local.pg_scope
+      initial-cluster-token       = local.etcd_scope
       # "new" bootstraps the three together; a rebuilt member joins with "existing" (README).
-      initial-cluster-state     = local.pgs.etcd_initial_cluster_state
+      initial-cluster-state = local.pgs.etcd_initial_cluster_state
       # Slow disk: the data dir is on Ceph RBD, where WAL fsync p99 is 125-355 ms (etcd wants < 10 ms).
       # The defaults (100/1000 ms) made leaders miss heartbeats hourly and re-elect (DT-017). The etcd
       # tuning guide: heartbeat ~ the fsync/round-trip time, election ~ 10x the heartbeat. Patroni
       # (ttl 30 s, loop_wait 10 s) easily rides out a 3 s election. Same values on every member.
-      heartbeat-interval = local.pgs.etcd_heartbeat_interval
-      election-timeout   = local.pgs.etcd_election_timeout
+      heartbeat-interval        = local.pgs.etcd_heartbeat_interval
+      election-timeout          = local.pgs.etcd_election_timeout
       listen-metrics-urls       = "http://${vm.backend_address}:2381"
       auto-compaction-mode      = "periodic"
       auto-compaction-retention = "1h"
@@ -338,7 +348,50 @@ locals {
     }
   }
 
-  pg_packages = ["keepalived", "jq", "postgresql-17", "patroni", "python3-etcd", "etcd-server", "etcd-client", "pgbackrest"]
+  pg_packages = ["keepalived", "jq", "postgresql-${local.pg_major}", "patroni", "python3-etcd", "etcd-server", "etcd-client", "pgbackrest"]
+  # postgresql-<major> = "<major>.*" unless package_versions says otherwise.
+  pg_package_versions = merge({ "postgresql-${local.pg_major}" = "${local.pg_major}.*" }, local.pgs.package_versions)
+
+  # PGDG (apt.postgresql.org): only the Patroni stack comes from it (priority 600); every other
+  # PGDG package stays below Debian's (100), so it never replaces a Debian package by accident.
+  # The key (templates/pgdg.asc) is fingerprint B97B 0AFC AA1A 47F0 44F2 44A0 7FCC 7D46 ACCC 4CF8.
+  pg_apt_suite = "trixie-pgdg" # Debian 13 (the deploy checks the codename)
+  pg_pgdg_packages = [
+    "postgresql-${local.pg_major}", "postgresql-client-${local.pg_major}", "postgresql-common", "postgresql-client-common",
+    "libpq5", "patroni", "pgbackrest",
+  ]
+  pg_apt_files = {
+    "/etc/apt/keyrings/pgdg.asc"           = file("${path.module}/templates/pgdg.asc")
+    "/etc/apt/sources.list.d/pgdg.sources" = <<-EOT
+      # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+      # PostgreSQL Global Development Group: PostgreSQL ${local.pg_major}, Patroni, pgBackRest (pgdg.pref).
+      Types: deb
+      URIs: https://apt.postgresql.org/pub/repos/apt
+      Suites: ${local.pg_apt_suite}
+      Components: main
+      Signed-By: /etc/apt/keyrings/pgdg.asc
+    EOT
+    "/etc/apt/preferences.d/pgdg.pref"     = <<-EOT
+      # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+      # PGDG supplies the Patroni stack only; every other package stays Debian's.
+      Package: *
+      Pin: release o=apt.postgresql.org
+      Pin-Priority: 100
+
+      Package: ${join(" ", local.pg_pgdg_packages)}
+      Pin: release o=apt.postgresql.org
+      Pin-Priority: 600
+    EOT
+  }
+  pg_apt = {
+    versions = local.pg_package_versions
+    # Before any package is installed: the PGDG source/pin/key in place (apt lists refreshed when
+    # they change), so postgresql-<major> and the upgrades come from PGDG.
+    setup = [
+      "codename=$(. /etc/os-release && echo \"$VERSION_CODENAME\"); [ \"$codename-pgdg\" = '${local.pg_apt_suite}' ] || { echo \"PGDG suite ${local.pg_apt_suite} does not match Debian $codename\" >&2; exit 1; }",
+      "apt_changed=0; for f in ${join(" ", keys(local.pg_apt_files))}; do cmp -s \"$root$f\" \"$f\" && continue; install -d -m 0755 \"$(dirname \"$f\")\"; install -m 0644 \"$root$f\" \"$f\"; apt_changed=1; echo \"updated $f\"; done; if [ $apt_changed = 1 ]; then apt-get update -q >/dev/null; echo \"apt lists updated (PGDG)\"; fi",
+    ]
+  }
 
   # Start order: the guard before anything listens, S3 before Patroni (archive_command),
   # etcd before Patroni, the leader setup once Postgres runs, keepalived last.
@@ -346,7 +399,7 @@ locals {
   pg_containers = ["haproxy", "postgres-exporter", "node-exporter"]
 
   pg_version_checks = [
-    for pkg, pattern in local.pgs.package_versions :
+    for pkg, pattern in local.pg_package_versions :
     "if v=$(dpkg-query -W -f='$${Version}' ${pkg} 2>/dev/null); then case $v in ${pattern}) ;; *) echo \"${pkg} $v is not ${pattern} (postgres_settings.package_versions)\" >&2; exit 1 ;; esac; fi"
   ]
 
@@ -356,6 +409,7 @@ locals {
       state_file = "${local.pg_conf}/.tofu-quadlets"
       images     = [var.images.haproxy, var.images.postgres_exporter, var.images.alloy, var.images.node_exporter]
       packages   = local.pg_packages
+      apt        = local.pg_apt
       dirs = concat(
         [
           { path = local.quadlet_dir, mode = "0755", owner = "root" },
@@ -374,6 +428,7 @@ locals {
       )
       prune_dirs = []
       files = concat(
+        [for path, content in local.pg_apt_files : { path = path, mode = "0644", owner = "root", content = content, restart = [], reload = [] }],
         [for unit in local.pg_containers : {
           path    = "${local.quadlet_dir}/${unit}.container"
           mode    = "0644"
@@ -405,7 +460,7 @@ locals {
           { path = "/etc/systemd/system/pg-backup.timer", mode = "0644", owner = "root", content = templatefile("${path.module}/templates/pg-backup.timer.tftpl", { schedule = local.pgs.backup_schedule }), restart = [], reload = [] },
           { path = "/usr/local/sbin/pgctl", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pgctl.sh.tftpl", { scope = local.pg_scope }), restart = [], reload = [] },
           { path = "${local.pg_conf}/postgres-exporter.env", mode = "0600", owner = "root", content = local.pg_exporter_env, restart = ["postgres-exporter"], reload = [] },
-          { path = "/etc/apt/apt.conf.d/51lylat-postgres-hold", mode = "0644", owner = "root", content = file("${path.module}/templates/postgres-apt-hold.conf"), restart = [], reload = [] },
+          { path = "/etc/apt/apt.conf.d/51lylat-postgres-hold", mode = "0644", owner = "root", content = templatefile("${path.module}/templates/postgres-apt-hold.conf.tftpl", { packages = distinct(concat(local.pg_pgdg_packages, ["python3-etcd", "etcd-server", "etcd-client"])) }), restart = [], reload = [] },
           { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.pg_keepalived_conf[name], restart = [], reload = ["keepalived"] },
         ],
       )
@@ -415,15 +470,15 @@ locals {
         "if command -v patroni >/dev/null; then out=$(patroni --validate-config -i \"$root/etc/patroni/config.yml\" 2>&1) || if printf '%s\\n' \"$out\" | grep -v 'is not reachable' | grep -q .; then printf '%s\\n' \"$out\" >&2; exit 1; fi; else echo \"patroni not installed yet: config check skipped\"; fi",
         "python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' \"$root/etc/etcd/etcd.yml\"",
         lookup(local.alloy_validation, name, "true"),
-        # The snakeoil pair exists once ssl-cert is installed (postgresql-17 depends on it).
+        # The snakeoil pair exists once ssl-cert is installed (postgresql-<major> depends on it).
         "if [ -e /etc/ssl/private/ssl-cert-snakeoil.key ]; then podman run --rm --network=none --user 0 -v \"$root${local.pg_conf}/haproxy:/usr/local/etc/haproxy:ro\" -v /etc/ssl/certs/ssl-cert-snakeoil.pem:/usr/local/etc/haproxy/tls/s3.pem:ro -v /etc/ssl/private/ssl-cert-snakeoil.key:/usr/local/etc/haproxy/tls/s3.pem.key:ro '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg; else echo \"no snakeoil certificate yet: haproxy check skipped\"; fi",
         "nft -c -f \"$root${local.pg_conf}/guard.nft\"",
         "if command -v keepalived >/dev/null; then keepalived -t -f \"$root/etc/keepalived/keepalived.conf\"; else echo \"keepalived not installed yet: config test skipped\"; fi",
       ])
       post_install = [
-        # The package's default cluster (17/main on 5432) and etcd's default single-member data
-        # dir exist only after the first package install; Patroni and our etcd config use others.
-        "if [ -d /etc/postgresql/17/main ]; then pg_dropcluster --stop 17 main; echo \"dropped the packaged 17/main cluster\"; fi",
+        # The package's default cluster (<major>/main on 5432) and etcd's default single-member
+        # data dir exist only after a package install; Patroni and our etcd config use others.
+        "if [ -d /etc/postgresql/${local.pg_major}/main ]; then pg_dropcluster --stop ${local.pg_major} main; echo \"dropped the packaged ${local.pg_major}/main cluster\"; fi",
         "if [ -d /var/lib/etcd/default ]; then systemctl stop etcd.service; rm -rf /var/lib/etcd/default; echo \"removed etcd's default data dir\"; fi",
         "systemctl enable --quiet postgres-guard.service etcd.service patroni.service pg-leader-setup.service keepalived.service",
         "systemctl enable --quiet --now pg-backup.timer",

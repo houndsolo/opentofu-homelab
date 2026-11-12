@@ -662,6 +662,7 @@ locals {
       state_file   = "${local.backend_conf}/.tofu-quadlets"
       images       = distinct(concat([for c in values(local.backend_containers[host]) : c.image], [var.images.alloy]))
       packages     = local.backend_ha_packages
+      apt          = null
       dirs         = local.backend_dirs[host]
       prune_dirs   = []
       files        = local.backend_files[host]
@@ -736,6 +737,7 @@ locals {
       state_file = "${local.grafana_conf}/.tofu-quadlets"
       images     = [var.images.grafana, var.images.node_exporter, var.images.alloy]
       packages   = local.grafana_ha_packages
+      apt        = null
       dirs = concat(local.alloy_dirs, local.grafana_ha_dirs, [
         { path = local.quadlet_dir, mode = "0755", owner = "root" },
         { path = local.grafana_conf, mode = "0755", owner = "root" },

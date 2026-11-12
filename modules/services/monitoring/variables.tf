@@ -334,11 +334,16 @@ variable "postgres" {
 }
 
 variable "postgres_settings" {
-  description = "Patroni cluster: VIP (CIDR on the backend NIC), VRRP router id, cluster name (Patroni scope, pgBackRest stanza, etcd token), RGWs behind each member's haproxy, backup schedule/retention, Postgres parameters, the Grafana cutover switches and the Debian package series the deploy accepts."
+  description = "Patroni cluster: VIP (CIDR on the backend NIC), VRRP router id, cluster name (etcd data dir/token; with pg_major the Patroni scope and pgBackRest stanza, e.g. lylat-pg18), PostgreSQL major (PGDG packages), RGWs behind each member's haproxy, backup schedule/retention, Postgres parameters, the Grafana cutover switches and the package series the deploy accepts."
   type = object({
-    vip                        = optional(string, "10.13.11.104/16")
-    vrrp_router_id             = optional(number, 104)
-    cluster_name               = optional(string, "lylat-pg")
+    vip            = optional(string, "10.13.11.104/16")
+    vrrp_router_id = optional(number, 104)
+    cluster_name   = optional(string, "lylat-pg")
+    # PostgreSQL major version, from the PGDG repository (Debian 13 has 17 only). Changing it is a
+    # rebuild, not an in-place upgrade: the new major gets its own Patroni scope and pgBackRest
+    # stanza ("<cluster_name><pg_major>") and data dir, so the old cluster's are left untouched
+    # (dump/restore; 17 -> 18: DT-046).
+    pg_major                   = optional(number, 18)
     rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
     retention_days             = optional(number, 14)               # PITR window (pgBackRest time-based full retention)
     backup_schedule            = optional(string, "*-*-* 01:30:00") # systemd OnCalendar: daily full backup on the leader
@@ -353,11 +358,12 @@ variable "postgres_settings" {
     legacy_on_primary          = optional(bool, true)               # keep the primary backend's Postgres container
     bootstrap_from_backup      = optional(bool, false)              # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
     restore_target_time        = optional(string)                   # with bootstrap_from_backup: PITR target, e.g. "2026-11-20 12:00:00+00"
-    package_versions = optional(map(string), {                      # Debian package => accepted version (shell glob)
-      "postgresql-17" = "17.*"
-      "patroni"       = "4.0.*"
-      "etcd-server"   = "3.5.*"
-      "pgbackrest"    = "2.55.*"
+    # Package => accepted version (shell glob). postgresql-<pg_major> = "<pg_major>.*" is added
+    # unless set here. An installed package outside its series is upgraded to the apt candidate.
+    package_versions = optional(map(string), {
+      "patroni"     = "4.1.*"  # PGDG (PostgreSQL 18 needs Patroni >= 4.1)
+      "etcd-server" = "3.5.*"  # Debian
+      "pgbackrest"  = "2.60.*" # PGDG
     })
   })
   default = {}
@@ -369,9 +375,10 @@ variable "postgres_settings" {
       var.postgres_settings.retention_days >= 1 && contains(["new", "existing"], var.postgres_settings.etcd_initial_cluster_state) &&
       var.postgres_settings.etcd_heartbeat_interval >= 10 && var.postgres_settings.etcd_election_timeout >= 5 * var.postgres_settings.etcd_heartbeat_interval &&
       var.postgres_settings.etcd_election_timeout <= 50000 &&
+      floor(var.postgres_settings.pg_major) == var.postgres_settings.pg_major && var.postgres_settings.pg_major >= 17 &&
       alltrue([for k, v in var.postgres_settings.package_versions : can(regex("^[a-z0-9.+-]+$", k)) && can(regex("^[A-Za-z0-9.+~:*-]+$", v))])
     )
-    error_message = "postgres_settings: vip is an IPv4 CIDR, vrrp_router_id 1..255, cluster_name lowercase [a-z0-9-], rgw_endpoints \"IP:port\", retention_days >= 1, etcd_initial_cluster_state new|existing, etcd_heartbeat_interval >= 10 ms, etcd_election_timeout 5x the heartbeat .. 50000 ms, package_versions package => version glob."
+    error_message = "postgres_settings: vip is an IPv4 CIDR, vrrp_router_id 1..255, cluster_name lowercase [a-z0-9-], rgw_endpoints \"IP:port\", retention_days >= 1, etcd_initial_cluster_state new|existing, etcd_heartbeat_interval >= 10 ms, etcd_election_timeout 5x the heartbeat .. 50000 ms, pg_major an integer >= 17, package_versions package => version glob."
   }
 }
 

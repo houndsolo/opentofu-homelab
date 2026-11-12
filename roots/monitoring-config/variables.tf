@@ -382,11 +382,12 @@ variable "postgres_ha_vlan_id" {
 }
 
 variable "postgres_settings" {
-  description = "Patroni cluster (role = \"postgres\" VMs): VIP, VRRP router id, cluster name, RGW endpoints, backup schedule/retention, Postgres parameters, Grafana cutover switches (grafana_on_cluster, legacy_on_primary), accepted Debian package series. See modules/services/monitoring (variable postgres_settings)."
+  description = "Patroni cluster (role = \"postgres\" VMs): VIP, VRRP router id, cluster name, PostgreSQL major (pg_major, PGDG), RGW endpoints, backup schedule/retention, Postgres parameters, Grafana cutover switches (grafana_on_cluster, legacy_on_primary), accepted Debian package series. See modules/services/monitoring (variable postgres_settings)."
   type = object({
     vip                        = optional(string, "10.13.11.104/16")
     vrrp_router_id             = optional(number, 104)
-    cluster_name               = optional(string, "lylat-pg")
+    cluster_name               = optional(string, "lylat-pg")                                                      # etcd; Patroni scope/stanza = cluster_name + pg_major
+    pg_major                   = optional(number, 18)                                                              # PGDG; a new major is a rebuild + dump/restore (new scope/stanza/data dir)
     rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"]) # macbeth, titania, venom
     retention_days             = optional(number, 14)
     backup_schedule            = optional(string, "*-*-* 01:30:00")
@@ -397,18 +398,21 @@ variable "postgres_settings" {
     etcd_initial_cluster_state = optional(string, "new")
     etcd_heartbeat_interval    = optional(number, 300)  # ms; slow Ceph RBD fsync (DT-017)
     etcd_election_timeout      = optional(number, 3000) # ms; ~10x the heartbeat
-    grafana_on_cluster         = optional(bool, false) # step 5 of runbook-postgres.md
-    legacy_on_primary          = optional(bool, true)  # step 7 (later): false removes mon01's Postgres container
-    bootstrap_from_backup      = optional(bool, false) # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
-    restore_target_time        = optional(string)      # with bootstrap_from_backup: PITR target, e.g. "2026-11-20 12:00:00+00"
-    package_versions = optional(map(string), {
-      "postgresql-17" = "17.*"
-      "patroni"       = "4.0.*"
-      "etcd-server"   = "3.5.*"
-      "pgbackrest"    = "2.55.*"
+    grafana_on_cluster         = optional(bool, false)  # step 5 of runbook-postgres.md
+    legacy_on_primary          = optional(bool, true)   # step 7 (later): false removes mon01's Postgres container
+    bootstrap_from_backup      = optional(bool, false)  # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
+    restore_target_time        = optional(string)       # with bootstrap_from_backup: PITR target, e.g. "2026-11-20 12:00:00+00"
+    package_versions = optional(map(string), {          # + postgresql-<pg_major> = "<pg_major>.*" (module)
+      "patroni"     = "4.1.*"
+      "etcd-server" = "3.5.*"
+      "pgbackrest"  = "2.60.*"
     })
   })
   default = {}
+  validation {
+    condition     = floor(var.postgres_settings.pg_major) == var.postgres_settings.pg_major && var.postgres_settings.pg_major >= 17
+    error_message = "postgres_settings.pg_major is a PostgreSQL major version (an integer, 17 or later)."
+  }
 }
 
 variable "postgres_s3" {
