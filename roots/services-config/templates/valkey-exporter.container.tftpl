@@ -1,0 +1,24 @@
+# Managed by OpenTofu (services-config, valkey-monitoring.tf). Local edits are overwritten.
+[Unit]
+Description=${description}
+Wants=network-online.target
+After=network-online.target ${after}
+
+[Container]
+Image=${image}
+ContainerName=${name}
+Network=host
+Environment=REDIS_ADDR=${addr}
+Environment=REDIS_EXPORTER_WEB_LISTEN_ADDRESS=${listen}
+%{ if env_file != "" ~}
+# REDIS_PASSWORD (root-only file).
+EnvironmentFile=${env_file}
+%{ endif ~}
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

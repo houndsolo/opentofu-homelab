@@ -11,6 +11,7 @@ locals {
   dns_vms        = { for name, vm in local.service_vms : name => vm if vm.role == "dns" }
   dhcp_vms       = { for name, vm in local.service_vms : name => vm if vm.role == "dhcp" }
   logging_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "logging" }
+  valkey_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "valkey" }
   deploy_vms     = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
@@ -109,6 +110,7 @@ locals {
       [for name in keys(local.monitoring_vms) : { host = name, address = coalesce(local.monitoring_address[name], "0.0.0.0"), labels = { role = "monitoring" } }],
       [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "grafana" } }],
       [for name in keys(local.dns_vms) : { host = name, address = local.mgmt[name], labels = { role = "dns" } }],
+      [for name in keys(local.valkey_vms) : { host = name, address = local.mgmt[name], labels = { role = "valkey" } }],
       [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
       [for name, n in local.metrics_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "metrics" } } if local.mimir_enabled],
       [for name, n in local.postgres_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "postgres" } } if local.postgres_enabled],
@@ -126,7 +128,9 @@ locals {
     grafana  = [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0") }]
     telegraf = [for host, address in var.vyos_telegraf_targets : { host = host, address = address }]
     ceph     = [for name in var.ceph_mgr_nodes : { host = name, address = local.pve_nodes[name] } if contains(keys(local.pve_nodes), name)]
-    snmp     = var.snmp_targets
+    # Valkey + Sentinel exporters (services-config valkey-monitoring.tf) on the mgmt address.
+    valkey = [for name in sort(keys(local.valkey_vms)) : { host = name, address = local.mgmt[name] }]
+    snmp   = var.snmp_targets
     blackbox = {
       icmp     = [for host, address in var.blackbox_icmp_targets : { host = host, target = address }]
       http_2xx = [for host, url in var.blackbox_http_targets : { host = host, target = url }]

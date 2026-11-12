@@ -1,0 +1,39 @@
+#!/bin/bash
+# Install/refresh the Valkey and Sentinel exporters (redis_exporter Quadlets); restart one only
+# when its unit or the password file changed. Fails unless both answer with redis_up 1.
+set -euo pipefail
+install -d -m 0755 /etc/containers/systemd
+
+put() { # put <path> <mode> <base64>: write if different, print 1 if it changed
+  printf '%s' "$3" | base64 -d > "$1.new"
+  chmod "$2" "$1.new"
+  if [ -f "$1" ] && cmp -s "$1" "$1.new"; then rm -f "$1.new"; echo 0; else mv "$1.new" "$1"; echo 1; fi
+}
+
+env_changed=$(put /etc/valkey-exporter.env 0600 '${env_b64}')
+valkey_changed=$(put /etc/containers/systemd/valkey-exporter.container 0644 '${valkey_unit_b64}')
+sentinel_changed=$(put /etc/containers/systemd/sentinel-exporter.container 0644 '${sentinel_unit_b64}')
+systemctl daemon-reload
+
+if [ "$valkey_changed" = 1 ] || [ "$env_changed" = 1 ] || ! systemctl is-active --quiet valkey-exporter.service; then
+  systemctl restart valkey-exporter.service
+fi
+if [ "$sentinel_changed" = 1 ] || ! systemctl is-active --quiet sentinel-exporter.service; then
+  systemctl restart sentinel-exporter.service
+fi
+
+for unit_listen in "valkey-exporter ${valkey_listen}" "sentinel-exporter ${sentinel_listen}"; do
+  set -- $unit_listen
+  ok=0
+  for i in $(seq 1 60); do
+    if curl -fsS --max-time 3 "http://$2/metrics" 2>/dev/null | grep -qx 'redis_up 1'; then ok=1; break; fi
+    sleep 2
+  done
+  if [ "$ok" = 1 ]; then
+    echo "$1 up on $2 (redis_up 1)"
+  else
+    echo "$1 on $2 not reporting redis_up 1" >&2
+    journalctl -u "$1.service" -n 20 --no-pager >&2 || true
+    exit 1
+  fi
+done
