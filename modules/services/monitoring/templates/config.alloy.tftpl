@@ -47,6 +47,9 @@ loki.source.syslog "network" {
   listener {
     address                = "0.0.0.0:${syslog_port}"
     protocol               = "tcp"
+    // Default 120s hangs up on quiet senders (DNS VMs, leaves between -- MARK --s) and rsyslog
+    // logs an err+warning reconnect triplet each time (DT-013). 1h > the 20 min MARK interval.
+    idle_timeout           = "1h"
     syslog_format          = "rfc5424"
     use_incoming_timestamp = true
     labels                 = { source = "syslog" }
