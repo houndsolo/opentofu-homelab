@@ -36,15 +36,21 @@ locals {
           addr        = "redis://127.0.0.1:6379"
           listen      = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.valkey}"
           env_file    = "/etc/valkey-exporter.env"
+          # NetBox's RQ keys in db0 (queue lengths, failed-job registries, registered workers) for the
+          # Databases/valkey dashboard. Empty queues have no key (RQ deletes the list).
+          check_keys        = "db0=rq:queue:*,db0=rq:failed:*"
+          check_single_keys = "db0=rq:workers"
         }))
         sentinel_unit_b64 = base64encode(templatefile("${path.module}/templates/valkey-exporter.container.tftpl", {
-          name        = "sentinel-exporter"
-          description = "Prometheus exporter for Valkey Sentinel"
-          after       = "valkey-sentinel.service"
-          image       = var.valkey_monitoring.redis_exporter_image
-          addr        = "redis://127.0.0.1:26379"
-          listen      = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.sentinel}"
-          env_file    = ""
+          name              = "sentinel-exporter"
+          description       = "Prometheus exporter for Valkey Sentinel"
+          after             = "valkey-sentinel.service"
+          image             = var.valkey_monitoring.redis_exporter_image
+          addr              = "redis://127.0.0.1:26379"
+          listen            = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.sentinel}"
+          env_file          = ""
+          check_keys        = ""
+          check_single_keys = ""
         }))
         valkey_listen   = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.valkey}"
         sentinel_listen = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.sentinel}"

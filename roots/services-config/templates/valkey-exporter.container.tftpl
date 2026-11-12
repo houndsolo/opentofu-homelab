@@ -10,6 +10,12 @@ ContainerName=${name}
 Network=host
 Environment=REDIS_ADDR=${addr}
 Environment=REDIS_EXPORTER_WEB_LISTEN_ADDRESS=${listen}
+%{ if check_keys != "" ~}
+Environment=REDIS_EXPORTER_CHECK_KEYS=${check_keys}
+%{ endif ~}
+%{ if check_single_keys != "" ~}
+Environment=REDIS_EXPORTER_CHECK_SINGLE_KEYS=${check_single_keys}
+%{ endif ~}
 %{ if env_file != "" ~}
 # REDIS_PASSWORD (root-only file).
 EnvironmentFile=${env_file}
