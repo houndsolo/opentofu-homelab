@@ -13,3 +13,4 @@ tooling/tests/__pycache__/
 .tofu-provider-mirror/
 crash.log
 tmp/
+KNOWN-ISSUES.md
