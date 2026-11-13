@@ -1,3 +1,5 @@
+load("time.star", "time")
+
 # Clone of every C9800 telemetry metric, renamed to wlc_<short> and made Prometheus-friendly (see telemetry.tf).
 NAMES = {
     "memory-oper:memory-statistics/memory-statistic": "memory",
@@ -39,6 +41,15 @@ def volatile(k):
     # Changes on (nearly) every push: as a label it would start a new series each time.
     return k.endswith("_time") or k.endswith("_ts") or "timestamp" in k
 
+def rfc3339(v):
+    # 2026-11-12T08:04:12.655205Z / 2026-11-13T18:22:08+00:00. Checked first: starlark has no
+    # try/except, and a failed parse_time would drop the whole metric.
+    if len(v) < 20 or v[4] != "-" or v[7] != "-" or v[10] != "T" or v[13] != ":" or v[16] != ":":
+        return False
+    if not (v[0:4] + v[5:7] + v[8:10] + v[11:13] + v[14:16] + v[17:19]).isdigit():
+        return False
+    return v.endswith("Z") or v[-6] in "+-"
+
 def apply(metric):
     full = metric.name[len("wlc_"):]
     if full.startswith("Cisco-IOS-XE-"):
@@ -67,6 +78,9 @@ def apply(metric):
                 metric.fields["current_rate_mbps"] = float(v)
             continue
         if volatile(k):
+            # As a number instead: <field>_seconds = Unix time (0 = the WLC's "unset", 1970-01-01).
+            if rfc3339(v.strip()):
+                metric.fields[k + "_seconds"] = time.parse_time(v.strip(), format = "2006-01-02T15:04:05Z07:00").unix
             continue
         v = v.strip()
         if v != "" and label(k) not in metric.tags:
