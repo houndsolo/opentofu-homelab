@@ -37,7 +37,8 @@ variable "netbox" {
       path     = optional(string, "/netbox")
       client   = optional(string, "netbox")
     }), {})
-    # keepalived VIP on VLAN 2 (netbox.lylat.space points here). null = no keepalived.
+    # keepalived VIP on VLAN 2 (netbox-vip.lylat.space; users reach https://netbox.lylat.space through
+    # the reverse proxy, proxy.tf). null = no keepalived.
     vip       = optional(string, "10.2.11.106/16")
     router_id = optional(number, 106) # = the VIP's last octet (Grafana 100 ... dark-triage 105)
     ha_l2vni  = optional(string, "ha_netbox")
@@ -122,11 +123,13 @@ locals {
     SUPERUSER_EMAIL        = var.netbox.superuser.email
     SUPERUSER_PASSWORD     = var.netbox.superuser.password
     CORS_ORIGIN_ALLOW_ALL  = "True"
-    GRAPHQL_ENABLED        = "true"
-    WEBHOOKS_ENABLED       = "true"
-    METRICS_ENABLED        = "true"
-    MEDIA_ROOT             = "/opt/netbox/netbox/media"
-    RELEASE_CHECK_URL      = "https://api.github.com/repos/netbox-community/netbox/releases"
+    # https://<name>.lylat.space of every reverse proxy host that forwards to NetBox's VIP.
+    CSRF_TRUSTED_ORIGINS = join(" ", local.netbox_proxy_origins)
+    GRAPHQL_ENABLED      = "true"
+    WEBHOOKS_ENABLED     = "true"
+    METRICS_ENABLED      = "true"
+    MEDIA_ROOT           = "/opt/netbox/netbox/media"
+    RELEASE_CHECK_URL    = "https://api.github.com/repos/netbox-community/netbox/releases"
   } : "${k}=${v}\n"])
 
   netbox_script = !local.netbox_enabled ? {} : {
@@ -243,7 +246,7 @@ resource "terraform_data" "netbox" {
 output "netbox_url" {
   description = "NetBox URLs: the VIP and each node."
   value = merge(
-    local.netbox_vip == null || !local.netbox_enabled ? {} : { vip = "http://${local.netbox_vip}/ (http://netbox.lylat.space/)" },
+    local.netbox_vip == null || !local.netbox_enabled ? {} : { vip = "http://${local.netbox_vip}/ (users: ${join(", ", local.netbox_proxy_origins)})" },
     { for name, n in local.netbox_nics : name => "http://${n.service.address}/" },
   )
 }

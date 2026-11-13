@@ -57,7 +57,16 @@ locals {
 
   vip_dns_hosts = { for name, vip in var.vips : name => { A = split("/", vip.address)[0] } }
 
-  generated_dns_hosts = merge(local.proxmox_dns_hosts, local.spine_dns_hosts, local.leaf_dns_hosts, local.vm_dns_hosts, local.vip_dns_hosts)
+  # Web UIs behind the reverse proxy (proxy.tf): every published name and alias is a CNAME to the
+  # proxy VIP's name. Their services' own VIPs are separate records (<name>-vip above).
+  proxy_dns_hosts = var.proxy == null ? {} : merge([
+    for name, h in var.proxy.hosts : { for n in concat([name], h.aliases) : n => { CNAME = "proxy.lylat.space." } }
+  ]...)
+  proxy_dns_clashes = sort(setintersection(keys(local.proxy_dns_hosts), setunion(
+    keys(local.proxmox_dns_hosts), keys(local.spine_dns_hosts), keys(local.leaf_dns_hosts), keys(local.vm_dns_hosts), keys(local.vip_dns_hosts),
+  )))
+
+  generated_dns_hosts = merge(local.proxmox_dns_hosts, local.spine_dns_hosts, local.leaf_dns_hosts, local.vm_dns_hosts, local.vip_dns_hosts, local.proxy_dns_hosts)
 
   # Merged per record type: a hand-made entry can add other types to a generated name (an AAAA
   # next to the generated A), but can't redefine a generated type (check below).
@@ -85,6 +94,13 @@ locals {
   custom_records = concat(local.host_records, var.dns_records)
 }
 
+check "proxy_names_unique" {
+  assert {
+    condition     = length(local.proxy_dns_clashes) == 0
+    error_message = "Reverse proxy host names (services-config var.proxy.hosts) clash with generated records (VMs, VIPs, Proxmox hosts, leaves, spines): ${join(", ", local.proxy_dns_clashes)}. A CNAME can't share a name with other records."
+  }
+}
+
 check "dns_hosts_not_generated" {
   assert {
     condition     = length(local.dns_hosts_conflicts) == 0
@@ -97,13 +113,13 @@ check "vips_match_services_config" {
   assert {
     condition = alltrue([
       for c in [
-        { name = "netbox", vip = try(var.netbox.vip, null), vrid = try(var.netbox.router_id, null), role = "netbox" },
-        { name = "dark-triage", vip = try(var.ticketing.vip, null), vrid = try(var.ticketing.router_id, null), role = "ticketing" },
+        { name = "netbox-vip", vip = try(var.netbox.vip, null), vrid = try(var.netbox.router_id, null), role = "netbox" },
+        { name = "dark-triage-vip", vip = try(var.ticketing.vip, null), vrid = try(var.ticketing.router_id, null), role = "ticketing" },
         { name = "proxy", vip = try(var.proxy.vip, null), vrid = try(var.proxy.router_id, null), role = "proxy" },
         { name = "dns", vip = try(var.dns_vrrp.vip, null), vrid = try(var.dns_vrrp.router_id, null), role = "dns" },
       ] : c.vip == null || try(var.vips[c.name].address == c.vip && var.vips[c.name].vrid == c.vrid && var.vips[c.name].role == c.role, false)
     ])
-    error_message = "A VIP in services-config (netbox.vip/router_id, ticketing.vip/router_id, proxy.vip/router_id, dns_vrrp) differs from inventory/auto.tfvars/vips.auto.tfvars (netbox, dark-triage, proxy, dns). Keep them identical."
+    error_message = "A VIP in services-config (netbox.vip/router_id, ticketing.vip/router_id, proxy.vip/router_id, dns_vrrp) differs from inventory/auto.tfvars/vips.auto.tfvars (netbox-vip, dark-triage-vip, proxy, dns). Keep them identical."
   }
 }
 

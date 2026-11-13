@@ -185,7 +185,7 @@ variable "settings" {
     influxdb_bucket           = optional(string, "proxmox")     # created by InfluxDB setup on first start only
     influxdb_grafana_bucket   = optional(string, "pve_cluster") # default bucket of the Grafana InfluxDB datasource
     influxdb_retention        = optional(string, "90d")
-    grafana_root_url          = optional(string, "http://grafana.lylat.space:3000/")
+    grafana_root_url          = optional(string, "https://grafana.lylat.space/") # through the reverse proxy (services-config proxy.tf)
     dns_probe_zone            = optional(string, "lylat.space")
     ceph_cluster_name         = optional(string, "lylat") # cluster label on ceph metrics (ceph-mixin dashboards filter on it)
     # Label matchers added to the ceph-mixin's node_* alerts (main.tf), which assume node_exporter

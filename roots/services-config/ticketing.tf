@@ -28,7 +28,8 @@ variable "ticketing" {
       user = optional(string, "triage")
     }), {})
     ports = optional(list(number), [80, 3000])
-    # keepalived VIP on VLAN 2 (dark-triage.lylat.space points here). null = no keepalived.
+    # keepalived VIP on VLAN 2 (dark-triage-vip.lylat.space; users reach https://dark-triage.lylat.space
+    # through the reverse proxy, proxy.tf). null = no keepalived.
     vip       = optional(string, "10.2.11.105/16")
     router_id = optional(number, 105) # = the VIP's last octet, like Grafana 100, Loki 101, monitoring 102, Mimir 103, Postgres 104
     ha_l2vni  = optional(string, "ha_triage")
@@ -190,7 +191,7 @@ resource "terraform_data" "ticketing" {
 output "ticketing_url" {
   description = "dark-triage helpdesk URLs: the VIP and each node."
   value = merge(
-    local.ticketing_vip == null ? {} : { vip = "http://${local.ticketing_vip}/ (http://dark-triage.lylat.space/)" },
+    local.ticketing_vip == null ? {} : { vip = "http://${local.ticketing_vip}/ (users: https://dark-triage.lylat.space/)" },
     { for name, ip in local.ticketing_listen : name => "http://${ip}/" },
   )
 }

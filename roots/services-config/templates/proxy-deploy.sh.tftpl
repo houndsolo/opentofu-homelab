@@ -69,13 +69,17 @@ else
   echo "nginx unchanged"
 fi
 
-healthy=0
-for i in $(seq 1 15); do
-  if curl -sf -o /dev/null --max-time 2 http://127.0.0.1/healthz; then healthy=1; break; fi
-  sleep 1
+# A reload is graceful: old workers keep answering for a moment. Wait until /healthz reports this
+# config's id (two answers in a row) before checking the names.
+healthy=0; seen=0; got=""
+for i in $(seq 1 30); do
+  got=$(curl -sf --max-time 2 http://127.0.0.1/healthz || true)
+  if [ "$got" = "ok ${config_id}" ]; then seen=$((seen + 1)); else seen=0; fi
+  if [ $seen -ge 2 ]; then healthy=1; break; fi
+  sleep 0.5
 done
 if [ $healthy -ne 1 ]; then
-  echo "nginx is not healthy (http://127.0.0.1/healthz)" >&2
+  echo "nginx does not serve config ${config_id} (http://127.0.0.1/healthz: '$got')" >&2
   journalctl -u nginx.service -n 30 --no-pager >&2
   exit 1
 fi

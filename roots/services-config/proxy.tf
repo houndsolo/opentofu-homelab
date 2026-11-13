@@ -1,6 +1,8 @@
-# Reverse proxy for the VLAN 2 services: nginx (Debian package) on every role "proxy" VM terminates
-# TLS for <name>.<domain> (*.svc.lylat.space) with the Let's Encrypt wildcard that roots/certs
-# installs in var.proxy.cert_dir, and forwards to the service VIPs over plain HTTP.
+# Reverse proxy for the VLAN 2 web UIs: nginx (Debian package) on every role "proxy" VM terminates
+# TLS for https://<name>.lylat.space with the Let's Encrypt wildcard *.lylat.space that roots/certs
+# installs in var.proxy.cert_dir, and forwards over plain HTTP to the service's own VIP (its address
+# from vips.auto.tfvars, e.g. grafana-vip). DNS: every host name and alias is generated as a CNAME
+# to proxy.lylat.space (dns-records.tf).
 #
 # HA: both nodes run nginx all the time with the same config (stateless). keepalived holds
 # var.proxy.vip on the VLAN 2 NIC of a node whose nginx answers /healthz, with use_vmac (fixed MAC,
@@ -10,18 +12,20 @@
 # Order: roots/certs first (the deploy stops if the certificate is missing). Deploys are
 # canary-first: the first VM (sorted by name) must pass its health check before the others.
 variable "proxy" {
-  description = "Reverse proxy: hostnames (<key>.<domain>) and their upstreams, certificate path, VIP. null = don't deploy."
+  description = "Reverse proxy: published hosts (<key>.<domain> plus aliases) and the VIP + port they forward to, certificate path, proxy VIP. null = don't deploy."
   type = object({
-    domain   = optional(string, "svc.lylat.space")
+    domain   = optional(string, "lylat.space")  # the zone; the certificate is *.<domain>
     cert_dir = optional(string, "/etc/ssl/svc") # = roots/certs var.certificate.directory
     hosts = optional(map(object({
-      upstream   = string                  # scheme://host:port, normally a service VIP
-      websockets = optional(bool, false)   # Upgrade/Connection headers (Grafana Live)
-      max_body   = optional(string, "10m") # client_max_body_size (uploads)
+      vip        = string                     # key in vips.auto.tfvars: nginx forwards to its address
+      port       = number                     # the service's port on that VIP
+      aliases    = optional(list(string), []) # more names in the same zone (also CNAMEs to the proxy)
+      websockets = optional(bool, false)      # Upgrade/Connection headers (Grafana Live)
+      max_body   = optional(string, "10m")    # client_max_body_size (uploads)
       })), {
-      grafana = { upstream = "http://10.2.11.100:3000", websockets = true }
-      netbox  = { upstream = "http://10.2.11.106:80", max_body = "100m" }
-      triage  = { upstream = "http://10.2.11.105:80" }
+      grafana       = { vip = "grafana-vip", port = 3000, websockets = true }
+      netbox        = { vip = "netbox-vip", port = 80, max_body = "100m" }
+      "dark-triage" = { vip = "dark-triage-vip", port = 80, aliases = ["triage"] }
     })
     clients = optional(list(string), ["10.0.0.0/8"]) # may reach 80/443
     # keepalived VIP on VLAN 2 (proxy.lylat.space). null = no keepalived.
@@ -35,10 +39,11 @@ variable "proxy" {
     condition = var.proxy == null || try(
       (var.proxy.vip == null || (can(cidrhost(var.proxy.vip, 0)) && strcontains(var.proxy.vip, "/"))) &&
       var.proxy.router_id >= 1 && var.proxy.router_id <= 255 &&
-      alltrue([for name, h in var.proxy.hosts : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", name)) && can(regex("^https?://[^/]+$", h.upstream))]) &&
+      alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && contains(keys(var.vips), h.vip) && h.port >= 1 && h.port <= 65535]) &&
+      length(distinct(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]))) == length(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)])) &&
       alltrue([for c in var.proxy.clients : can(cidrhost(c, 0))]), false
     )
-    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255, host keys are single DNS labels, upstreams are scheme://host:port without a path, clients are CIDRs."
+    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host's vip is a key in vips.auto.tfvars and port is 1..65535; clients are CIDRs."
   }
 }
 
@@ -66,20 +71,37 @@ locals {
     }
   }
 
-  proxy_nginx_conf = var.proxy == null ? "" : templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", {
+  # Each published host: all its names (key + aliases, fully qualified) and the upstream URL.
+  proxy_hosts = var.proxy == null ? {} : {
+    for name, h in var.proxy.hosts : name => merge(h, {
+      names    = [for n in concat([name], h.aliases) : "${n}.${var.proxy.domain}"]
+      upstream = "http://${split("/", var.vips[h.vip].address)[0]}:${h.port}"
+    })
+  }
+
+  # NetBox's CSRF_TRUSTED_ORIGINS (netbox.tf): the proxied names that forward to NetBox's VIP.
+  netbox_proxy_origins = var.netbox == null ? [] : sort(flatten([
+    for h in values(local.proxy_hosts) : [for n in h.names : "https://${n}"] if var.vips[h.vip].address == var.netbox.vip
+  ]))
+
+  # Rendered twice: the config id (/healthz) is a hash of the config without it.
+  proxy_nginx_vars = var.proxy == null ? null : {
     domain   = var.proxy.domain
     cert_dir = var.proxy.cert_dir
-    hosts    = var.proxy.hosts
-  })
+    hosts    = local.proxy_hosts
+  }
+  proxy_config_id  = var.proxy == null ? "" : substr(sha256(templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", merge(local.proxy_nginx_vars, { config_id = "" }))), 0, 16)
+  proxy_nginx_conf = var.proxy == null ? "" : templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", merge(local.proxy_nginx_vars, { config_id = local.proxy_config_id }))
 
   proxy_script = var.proxy == null ? {} : {
     for name, vm in local.proxy_vms : name => templatefile("${path.module}/templates/proxy-deploy.sh.tftpl", {
       cert_dir   = var.proxy.cert_dir
+      config_id  = local.proxy_config_id
       listen     = local.proxy_nics[name].service.address
       ha         = local.proxy_ha
       nginx_b64  = base64encode(local.proxy_nginx_conf)
       nft_b64    = base64encode(templatefile("${path.module}/templates/proxy.nft.tftpl", { clients = var.proxy.clients }))
-      host_names = [for h in sort(keys(var.proxy.hosts)) : "${h}.${var.proxy.domain}"]
+      host_names = sort(flatten([for h in values(local.proxy_hosts) : h.names]))
       keepalived_b64 = !local.proxy_ha ? "" : base64encode(templatefile("${path.module}/templates/proxy-keepalived.conf.tftpl", {
         host         = name
         ha_interface = local.proxy_nics[name].ha.interface
@@ -173,7 +195,7 @@ resource "terraform_data" "proxy" {
 output "proxy_urls" {
   description = "Reverse proxy: each published hostname and its upstream; the VIP."
   value = var.proxy == null ? {} : merge(
-    { for name, h in var.proxy.hosts : "https://${name}.${var.proxy.domain}/" => h.upstream },
+    { for name, h in local.proxy_hosts : "https://${h.names[0]}/" => h.upstream },
     local.proxy_vip == null ? {} : { vip = "${local.proxy_vip} (proxy.lylat.space)" },
   )
 }

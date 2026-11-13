@@ -1,11 +1,14 @@
 # keepalived VIPs, keyed by DNS name (see inventory/schema/vips.tf). services-config publishes the
 # A/PTR records; the services' keepalived settings are checked against this list.
+# Web UIs behind the reverse proxy keep their plain names for the proxy (grafana, netbox,
+# dark-triage: CNAMEs to proxy.lylat.space, generated from services-config var.proxy.hosts); their
+# own VIPs are <name>-vip, which nginx forwards to.
 vips = {
-  grafana = {
+  grafana-vip = {
     address     = "10.2.11.100/16"
     vrid        = 100
     role        = "grafana"
-    description = "Grafana UI :3000 (graf01/02), monitoring-config grafana_vrrp"
+    description = "Grafana :3000 (graf01/02), monitoring-config grafana_vrrp; users go through https://grafana.lylat.space (proxy)"
   }
   logs = {
     address     = "10.5.11.101/16"
@@ -43,23 +46,23 @@ vips = {
     role        = "postgres"
     description = "Patroni leader on the backend VLAN (pg01-03), monitoring-config postgres_settings.vip"
   }
-  dark-triage = {
+  dark-triage-vip = {
     address     = "10.2.11.105/16"
     vrid        = 105
     role        = "ticketing"
-    description = "dark-triage helpdesk (triage01/02), services-config ticketing.vip"
+    description = "dark-triage helpdesk :80 (triage01/02), services-config ticketing.vip; users go through https://dark-triage.lylat.space (proxy)"
   }
-  netbox = {
+  netbox-vip = {
     address     = "10.2.11.106/16"
     vrid        = 106
     role        = "netbox"
-    description = "NetBox (netbox01/02), services-config netbox.vip"
+    description = "NetBox :80 (netbox01/02), services-config netbox.vip; users go through https://netbox.lylat.space (proxy)"
   }
   proxy = {
     address     = "10.2.11.107/16"
     vrid        = 107
     role        = "proxy"
-    description = "nginx reverse proxy for *.svc.lylat.space (proxy01/02), services-config proxy.vip"
+    description = "nginx reverse proxy (proxy01/02), services-config proxy.vip: https://<name>.lylat.space for var.proxy.hosts"
   }
   dns = {
     address     = "10.8.53.53/16"

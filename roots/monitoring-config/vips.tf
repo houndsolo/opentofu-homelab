@@ -3,7 +3,7 @@
 # settings stay where the services read them; this only keeps both places identical.
 locals {
   vip_inventory_checks = [
-    { name = "grafana", vip = try(var.grafana_vrrp.vip, null), vrid = try(var.grafana_vrrp.router_id, null), role = "grafana" },
+    { name = "grafana-vip", vip = try(var.grafana_vrrp.vip, null), vrid = try(var.grafana_vrrp.router_id, null), role = "grafana" },
     { name = "logs", vip = try(var.logging_settings.vips.monitoring, null), vrid = try(var.logging_settings.vrrp_router_id, null), role = "logging" },
     { name = "loki", vip = try(var.logging_settings.vips.backend, null), vrid = try(var.logging_settings.vrrp_router_id, null), role = "logging" },
     { name = "influxdb", vip = try(var.backend_vrrp.vips.monitoring, null), vrid = try(var.backend_vrrp.router_id, null), role = "monitoring" },

@@ -12,7 +12,7 @@ variable "acme_server" {
 variable "certificate" {
   description = "The wildcard certificate for the reverse proxy and where it lands on each proxy VM."
   type = object({
-    common_name = optional(string, "*.svc.lylat.space")
+    common_name = optional(string, "*.lylat.space") # covers every proxied name (one level deep)
     key_type    = optional(string, "EC256")
     directory   = optional(string, "/etc/ssl/svc") # fullchain.pem (0644) and privkey.pem (0600, root)
   })

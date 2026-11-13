@@ -1,5 +1,6 @@
 # Managed by OpenTofu (services-config, proxy.tf). Local edits are overwritten.
-# TLS reverse proxy for *.${domain}: one server block per published host, upstreams over HTTP.
+# TLS reverse proxy for <name>.${domain}: one server block per published host (its name plus
+# aliases), upstreams are the services' own VIPs over HTTP.
 # IPv4 only (the proxies have no global IPv6 address).
 
 map $http_upgrade $connection_upgrade {
@@ -15,7 +16,8 @@ ssl_session_cache   shared:SSL:10m;
 ssl_session_timeout 1d;
 ssl_session_tickets off;
 
-# Port 80: health check for keepalived/monitoring, everything else to HTTPS.
+# Port 80: health check for keepalived/monitoring, everything else to HTTPS. /healthz also reports
+# the config id, so a deploy can tell when a reload has reached every worker.
 server {
   listen 80 default_server;
   server_name _;
@@ -23,7 +25,7 @@ server {
   location = /healthz {
     access_log off;
     default_type text/plain;
-    return 200 "ok\n";
+    return 200 "ok ${config_id}\n";
   }
 
   location / {
@@ -42,7 +44,7 @@ server {
 server {
   listen 443 ssl;
   http2 on;
-  server_name ${name}.${domain};
+  server_name ${join(" ", h.names)};
 
   client_max_body_size ${h.max_body};
 

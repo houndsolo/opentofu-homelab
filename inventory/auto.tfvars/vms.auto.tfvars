@@ -413,7 +413,7 @@ vms = {
     }
   }
   proxy01 = {
-    # nginx reverse proxy, HA pair with proxy02: HTTPS front end for the VLAN 2 services (*.svc.lylat.space,
+    # nginx reverse proxy, HA pair with proxy02: HTTPS front end for the VLAN 2 web UIs (https://<name>.lylat.space,
     # Let's Encrypt wildcard from roots/certs via Cloudflare DNS-01), keepalived VIP 10.2.11.107.
     # Same last octet everywhere (.50), like the other service VMs.
     owner              = "services-vms"
@@ -446,7 +446,7 @@ vms = {
     }
   }
   proxy02 = {
-    # nginx reverse proxy, HA pair with proxy01: HTTPS front end for the VLAN 2 services (*.svc.lylat.space,
+    # nginx reverse proxy, HA pair with proxy01: HTTPS front end for the VLAN 2 web UIs (https://<name>.lylat.space,
     # Let's Encrypt wildcard from roots/certs via Cloudflare DNS-01), keepalived VIP 10.2.11.107.
     # Same last octet everywhere (.51), like the other service VMs.
     owner              = "services-vms"

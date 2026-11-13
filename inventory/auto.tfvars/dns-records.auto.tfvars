@@ -2,12 +2,13 @@
 # the rest (roots/services-config/dns-records.tf):
 #   <vm>         every service/workload VM's service address (the NIC with the default gateway)
 #   <vm>.mgmt    every VM's management address (also <node>.mgmt, leaf-<id>.mgmt, spine-<id>.mgmt)
-#   <vip>        every keepalived VIP in vips.auto.tfvars (grafana, logs, loki, influxdb, monitoring,
-#                mimir, postgres, dark-triage, netbox, dns)
+#   <vip>        every keepalived VIP in vips.auto.tfvars (grafana-vip, logs, loki, influxdb, monitoring,
+#                mimir, postgres, dark-triage-vip, netbox-vip, proxy, dns)
+#   <web UI>     CNAME to proxy.lylat.space for every reverse proxy host and alias (services-config
+#                var.proxy.hosts: grafana, netbox, dark-triage, triage)
 #   <node>, leaf-<id>, spine-<id>, and the DNS servers' own records
 # A name here that is also generated fails the dns_hosts_not_generated check.
 dns_hosts = {
-  triage = { CNAME = "dark-triage.lylat.space." } # short name for dark-triage
   # greatfox = { A = "10.20.7.20", AAAA = "fd69:20::20" }
   # www      = { CNAME = "greatfox.lylat.space." }
   # "@"      = { MX = "10 mail.lylat.space.", TXT = "example text" }

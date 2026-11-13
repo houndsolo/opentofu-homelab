@@ -2,7 +2,8 @@
 
 Let's Encrypt certificates for the reverse proxy pair (`proxy01`/`proxy02`, role `proxy` in
 [`vms.auto.tfvars`](../../inventory/auto.tfvars/vms.auto.tfvars)): one wildcard
-`*.svc.lylat.space`, validated with the Cloudflare DNS-01 challenge, copied to every proxy VM.
+`*.lylat.space`, validated with the Cloudflare DNS-01 challenge, copied to every proxy VM. nginx
+uses it for https://grafana.lylat.space, netbox, dark-triage and any later proxied name.
 
 | File | What |
 | --- | --- |
