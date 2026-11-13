@@ -336,6 +336,26 @@ run "exporters_and_ceph_alerts" {
   }
 
   assert {
+    # pvestatd -> Telegraf -> Prometheus: a Telegraf per backend takes the PVE metric servers' writes on the
+    # monitoring network (token from the env file, never in the config), each Prometheus scrapes its own
+    # one by container name every 10 s, and every backend gets its own metric server on the cluster.
+    condition = (
+      alltrue([for name, addr in { mon01 = "10.5.11.30", mon02 = "10.5.11.31" } : (
+        strcontains(module.monitoring.units[name].pvestatd, "PublishPort=${addr}:8186:8186\n") &&
+        strcontains(module.monitoring.units[name].pvestatd, "EnvironmentFile=/etc/monitoring/pvestatd.env\n") &&
+        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "put '/etc/monitoring/pvestatd.env' '0600' 'root' 'pvestatd' ''") &&
+        proxmox_metrics_server.pvestatd[name].server == addr && proxmox_metrics_server.pvestatd[name].port == 8186
+      )]) &&
+      strcontains(module.monitoring.pvestatd_telegraf_config, "token = \"$${PVESTATD_TOKEN}\"") &&
+      strcontains(module.monitoring.pvestatd_telegraf_config, "string_as_label = false") &&
+      one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "pvestatd"]).scrape_interval == "10s" &&
+      one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "pvestatd"]).static_configs[0].targets == ["pvestatd:9274"] &&
+      strcontains(module.monitoring.prometheus_rules, "PveMetricsStopped")
+    )
+    error_message = "pvestatd: a Telegraf per backend on :8186, scraped locally every 10 s, one PVE metric server per backend."
+  }
+
+  assert {
     # The InfluxDB relay is retired: no unit, scrape job or alerts, and the deploy removes its files.
     condition = (
       !contains([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j.job_name], "influx-relay") &&
@@ -543,7 +563,7 @@ run "wlc_telemetry" {
       output.wlc_telemetry_receiver == { address = "10.5.11.30", receivers = { mon01 = "10.5.11.30" }, port = 57500, bucket = "wlc" } && # VIP once influxdb_replica_ready
       influxdb_bucket.wlc[0].retention_period == 90 * 86400 &&
       length(influxdb_authorization.wlc[0].permissions) == 1 && influxdb_authorization.wlc[0].permissions[0].action == "write" &&
-      module.monitoring.backend_services == ["monitoring-network", "postgres", "influxdb", "telegraf", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
+      module.monitoring.backend_services == ["monitoring-network", "postgres", "influxdb", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
     )
     error_message = "C9800 telemetry gets its own bucket and write-only token, and Telegraf starts right after InfluxDB."
   }
@@ -859,7 +879,7 @@ run "backend_ha" {
       !contains(keys(module.monitoring.units.mon02), "postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "/var/lib/monitoring/postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "pg_isready") &&
-      module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "influxdb", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
+      module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "influxdb", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.13.11.30:5432")
     )
     error_message = "Postgres stays on mon01 (Grafana's database); mon02 gets the rest, keepalived last."

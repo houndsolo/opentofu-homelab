@@ -175,6 +175,7 @@ locals {
     }],
     local.logging_scrape_configs,  # logging.tf
     local.wlc_scrape_configs,      # telemetry.tf
+    local.pvestatd_scrape_configs, # pvestatd.tf
     local.mimir_scrape_configs,    # metrics.tf
     local.postgres_scrape_configs, # postgres.tf
     local.valkey_scrape_configs,   # valkey.tf
@@ -235,7 +236,7 @@ locals {
           annotations = { summary = "{{ $labels.instance }} {{ $labels.mountpoint }} has under 10% free" }
         },
       ]
-    }], local.storage_health_rules, local.logging_rules, local.wlc_rules, local.mimir_rules, local.backend_rules, local.postgres_rules, local.rgw_rules, local.valkey_rules, local.nginx_rules, local.bind_rules) # logging.tf, telemetry.tf, metrics.tf, backends.tf, postgres.tf, rgw.tf, valkey.tf, nginx.tf, bind.tf
+    }], local.storage_health_rules, local.logging_rules, local.wlc_rules, local.pvestatd_rules, local.mimir_rules, local.backend_rules, local.postgres_rules, local.rgw_rules, local.valkey_rules, local.nginx_rules, local.bind_rules) # logging.tf, telemetry.tf, pvestatd.tf, metrics.tf, backends.tf, postgres.tf, rgw.tf, valkey.tf, nginx.tf, bind.tf
   })
 
   # Per-OSD BlueStore stalls (the mixin only has the cluster-wide BLUESTORE_SLOW_OP_ALERT health
@@ -444,8 +445,8 @@ locals {
   # Telegraf (WLC telemetry) where wlc_telemetry.backends lists the backend.
   backend_containers = {
     for host in local.backend_names : host => {
-      for name, c in merge(local.backend_container_defs[host], local.wlc_container[host]) : name => c # telemetry.tf
-      if(name != "pve-exporter" || local.pve_enabled) && (name != "telegraf" || contains(local.wlc_backends, host)) && (name != "postgres" || (host == local.primary && local.legacy_postgres))
+      for name, c in merge(local.backend_container_defs[host], local.wlc_container[host], local.pvestatd_container[host]) : name => c # telemetry.tf, pvestatd.tf
+      if(name != "pve-exporter" || local.pve_enabled) && (name != "telegraf" || contains(local.wlc_backends, host)) && (name != "pvestatd" || local.pvestatd_enabled) && (name != "postgres" || (host == local.primary && local.legacy_postgres))
     }
   }
   backend_container_defs = {
@@ -550,7 +551,7 @@ locals {
   # Restart and health order on each backend.
   backend_order = {
     for host in local.backend_names : host => [
-      for name in ["postgres", "influxdb", "telegraf", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
+      for name in ["postgres", "influxdb", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
       if contains(keys(local.backend_containers[host]), name)
     ]
   }
@@ -649,6 +650,7 @@ locals {
         reload  = []
       }] : [],
       local.wlc_files[host],        # telemetry.tf
+      local.pvestatd_files[host],   # pvestatd.tf
       local.backend_ha_files[host], # backends.tf
     )
   }
@@ -677,8 +679,9 @@ locals {
       local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
       [{ path = local.snmp_conf, mode = "0755", owner = "root" }],
       local.alloy_dirs,
-      local.wlc_dirs[host],  # telemetry.tf
-      local.backend_ha_dirs, # backends.tf
+      local.wlc_dirs[host],      # telemetry.tf
+      local.pvestatd_dirs[host], # pvestatd.tf
+      local.backend_ha_dirs,     # backends.tf
     )
   }
 
@@ -694,7 +697,7 @@ locals {
       local.alloy_validation[host],
       # Loads the bundled snmp.yml with our modules (and auths) exactly as the container does.
       "podman run --rm --network=none ${join(" ", [for v in local.snmp_volumes : "-v \"$root${v}\""])} '${var.images.snmp_exporter}' --dry-run ${join(" ", [for f in local.snmp_config_files : "--config.file=${f}"])}",
-    ], local.wlc_validations[host], local.backend_ha_validations) # telemetry.tf, backends.tf
+    ], local.wlc_validations[host], local.pvestatd_validations[host], local.backend_ha_validations) # telemetry.tf, pvestatd.tf, backends.tf
   }
 
   backend_health = {
@@ -706,7 +709,8 @@ locals {
       ],
       host == local.primary && local.legacy_postgres ? ["podman exec postgres pg_isready -q -U grafana -d grafana"] : [], # postgres.tf
       [local.alloy_health[host]],
-      local.wlc_health[host], # telemetry.tf
+      local.wlc_health[host],      # telemetry.tf
+      local.pvestatd_health[host], # pvestatd.tf
     )
   }
 

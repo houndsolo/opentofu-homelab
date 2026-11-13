@@ -262,6 +262,10 @@ module "monitoring" {
   pve_exporter_token = var.pve_exporter_token
   snmp_auths         = var.snmp_v3_auths
 
+  # pve-metrics.tf: the PVE metric servers' writes into Prometheus.
+  pvestatd       = var.pve_metrics.enabled ? { port = var.pve_metrics.pvestatd_port } : null
+  pvestatd_token = random_password.pvestatd.result
+
   # telegraf.tf: Telegraf for the C9800 telemetry, with the bucket's write-only token.
   # Telegraf on the primary, and on the replica once its InfluxDB has the bucket (influxdb-replica.tf).
   wlc_telemetry = var.wlc_telemetry == null ? null : {

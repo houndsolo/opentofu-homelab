@@ -66,6 +66,11 @@ output "backend_keepalived_configs" {
   sensitive   = true
 }
 
+output "pvestatd_telegraf_config" {
+  description = "The pvestatd Telegraf's telegraf.conf (the token stays an environment reference), \"\" when off."
+  value       = local.pvestatd_telegraf_conf
+}
+
 output "wlc_telegraf_configs" {
   description = "Backend VM name => the WLC telemetry Telegraf's telegraf.conf (tokens stay environment references), \"\" when off."
   value       = local.telegraf_conf

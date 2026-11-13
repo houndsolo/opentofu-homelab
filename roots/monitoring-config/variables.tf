@@ -295,6 +295,7 @@ variable "pve_metrics" {
     cluster_bucket           = optional(string, "pve_cluster")
     standalone_bucket_prefix = optional(string, "pve_")
     retention_days           = optional(number, 90)
+    pvestatd_port            = optional(number, 8186) # the pvestatd Telegraf's listener on each backend (pve-metrics.tf)
   })
   default = {}
 }

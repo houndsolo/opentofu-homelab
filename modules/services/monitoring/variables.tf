@@ -229,6 +229,25 @@ variable "logging_secrets" {
   default = null
 }
 
+variable "pvestatd" {
+  description = "Telegraf on every backend accepting the Proxmox nodes' pvestatd metric server writes (InfluxDB v2 line protocol) on monitoring_address:port and serving them to Prometheus (job pvestatd, pvestatd.tf). The token is pvestatd_token. null leaves it out."
+  type = object({
+    port = optional(number, 8186)
+  })
+  default = null
+  validation {
+    condition     = var.pvestatd == null || try(var.pvestatd.port >= 1024 && var.pvestatd.port <= 65535 && !contains([8086, 9273, 9274], var.pvestatd.port), false)
+    error_message = "pvestatd.port must be an unprivileged port (1024..65535) other than InfluxDB's 8086 and Telegraf's metrics ports 9273/9274."
+  }
+}
+
+variable "pvestatd_token" {
+  description = "Token the PVE metric servers send to the pvestatd Telegraf (any random string; the root generates it)."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
 variable "wlc_telemetry" {
   description = "Telegraf on the backends in `backends` receiving Cisco model-driven telemetry (gRPC dial-out, kvGPB) from the C9800 WLCs on their monitoring_address:port, each written to its local InfluxDB bucket `bucket` (which must exist there) with that backend's wlc_telemetry_tokens entry. null leaves Telegraf out."
   type = object({
