@@ -1362,7 +1362,7 @@
     {
       "type": "table",
       "title": "Access points",
-      "description": "Every AP joined to the selected WLCs, now (capwap-data every 60 s). Clients = associated clients over the AP's radios. Last disconnect is the reason of the AP's previous CAPWAP drop. Click an AP for its join/leave lines in the network device logs. (Uptime and joined-for are gone: the telemetry's boot and join timestamps aren't exported to Prometheus.) Known gap: the WLC's telemetry drops the first entry of each list; extra per-entry subscriptions restore the 2.4 GHz radio and the lowest WLAN, but the client with the lowest MAC and the 2.4 GHz noise/interference scan stay missing; see wireless.py.",
+      "description": "Every AP joined to the selected WLCs, now (capwap-data every 60 s). Clients = associated clients over the AP's radios. Last disconnect is the reason of the AP's previous CAPWAP drop. Click an AP for its join/leave lines in the network device logs. Uptime counts from the AP's boot, Joined for from its CAPWAP join; Certificate expiry is the AP's manufacturing (SUDI) certificate. Known gap: the WLC's telemetry drops the first entry of each list; extra per-entry subscriptions restore the 2.4 GHz radio and the lowest WLAN, but the client with the lowest MAC and the 2.4 GHz noise/interference scan stay missing; see wireless.py.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1419,6 +1419,45 @@
           "instant": true,
           "format": "table",
           "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - (max by (host, wtp_mac) (wlc_ap_capwap_ap_time_info_boot_time_seconds{host=~\"${wlc:regex}\"}) > 0)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - (max by (host, wtp_mac) (wlc_ap_capwap_ap_time_info_join_time_seconds{host=~\"${wlc:regex}\"}) > 0)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(max by (host, wtp_mac) (wlc_ap_capwap_ap_security_data_ap_cert_expiry_time_seconds{host=~\"${wlc:regex}\"}) > 0) * 1000",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "G"
         }
       ],
       "fieldConfig": {
@@ -1541,12 +1580,48 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Uptime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Joined for"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Uplink speed"
             },
             "properties": [
               {
                 "id": "unit",
                 "value": "bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Certificate expiry"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
               }
             ]
           },
@@ -1626,6 +1701,9 @@
               "Value #B": "Clients",
               "oper_status": "Uplink",
               "Value #D": "Uplink speed",
+              "Value #E": "Uptime",
+              "Value #F": "Joined for",
+              "Value #G": "Certificate expiry",
               "tag_info_site_tag_site_tag_name": "Site tag",
               "tag_info_policy_tag_info_policy_tag_name": "Policy tag",
               "tag_info_rf_tag_rf_tag_name": "RF tag",
@@ -1641,12 +1719,15 @@
               "device_detail_static_info_board_data_wtp_serial_num": 6,
               "device_detail_wtp_version_sw_version": 7,
               "ap_mode_data_wtp_mode": 8,
-              "oper_status": 9,
-              "Value #D": 10,
-              "tag_info_site_tag_site_tag_name": 11,
-              "tag_info_policy_tag_info_policy_tag_name": 12,
-              "tag_info_rf_tag_rf_tag_name": 13,
-              "disconnect_detail_disconnect_reason": 14
+              "Value #E": 9,
+              "Value #F": 10,
+              "oper_status": 11,
+              "Value #D": 12,
+              "tag_info_site_tag_site_tag_name": 13,
+              "tag_info_policy_tag_info_policy_tag_name": 14,
+              "tag_info_rf_tag_rf_tag_name": 15,
+              "disconnect_detail_disconnect_reason": 16,
+              "Value #G": 17
             }
           }
         }
@@ -3918,7 +3999,7 @@
     {
       "type": "table",
       "title": "Clients",
-      "description": "Every client of the selected WLCs, now. Download/upload and retries are over the last 3 minutes (the AP refreshes client counters every 90 s). Rate is the current PHY rate, MCS the last data rate's HT/VHT/HE MCS index (empty for a legacy rate). Click a client for its history. (Connected for is gone: the association timestamp isn't exported to Prometheus.) Known gap: the WLC's telemetry drops the first entry of each list; extra per-entry subscriptions restore the 2.4 GHz radio and the lowest WLAN, but the client with the lowest MAC and the 2.4 GHz noise/interference scan stay missing; see wireless.py.",
+      "description": "Every client of the selected WLCs, now. Download/upload and retries are over the last 3 minutes (the AP refreshes client counters every 90 s). Rate is the current PHY rate, MCS the last data rate's HT/VHT/HE MCS index (empty for a legacy rate). Connected for counts from the association. Click a client for its history. Known gap: the WLC's telemetry drops the first entry of each list; extra per-entry subscriptions restore the 2.4 GHz radio and the lowest WLAN, but the client with the lowest MAC and the 2.4 GHz noise/interference scan stay missing; see wireless.py.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -4079,6 +4160,19 @@
           "instant": true,
           "format": "table",
           "refId": "L"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - (max by (host, mac) (label_replace(wlc_client_dot11_ms_assoc_time_seconds{host=~\"${wlc:regex}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\")) > 0)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "M"
         }
       ],
       "fieldConfig": {
@@ -4250,6 +4344,18 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Connected for"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Download"
             },
             "properties": [
@@ -4381,6 +4487,7 @@
               "Value #K": "Retries",
               "co_state": "State",
               "security": "Security",
+              "Value #M": "Connected for",
               "host": "WLC"
             },
             "indexByName": {
@@ -4401,7 +4508,8 @@
               "Value #K": 14,
               "co_state": 15,
               "security": 16,
-              "host": 17
+              "Value #M": 17,
+              "host": 18
             }
           }
         }

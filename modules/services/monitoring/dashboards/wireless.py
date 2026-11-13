@@ -18,9 +18,10 @@ and serves it on :9275, scraped by both replicas as job "wlc" every 30 s. The In
   The queries rename them to one key (mac; wtp_mac + radio_slot_id) and aggregate by it, so the
   live series and the backfilled ones (other job/instance labels) give one series;
 - string leaves are labels of wlc_<short>_info (value 1: AP and client names, SSIDs, states,
-  IPs), joined in with `* on (...) group_left (...)`. Per-push timestamps (*_time, *_ts,
-  *timestamp: AP boot/join time, client association time) are not exported, so the AP uptime,
-  "joined for" and the client's "connected for" are gone. The client's current_rate string is
+  IPs), joined in with `* on (...) group_left (...)`. Timestamp strings (*_time, *_ts, *timestamp)
+  are <field>_seconds instead (Unix time, 0 = unset): AP boot/join time, the client's association
+  time and the AP certificate's expiry become durations/dates with `time() - (x > 0)`. The client's
+  current_rate string is
   numeric: wlc_client_traffic_current_rate_mcs / _ss (or _mbps for a legacy rate);
 - counters (bytes, packets, retries) are plain series: rate()/increase().
 
@@ -198,6 +199,11 @@ def client_band(expr):
     b = relabel(relabel(relabel(expr, "band", "ms_radio_type", ".*", "5 GHz"), "band", "ms_radio_type", ".*6-?ghz.*",
                         "6 GHz"), "band", "ms_radio_type", ".*24-?ghz.*", "2.4 GHz")
     return relabel(b, "protocol", "ms_radio_type", ".*dot11([a-z]+).*", "802.11$1")
+
+
+def since(name):
+    """Seconds since a per-AP timestamp (<field>_seconds, Unix time; 0 = unset, left out)."""
+    return f"time() - (max by (host, wtp_mac) ({m(name)}) > 0)"
 
 
 def iq(expr, legend="__auto"):
@@ -413,24 +419,30 @@ def overview():
         tq("sum by (host, wtp_mac) (" + relabel(m("wlc_ap_radio_stats_aid_user_list"), "wtp_mac", "ap_mac") + ")"),
         tq(one("host, wtp_mac", f'max by (host, wtp_mac, oper_status) ({m("wlc_ap_ethernet_info")})')),
         tq(f'max by (host, wtp_mac) ({m("wlc_ap_ethernet_link_speed")}) * 1000000'),
+        tq(since("wlc_ap_capwap_ap_time_info_boot_time_seconds")),
+        tq(since("wlc_ap_capwap_ap_time_info_join_time_seconds")),
+        tq(f'(max by (host, wtp_mac) ({m("wlc_ap_capwap_ap_security_data_ap_cert_expiry_time_seconds")}) > 0) * 1000'),
     ], desc="Every AP joined to the selected WLCs, now (capwap-data every 60 s). Clients = associated clients over "
             "the AP's radios. Last disconnect is the reason of the AP's previous CAPWAP drop. Click an AP for its "
-            "join/leave lines in the network device logs. (Uptime and joined-for are gone: the telemetry's boot "
-            "and join timestamps aren't exported to Prometheus.)" + FIRST_ENTRY_GAP,
+            "join/leave lines in the network device logs. Uptime counts from the AP's boot, Joined for from its "
+            "CAPWAP join; Certificate expiry is the AP's manufacturing (SUDI) certificate." + FIRST_ENTRY_GAP,
         transformations=[MERGE, organize(exclude=["Time", "wtp_mac", "Value #A", "Value #C"], rename={
             "name": "AP", "host": "WLC", "wtp_ip": "IP", "device_detail_static_info_ap_models_model": "Model",
             "device_detail_static_info_board_data_wtp_serial_num": "Serial",
             "device_detail_wtp_version_sw_version": "Software", "ap_state_ap_operation_state": "State",
             "ap_mode_data_wtp_mode": "Mode", "Value #B": "Clients", "oper_status": "Uplink", "Value #D": "Uplink speed",
+            "Value #E": "Uptime", "Value #F": "Joined for", "Value #G": "Certificate expiry",
             "tag_info_site_tag_site_tag_name": "Site tag", "tag_info_policy_tag_info_policy_tag_name": "Policy tag",
             "tag_info_rf_tag_rf_tag_name": "RF tag", "disconnect_detail_disconnect_reason": "Last disconnect"},
-            order=["AP", "WLC", "State", "Clients", "IP", "Model", "Serial", "Software", "Mode", "Uplink",
-                   "Uplink speed", "Site tag", "Policy tag", "RF tag", "Last disconnect"])],
+            order=["AP", "WLC", "State", "Clients", "IP", "Model", "Serial", "Software", "Mode", "Uptime",
+                   "Joined for", "Uplink", "Uplink speed", "Site tag", "Policy tag", "RF tag", "Last disconnect",
+                   "Certificate expiry"])],
         overrides=[
             mapped("State", AP_STATE_MAP), mapped("Uplink", UPLINK_MAP),
             override("Mode", {"mappings": mapping(**{"mode-flex-connect": ("FlexConnect", "text"),
                                                      "mode-local": ("Local", "text")})}),
-            override("Uplink speed", {"unit": "bps"}),
+            override("Uptime", {"unit": "dtdurations"}), override("Joined for", {"unit": "dtdurations"}),
+            override("Uplink speed", {"unit": "bps"}), override("Certificate expiry", {"unit": "dateTimeAsIso"}),
             override("AP", {"links": [{"title": "Join/leave lines of ${__value.text}", "targetBlank": False,
                                        "url": f"{LOGS_NET}?var-device=${{__data.fields.WLC}}"
                                               f"&var-search=${{__value.text}}&{TIME_URL}"}]}),
@@ -597,8 +609,8 @@ def overview():
     b.add(table("Clients", client_table_targets(), desc=(
         "Every client of the selected WLCs, now. Download/upload and retries are over the last 3 minutes (the AP "
         "refreshes client counters every 90 s). Rate is the current PHY rate, MCS the last data rate's HT/VHT/HE "
-        "MCS index (empty for a legacy rate). Click a client for its history. (Connected for is gone: the "
-        "association timestamp isn't exported to Prometheus.)" + FIRST_ENTRY_GAP),
+        "MCS index (empty for a legacy rate). Connected for counts from the association. Click a client for its "
+        "history." + FIRST_ENTRY_GAP),
         transformations=CLIENT_TRANSFORMS, overrides=client_overrides(), sort="AP"), 24, 8)
     b.add(timeseries("Clients per WLC", [
         q(f'max by (host) ({m("wlc_client_live_run_state_clients")})', "{{host}}"),
@@ -670,6 +682,7 @@ def client_table_targets(one_client=False):
         per_s("wlc_client_traffic_bytes_rx", " * 8"),                                                     # J
         per_s("wlc_client_traffic_data_retries"),                                                         # K
         strings("wlc_client_ip_info", "mac_addr", "ipv4_binding_ip_key_ip_addr"),                         # L
+        tq(f'time() - ({client_gauge("wlc_client_dot11_ms_assoc_time_seconds", *only("ms_mac_address"))} > 0)'),  # M
     ]
 
 
@@ -677,7 +690,7 @@ CLIENT_COLUMNS = {
     "mac": "Client", "ipv4_binding_ip_key_ip_addr": "IP", "ap_name": "AP", "vap_ssid": "SSID", "band": "Band",
     "protocol": "Protocol", "Value #C": "Channel", "Value #D": "RSSI", "Value #E": "SNR", "Value #F": "Rate",
     "Value #G": "MCS", "Value #H": "Streams", "Value #I": "Download", "Value #J": "Upload", "Value #K": "Retries",
-    "co_state": "State", "security": "Security", "host": "WLC",
+    "co_state": "State", "security": "Security", "Value #M": "Connected for", "host": "WLC",
 }
 CLIENT_TRANSFORMS = [MERGE, organize(exclude=["Time", "Value #A", "Value #B", "Value #L"], rename=CLIENT_COLUMNS,
                                      order=list(CLIENT_COLUMNS.values()))]
@@ -686,7 +699,7 @@ CLIENT_TRANSFORMS = [MERGE, organize(exclude=["Time", "Value #A", "Value #B", "V
 def client_overrides(link=True):
     o = [
         color_cell("RSSI", RSSI, "dBm"), color_cell("SNR", SNR, "dB"), mapped("State", CLIENT_STATE_MAP),
-        override("Rate", {"unit": "bps"}),
+        override("Rate", {"unit": "bps"}), override("Connected for", {"unit": "dtdurations"}),
         *[override(n, {"unit": "bps", "decimals": 1}) for n in ("Download", "Upload")],
         override("Retries", {"unit": "short", "decimals": 1, "displayName": "Retries/s"}),
     ]

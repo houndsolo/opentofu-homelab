@@ -338,6 +338,19 @@
           "instant": true,
           "format": "table",
           "refId": "L"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - (max by (host, mac) (label_replace(wlc_client_dot11_ms_assoc_time_seconds{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\")) > 0)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "M"
         }
       ],
       "fieldConfig": {
@@ -509,6 +522,18 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Connected for"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Download"
             },
             "properties": [
@@ -616,6 +641,7 @@
               "Value #K": "Retries",
               "co_state": "State",
               "security": "Security",
+              "Value #M": "Connected for",
               "host": "WLC"
             },
             "indexByName": {
@@ -636,7 +662,8 @@
               "Value #K": 14,
               "co_state": 15,
               "security": 16,
-              "host": 17
+              "Value #M": 17,
+              "host": 18
             }
           }
         }
