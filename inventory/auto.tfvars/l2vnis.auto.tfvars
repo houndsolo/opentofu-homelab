@@ -57,4 +57,10 @@ l2vnis = {
     prefix      = "10.21.17.0/24"
     description = "NetBox keepalived adverts (netbox01-02 .45-.46; VIP 10.2.11.106 on VLAN 2)"
   }
+  ha_proxy = {
+    vni         = 9220
+    vlan_id     = 220
+    prefix      = "10.21.18.0/24"
+    description = "nginx reverse proxy keepalived adverts (proxy01-02 .50-.51; planned VIP 10.2.11.107 on VLAN 2)"
+  }
 }

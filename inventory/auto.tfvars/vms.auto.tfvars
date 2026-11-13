@@ -412,6 +412,72 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  proxy01 = {
+    # nginx reverse proxy, HA pair with proxy02: HTTPS front end for the VLAN 2 services (*.svc.lylat.space,
+    # Let's Encrypt wildcard from roots/certs via Cloudflare DNS-01), keepalived VIP 10.2.11.107.
+    # Same last octet everywhere (.50), like the other service VMs.
+    owner              = "services-vms"
+    role               = "proxy"
+    ha                 = { group = "proxy" } # Proxmox HA; never on a node with another proxy VM
+    node               = "macbeth"
+    vm_id              = 1150
+    image              = "debian13"
+    management_address = "10.20.11.50/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.50/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 220
+        ipv4_address = "10.21.18.50/24"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "proxy"]
+      cpu_cores    = 2
+      memory_mb    = 2048
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  proxy02 = {
+    # nginx reverse proxy, HA pair with proxy01: HTTPS front end for the VLAN 2 services (*.svc.lylat.space,
+    # Let's Encrypt wildcard from roots/certs via Cloudflare DNS-01), keepalived VIP 10.2.11.107.
+    # Same last octet everywhere (.51), like the other service VMs.
+    owner              = "services-vms"
+    role               = "proxy"
+    ha                 = { group = "proxy" } # Proxmox HA; never on a node with another proxy VM
+    node               = "fichina"
+    vm_id              = 1151
+    image              = "debian13"
+    management_address = "10.20.11.51/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.11.51/16"
+        ipv4_gateway = "10.2.0.5"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 220
+        ipv4_address = "10.21.18.51/24"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "proxy"]
+      cpu_cores    = 2
+      memory_mb    = 2048
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   mon02 = {
     # Prometheus/Alertmanager/InfluxDB replica of mon01 (Postgres stays on mon01 only).
     owner              = "services-vms"
