@@ -99,10 +99,11 @@ check "vips_match_services_config" {
       for c in [
         { name = "netbox", vip = try(var.netbox.vip, null), vrid = try(var.netbox.router_id, null), role = "netbox" },
         { name = "dark-triage", vip = try(var.ticketing.vip, null), vrid = try(var.ticketing.router_id, null), role = "ticketing" },
+        { name = "proxy", vip = try(var.proxy.vip, null), vrid = try(var.proxy.router_id, null), role = "proxy" },
         { name = "dns", vip = try(var.dns_vrrp.vip, null), vrid = try(var.dns_vrrp.router_id, null), role = "dns" },
       ] : c.vip == null || try(var.vips[c.name].address == c.vip && var.vips[c.name].vrid == c.vrid && var.vips[c.name].role == c.role, false)
     ])
-    error_message = "A VIP in services-config (netbox.vip/router_id, ticketing.vip/router_id, dns_vrrp) differs from inventory/auto.tfvars/vips.auto.tfvars (netbox, dark-triage, dns). Keep them identical."
+    error_message = "A VIP in services-config (netbox.vip/router_id, ticketing.vip/router_id, proxy.vip/router_id, dns_vrrp) differs from inventory/auto.tfvars/vips.auto.tfvars (netbox, dark-triage, proxy, dns). Keep them identical."
   }
 }
 

@@ -55,6 +55,12 @@ vips = {
     role        = "netbox"
     description = "NetBox (netbox01/02), services-config netbox.vip"
   }
+  proxy = {
+    address     = "10.2.11.107/16"
+    vrid        = 107
+    role        = "proxy"
+    description = "nginx reverse proxy for *.svc.lylat.space (proxy01/02), services-config proxy.vip"
+  }
   dns = {
     address     = "10.8.53.53/16"
     vrid        = 53

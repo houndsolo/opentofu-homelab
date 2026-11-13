@@ -1,0 +1,55 @@
+# Managed by OpenTofu (services-config, proxy.tf). Local edits are overwritten.
+# VRRP for the reverse proxy VIP on ${host}: adverts go unicast over the HA L2VNI (${ha_interface}),
+# the VIP sits on the VLAN 2 NIC (${interface}).
+
+global_defs {
+  router_id ${host}
+  script_user nobody nogroup
+  enable_script_security
+  vrrp_garp_master_refresh 60
+}
+
+# No weight: a failing check puts the node in FAULT, which releases the VIP. (With
+# nopreempt a lowered priority would never move it.)
+# Every 3 s, at most 2 s each (curl gives up after 1.5 s); 3 failures (~9 s) put the node in
+# FAULT, 2 successes make it eligible again.
+vrrp_script chk_proxy {
+  script "/etc/keepalived/chk_proxy.sh"
+  interval 3
+  timeout 2
+  fall 3
+  rise 2
+  init_fail
+}
+
+vrrp_instance proxy {
+  # Both start BACKUP and nobody preempts: priority only decides the first election, and a
+  # recovered node doesn't pull the VIP back.
+  state BACKUP
+  nopreempt
+  interface ${ha_interface}
+  virtual_router_id ${router_id}
+  priority ${priority}
+  advert_int 1
+  unicast_src_ip ${ha_address}
+  unicast_peer {
+%{ for peer in peers ~}
+    ${peer}
+%{ endfor ~}
+  }
+  authentication {
+    auth_type PASS
+    auth_pass ${auth_pass}
+  }
+  # use_vmac: fixed VRRP MAC 00:00:5e:00:01:<VRID> on a macvlan, so failover only moves the MAC's
+  # EVPN location and cached ARP entries stay right (ARP suppression, DT-045).
+  virtual_ipaddress {
+    ${vip} dev ${interface} use_vmac
+  }
+  track_interface {
+    ${interface}
+  }
+  track_script {
+    chk_proxy
+  }
+}
