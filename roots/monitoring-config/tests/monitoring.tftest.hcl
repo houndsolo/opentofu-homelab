@@ -350,6 +350,15 @@ run "exporters_and_ceph_alerts" {
   }
 
   assert {
+    # Local Prometheus keeps a week; Mimir has the long-term copy.
+    condition = alltrue([for name in ["mon01", "mon02"] : (
+      strcontains(module.monitoring.units[name].prometheus, "--storage.tsdb.retention.time=7d") &&
+      strcontains(module.monitoring.units[name].prometheus, "--storage.tsdb.retention.size=20GB")
+    )])
+    error_message = "Prometheus on the backends keeps 7d / 20GB locally."
+  }
+
+  assert {
     # The vendored ceph-mixin alerts, minus the 4 groups that reference metrics
     # which don't exist on a non-cephadm (PVE) cluster (DT-039).
     condition = (

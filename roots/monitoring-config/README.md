@@ -864,7 +864,7 @@ graf01/02 --sslmode=require--> VIP 10.13.11.104:5432 (keepalived on the Patroni 
 | `influxdb_replica_ready` | `false` | Stage 2: make mon02's buckets/tokens (provider `influxdb.replica`), its Proxmox metric servers and WLC Telegraf. Set once mon02's InfluxDB runs |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
 | `images` | pinned tags | Container images; override one key at a time |
-| `settings` | see `variables.tf` | Prometheus retention (90d / 120GB), InfluxDB org/initial bucket/retention, the Grafana InfluxDB datasource's default bucket (`pve_cluster`), Grafana root URL, DNS probe zone |
+| `settings` | see `variables.tf` | Prometheus local retention (7d / 20GB; Mimir keeps the long-term copy), InfluxDB org/initial bucket/retention, the Grafana InfluxDB datasource's default bucket (`pve_cluster`), Grafana root URL, DNS probe zone |
 | `pve_api_token`, `greatfox_api_token` | required | Proxmox API tokens for the metric servers, from the linked `proxmox.secret.auto.tfvars` |
 | `pve_api_node` | `null` (`nodes.cluster_api_node`) | Cluster node whose API manages the cluster's metric server; set another node if that one is unreachable |
 | `pve_metrics` | see `variables.tf` | Proxmox metric servers: `enabled`, bucket names (`pve_cluster`, `pve_<standalone host>`), `retention_days` (90) |

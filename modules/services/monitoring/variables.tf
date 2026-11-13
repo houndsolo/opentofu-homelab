@@ -158,8 +158,8 @@ variable "snmp_auths" {
 variable "settings" {
   description = "Retention, external URLs, InfluxDB naming and Ceph labels."
   type = object({
-    prometheus_retention_time = optional(string, "90d")
-    prometheus_retention_size = optional(string, "120GB")
+    prometheus_retention_time = optional(string, "7d")
+    prometheus_retention_size = optional(string, "20GB")
     influxdb_org              = optional(string, "lylat")
     influxdb_bucket           = optional(string, "proxmox")     # created by InfluxDB setup on first start only
     influxdb_grafana_bucket   = optional(string, "pve_cluster") # default bucket of the Grafana InfluxDB datasource
