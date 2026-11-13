@@ -35,7 +35,7 @@ from theme import ACCENT, ACCENT2, ACCENT3, ERROR, INFO, OK, WARN_HIGH  # noqa: 
 DS = {"type": "prometheus", "uid": "prometheus"}
 
 NODE_JOBS = 'job=~"node|vyos-node"'
-STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influx-relay|mimir"'
+STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influx-relay|influxdb|mimir"'
 NODE_DASH = "/d/node-exporter-full/node-exporter-full"
 FRR_DASH = "/d/frr-evpn-fabric/frr-evpn-fabric"
 PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
@@ -419,6 +419,7 @@ def overview():
         ("Mimir", 'avg(up{job="mimir"})', STACK_DASH),
         ("Loki", 'avg(up{job="loki"})', STACK_DASH),
         ("Alloy (logs)", 'avg(up{job="alloy"})', STACK_DASH),
+        ("InfluxDB", 'avg(up{job="influxdb"})', STACK_DASH),
         ("InfluxDB relay", 'avg(up{job="influx-relay"})', STACK_DASH),
         ("Postgres", 'avg(up{job="patroni"}) * (sum(patroni_primary{job="patroni"}) == bool 1)', PG_DASH),
         ("etcd", 'avg(up{job="etcd"})', PG_DASH),
@@ -1205,6 +1206,31 @@ def stack():
         q(f'max by (host, alias) (internal_write_buffer_size{{{rl}, output="influxdb_v2"}}) > 0', "{{host}} -> {{alias}} queued"),
     ], fill=0, desc="VyOS writes to the relay on the monitoring VIP (only the VIP holder receives); it copies every "
                     "write into each backend's InfluxDB. A queue builds while a peer's InfluxDB is down."), 8, 8)
+
+    # InfluxDB 2 on each backend (job influxdb, its own /metrics): Proxmox (pve_*), VyOS and WLC buckets.
+    ix = 'job="influxdb"'
+    b.row("InfluxDB")
+    b.add(stat("InfluxDB", [q(f"max by (host) (up{{{ix}}})", "{{host}}", instant=True)], text_mode="value_and_name",
+               mappings=UP_MAP, thresholds=UP_STEPS, text_size=(12, 18),
+               desc="InfluxDB answering its /metrics on each backend (alert TargetDown)."), 4, 8)
+    b.add(timeseries("InfluxDB: points written", [
+        q(f"sum by (host) (rate(storage_writer_ok_points_sum{{{ix}}}[$__rate_interval]))", "{{host}} ok/s"),
+        q(f"sum by (host) (rate(storage_writer_err_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} errors/s"),
+        q(f"sum by (host) (rate(storage_writer_dropped_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} dropped/s"),
+        q(f"sum by (host) (rate(storage_writer_timeouts{{{ix}}}[$__rate_interval])) > 0", "{{host}} timeouts/s"),
+    ], fill=0, desc="Points stored per second (Proxmox metric server, the VyOS relay, the WLC Telegraf); errors, drops "
+                    "and timeouts only show when non-zero. Both backends should write about the same."), 7, 8)
+    b.add(timeseries("InfluxDB: queries", [
+        q(f"sum by (host) (rate(qc_all_duration_seconds_count{{{ix}}}[$__rate_interval]))", "{{host}} queries/s"),
+        q(f"histogram_quantile(0.95, sum by (host, le) (rate(qc_all_duration_seconds_bucket{{{ix}}}[$__rate_interval])))",
+          "{{host}} p95"),
+    ], fill=0, desc="Flux queries (Grafana's Proxmox, fw-wan and wireless dashboards) and their p95 duration.",
+        overrides=[override(".*p95", {"unit": "s", "custom.axisPlacement": "right"}, regex=True)]), 7, 8)
+    b.add(timeseries("InfluxDB: disk", [
+        q(f"sum by (host) (storage_shard_disk_size{{{ix}}})", "{{host}} shards"),
+        q(f"sum by (host) (storage_wal_size{{{ix}}})", "{{host}} WAL"),
+    ], unit="bytes", fill=0, calcs=("lastNotNull", "max"),
+        desc="TSM shard files and the write-ahead log, all buckets."), 6, 8)
 
     b.row("Resources")
     b.add(timeseries("Process memory", [

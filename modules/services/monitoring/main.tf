@@ -97,6 +97,11 @@ locals {
         static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:9115"], labels = { host = name } }]
       },
       {
+        # InfluxDB 2's own /metrics (no auth): write/query rates, storage shards and compactions, tasks.
+        job_name       = "influxdb"
+        static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:8086"], labels = { host = name } }]
+      },
+      {
         job_name = "node"
         static_configs = [for t in var.targets.node : {
           targets = ["${t.address}:9100"], labels = merge({ host = t.host }, t.labels)

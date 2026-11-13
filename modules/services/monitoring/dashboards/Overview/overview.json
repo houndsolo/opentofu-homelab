@@ -886,11 +886,23 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
+          "expr": "(avg(up{job=\"influxdb\"})) or vector(0)",
+          "legendFormat": "InfluxDB",
+          "range": false,
+          "instant": true,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
           "expr": "(avg(up{job=\"influx-relay\"})) or vector(0)",
           "legendFormat": "InfluxDB relay",
           "range": false,
           "instant": true,
-          "refId": "G"
+          "refId": "H"
         },
         {
           "datasource": {
@@ -902,7 +914,7 @@
           "legendFormat": "Postgres",
           "range": false,
           "instant": true,
-          "refId": "H"
+          "refId": "I"
         },
         {
           "datasource": {
@@ -914,7 +926,7 @@
           "legendFormat": "etcd",
           "range": false,
           "instant": true,
-          "refId": "I"
+          "refId": "J"
         },
         {
           "datasource": {
@@ -926,7 +938,7 @@
           "legendFormat": "Valkey",
           "range": false,
           "instant": true,
-          "refId": "J"
+          "refId": "K"
         },
         {
           "datasource": {
@@ -938,7 +950,7 @@
           "legendFormat": "NetBox",
           "range": false,
           "instant": true,
-          "refId": "K"
+          "refId": "L"
         },
         {
           "datasource": {
@@ -950,7 +962,7 @@
           "legendFormat": "dark-triage",
           "range": false,
           "instant": true,
-          "refId": "L"
+          "refId": "M"
         },
         {
           "datasource": {
@@ -962,7 +974,7 @@
           "legendFormat": "DNS",
           "range": false,
           "instant": true,
-          "refId": "M"
+          "refId": "N"
         },
         {
           "datasource": {
@@ -974,7 +986,7 @@
           "legendFormat": "nginx proxy",
           "range": false,
           "instant": true,
-          "refId": "N"
+          "refId": "O"
         }
       ],
       "fieldConfig": {
@@ -1126,6 +1138,23 @@
                 "value": [
                   {
                     "title": "Alloy (logs)",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "InfluxDB"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "InfluxDB",
                     "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
                   }
                 ]

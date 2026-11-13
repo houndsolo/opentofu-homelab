@@ -73,7 +73,7 @@ run "inventory_records" {
     condition = (
       dns_a_record_set.records["netbox01|A"].addresses == toset(["10.2.11.45"]) &&
       dns_a_record_set.records["netbox01.mgmt|A"].addresses == toset(["10.20.11.45"]) &&
-      dns_a_record_set.records["netbox|A"].addresses == toset(["10.2.11.106"]) &&
+      dns_a_record_set.records["netbox-vip|A"].addresses == toset(["10.2.11.106"]) &&
       dns_a_record_set.records["fichina.mgmt|A"].addresses == toset(["10.20.7.11"]) &&
       dns_a_record_set.records["leaf-11.mgmt|A"].addresses == toset(["10.20.10.11"])
     )
@@ -91,7 +91,7 @@ run "inventory_records" {
     condition = (
       dns_ptr_record.reverse["10.20.11.45"].ptr == "netbox01.mgmt.lylat.space." &&
       dns_ptr_record.reverse["10.2.11.45"].ptr == "netbox01.lylat.space." &&
-      dns_ptr_record.reverse["10.2.11.106"].ptr == "netbox.lylat.space." &&
+      dns_ptr_record.reverse["10.2.11.106"].ptr == "netbox-vip.lylat.space." &&
       dns_ptr_record.reverse["10.20.7.11"].ptr == "fichina.lylat.space."
     )
     error_message = "PTRs: management addresses -> <vm>.mgmt (hosts keep the short name), service NICs -> <vm>, VIPs -> <vip>."
@@ -286,10 +286,10 @@ run "dns_node_exporter" {
       strcontains(local.dns_node_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "docker.io/prom/node-exporter:v1.12.1", listen = "10.20.53.1:9100" }))) &&
       strcontains(local.dns_node_exporter_script.dns02, "http://10.20.53.2:9100/metrics") &&
       # The collectors of monitoring-config's VMs, and the D-Bus socket the systemd one needs.
-      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.20.53.1:9100" }), "\nExec=--path.rootfs=/host --web.listen-address=10.20.53.1:9100 --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
+      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.20.53.1:9100" }), "\nExec=--path.rootfs=/host --web.listen-address=10.20.53.1:9100 --collector.netdev.address-info --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
       strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.20.53.1:9100" }), "\nVolume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro\n")
     )
-    error_message = "node_exporter on both DNS VMs, listening on their management address :9100, with the processes/tcpstat/interrupts/systemd collectors."
+    error_message = "node_exporter on both DNS VMs, listening on their management address :9100, with address-info (VIP holder) and the processes/tcpstat/interrupts/systemd collectors."
   }
 }
 

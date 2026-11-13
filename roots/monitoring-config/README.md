@@ -495,7 +495,8 @@ per-replica bits below. The rendering is in the module's `backends.tf`; the repl
 - **Prometheus HA pair.** Both scrape every target with the same config; `external_labels` are
   `{site = "lylat", ha_cluster = "lylat", __replica__ = "<vm>"}`. With Mimir on ([Metrics: Mimir HA](#metrics-mimir-ha)) both
   remote_write to it and Mimir's HA tracker keeps one replica's samples, then drops `ha_cluster` and `site`. The
-  `prometheus`, `alertmanager`, `telegraf` and `influx-relay` jobs target every backend by backend-VLAN address
+  `prometheus`, `alertmanager`, `telegraf`, `influx-relay` and `influxdb` (InfluxDB's own `/metrics` on 8086) jobs
+  target every backend by backend-VLAN address
   (label `host`), so each replica scrapes both and the deduplicated data still has every instance. Grafana has
   `Prometheus mon01`/`Prometheus mon02` datasources (uids `prometheus-mon01/-mon02`) to look at one replica directly.
 - **Alertmanager cluster.** Gossip on the ha_monitor VLAN 215 (`monitoring_ha_vlan_id`, L2VNI `ha_monitor`),
