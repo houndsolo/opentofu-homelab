@@ -2,9 +2,10 @@
 # the rest (roots/services-config/dns-records.tf):
 #   <vm>         every service/workload VM's service address (the NIC with the default gateway)
 #   <vm>.mgmt    every VM's management address (also <node>.mgmt, leaf-<id>.mgmt, spine-<id>.mgmt)
-#   <vip>        every keepalived VIP in vips.auto.tfvars (grafana-vip, logs, loki, influxdb, monitoring,
-#                mimir, postgres, dark-triage-vip, netbox-vip, proxy, dns)
-#   <web UI>     CNAME to proxy.lylat.space for every reverse proxy host and alias (services-config
+#   <vip>        every keepalived VIP in vips.auto.tfvars, all named <service>-vip (grafana-vip, logs-vip,
+#                loki-vip, influxdb-vip, monitoring-vip, mimir-vip, postgres-vip, dark-triage-vip,
+#                netbox-vip, proxy-vip, dns-vip)
+#   <web UI>     CNAME to proxy-vip.lylat.space for every reverse proxy host and alias (services-config
 #                var.proxy.hosts: grafana, netbox, dark-triage, triage)
 #   <node>, leaf-<id>, spine-<id>, and the DNS servers' own records
 # A name here that is also generated fails the dns_hosts_not_generated check.

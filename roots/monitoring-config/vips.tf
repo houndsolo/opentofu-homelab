@@ -4,12 +4,12 @@
 locals {
   vip_inventory_checks = [
     { name = "grafana-vip", vip = try(var.grafana_vrrp.vip, null), vrid = try(var.grafana_vrrp.router_id, null), role = "grafana" },
-    { name = "logs", vip = try(var.logging_settings.vips.monitoring, null), vrid = try(var.logging_settings.vrrp_router_id, null), role = "logging" },
-    { name = "loki", vip = try(var.logging_settings.vips.backend, null), vrid = try(var.logging_settings.vrrp_router_id, null), role = "logging" },
-    { name = "influxdb", vip = try(var.backend_vrrp.vips.monitoring, null), vrid = try(var.backend_vrrp.router_id, null), role = "monitoring" },
-    { name = "monitoring", vip = try(var.backend_vrrp.vips.backend, null), vrid = try(var.backend_vrrp.router_id, null), role = "monitoring" },
-    { name = "mimir", vip = try(var.metrics_settings.vip, null), vrid = try(var.metrics_settings.vrrp_router_id, null), role = "metrics" },
-    { name = "postgres", vip = try(var.postgres_settings.vip, null), vrid = try(var.postgres_settings.vrrp_router_id, null), role = "postgres" },
+    { name = "logs-vip", vip = try(var.logging_settings.vips.monitoring, null), vrid = try(var.logging_settings.vrrp_router_id, null), role = "logging" },
+    { name = "loki-vip", vip = try(var.logging_settings.vips.backend, null), vrid = try(var.logging_settings.vrrp_router_id, null), role = "logging" },
+    { name = "influxdb-vip", vip = try(var.backend_vrrp.vips.monitoring, null), vrid = try(var.backend_vrrp.router_id, null), role = "monitoring" },
+    { name = "monitoring-vip", vip = try(var.backend_vrrp.vips.backend, null), vrid = try(var.backend_vrrp.router_id, null), role = "monitoring" },
+    { name = "mimir-vip", vip = try(var.metrics_settings.vip, null), vrid = try(var.metrics_settings.vrrp_router_id, null), role = "metrics" },
+    { name = "postgres-vip", vip = try(var.postgres_settings.vip, null), vrid = try(var.postgres_settings.vrrp_router_id, null), role = "postgres" },
   ]
   vip_inventory_mismatches = [
     for c in local.vip_inventory_checks : c.name

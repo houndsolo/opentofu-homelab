@@ -501,7 +501,7 @@ per-replica bits below. The rendering is in the module's `backends.tf`; the repl
   both Alertmanagers; `alert_relabel_configs` drops `__replica__`, so the two replicas' alerts are identical and the
   cluster notifies once. Without an address on VLAN 215 on every backend, gossip falls back to the backend VLAN.
 - **keepalived** (`backend_vrrp`, router id 102): one instance, unicast adverts over VLAN 215, VIPs `10.5.11.102/16`
-  (monitoring network: InfluxDB, the VyOS relay, `influxdb.lylat.space`) and `10.13.11.102/16` (backend VLAN: Grafana's
+  (monitoring network: InfluxDB, the VyOS relay, `influxdb-vip.lylat.space`) and `10.13.11.102/16` (backend VLAN: Grafana's
   InfluxDB and Alertmanager datasources). BACKUP + `nopreempt` (mon01 wins the first election), FAULT when InfluxDB
   `/health` or Alertmanager `/-/ready` fails locally. Containers publish on the VIPs too, so the backends set
   `net.ipv4.ip_nonlocal_bind = 1` (`/etc/sysctl.d/90-monitoring-vip.conf`). Alert `MonitoringVIPNotHeldOnce`.

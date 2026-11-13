@@ -17,7 +17,7 @@ the S3700's trailing `\x00`). The `host` label comes from the source-IP map in
 monitoring-config (`snmp_targets` addresses plus `logging_settings.syslog_host_overrides`),
 which also fixes generic hostnames (`Switch`, `FS`).
 
-VIPs: `10.5.11.101` (`logs.lylat.space`, monitoring network / VLAN 5) and `10.20.11.101`
+VIPs: `10.5.11.101` (`logs-vip.lylat.space`, monitoring network / VLAN 5) and `10.20.11.101`
 (management network).
 
 ## Managed by OpenTofu (plan only here; see each root)

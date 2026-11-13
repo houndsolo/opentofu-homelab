@@ -1,7 +1,7 @@
 variable "vips" {
   description = <<-EOT
     Every keepalived VIP in the lab, keyed by its DNS name (zone-relative: the key "netbox" is
-    netbox.lylat.space). services-config publishes an A record (and the PTR) for each one;
+    netbox-vip.lylat.space; every VIP is named <service>-vip). services-config publishes an A record (and the PTR) for each one;
     monitoring-config and services-config check that the services' own VIP settings match
     this list, so a VIP or VRID is defined once and can't silently drift or collide.
     - address: the VIP with its prefix length, as keepalived configures it.

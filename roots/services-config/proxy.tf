@@ -3,7 +3,7 @@
 # TLS for https://<name>.lylat.space with the Let's Encrypt wildcard *.lylat.space that roots/certs
 # installs in var.proxy.cert_dir, and forwards over plain HTTP to the service's own VIP (its address
 # from vips.auto.tfvars, e.g. grafana-vip). DNS: every host name and alias is generated as a CNAME
-# to proxy.lylat.space (dns-records.tf).
+# to proxy-vip.lylat.space (dns-records.tf).
 #
 # A deploy that restarts nginx (new image/unit) on the node holding the VIP first hands the VIP to a
 # healthy peer (stops keepalived), so the switch costs ~1 s instead of the ~9 s health-check failover.
@@ -33,7 +33,7 @@ variable "proxy" {
       "dark-triage" = { vip = "dark-triage-vip", port = 80, aliases = ["triage"] }
     })
     clients = optional(list(string), ["10.0.0.0/8"]) # may reach 80/443
-    # keepalived VIP on VLAN 2 (proxy.lylat.space). null = no keepalived.
+    # keepalived VIP on VLAN 2 (proxy-vip.lylat.space). null = no keepalived.
     vip       = optional(string, "10.2.11.107/16")
     router_id = optional(number, 107) # = the VIP's last octet, like Grafana 100 ... NetBox 106
     ha_l2vni  = optional(string, "ha_proxy")
@@ -212,6 +212,6 @@ output "proxy_urls" {
   description = "Reverse proxy: each published hostname and its upstream; the VIP."
   value = var.proxy == null ? {} : merge(
     { for name, h in local.proxy_hosts : "https://${h.names[0]}/" => h.upstream },
-    local.proxy_vip == null ? {} : { vip = "${local.proxy_vip} (proxy.lylat.space)" },
+    local.proxy_vip == null ? {} : { vip = "${local.proxy_vip} (proxy-vip.lylat.space)" },
   )
 }
