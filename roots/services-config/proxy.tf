@@ -33,6 +33,11 @@ variable "proxy" {
       "dark-triage" = { vip = "dark-triage-vip", port = 80, aliases = ["triage"] }
     })
     clients = optional(list(string), ["10.0.0.0/8"]) # may reach 80/443
+    # Landing page https://<name>.<domain>: links to every published host. null = none.
+    landing = optional(object({
+      name  = optional(string, "proxy")
+      title = optional(string, "lylat.space services")
+    }), {})
     # keepalived VIP on VLAN 2 (proxy-vip.lylat.space). null = no keepalived.
     vip       = optional(string, "10.2.11.107/16")
     router_id = optional(number, 107) # = the VIP's last octet, like Grafana 100 ... NetBox 106
@@ -46,9 +51,10 @@ variable "proxy" {
       var.proxy.router_id >= 1 && var.proxy.router_id <= 255 &&
       alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && contains(keys(var.vips), h.vip) && h.port >= 1 && h.port <= 65535]) &&
       length(distinct(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]))) == length(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)])) &&
-      alltrue([for c in var.proxy.clients : can(cidrhost(c, 0))]), false
+      alltrue([for c in var.proxy.clients : can(cidrhost(c, 0))]) &&
+      (var.proxy.landing == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.landing.name)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.landing.name))), false
     )
-    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host's vip is a key in vips.auto.tfvars and port is 1..65535; clients are CIDRs."
+    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host's vip is a key in vips.auto.tfvars and port is 1..65535; clients are CIDRs; landing.name is a DNS label not used by a host."
   }
 }
 
@@ -84,6 +90,18 @@ locals {
     })
   }
 
+  # Landing page: its names and the generated index of the published hosts.
+  proxy_landing_names = try(["${var.proxy.landing.name}.${var.proxy.domain}"], [])
+  proxy_index_html = var.proxy == null || var.proxy.landing == null ? "" : templatefile("${path.module}/templates/proxy-index.html.tftpl", {
+    title = var.proxy.landing.title
+    hosts = [for name in sort(keys(local.proxy_hosts)) : {
+      url     = "https://${local.proxy_hosts[name].names[0]}/"
+      name    = local.proxy_hosts[name].names[0]
+      aliases = slice(local.proxy_hosts[name].names, 1, length(local.proxy_hosts[name].names))
+      backend = "${var.proxy.hosts[name].vip}:${var.proxy.hosts[name].port}"
+    }]
+  })
+
   # NetBox's CSRF_TRUSTED_ORIGINS (netbox.tf): the proxied names that forward to NetBox's VIP.
   netbox_proxy_origins = var.netbox == null ? [] : sort(flatten([
     for h in values(local.proxy_hosts) : [for n in h.names : "https://${n}"] if var.vips[h.vip].address == var.netbox.vip
@@ -93,9 +111,11 @@ locals {
 
   # Rendered twice: the config id (/healthz) is a hash of the config without it.
   proxy_nginx_vars = var.proxy == null ? null : {
-    domain   = var.proxy.domain
-    cert_dir = var.proxy.cert_dir
-    hosts    = local.proxy_hosts
+    domain        = var.proxy.domain
+    cert_dir      = var.proxy.cert_dir
+    conf_dir      = local.proxy_conf_dir
+    hosts         = local.proxy_hosts
+    landing_names = local.proxy_landing_names
   }
   proxy_config_id  = var.proxy == null ? "" : substr(sha256(templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", merge(local.proxy_nginx_vars, { config_id = "" }))), 0, 16)
   proxy_nginx_conf = var.proxy == null ? "" : templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", merge(local.proxy_nginx_vars, { config_id = local.proxy_config_id }))
@@ -117,7 +137,8 @@ locals {
       ha         = local.proxy_ha
       nginx_b64  = base64encode(local.proxy_nginx_conf)
       nft_b64    = base64encode(templatefile("${path.module}/templates/proxy.nft.tftpl", { clients = var.proxy.clients }))
-      host_names = sort(flatten([for h in values(local.proxy_hosts) : h.names]))
+      host_names = sort(concat(flatten([for h in values(local.proxy_hosts) : h.names]), local.proxy_landing_names))
+      index_b64  = base64encode(local.proxy_index_html)
       keepalived_b64 = !local.proxy_ha ? "" : base64encode(templatefile("${path.module}/templates/proxy-keepalived.conf.tftpl", {
         host         = name
         ha_interface = local.proxy_nics[name].ha.interface

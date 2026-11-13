@@ -1,0 +1,30 @@
+#!/bin/bash
+# Install/refresh the nginx-prometheus-exporter Quadlet; restart it only when its unit changed.
+# Fails unless it reports nginx_up 1 (it reaches nginx's stub_status).
+set -euo pipefail
+install -d -m 0755 /etc/containers/systemd
+printf '%s' '${unit_b64}' | base64 -d > /etc/containers/systemd/nginx-exporter.container.new
+chmod 0644 /etc/containers/systemd/nginx-exporter.container.new
+changed=1
+if [ -f /etc/containers/systemd/nginx-exporter.container ] && cmp -s /etc/containers/systemd/nginx-exporter.container /etc/containers/systemd/nginx-exporter.container.new; then
+  changed=0; rm -f /etc/containers/systemd/nginx-exporter.container.new
+else
+  mv /etc/containers/systemd/nginx-exporter.container.new /etc/containers/systemd/nginx-exporter.container
+fi
+systemctl daemon-reload
+if [ $changed -eq 1 ] || ! systemctl is-active --quiet nginx-exporter.service; then
+  systemctl restart nginx-exporter.service
+fi
+
+ok=0
+for i in $(seq 1 60); do
+  if curl -fsS --max-time 3 'http://${listen}/metrics' 2>/dev/null | grep -qx 'nginx_up 1'; then ok=1; break; fi
+  sleep 2
+done
+if [ $ok -eq 1 ]; then
+  echo "nginx-exporter up on ${listen} (nginx_up 1)"
+else
+  echo "nginx-exporter on ${listen} not reporting nginx_up 1" >&2
+  journalctl -u nginx-exporter.service -n 20 --no-pager >&2 || true
+  exit 1
+fi

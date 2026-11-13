@@ -50,8 +50,9 @@ systemctl restart proxy-nft.service
 
 # Image (pinned tag), config and Quadlet unit.
 podman image exists '${image}' || podman pull -q '${image}' >/dev/null
-mkdir "$stage/conf"
+mkdir -p "$stage/conf/www"
 printf '%s' '${nginx_b64}' | base64 -d > "$stage/conf/nginx.conf"
+printf '%s' '${index_b64}' | base64 -d > "$stage/conf/www/index.html"
 printf '%s' '${unit_b64}' | base64 -d > "$stage/nginx.container"
 # Test the new config with the same image in a throwaway network namespace before installing it.
 if ! podman run --rm --network none --entrypoint nginx \
@@ -98,6 +99,9 @@ if [ $debian_nginx -eq 1 ]; then
 fi
 install -d -m 0755 -o root -g root '${conf_dir}' /etc/containers/systemd
 install -m 0644 -o root -g root "$stage/conf/nginx.conf" '${conf_dir}/nginx.conf'
+# Landing page (static: served without a reload).
+install -d -m 0755 -o root -g root '${conf_dir}/www'
+install -m 0644 -o root -g root "$stage/conf/www/index.html" '${conf_dir}/www/index.html'
 install -m 0644 -o root -g root "$stage/nginx.container" /etc/containers/systemd/nginx.container
 systemctl daemon-reload
 if [ $restart -eq 1 ]; then

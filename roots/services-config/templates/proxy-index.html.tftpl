@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- Managed by OpenTofu (services-config, proxy.tf): generated from var.proxy.hosts. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: #111418; color: #d7dde4; }
+  main { max-width: 760px; margin: 48px auto; padding: 0 20px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { margin: 0 0 24px; color: #8a96a3; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { background: #1a1f25; border: 1px solid #262d35; border-radius: 8px; margin: 0 0 10px; padding: 14px 16px; }
+  a { color: #6cb6ff; font-size: 17px; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .meta { color: #8a96a3; font-size: 13px; margin-top: 2px; }
+  code { color: #b8c4cf; }
+</style>
+</head>
+<body>
+<main>
+<h1>${title}</h1>
+<p class="sub">Published through the nginx reverse proxy (proxy01/proxy02, VIP proxy-vip).</p>
+<ul>
+%{ for h in hosts ~}
+  <li>
+    <a href="${h.url}">${h.name}</a>
+    <div class="meta">%{ if length(h.aliases) > 0 }also ${join(", ", h.aliases)} &middot; %{ endif }backend <code>${h.backend}</code></div>
+  </li>
+%{ endfor ~}
+</ul>
+</main>
+</body>
+</html>

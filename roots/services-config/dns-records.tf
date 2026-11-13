@@ -61,9 +61,12 @@ locals {
   # proxy VIP's name (the vips.auto.tfvars key with role "proxy", proxy-vip). Their services' own VIPs
   # are separate records (<name>-vip above).
   proxy_vip_name = try(one([for name, vip in var.vips : name if vip.role == "proxy"]), null)
-  proxy_dns_hosts = var.proxy == null || local.proxy_vip_name == null ? {} : merge([
+  proxy_dns_hosts = var.proxy == null || local.proxy_vip_name == null ? {} : merge(concat([
     for name, h in var.proxy.hosts : { for n in concat([name], h.aliases) : n => { CNAME = "${local.proxy_vip_name}.lylat.space." } }
-  ]...)
+    ], [
+    # The proxy's landing page (proxy.tf var.proxy.landing).
+    try({ (var.proxy.landing.name) = { CNAME = "${local.proxy_vip_name}.lylat.space." } }, {}),
+  ])...)
   proxy_dns_clashes = sort(setintersection(keys(local.proxy_dns_hosts), setunion(
     keys(local.proxmox_dns_hosts), keys(local.spine_dns_hosts), keys(local.leaf_dns_hosts), keys(local.vm_dns_hosts), keys(local.vip_dns_hosts),
   )))

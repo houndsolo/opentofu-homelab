@@ -1,0 +1,19 @@
+# Managed by OpenTofu (services-config, proxy-monitoring.tf). Local edits are overwritten.
+[Unit]
+Description=Prometheus exporter for nginx (stub_status)
+Wants=network-online.target
+After=network-online.target nginx.service
+
+[Container]
+Image=${image}
+ContainerName=nginx-exporter
+Network=host
+Exec=--nginx.scrape-uri=http://127.0.0.1/nginx_status --web.listen-address=${listen}
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
