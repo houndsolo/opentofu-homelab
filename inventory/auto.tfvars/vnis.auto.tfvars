@@ -215,6 +215,36 @@ vnis = [
     }
   },
 
+  # lylat-telemetry (zone design, Obsidian homelab-docs/evpn-fabric/zone-design.md): scrapes and log
+  # pushes from every service VM, one flat /16 segment, gateway .0.1. Isolated like lylat_monitor: no
+  # ipv4 VPN leaking, EVPN RTs only its own, no DHCP. Numbering: L3VNI/table Z00, L3 VLAN Z00-4000,
+  # segment L2VNI Z01, VLAN = VNI - 4000, 10.Z.0.0/16 (Z = 55).
+  {
+    vlan_id         = 1500
+    vni             = 5500
+    roles           = ["proxmox"]
+    vrf             = "lylat-telemetry"
+    vrf_table       = 5500
+    import_ipv4_vpn = false
+    export_vpn_ipv4 = false
+    evpn_rt_imports = [
+      "700:5500",
+    ]
+    evpn_rt_exports = [
+      "700:5500",
+    ]
+
+    l2 = {
+      1501 = {
+        vni             = 5501
+        vlan_id         = 1501
+        anycast_gw_ip   = "10.55.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:15:01:01"
+      }
+    }
+  },
+
   {
     vlan_id         = 67
     vni             = 6700
