@@ -3492,7 +3492,7 @@
         {
           "type": "logs",
           "title": "Valkey and Sentinel log",
-          "description": "valkey-server and valkey-sentinel from the journal (rsyslog to Loki).",
+          "description": "valkey-server and valkey-sentinel from the journal (Alloy to Loki).",
           "datasource": {
             "type": "loki",
             "uid": "loki"

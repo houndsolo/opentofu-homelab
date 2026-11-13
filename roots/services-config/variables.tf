@@ -148,20 +148,3 @@ variable "dhcp_syslog" {
   default = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }
 }
 
-variable "dns_syslog" {
-  description = "Forward each DNS VM's journal (BIND included) with rsyslog to every syslog receiver in `hosts` over TCP (RFC 5424, octet-counted), from the management network. Default: the logging VMs' own mgmt addresses (loki01-03, monitoring-config; no VIP on mgmt). null = don't install it."
-  type = object({
-    hosts = list(string)
-    port  = optional(number, 514)
-    level = optional(string, "info")
-  })
-  default = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"] }
-  validation {
-    condition = var.dns_syslog == null || (
-      length(try(var.dns_syslog.hosts, [])) > 0 &&
-      alltrue([for h in try(var.dns_syslog.hosts, [""]) : can(regex("^[A-Za-z0-9.:-]+$", h))]) &&
-      contains(["debug", "info", "notice", "warning", "err", "crit", "alert", "emerg"], try(var.dns_syslog.level, ""))
-    )
-    error_message = "dns_syslog.hosts must be a non-empty list of plain host names or addresses, and level a syslog severity."
-  }
-}

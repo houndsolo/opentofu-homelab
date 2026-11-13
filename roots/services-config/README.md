@@ -66,7 +66,8 @@ transfers.
 | `dhcp_syslog` | `{ host = "10.20.11.101", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
 | `dns_node_exporter` | `{}` (image `docker.io/prom/node-exporter:v1.12.1`, port 9100) | node_exporter on each DNS VM ([`dns-node-exporter.tf`](dns-node-exporter.tf)): a Podman Quadlet with host networking, listening on the VM's management address `:9100`, where monitoring-config's `node` job scrapes it. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it. |
 | `dns_bind_exporter` | `{}` (image `docker.io/prometheuscommunity/bind-exporter:v0.8.0`) | bind_exporter on each DNS VM ([`dns-bind-exporter.tf`](dns-bind-exporter.tf)): a Podman Quadlet with host networking, reading BIND's statistics channel (`127.0.0.1:8053`, loopback only, in `named.conf`) and listening on the VM's management address `:9119`, where monitoring-config's `bind` job scrapes it. Its deploy fails unless it reports `bind_up 1`. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it (the statistics channel stays on). |
-| `dns_syslog` | `{ host = "10.20.11.101" }` | rsyslog on each DNS VM forwards its journal (BIND included) to this receiver over TCP; also takes `port` (514) and `level` (`info`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
+| `alloy` | `{}` (image `docker.io/grafana/alloy:v1.21.3`, port 12345) | Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs ([`alloy.tf`](alloy.tf)). VMs with a backend VLAN NIC push to `loki_vip_url` (`http://10.13.11.101:3100`), the others to every `loki_mgmt_urls` entry (loki01-03's own mgmt addresses). Also takes `max_age` (`12h`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
+| `ticketing_monitoring` | `{}` (node_exporter `v1.12.1`) | node_exporter on the triage VMs ([`ticketing-monitoring.tf`](ticketing-monitoring.tf)), next to their Alloy; separate from the app's deploy. `null` skips both. |
 | `dns_vrrp` | `{ vip = "10.8.53.53/16", router_id = 53 }` | keepalived VIP for the DNS pair: on BIND's service NIC, adverts unicast over the `ha_dns` L2VNI. BIND listens on it and DHCP hands out only the VIP. `null` skips it. See [The DNS VIP](#the-dns-vip). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
 
@@ -364,25 +365,36 @@ for today's inventory.
 
 ## Logs to Loki
 
-Everything here sends its logs as syslog to the Loki/Alloy VIP on the management network,
-`10.20.11.101` (keepalived on loki01–loki03, [monitoring-config](../monitoring-config/README.md)):
-TCP 514, RFC 5424, octet-counted framing.
+- **Linux service VMs** (DNS, NetBox, proxy, Valkey, ticketing): **Grafana Alloy** ships the
+  journal to Loki, like on monitoring-config's VMs: labels `source="journal"`, `host` (VM name),
+  `unit`, `container` (Podman's journald driver: every Quadlet container), `app` (the syslog
+  identifier: `bind9`, `nginx`, `netbox`, `Keepalived_vrrp`, ...) and `level`.
+  [`alloy.tf`](alloy.tf) renders `templates/alloy.{container,config.alloy,sh}.tftpl`; the DNS VMs
+  get it from `terraform_data.dns_alloy`, the others from their `<role>-monitoring.tf` resource,
+  so a change never restarts the service itself. `alloy.sh` validates the config in a throwaway
+  container first, restarts Alloy when the unit changed and only reloads it (SIGHUP) when the
+  config did, then waits for `/-/ready`.
+  - Where it pushes: VMs with a NIC on the backend VLAN 13 (NetBox, Valkey, ticketing) to Loki's
+    backend VIP `10.13.11.101:3100`; the DNS and proxy VMs (no VLAN 13) over the management network
+    to all three logging VMs' own addresses (`10.20.11.34-36:3100`; no VIP on mgmt, Loki drops the
+    identical copies). monitoring-config lets those mgmt addresses through logging-guard.
+  - Alloy's HTTP listener (`/metrics`, `/-/ready`) is on the management address `:12345`, scraped
+    by monitoring-config's `alloy` job.
+  - Until 2026-11 these VMs forwarded the journal with rsyslog (`source="syslog"`). On its first run
+    `alloy.sh` stops and disables rsyslog (and `syslog.socket`), removes `/etc/rsyslog.d/50-loki.conf`
+    and its queue files, and writes Alloy's journal position (`/var/lib/alloy/data/loki.source.journal.host/positions.yml`)
+    as the newest journal entry, so Alloy's first start begins right after it: the switch neither
+    repeats nor loses lines. Without that, Alloy would re-read 12 h (`max_age`) of journal as
+    `source="journal"` copies of lines Loki already has as `source="syslog"`. (Alloy's own
+    `legacy_position` conversion doesn't work for the journal source in v1.21.3: it writes the entry
+    with labels `{}`, which the journal source doesn't look up.) The rsyslog package stays installed,
+    disabled. The triage VMs never had rsyslog: their Alloy reads back 12 h on the first start.
+- **DHCP VMs** (`dhcp_syslog`): VyOS `system syslog remote` to loki01-03's mgmt addresses from the
+  `mgmt` VRF, the same commands as the leaves (`fabric.settings.leaf_syslog`).
 
-- **DNS VMs** (`dns-syslog.tf`, `terraform_data.dns_syslog`): `templates/rsyslog-loki.sh.tftpl`
-  writes `/etc/rsyslog.d/50-loki.conf` (from `templates/rsyslog-loki.conf.tftpl`), then installs
-  `rsyslog` from Debian if it's missing and restarts it. journald forwards to rsyslog
-  (`ForwardToSyslog=yes`, Debian's default), so the whole journal goes out at `info` and up,
-  including BIND: Podman logs the `bind9` container to the journal with
-  `SYSLOG_IDENTIFIER=bind9`, which arrives as the syslog app name. The rule ends in `stop`,
-  so rsyslog writes nothing to `/var/log`; the journal stays the local copy. A disk-assisted
-  queue (128 MB) holds messages while the receiver is down. This is a separate resource from
-  `terraform_data.bind9`, so changing it never restarts BIND. The VMs reach the VIP directly
-  on the management network (`eth0`).
-- **DHCP VMs** (`dhcp_syslog`): VyOS `system syslog remote 10.20.11.101` from the `mgmt` VRF,
-  the same commands as the leaves (`fabric.settings.leaf_syslog`).
-
-Check from a DNS VM: `systemctl status rsyslog`, and `logger -t test hello`, which should
-show up in Grafana Explore as `{host="dns01", app="test"}`.
+Check from a VM: `systemctl status alloy`, `curl -s http://<mgmt>:12345/-/ready`, and
+`logger -t test hello`, which should show up in Grafana Explore as
+`{host="dns01", source="journal", app="test"}`.
 
 ## Checking that it works
 

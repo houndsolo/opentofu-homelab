@@ -130,6 +130,7 @@ variable "targets" {
     netbox   = optional(list(object({ host = string, address = string })), [])                       # NetBox /metrics on each node's service address, :80
     nginx    = optional(list(object({ host = string, address = string })), [])                       # nginx-prometheus-exporter on the proxy VMs' mgmt address, :9113
     bind     = optional(list(object({ host = string, address = string })), [])                       # bind_exporter on the DNS VMs' mgmt address, :9119
+    alloy    = optional(list(object({ host = string, address = string })), [])                       # Alloy on VMs deployed elsewhere (services-config alloy.tf), mgmt address :12345
     snmp = map(object({                                                                              # job suffix => host => IP
       modules         = list(string)
       auth            = string

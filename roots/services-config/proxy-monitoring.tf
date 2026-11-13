@@ -2,10 +2,11 @@
 # (dns-node-exporter.tf's Quadlet) and nginx-prometheus-exporter (reads nginx's stub_status on
 # http://127.0.0.1/nginx_status, which only answers localhost), both on the management address where
 # monitoring-config scrapes them (jobs node and nginx; keep the ports in step with
-# modules/services/monitoring/nginx.tf). The journal goes to Loki with the DNS VMs' rsyslog forwarder.
+# modules/services/monitoring/nginx.tf). Grafana Alloy (alloy.tf) ships the journal to Loki, nginx's
+# access and error log included (app="nginx", the nginx dashboard reads it there).
 # Separate from terraform_data.proxy, so changing it never touches nginx.
 variable "proxy_monitoring" {
-  description = "node_exporter, nginx-prometheus-exporter and journal-to-Loki on the role = \"proxy\" VMs. null = don't install them."
+  description = "node_exporter, nginx-prometheus-exporter and Alloy (journal to Loki, alloy.tf) on the role = \"proxy\" VMs. null = don't install them."
   type = object({
     node_exporter_image  = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
     nginx_exporter_image = optional(string, "docker.io/nginx/nginx-prometheus-exporter:1.5.3")
@@ -32,7 +33,7 @@ locals {
         }))
         listen = "${split("/", vm.management_address)[0]}:${local.proxy_monitoring_ports.nginx}"
       })
-      syslog = local.dns_syslog_script
+      alloy = lookup(local.alloy_scripts, name, null)
     }
   } : {}
 }
@@ -71,13 +72,13 @@ resource "terraform_data" "proxy_monitoring" {
   }
 
   provisioner "file" {
-    content     = coalesce(each.value.syslog, "#!/bin/bash\n# dns_syslog = null: no journal forwarding\n")
-    destination = "/tmp/tofu-proxy-mon-${self.id}/rsyslog-loki.sh"
+    content     = coalesce(each.value.alloy, "#!/bin/bash\n# alloy = null: no journal shipping\n")
+    destination = "/tmp/tofu-proxy-mon-${self.id}/alloy.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "rc=0; d=/tmp/tofu-proxy-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/nginx-exporter.sh && sudo -n bash $d/rsyslog-loki.sh || rc=$?; rm -rf $d; exit $rc",
+      "rc=0; d=/tmp/tofu-proxy-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/nginx-exporter.sh && sudo -n bash $d/alloy.sh || rc=$?; rm -rf $d; exit $rc",
     ]
   }
 }

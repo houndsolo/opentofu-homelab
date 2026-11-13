@@ -1035,3 +1035,29 @@ run "backend_single" {
     error_message = "Without mon02, mon01 runs alone: no Alertmanager peers, no keepalived/VIPs, Grafana and the VyOS relay on mon01."
   }
 }
+
+run "service_vm_alloy" {
+  command = plan
+
+  assert {
+    # services-config's Alloy (alloy.tf) on the mgmt address, next to this root's own Alloys.
+    condition = (
+      alltrue([for a in ["10.20.53.1", "10.20.53.2", "10.20.11.43", "10.20.11.44", "10.20.11.45", "10.20.11.46", "10.20.11.47", "10.20.11.48", "10.20.11.49", "10.20.11.50", "10.20.11.51"] :
+      strcontains(module.monitoring.prometheus_config, "${a}:12345")]) &&
+      strcontains(module.monitoring.prometheus_config, "10.13.11.30:12345") &&
+      # triage01/02 in the node job with their role (overview hosts and VIP tables).
+      strcontains(module.monitoring.prometheus_config, "10.20.11.43:9100") &&
+      strcontains(module.monitoring.prometheus_config, "\"role\": \"ticketing\"")
+    )
+    error_message = "Scrape Alloy on every services-config VM's mgmt address :12345 and node_exporter on triage01/02 (role ticketing)."
+  }
+
+  assert {
+    # The DNS and proxy VMs (no backend VLAN NIC) push to Loki over mgmt; the others use the VIP.
+    condition = (
+      local.loki_mgmt_senders == tolist(["10.20.11.50/32", "10.20.11.51/32", "10.20.53.1/32", "10.20.53.2/32"]) &&
+      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.13.0.0/16, 10.20.11.50/32, 10.20.11.51/32, 10.20.53.1/32, 10.20.53.2/32 } accept")
+    )
+    error_message = "logging-guard lets the DNS and proxy VMs' mgmt addresses reach Loki's port 3100, nothing else new."
+  }
+}

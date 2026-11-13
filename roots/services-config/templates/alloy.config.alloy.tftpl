@@ -1,0 +1,42 @@
+// Managed by OpenTofu (services-config). Local edits are overwritten.
+// Grafana Alloy on ${host}: the host's journal (every Quadlet container logs to it through
+// Podman's journald driver) -> Loki. Same labels as monitoring-config's VMs (keep in step with
+// modules/services/monitoring/templates/config.alloy.tftpl), so the Loki dashboards see no difference.
+
+// One endpoint per Loki address: the backend VIP, or every logging VM's mgmt address for VMs
+// without a backend VLAN NIC (no VIP on mgmt; Loki drops the identical copies).
+loki.write "loki" {
+%{ for url in loki_urls ~}
+  endpoint {
+    url = "${url}/loki/api/v1/push"
+  }
+%{ endfor ~}
+}
+
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_container_name"]
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+}
+
+loki.source.journal "host" {
+  max_age       = "${max_age}"
+  relabel_rules = loki.relabel.journal.rules
+  labels        = { host = "${host}", source = "journal" }
+  forward_to    = [loki.write.loki.receiver]
+}

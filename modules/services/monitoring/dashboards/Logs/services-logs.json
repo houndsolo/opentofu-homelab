@@ -154,7 +154,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `Transfer completed` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `Transfer completed` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Zone transfers",
           "refId": "A"
@@ -219,7 +219,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `notify from|sending notifies` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `notify from|sending notifies` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Notifies",
           "refId": "A"
@@ -284,7 +284,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `no valid signature|broken trust chain|insecurity proof failed|verify failed|no valid RRSIG` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `no valid signature|broken trust chain|insecurity proof failed|verify failed|no valid RRSIG` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "DNSSEC validation",
           "refId": "A"
@@ -353,7 +353,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE|deadlock found)` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE|deadlock found)` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Resolution errors",
           "refId": "A"
@@ -422,7 +422,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "lines",
           "refId": "A"
@@ -486,7 +486,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `Transfer completed` [$__auto]))",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `Transfer completed` [$__auto]))",
           "queryType": "range",
           "legendFormat": "zone transfers",
           "refId": "A"
@@ -497,7 +497,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `notify from|sending notifies` [$__auto]))",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `notify from|sending notifies` [$__auto]))",
           "queryType": "range",
           "legendFormat": "notifies",
           "refId": "B"
@@ -508,7 +508,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `no valid signature|broken trust chain|insecurity proof failed|verify failed|no valid RRSIG` [$__auto]))",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `no valid signature|broken trust chain|insecurity proof failed|verify failed|no valid RRSIG` [$__auto]))",
           "queryType": "range",
           "legendFormat": "DNSSEC validation",
           "refId": "C"
@@ -519,7 +519,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE|deadlock found)` [$__auto]))",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} |~ `(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE|deadlock found)` [$__auto]))",
           "queryType": "range",
           "legendFormat": "resolution errors",
           "refId": "D"
@@ -530,7 +530,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} !~ `Transfer completed|notify from|sending notifies|no valid signature|broken trust chain|insecurity proof failed|verify failed|no valid RRSIG|(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE|deadlock found)` [$__auto]))",
+          "expr": "sum(count_over_time({host=~\"dns0[0-9]\", app=\"bind9\"} !~ `Transfer completed|notify from|sending notifies|no valid signature|broken trust chain|insecurity proof failed|verify failed|no valid RRSIG|(?i:servfail|timed out|unreachable|lame server|formerr|connection refused|unexpected RCODE|deadlock found)` [$__auto]))",
           "queryType": "range",
           "legendFormat": "other",
           "refId": "E"
@@ -684,7 +684,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |= \"Transfer completed\" | regexp `transfer of '(?P<zone>[^']+)' from (?P<primary>\\S+): Transfer completed: (?P<msgs>\\d+) messages, (?P<records>\\d+) records.*serial (?P<serial>\\d+)`",
+          "expr": "{host=~\"dns0[0-9]\", app=\"bind9\"} |= \"Transfer completed\" | regexp `transfer of '(?P<zone>[^']+)' from (?P<primary>\\S+): Transfer completed: (?P<msgs>\\d+) messages, (?P<records>\\d+) records.*serial (?P<serial>\\d+)`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 300,
@@ -882,7 +882,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"dns0[0-9]\", app=\"bind9\"} |~ `(?i)$search` !~ `no valid signature`",
+          "expr": "{host=~\"dns0[0-9]\", app=\"bind9\"} |~ `(?i)$search` !~ `no valid signature`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,

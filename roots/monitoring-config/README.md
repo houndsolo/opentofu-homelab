@@ -128,7 +128,8 @@ service VM updates Prometheus on the next apply.
 
 | Job | Targets | From |
 | --- | --- | --- |
-| `node` | backend (monitoring address), grafana VMs (backend VLAN), DNS VMs (mgmt), Proxmox nodes (`cidrhost(vmbr100 prefix, id)`) | `vms`, `nodes`, `pve_network` |
+| `node` | backend (monitoring address), grafana VMs (backend VLAN), services-config's DNS, Valkey, NetBox, proxy and ticketing VMs (mgmt; label `role`), Proxmox nodes (`cidrhost(vmbr100 prefix, id)`) | `vms`, `nodes`, `pve_network` |
+| `alloy` (:12345) | Alloy on every VM of this root (backend VLAN), plus services-config's DNS, NetBox, proxy, Valkey and ticketing VMs on their mgmt address (`targets.alloy`; services-config `alloy.tf`) | `vms` |
 | `vyos-node` (:9100), `vyos-frr` (:9342) | every leaf (mgmt), DHCP VMs (mgmt), `vyos_extra_targets` (fw-wan) | `fabric`, `nodes`, `vms` |
 | `snmp-<name>` | `snmp_targets`: FS switches, CRS317s and spines on their monitoring-network (10.5/16) addresses, where the MikroTiks bind their SNMP agent; the C9800 WLCs (10.5.1.1/.2) over SNMPv3 (`snmp_v3_auths`). The MikroTik jobs walk `mikrotik_lite` (below) and use a 30 s interval and 20 s `scrape_timeout` (RouterOS walks are slow) | variables |
 | `pve` | cluster nodes' API, through pve-exporter (only with a token; standalone greatfox is left out) | `nodes` |
@@ -219,8 +220,8 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Databases | Postgres instance (`postgres-instance`) | custom | One member (picker) and its databases (picker): role, exporter, version, uptime, connections, cache hit, commits, deadlocks/conflicts; backends by user, state and wait event, transactions, rows read/written; cache hit ratio, block reads vs hits, temp files, bgwriter/checkpointer, checkpoints, pg_wal; locks by mode, longest transaction, xid wraparound age; key settings and settings that differ between members; collapsed: postgres_exporter collectors |
 | Databases | Valkey (NetBox cache and queue) (`valkey`) | custom (Prometheus + Loki) | valkey01-03 and their Sentinels. **Status:** primary, the primary each Sentinel reports, a checks tile (one primary, replicas linked, Sentinels agree, quorum, all Sentinels seen, memory < 80 % of maxmemory, AOF/RDB writes, exporters), failovers in range, memory, NetBox clients and idle RQ workers, ops/s, keys per db, RQ jobs queued. **Nodes** table (role, link, bytes behind, Sentinel, memory, clients, keys, AOF, uptime, version). Role timeline and Sentinel +switch-master/+sdown/+odown lines; replica lag, what each Sentinel sees, resyncs; NetBox's commands/s and p99 latency per command (the exporters' own commands left out), hit ratio, network, connections and error replies; RQ queue, failed jobs and workers; memory vs maxmemory, keys, expired/evicted, AOF, fragmentation, last RDB save; hosts; collapsed log |
 | Services | nginx reverse proxy (`nginx-proxy`) | custom (Prometheus + Loki) | proxy01/02 behind proxy-vip (services-config proxy.tf). **Status:** VIP holder, nginx up per proxy, the published sites probed over HTTPS by name (job blackbox-https), certificate expiry and subject/issuer, requests/s, active connections, 5xx share and requests in range. **Sites (access log, `log_format lylat` parsed with `| logfmt`):** requests per site, responses by status class, request and upstream time p95 per site, a per-site table (requests, 2xx/4xx/5xx, p95, bytes), top paths and clients, failed requests. **Connections (stub_status):** requests/s per proxy, connections by state, accepted vs dropped. **Probes:** probe time per site and by phase. **Proxy VMs:** CPU, memory, network, VIP moves. **Logs:** nginx's error log, keepalived |
-
 | Services | DNS (BIND) (`dns-bind`) | custom (Prometheus + Loki) | dns01/02 behind dns-vip (services-config main.tf; job `bind` = bind_exporter on the mgmt address :9119 reading BIND's statistics channel, services-config dns-bind-exporter.tf). **Status:** VIP holder, BIND up per server, the SOA probes, time since the last config load, zone serials per server, queries/s, cache hit ratio, SERVFAIL and NXDOMAIN share. **Queries:** by type, responses by rcode, per server, SERVFAIL/NXDOMAIN share per server, rejected/failed queries. **Recursion and cache:** recursions and queries to the forwarders, forwarder RTT p50/p95, recursive clients, resolver errors, DNSSEC validation, cache RRsets. **Zones:** serials over time, transfers ok/failed/rejected. **Probes:** SOA query time, serial and a current table. **DNS VMs:** CPU, memory, network, VIP moves. **Logs:** bind9, keepalived |
+
 The SNMP dashboards need only `if_mib`, so they work for every SNMP job. A dropdown
 in the top bar ("SNMP dashboards") switches between them and keeps the selected
 device and time range. The device and host pickers show each target's `host` label.
@@ -533,8 +534,10 @@ through **Grafana Alloy**, and are queried from Grafana (datasource `Loki`, uid 
 `terraform_data.logging["<vm>"]` deploys each VM like the others (generated `deploy.sh`, Quadlets).
 
 ```
-devices / VyOS / PVE / DNS --syslog--> VIP 10.5.11.101 | 10.20.11.101 --> alloy (VIP holder)
+devices / VyOS / PVE --syslog--> VIP 10.5.11.101 | 10.20.11.34-36 --> alloy (VIP holder / each)
 mon01, graf01/02 alloy --journal----------> VIP 10.13.11.101:3100 ---------\
+netbox, valkey, triage alloy --journal----> VIP 10.13.11.101:3100 ---------|
+dns, proxy alloy --journal----------------> 10.20.11.34-36:3100 (mgmt) ----|
                                                                           v
 alloy (each log VM, journal + syslog) --> local loki --(ring, RF 3, VLAN 214)--> all 3 lokis
                                           loki --S3--> 127.0.0.1:7480 haproxy --> RGW on macbeth/titania/venom (10.27.0.x)
@@ -572,7 +575,8 @@ Grafana --> VIP 10.13.11.101:3100 ;  Loki ruler --> both Alertmanagers (10.13.11
 - **Ports**: Loki runs with host networking and listens on every address, because the backend VIP
   moves between the VMs. `logging-guard` (an nftables table `inet logging_guard`, loaded by its own
   systemd unit) drops 3100 except from loopback and `logging_settings.loki_allowed_sources`
-  (`10.13.0.0/16`), and 7946/9095 except from the three HA addresses. Nothing else is filtered.
+  (`10.13.0.0/16`) plus the mgmt addresses of services-config's Alloy VMs without a VLAN 13 NIC
+  (`loki_mgmt_senders` in main.tf: the DNS and proxy VMs push over mgmt), and 7946/9095 except from the three HA addresses. Nothing else is filtered.
 - S3 keys live in `/etc/logging/loki.env` (0600) and are expanded by Loki (`-config.expand-env`);
   `loki.yaml` itself (output `loki_configs`) has no secrets.
 - With RF 3 and no shared chunk cache, all three ingesters flush the same chunks (same object keys,
@@ -584,7 +588,7 @@ Grafana --> VIP 10.13.11.101:3100 ;  Loki ruler --> both Alertmanagers (10.13.11
 
   | Listener | Format | Senders | Timestamp |
   | --- | --- | --- | --- |
-  | TCP 514 | RFC 5424, octet-counted | VyOS leaves, DHCP VMs, fw-wan, PVE nodes and DNS VMs (rsyslog) | sender's |
+  | TCP 514 | RFC 5424, octet-counted | VyOS leaves, DHCP VMs, fw-wan, PVE nodes (rsyslog) | sender's |
   | UDP 514 | RFC 3164 | MikroTik CRS317/CRS326 | receive time (no year/zone) |
   | UDP 1514 | raw (unparsed line) | Cisco C9800 WLCs (IOS-XE), FS S3910, FS S3700: RFC 3164 parsing silently drops their messages (the S3700's end in a NUL byte) | receive time (switch-1 has no NTP) |
 
@@ -597,6 +601,11 @@ Grafana --> VIP 10.13.11.101:3100 ;  Loki ruler --> both Alertmanagers (10.13.11
 - **Every VM** (mon01, graf01/02, loki01-03): the journal, `source="journal"`, `host`=VM name, `unit`,
   `container` (Podman's journald driver: every Quadlet container), `app`, `level`. mon01 and the
   Grafana VMs push to the VIP `http://10.13.11.101:3100`.
+- **services-config's VMs** (dns, netbox, proxy, valkey, triage; services-config `alloy.tf`): the same
+  journal config and labels. VMs with a VLAN 13 NIC push to the VIP; the DNS and proxy VMs push over
+  mgmt to all three log VMs' own addresses (no VIP on mgmt; Loki drops the identical copies), which
+  logging-guard allows by their mgmt address. Scraped on the mgmt address (`targets.alloy`). Until
+  2026-11 these VMs sent their journal as syslog through rsyslog (`source="syslog"`).
 
 ### VIPs and failover (keepalived)
 
@@ -626,8 +635,9 @@ and Debian ships security updates for it. There's no trustworthy upstream keepal
   format doesn't parse as RFC 3164 (it shows in `loki_source_syslog_parsing_errors_total`).
 - If its messages carry no useful hostname, add its address to `snmp_targets` (if it's scraped) or
   `logging_settings.syslog_host_overrides`.
-- A Linux VM with Podman: give it Alloy like mon01 (journal -> VIP 10.13.11.101) if it has a VLAN 13
-  NIC, otherwise forward its journal as syslog.
+- A Linux VM with Podman: give it Alloy like mon01 or services-config's `alloy.tf` (journal -> VIP
+  10.13.11.101 if it has a VLAN 13 NIC, otherwise to the three log VMs' mgmt addresses, which then need
+  to be in `loki_mgmt_senders`).
 - The hand-configured senders are in [log-senders](log-senders/README.md).
 
 ### Ceph RGW on the PVE nodes

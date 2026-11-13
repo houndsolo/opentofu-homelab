@@ -1,11 +1,11 @@
 # Host monitoring for the NetBox VMs (netbox.tf), like the DNS and Valkey VMs: node_exporter
 # (dns-node-exporter.tf's Quadlet) on the management address :9100, where monitoring-config's
-# node job scrapes it, and the journal (NetBox's container logs included) to Loki with the DNS
-# VMs' rsyslog forwarder (dns_syslog's receivers). NetBox's own /metrics is scraped on each
+# node job scrapes it, and Grafana Alloy (alloy.tf: the journal, NetBox's container logs
+# included, to Loki's backend VIP). NetBox's own /metrics is scraped on each
 # node's VLAN 2 address (monitoring-config job netbox). Separate from terraform_data.netbox, so
 # changing it never restarts NetBox.
 variable "netbox_monitoring" {
-  description = "node_exporter and journal-to-Loki on the role = \"netbox\" VMs. null = don't install them."
+  description = "node_exporter and Alloy (journal to Loki, alloy.tf) on the role = \"netbox\" VMs. null = don't install them."
   type = object({
     node_exporter_image = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
   })
@@ -22,7 +22,7 @@ locals {
         }))
         listen = "${split("/", vm.management_address)[0]}:9100"
       })
-      syslog = local.dns_syslog_script
+      alloy = lookup(local.alloy_scripts, name, null)
     }
   }
 }
@@ -55,13 +55,13 @@ resource "terraform_data" "netbox_monitoring" {
   }
 
   provisioner "file" {
-    content     = coalesce(each.value.syslog, "#!/bin/bash\n# dns_syslog = null: no journal forwarding\n")
-    destination = "/tmp/tofu-netbox-mon-${self.id}/rsyslog-loki.sh"
+    content     = coalesce(each.value.alloy, "#!/bin/bash\n# alloy = null: no journal shipping\n")
+    destination = "/tmp/tofu-netbox-mon-${self.id}/alloy.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "rc=0; d=/tmp/tofu-netbox-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/rsyslog-loki.sh || rc=$?; rm -rf $d; exit $rc",
+      "rc=0; d=/tmp/tofu-netbox-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/alloy.sh || rc=$?; rm -rf $d; exit $rc",
     ]
   }
 }

@@ -250,32 +250,57 @@ run "dns_vrrp_disabled" {
   }
 }
 
-run "dns_journal_to_loki" {
+run "alloy_journal_to_loki" {
   command = plan
   assert {
     condition = (
-      length(terraform_data.dns_syslog) == 2 &&
-      strcontains(local.dns_syslog_script, base64encode(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], port = 514, level = "info" }))) &&
-      alltrue([for i in [34, 35, 36] : strcontains(templatefile("${path.module}/templates/rsyslog-loki.conf.tftpl", { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], port = 514, level = "info" }), "target=\"10.20.11.${i}\"")]) &&
-      !strcontains(local.dns_syslog_script, "10.20.11.101")
+      length(terraform_data.dns_alloy) == 2 &&
+      keys(local.alloy_scripts) == sort(["dns01", "dns02", "netbox01", "netbox02", "proxy01", "proxy02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
+      # No backend VLAN NIC (DNS, proxy): every logging VM's own mgmt address, no VIP.
+      strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+        host = "dns01", max_age = "12h", loki_urls = ["http://10.20.11.34:3100", "http://10.20.11.35:3100", "http://10.20.11.36:3100"]
+      }))) &&
+      strcontains(local.alloy_scripts.proxy02, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+        host = "proxy02", max_age = "12h", loki_urls = ["http://10.20.11.34:3100", "http://10.20.11.35:3100", "http://10.20.11.36:3100"]
+      }))) &&
+      # A NIC on VLAN 13: Loki's backend VIP only.
+      strcontains(local.alloy_scripts.netbox01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+        host = "netbox01", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
+      }))) &&
+      strcontains(local.alloy_scripts.triage02, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+        host = "triage02", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
+      }))) &&
+      # The HTTP listener (scraped by monitoring-config's alloy job) on the management address.
+      strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.container.tftpl", {
+        image = "docker.io/grafana/alloy:v1.21.3", listen = "10.20.53.1:12345"
+      }))) &&
+      strcontains(local.alloy_scripts.valkey03, "http://10.20.11.49:12345/-/ready")
     )
-    error_message = "Forward both DNS VMs' journals to every logging VM's own mgmt address (no VIP) over TCP by default."
+    error_message = "Alloy on every DNS/NetBox/proxy/Valkey/ticketing VM: VIP when the VM has a backend VLAN NIC, else every logging VM's mgmt address; listener on the mgmt address :12345."
   }
-}
-
-run "dns_syslog_disabled" {
-  command = plan
-  variables { dns_syslog = null }
   assert {
-    condition     = length(terraform_data.dns_syslog) == 0 && length(terraform_data.bind9) == 2
-    error_message = "dns_syslog = null skips the forwarder but still deploys BIND."
+    condition = (
+      strcontains(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", { host = "dns01", max_age = "12h", loki_urls = ["http://a:1", "http://b:2"] }), "url = \"http://a:1/loki/api/v1/push\"") &&
+      strcontains(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", { host = "dns01", max_age = "12h", loki_urls = ["http://a:1", "http://b:2"] }), "url = \"http://b:2/loki/api/v1/push\"") &&
+      strcontains(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", { host = "dns01", max_age = "12h", loki_urls = ["http://a:1"] }), "labels        = { host = \"dns01\", source = \"journal\" }")
+    )
+    error_message = "One loki.write endpoint per URL; the journal labelled like monitoring-config's VMs (host, source = journal)."
   }
 }
 
-run "reject_bad_dns_syslog_level" {
+run "alloy_disabled" {
   command = plan
-  variables { dns_syslog = { hosts = ["10.20.11.34"], level = "verbose" } }
-  expect_failures = [var.dns_syslog]
+  variables { alloy = null }
+  assert {
+    condition     = length(terraform_data.dns_alloy) == 0 && length(local.alloy_scripts) == 0 && length(terraform_data.bind9) == 2
+    error_message = "alloy = null installs no Alloy but still deploys BIND."
+  }
+}
+
+run "reject_bad_alloy_url" {
+  command = plan
+  variables { alloy = { loki_mgmt_urls = ["10.20.11.34:3100"] } }
+  expect_failures = [var.alloy]
 }
 
 run "dns_node_exporter" {
@@ -327,8 +352,8 @@ run "dns_bind_exporter_disabled" {
   }
 }
 
-run "reject_empty_dns_syslog_hosts" {
+run "reject_empty_alloy_mgmt_urls" {
   command = plan
-  variables { dns_syslog = { hosts = [] } }
-  expect_failures = [var.dns_syslog]
+  variables { alloy = { loki_mgmt_urls = [] } }
+  expect_failures = [var.alloy]
 }

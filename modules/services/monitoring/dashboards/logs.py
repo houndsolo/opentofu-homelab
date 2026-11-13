@@ -5,12 +5,15 @@ its helpers; see custom.py for the conventions. They query the provisioned Loki
 datasource (uid "loki", the VIP 10.13.11.101:3100), which holds:
 
 - source="syslog": everything Alloy's syslog listeners on loki01-03 receive (VyOS
-  leaves, fw-wan, dhcp01/02, dns01/02, PVE nodes, MikroTik, FS switches, C9800 WLCs).
+  leaves, fw-wan, dhcp01/02, PVE nodes, MikroTik, FS switches, C9800 WLCs; dns01/02 too
+  until they moved to Alloy's journal source in 2026-11).
   Labels host, app (syslog tag; empty for the switches and WLCs, whose raw lines carry
   the Cisco-style %FAC-SEV-MNEMONIC instead), level (syslog severity: informational,
   warning, ...), facility. The Ceph cluster log is app="ceph-cluster", once per mon.
-- source="journal": the journal of mon01, graf01/02 and loki01-03 (Alloy): host, unit,
-  app, level (journal priority: info, warning, ...) and container for Podman containers.
+- source="journal": the journal of every Linux VM (Alloy): the monitoring stack's VMs and
+  services-config's dns, netbox, proxy, valkey and triage VMs (rsyslog before 2026-11, as
+  source="syslog"). Labels host, unit, app, level (journal priority: info, warning, ...) and
+  container for Podman containers.
 
 VyOS's rsyslog sends every non-kernel line twice (imjournal, and imuxsock with a leading
 space); Alloy drops the imuxsock copy on receipt (templates/config.alloy.tftpl), so lines
@@ -740,7 +743,9 @@ def proxmox():
 
 # --- Services logs ---------------------------------------------------------------------
 
-DNS = '{source="syslog", host=~"dns0[0-9]", app="bind9"}'
+# No source label: dns01/02 sent BIND as syslog (rsyslog) until 2026-11 and as journal (Alloy) since,
+# with the same host/app labels, so one selector covers both.
+DNS = '{host=~"dns0[0-9]", app="bind9"}'
 # Kea runs in two unrelated places: the cluster HA pair dhcp01/02 (kea-dhcp4) and fw-wan, which
 # serves the guest VRF on eth3.4 alone (kea-vrf-helper, no HA). Each gets its own panels.
 KEA_HA = '{source="syslog", host=~"dhcp0[12]", app=~"kea-dhcp4|kea-vrf-helper"}'

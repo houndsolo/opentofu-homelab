@@ -14,7 +14,16 @@ locals {
   valkey_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "valkey" }
   netbox_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "netbox" }
   proxy_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "proxy" }
-  deploy_vms     = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
+  ticketing_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "ticketing" }
+  # Grafana Alloy from services-config (alloy.tf) on these VMs: HTTP on the mgmt address (alloy job).
+  # The ones without a backend VLAN NIC (DNS, proxy) push to Loki over mgmt, to every logging VM's
+  # own address, so logging-guard has to let their mgmt addresses reach port 3100.
+  alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
+  loki_mgmt_senders = sort([
+    for name in keys(local.alloy_service_vms) : "${local.mgmt[name]}/32"
+    if !anytrue([for nic in local.nics[name] : nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null])
+  ])
+  deploy_vms = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
   mgmt = { for name, vm in local.service_vms : name => try(split("/", vm.management_address)[0], null) }
@@ -115,6 +124,7 @@ locals {
       [for name in keys(local.valkey_vms) : { host = name, address = local.mgmt[name], labels = { role = "valkey" } }],
       [for name in keys(local.netbox_vms) : { host = name, address = local.mgmt[name], labels = { role = "netbox" } }],
       [for name in keys(local.proxy_vms) : { host = name, address = local.mgmt[name], labels = { role = "proxy" } }],
+      [for name in keys(local.ticketing_vms) : { host = name, address = local.mgmt[name], labels = { role = "ticketing" } }],
       [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
       [for name, n in local.metrics_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "metrics" } } if local.mimir_enabled],
       [for name, n in local.postgres_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "postgres" } } if local.postgres_enabled],
@@ -136,6 +146,7 @@ locals {
     valkey = [for name in sort(keys(local.valkey_vms)) : { host = name, address = local.mgmt[name] }]
     # nginx-prometheus-exporter (services-config proxy-monitoring.tf) on the proxy VMs' mgmt address.
     nginx = [for name in sort(keys(local.proxy_vms)) : { host = name, address = local.mgmt[name] }]
+    alloy = [for name in sort(keys(local.alloy_service_vms)) : { host = name, address = local.mgmt[name] }]
     # bind_exporter (services-config dns-bind-exporter.tf) on the DNS VMs' mgmt address.
     bind = [for name in sort(keys(local.dns_vms)) : { host = name, address = local.mgmt[name] }]
     # NetBox's /metrics (django-prometheus) on each node's own service address (the NIC with the
@@ -290,7 +301,10 @@ module "monitoring" {
       }
     }
   }
-  logging_settings = merge(var.logging_settings, { syslog_host_overrides = local.syslog_host_overrides })
+  logging_settings = merge(var.logging_settings, {
+    syslog_host_overrides = local.syslog_host_overrides
+    loki_allowed_sources  = concat(var.logging_settings.loki_allowed_sources, local.loki_mgmt_senders)
+  })
   logging_secrets = var.loki_s3 == null ? null : {
     s3_bucket     = var.loki_s3.bucket
     s3_access_key = var.loki_s3.access_key

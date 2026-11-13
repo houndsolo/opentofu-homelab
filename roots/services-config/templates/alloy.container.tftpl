@@ -1,0 +1,27 @@
+# Managed by OpenTofu (services-config). Local edits are overwritten.
+# The same unit as monitoring-config's VMs (modules/services/monitoring logging.tf alloy_unit).
+[Unit]
+Description=Grafana Alloy (journal -> Loki)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=alloy
+Network=host
+Volume=/etc/alloy:/etc/alloy:ro
+Volume=/var/lib/alloy:/var/lib/alloy
+Volume=/var/log/journal:/var/log/journal:ro
+Volume=/run/log/journal:/run/log/journal:ro
+Volume=/etc/machine-id:/etc/machine-id:ro
+# HTTP (/metrics, /-/ready) on the management address: monitoring-config's alloy job scrapes it.
+Exec=run /etc/alloy/config.alloy --storage.path=/var/lib/alloy/data --server.http.listen-addr=${listen} --disable-reporting
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman kill --signal HUP alloy
+
+[Install]
+WantedBy=multi-user.target

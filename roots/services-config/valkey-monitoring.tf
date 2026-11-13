@@ -2,11 +2,11 @@
 # (dns-node-exporter.tf's Quadlet), two redis_exporter Quadlets (Valkey :9121 with the password,
 # Sentinel :9355 without one; both talk to 127.0.0.1), all listening on the management address,
 # where monitoring-config scrapes them (jobs node, valkey, valkey-sentinel; keep the ports in
-# step with modules/services/monitoring/valkey.tf). The journal goes to Loki with the DNS VMs'
-# rsyslog forwarder (dns_syslog's receivers). Separate from terraform_data.valkey, so changing it
+# step with modules/services/monitoring/valkey.tf). Grafana Alloy (alloy.tf) ships the journal to
+# Loki's backend VIP. Separate from terraform_data.valkey, so changing it
 # never restarts Valkey or Sentinel.
 variable "valkey_monitoring" {
-  description = "node_exporter, Valkey/Sentinel exporters and journal-to-Loki on the role = \"valkey\" VMs. null = don't install them."
+  description = "node_exporter, Valkey/Sentinel exporters and Alloy (journal to Loki, alloy.tf) on the role = \"valkey\" VMs. null = don't install them."
   type = object({
     node_exporter_image  = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
     redis_exporter_image = optional(string, "docker.io/oliver006/redis_exporter:v1.97.0")
@@ -55,7 +55,7 @@ locals {
         valkey_listen   = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.valkey}"
         sentinel_listen = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.sentinel}"
       })
-      syslog = local.dns_syslog_script
+      alloy = lookup(local.alloy_scripts, name, null)
     }
   } : {}
 }
@@ -94,13 +94,13 @@ resource "terraform_data" "valkey_monitoring" {
   }
 
   provisioner "file" {
-    content     = coalesce(each.value.syslog, "#!/bin/bash\n# dns_syslog = null: no journal forwarding\n")
-    destination = "/tmp/tofu-valkey-mon-${self.id}/rsyslog-loki.sh"
+    content     = coalesce(each.value.alloy, "#!/bin/bash\n# alloy = null: no journal shipping\n")
+    destination = "/tmp/tofu-valkey-mon-${self.id}/alloy.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "rc=0; d=/tmp/tofu-valkey-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/exporters.sh && sudo -n bash $d/rsyslog-loki.sh || rc=$?; rm -rf $d; exit $rc",
+      "rc=0; d=/tmp/tofu-valkey-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/exporters.sh && sudo -n bash $d/alloy.sh || rc=$?; rm -rf $d; exit $rc",
     ]
   }
 }

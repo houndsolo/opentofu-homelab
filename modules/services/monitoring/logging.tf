@@ -353,11 +353,14 @@ locals {
     ring_sources = local.logging_ring_peers
   })
 
-  # Prometheus: Loki, Alloy (every VM), haproxy (RGW health from each log VM).
+  # Prometheus: Loki, Alloy (every VM, plus services-config's VMs from targets.alloy), haproxy (RGW health from each log VM).
   logging_scrape_configs = concat(
     [{
-      job_name       = "alloy"
-      static_configs = [for name, a in local.alloy_hosts : { targets = ["${a.listen}:12345"], labels = { host = name } }]
+      job_name = "alloy"
+      static_configs = concat(
+        [for name, a in local.alloy_hosts : { targets = ["${a.listen}:12345"], labels = { host = name } }],
+        [for t in var.targets.alloy : { targets = ["${t.address}:12345"], labels = { host = t.host } }],
+      )
     }],
     local.logging_enabled ? [
       {

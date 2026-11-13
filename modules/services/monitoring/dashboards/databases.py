@@ -769,7 +769,7 @@ def valkey():
 
     b.row("Logs", collapsed=True)
     b.add(logs("Valkey and Sentinel log", '{host=~"valkey.*", app=~"valkey.*|redis.*"}', max_lines=300,
-               desc="valkey-server and valkey-sentinel from the journal (rsyslog to Loki)."), 24, 10)
+               desc="valkey-server and valkey-sentinel from the journal (Alloy to Loki)."), 24, 10)
 
     return dashboard("valkey", "Valkey (NetBox cache and queue)",
                      "The Valkey trio behind NetBox: primary and Sentinel agreement, replication, load, NetBox's RQ task "

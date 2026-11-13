@@ -1,0 +1,63 @@
+#!/bin/bash
+# Install/refresh Grafana Alloy (journal -> Loki) and retire the rsyslog forwarder it replaces.
+# The new config is validated in a throwaway container before anything changes; a changed unit
+# restarts Alloy, a changed config only reloads it (SIGHUP).
+set -euo pipefail
+image='${image}'
+unit=/etc/containers/systemd/alloy.container
+conf=/etc/alloy/config.alloy
+positions=/var/lib/alloy/data/loki.source.journal.host/positions.yml
+install -d -m 0755 /etc/containers/systemd /etc/alloy
+install -d -m 0750 /var/lib/alloy
+printf '%s' '${unit_b64}' | base64 -d > "$unit.new"
+printf '%s' '${config_b64}' | base64 -d > "$conf.new"
+chmod 0644 "$unit.new" "$conf.new"
+
+podman image exists "$image" || podman pull -q "$image" >/dev/null
+check=$(mktemp -d)
+trap 'rm -rf "$check"' EXIT
+cp "$conf.new" "$check/config.alloy"
+podman run --rm --network=none --user 0 -v "$check:/etc/alloy:ro" "$image" validate /etc/alloy/config.alloy
+
+unit_changed=1
+if [ -f "$unit" ] && cmp -s "$unit" "$unit.new"; then unit_changed=0; fi
+conf_changed=1
+if [ -f "$conf" ] && cmp -s "$conf" "$conf.new"; then conf_changed=0; fi
+mv "$unit.new" "$unit"
+mv "$conf.new" "$conf"
+
+# The old forwarder (rsyslog-loki.conf, until 2026-11): stop it first, then point Alloy's journal
+# position at the newest journal entry, so Alloy's first run starts right after it and no line
+# reaches Loki twice (source="syslog" and "journal") or not at all; without a position Alloy would
+# re-read max_age of journal. The file is in Alloy's own positions format (checked with v1.21.3;
+# its legacy_position conversion writes labels '{}', which the journal source doesn't find).
+# syslog.socket goes too, or journald keeps forwarding into a socket nobody reads. The package
+# stays, disabled.
+if [ -f /etc/rsyslog.d/50-loki.conf ]; then
+  systemctl stop rsyslog.service
+  systemctl stop syslog.socket 2>/dev/null || true
+  systemctl disable --quiet rsyslog.service
+  rm -f /etc/rsyslog.d/50-loki.conf /var/spool/rsyslog/loki-fwd*
+  if [ ! -s "$positions" ]; then
+    cursor=$(journalctl -n 0 --show-cursor --no-pager | sed -n 's/^-- cursor: //p')
+    if [ -n "$cursor" ]; then
+      install -d -m 0750 "$(dirname "$positions")"
+      printf 'positions:\n  ? path: cursor-loki.source.journal.host\n    labels: ""\n  : %s\n' "$cursor" > "$positions"
+    fi
+  fi
+  echo "rsyslog forwarder retired"
+fi
+
+systemctl daemon-reload
+if [ "$unit_changed" = 1 ] || ! systemctl is-active --quiet alloy.service; then
+  systemctl restart alloy.service
+elif [ "$conf_changed" = 1 ]; then
+  systemctl reload alloy.service
+fi
+for i in $(seq 1 60); do
+  if curl -fsS -o /dev/null --max-time 3 "http://${listen}/-/ready"; then echo "alloy up on ${listen}"; exit 0; fi
+  sleep 2
+done
+echo "alloy not ready on ${listen}" >&2
+journalctl -u alloy.service -n 30 --no-pager >&2 || true
+exit 1
