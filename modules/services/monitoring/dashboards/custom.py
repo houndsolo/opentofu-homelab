@@ -1235,7 +1235,11 @@ def stack():
                      "Prometheus, Alertmanager, Grafana, the exporters and Telegraf (C9800 telemetry) on the "
                      "backends mon01/mon02 (Prometheus HA pair, Alertmanager cluster), "
                      "and the logging stack (Loki rings, ingest, S3 flushes, Alloy).",
-                     b, tags=["prometheus", "alertmanager", "grafana", "loki"])
+                     b, tags=["prometheus", "alertmanager", "grafana", "loki"],
+                     # Deep dives per store: Databases/{prometheus,mimir,loki,telegraf}.json (and Postgres, Valkey).
+                     extra_links=[{"type": "dashboards", "tags": ["databases"], "asDropdown": True,
+                                   "title": "Database dashboards", "includeVars": False, "keepTime": True,
+                                   "icon": "external link", "targetBlank": False, "tooltip": "", "url": ""}])
 
 
 # --- Ceph ----------------------------------------------------------------------
@@ -2090,15 +2094,20 @@ def main():
     import dns
     import fwwan
     import logs
+    import loki
+    import mimir
     import nginx
+    import promtsdb
     import pve
     import rgw
     import snmp
+    import telegraf
     import triage
     import wireless
     for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS,
                        **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS, **triage.DASHBOARDS,
-                       **databases.DASHBOARDS, **nginx.DASHBOARDS, **dns.DASHBOARDS}.items():
+                       **databases.DASHBOARDS, **nginx.DASHBOARDS, **dns.DASHBOARDS, **promtsdb.DASHBOARDS,
+                       **mimir.DASHBOARDS, **loki.DASHBOARDS, **telegraf.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = theme.apply_theme(theme.categorize(build(), rel))

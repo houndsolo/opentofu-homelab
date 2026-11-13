@@ -116,6 +116,10 @@ run "inventory_targets" {
       { for rel, content in module.monitoring.dashboards : rel => jsondecode(content).uid } == {
         "Databases/postgres-cluster.json"                  = "postgres-cluster"
         "Databases/postgres-instance.json"                 = "postgres-instance"
+        "Databases/prometheus.json"                        = "prometheus-server"
+        "Databases/mimir.json"                             = "mimir"
+        "Databases/loki.json"                              = "loki"
+        "Databases/telegraf.json"                          = "telegraf"
         "Databases/valkey.json"                            = "valkey"
         "Edge/fw-wan-firewall.json"                        = "fw-wan-firewall"
         "Edge/fw-wan-overview.json"                        = "fw-wan-overview"

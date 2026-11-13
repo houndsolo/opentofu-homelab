@@ -55,6 +55,20 @@
       "targetBlank": false,
       "tooltip": "",
       "url": ""
+    },
+    {
+      "type": "dashboards",
+      "tags": [
+        "databases"
+      ],
+      "asDropdown": true,
+      "title": "Database dashboards",
+      "includeVars": false,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
     }
   ],
   "templating": {
