@@ -28,13 +28,25 @@
 # the same messages with those rows added, this input config writes them, zero-valued keys
 # (radio_slot_id=0, wlan_id=0) included. No Telegraf setting can bring them back; that has to
 # be fixed on the WLC (see dashboards/wireless.py, FIRST_ENTRY_GAP).
+#
+# Prometheus (moving off InfluxDB): a clone of every telemetry metric is renamed to
+# wlc_<short> (telegraf/wlc.star: e.g. wlc_client_traffic, wlc_ap_radio, wlc_rrm_noise_data),
+# loses the path/subscription tags, gets source as host, and keeps its numeric fields; the
+# string fields (names, SSIDs, states, IPs) become labels of a wlc_<short>_info series (value 1),
+# except per-push timestamps; the client's current_rate becomes current_rate_mcs/_ss (or _mbps).
+# The clones are served on :${local.wlc_prom_port} (prometheus_client, never to InfluxDB); the
+# originals still go to InfluxDB until the wireless dashboards have moved. Only the VIP holder
+# receives, so both Prometheus replicas scrape the backend VIP (job "wlc"); the port is published
+# on all local addresses, so a scrape of the VIP lands on the holder's Telegraf on either backend
+# (a VIP-bound publish would also catch it on the non-holder and answer from the idle Telegraf).
 locals {
   wlc_enabled = var.wlc_telemetry != null
   # Backends running Telegraf: each WLC subscription has one receiver per backend, and
   # each Telegraf writes to its own InfluxDB.
-  wlc_backends = local.wlc_enabled ? [for name in local.backend_names : name if contains(var.wlc_telemetry.backends, name)] : []
-  wlc_port     = try(var.wlc_telemetry.port, 57500)
-  wlc_conf     = "${local.backend_conf}/telegraf"
+  wlc_backends  = local.wlc_enabled ? [for name in local.backend_names : name if contains(var.wlc_telemetry.backends, name)] : []
+  wlc_port      = try(var.wlc_telemetry.port, 57500)
+  wlc_prom_port = 9275 # the wlc_* series (9273 = Telegraf's own metrics, 9274 = pvestatd)
+  wlc_conf      = "${local.backend_conf}/telegraf"
   # Fan-out through the monitoring VIP (see above).
   wlc_vip = local.backend_vrrp_enabled && length(local.wlc_backends) > 1
   # Where each Telegraf writes: every Telegraf backend, or only its own.
@@ -67,6 +79,17 @@ locals {
     "",
     "[[inputs.internal]]",
     "",
+    # A renamed copy of every telemetry metric for Prometheus (see the top of this file).
+    "[[processors.clone]]",
+    "  order = 1",
+    "  namepass = [\"Cisco-IOS-XE-*\"]",
+    "  name_prefix = \"wlc_\"",
+    "",
+    "[[processors.starlark]]",
+    "  order = 2",
+    "  namepass = [\"wlc_*\"]",
+    "  script = \"/etc/telegraf/wlc.star\"",
+    "",
     ], flatten([for target in local.wlc_targets[host] : [
       "[[outputs.influxdb_v2]]",
       "  alias = \"${target}\"",
@@ -74,12 +97,20 @@ locals {
       "  token = \"$${${local.wlc_env_var[host][target]}}\"", # telegraf.env
       "  organization = \"${var.settings.influxdb_org}\"",
       "  bucket = \"${try(var.wlc_telemetry.bucket, "")}\"",
-      "  namedrop = [\"internal_*\"]",
+      "  namedrop = [\"internal_*\", \"wlc_*\"]",
       "",
     ]]), [
     "[[outputs.prometheus_client]]",
     "  listen = \":9273\"",
     "  namepass = [\"internal_*\"]",
+    "",
+    "[[outputs.prometheus_client]]",
+    "  alias = \"wlc\"",
+    "  listen = \":${local.wlc_prom_port}\"",
+    "  namepass = [\"wlc_*\"]",
+    "  metric_version = 2",
+    "  string_as_label = false",
+    "  expiration_interval = \"150s\"", # subscriptions push every 30 s or 60 s
     "",
   ])) : "" }
 
@@ -96,6 +127,7 @@ locals {
           ["${b.monitoring_address}:${local.wlc_port}:${local.wlc_port}"],
           [for vip in(local.wlc_vip ? local.backend_vip_monitoring : []) : "${vip}:${local.wlc_port}:${local.wlc_port}"],
           ["${b.backend_address}:9273:9273"],
+          ["${local.wlc_prom_port}:${local.wlc_prom_port}"], # all local addresses, incl. the VIP when held (see above)
         )
         volumes   = ["${local.wlc_conf}:/etc/telegraf:ro"]
         env_files = ["${local.backend_conf}/telegraf.env"]
@@ -110,6 +142,7 @@ locals {
   wlc_files = {
     for host in local.backend_names : host => contains(local.wlc_backends, host) ? [
       { path = "${local.wlc_conf}/telegraf.conf", mode = "0644", owner = "root", content = local.telegraf_conf[host], restart = [], reload = ["telegraf"] },
+      { path = "${local.wlc_conf}/wlc.star", mode = "0644", owner = "root", content = file("${path.module}/telegraf/wlc.star"), restart = [], reload = ["telegraf"] },
       {
         path    = "${local.backend_conf}/telegraf.env"
         mode    = "0600"
@@ -134,15 +167,29 @@ locals {
     for host, b in var.backends : host => contains(local.wlc_backends, host) ? [
       "curl -sS -o /dev/null --max-time 3 --http2-prior-knowledge http://${b.monitoring_address}:${local.wlc_port}/",
       "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9273/metrics",
+      "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:${local.wlc_prom_port}/metrics",
     ] : []
   }
 
-  wlc_scrape_configs = local.wlc_enabled && length(local.wlc_backends) > 0 ? [{
-    job_name       = "telegraf"
-    static_configs = [for host in local.wlc_backends : { targets = ["${var.backends[host].backend_address}:9273"], labels = { host = host, role = "wlc-telemetry" } }]
-  }] : []
+  wlc_scrape_on = local.wlc_enabled && length(local.wlc_backends) > 0
+  wlc_scrape_configs = concat(
+    local.wlc_scrape_on ? [{
+      job_name       = "telegraf"
+      static_configs = [for host in local.wlc_backends : { targets = ["${var.backends[host].backend_address}:9273"], labels = { host = host, role = "wlc-telemetry" } }]
+    }] : [],
+    # The telemetry itself, from whichever Telegraf receives (the VIP holder in fan-out mode): the same
+    # target on both replicas. honor_labels: the series keep host = the WLC; up gets host="wlc-telemetry".
+    local.wlc_scrape_on ? [{
+      job_name     = "wlc"
+      honor_labels = true
+      static_configs = [{
+        targets = local.wlc_vip ? [for vip in local.backend_vip_backend : "${vip}:${local.wlc_prom_port}"] : ["${var.backends[local.wlc_backends[0]].backend_address}:${local.wlc_prom_port}"]
+        labels  = { host = "wlc-telemetry" }
+      }]
+    }] : [],
+  )
 
-  wlc_rules = length(local.wlc_scrape_configs) > 0 ? [{
+  wlc_rules = local.wlc_scrape_on ? [{
     name = "wlc-telemetry"
     rules = [
       # In fan-out mode only the VIP holder receives, so the sum is over every Telegraf.
@@ -165,6 +212,15 @@ locals {
         for         = "5m"
         labels      = { severity = "warning" }
         annotations = { summary = "Telegraf (WLC telemetry) on {{ $labels.host }} dropped writes for {{ $labels.alias }} (buffer full)" }
+      },
+      {
+        # Telegraf receives but the wlc_* series don't reach Prometheus (job wlc down, or the clone/starlark
+        # processing broken). The live client count is pushed every 30 s by every WLC with clients or not.
+        alert       = "WlcTelemetryNotInPrometheus"
+        expr        = "sum(rate(internal_gather_metrics_gathered{job=\"telegraf\", input=\"cisco_telemetry_mdt\"}[10m])) > 0 unless count(wlc_client_live_run_state_clients{job=\"wlc\"}) > 0"
+        for         = "15m"
+        labels      = { severity = "warning" }
+        annotations = { summary = "Telegraf receives C9800 telemetry, but no wlc_* series reach Prometheus (job wlc)" }
       },
     ]
   }] : []

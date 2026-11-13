@@ -967,6 +967,24 @@ run "backend_replica_ready" {
     error_message = "With influxdb_replica_ready, mon02 runs the WLC Telegraf with its own token."
   }
 
+  assert {
+    # The telemetry for Prometheus: a renamed clone (wlc_*, starlark) served on :9275 on all local addresses,
+    # scraped through the backend VIP by both replicas (job wlc); InfluxDB still gets only the originals.
+    condition = (
+      alltrue([for name in ["mon01", "mon02"] : (
+        strcontains(module.monitoring.units[name].telegraf, "PublishPort=9275:9275\n") &&
+        strcontains(module.monitoring.wlc_telegraf_configs[name], "name_prefix = \"wlc_\"") &&
+        strcontains(module.monitoring.wlc_telegraf_configs[name], "script = \"/etc/telegraf/wlc.star\"") &&
+        strcontains(module.monitoring.wlc_telegraf_configs[name], "listen = \":9275\"") &&
+        length(regexall("namedrop = \\[\"internal_\\*\", \"wlc_\\*\"\\]", module.monitoring.wlc_telegraf_configs[name])) == 2 &&
+        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "put '/etc/monitoring/telegraf/wlc.star'")
+      )]) &&
+      one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "wlc"]).static_configs[0].targets == ["10.13.11.102:9275"] &&
+      strcontains(module.monitoring.prometheus_rules, "WlcTelemetryNotInPrometheus")
+    )
+    error_message = "The WLC Telegraf serves wlc_* clones on :9275 (all addresses), scraped via the backend VIP; InfluxDB outputs drop them."
+  }
+
   # IOS XE keeps one receiver per subscription active, so the WLCs send to the monitoring VIP
   # and the holder's Telegraf writes the wlc bucket on both backends.
   assert {
