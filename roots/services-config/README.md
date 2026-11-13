@@ -65,6 +65,7 @@ transfers.
 | `dhcp_prometheus_exporters` | `{ vrf = "mgmt" }` | VyOS node-exporter (:9100) and frr-exporter (:9342) on each DHCP VM's management address, in that VRF; scraped by [monitoring-config](../monitoring-config/README.md). `null` leaves them unmanaged. |
 | `dhcp_syslog` | `{ host = "10.20.11.101", vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to the Loki/Alloy VIP on the management network ([monitoring-config](../monitoring-config/README.md)), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
 | `dns_node_exporter` | `{}` (image `docker.io/prom/node-exporter:v1.12.1`, port 9100) | node_exporter on each DNS VM ([`dns-node-exporter.tf`](dns-node-exporter.tf)): a Podman Quadlet with host networking, listening on the VM's management address `:9100`, where monitoring-config's `node` job scrapes it. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it. |
+| `dns_bind_exporter` | `{}` (image `docker.io/prometheuscommunity/bind-exporter:v0.8.0`) | bind_exporter on each DNS VM ([`dns-bind-exporter.tf`](dns-bind-exporter.tf)): a Podman Quadlet with host networking, reading BIND's statistics channel (`127.0.0.1:8053`, loopback only, in `named.conf`) and listening on the VM's management address `:9119`, where monitoring-config's `bind` job scrapes it. Its deploy fails unless it reports `bind_up 1`. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it (the statistics channel stays on). |
 | `dns_syslog` | `{ host = "10.20.11.101" }` | rsyslog on each DNS VM forwards its journal (BIND included) to this receiver over TCP; also takes `port` (514) and `level` (`info`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
 | `dns_vrrp` | `{ vip = "10.8.53.53/16", router_id = 53 }` | keepalived VIP for the DNS pair: on BIND's service NIC, adverts unicast over the `ha_dns` L2VNI. BIND listens on it and DHCP hands out only the VIP. `null` skips it. See [The DNS VIP](#the-dns-vip). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
@@ -122,7 +123,12 @@ directory, runs it with `sudo -n`, and then deletes the directory. The script
    exists yet. A zone that has already received RFC 2136 updates, and its
    journal, are never overwritten.
 6. Installs `named.conf`, the key file (mode `0640`, `root:bind`) and the Quadlet
-   unit, reloads systemd, restarts `bind9.service`, and checks that it's active.
+   unit, reloads systemd and checks that `bind9.service` is active. It **restarts**
+   BIND only when the unit or the image changed (or it isn't running). A change
+   to `named.conf` or the key alone is a **reload** (SIGHUP, the same as `rndc
+   reload`; there's no rndc channel): the cache survives and no query is dropped.
+   The deploy fails if named logs `reloading configuration failed` (named keeps
+   running on the old config then).
 
 What ends up on each DNS VM:
 

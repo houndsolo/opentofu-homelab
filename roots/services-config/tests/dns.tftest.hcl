@@ -302,6 +302,31 @@ run "dns_node_exporter_disabled" {
   }
 }
 
+run "dns_bind_exporter" {
+  command = plan
+  assert {
+    condition = (
+      length(terraform_data.dns_bind_exporter) == 2 &&
+      strcontains(local.dns_bind_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "docker.io/prometheuscommunity/bind-exporter:v0.8.0", stats_port = 8053, listen = "10.20.53.1:9119" }))) &&
+      strcontains(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "i", stats_port = 8053, listen = "10.20.53.1:9119" }), "\nExec=--bind.stats-url=http://127.0.0.1:8053 --web.listen-address=10.20.53.1:9119 --bind.pid-file=\n") &&
+      strcontains(local.dns_bind_exporter_script.dns02, "http://10.20.53.2:9119/metrics") &&
+      # The statistics channel it reads, loopback only, and a named.conf change is a reload, not a restart.
+      strcontains(base64decode(regex("printf '%s' '([^']+)' \\| base64 -d > \"\\$stage/named.conf\"", local.deployments.dns02)[0]), "statistics-channels {\n    inet 127.0.0.1 port 8053 allow { 127.0.0.1; };\n};") &&
+      strcontains(local.deployments.dns01, "podman kill --signal HUP bind9")
+    )
+    error_message = "bind_exporter on both DNS VMs on their management address :9119, reading BIND's loopback statistics channel; named.conf changes reload BIND."
+  }
+}
+
+run "dns_bind_exporter_disabled" {
+  command = plan
+  variables { dns_bind_exporter = null }
+  assert {
+    condition     = length(terraform_data.dns_bind_exporter) == 0
+    error_message = "dns_bind_exporter = null installs nothing."
+  }
+}
+
 run "reject_empty_dns_syslog_hosts" {
   command = plan
   variables { dns_syslog = { hosts = [] } }

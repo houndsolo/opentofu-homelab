@@ -1,0 +1,30 @@
+#!/bin/bash
+# Install/refresh the bind_exporter Quadlet; restart it only when its unit changed.
+# Fails unless it reports bind_up 1 (it reaches BIND's statistics channel).
+set -euo pipefail
+install -d -m 0755 /etc/containers/systemd
+printf '%s' '${unit_b64}' | base64 -d > /etc/containers/systemd/bind-exporter.container.new
+chmod 0644 /etc/containers/systemd/bind-exporter.container.new
+changed=1
+if [ -f /etc/containers/systemd/bind-exporter.container ] && cmp -s /etc/containers/systemd/bind-exporter.container /etc/containers/systemd/bind-exporter.container.new; then
+  changed=0; rm -f /etc/containers/systemd/bind-exporter.container.new
+else
+  mv /etc/containers/systemd/bind-exporter.container.new /etc/containers/systemd/bind-exporter.container
+fi
+systemctl daemon-reload
+if [ $changed -eq 1 ] || ! systemctl is-active --quiet bind-exporter.service; then
+  systemctl restart bind-exporter.service
+fi
+
+ok=0
+for i in $(seq 1 60); do
+  if curl -fsS --max-time 5 'http://${listen}/metrics' 2>/dev/null | grep -qx 'bind_up 1'; then ok=1; break; fi
+  sleep 2
+done
+if [ $ok -eq 1 ]; then
+  echo "bind-exporter up on ${listen} (bind_up 1)"
+else
+  echo "bind-exporter on ${listen} not reporting bind_up 1 (statistics-channels in named.conf?)" >&2
+  journalctl -u bind-exporter.service -n 20 --no-pager >&2 || true
+  exit 1
+fi

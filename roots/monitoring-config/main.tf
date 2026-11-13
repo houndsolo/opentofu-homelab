@@ -136,6 +136,8 @@ locals {
     valkey = [for name in sort(keys(local.valkey_vms)) : { host = name, address = local.mgmt[name] }]
     # nginx-prometheus-exporter (services-config proxy-monitoring.tf) on the proxy VMs' mgmt address.
     nginx = [for name in sort(keys(local.proxy_vms)) : { host = name, address = local.mgmt[name] }]
+    # bind_exporter (services-config dns-bind-exporter.tf) on the DNS VMs' mgmt address.
+    bind = [for name in sort(keys(local.dns_vms)) : { host = name, address = local.mgmt[name] }]
     # NetBox's /metrics (django-prometheus) on each node's own service address (the NIC with the
     # default gateway; port 80 is published there), not the VIP, so each node is scraped.
     netbox = [for name in sort(keys(local.netbox_vms)) : {

@@ -36,9 +36,36 @@ if [ ! -f /var/lib/bind9-container/primary/10.in-addr.arpa.zone ]; then
     "$stage/seed-reverse.zone" /var/lib/bind9-container/primary/10.in-addr.arpa.zone
 fi
 %{ endif ~}
+# A change to named.conf or the key alone is a reload (SIGHUP = rndc reload; there is no rndc
+# channel), so the resolver keeps its cache and never drops queries. A new unit or image, or a stopped
+# service, is a restart. Dynamic zones and their journals survive both.
+same() { [ -f "$2" ] && cmp -s "$1" "$2"; }
+same "$stage/named.conf" /etc/bind9-container/named.conf && same "$stage/tsig.key" /etc/bind9-container/tsig.key && config_changed=0 || config_changed=1
+same "$stage/bind9.container" /etc/containers/systemd/bind9.container && unit_changed=0 || unit_changed=1
+running_image=$(podman inspect --format '{{.Image}}' bind9 2>/dev/null || true)
+[ "$running_image" = "$(podman image inspect --format '{{.Id}}' "$image")" ] && image_changed=0 || image_changed=1
+
 install -m 0644 "$stage/named.conf" /etc/bind9-container/named.conf
 install -m 0640 -o root -g "$bind_gid" "$stage/tsig.key" /etc/bind9-container/tsig.key
 install -m 0644 "$stage/bind9.container" /etc/containers/systemd/bind9.container
 systemctl daemon-reload
-systemctl restart bind9.service
+if [ $unit_changed -eq 1 ] || [ $image_changed -eq 1 ] || ! systemctl is-active --quiet bind9.service; then
+  echo "bind9: restart (unit changed=$unit_changed, image changed=$image_changed)"
+  systemctl restart bind9.service
+elif [ $config_changed -eq 1 ]; then
+  echo "bind9: reload (named.conf or key changed)"
+  since=$(date +%s)
+  podman kill --signal HUP bind9 >/dev/null
+  result=
+  for i in $(seq 1 30); do
+    result=$(podman logs --since "$since" bind9 2>&1 | grep -oE 'reloading configuration (succeeded|failed.*)' | tail -n 1 || true)
+    [ -n "$result" ] && break
+    sleep 1
+  done
+  echo "bind9: $${result:-no reload result logged in 30 s}"
+  # On a failed reload named keeps running with the old config: fail the deploy so it gets fixed.
+  [ "$result" = "reloading configuration succeeded" ]
+else
+  echo "bind9: unchanged"
+fi
 systemctl is-active --quiet bind9.service

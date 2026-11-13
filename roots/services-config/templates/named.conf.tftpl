@@ -29,6 +29,12 @@ options {
 
 controls {};
 
+# Statistics for bind_exporter (dns-bind-exporter.tf), loopback only: the exporter runs on the host
+# network and publishes the metrics on the management address.
+statistics-channels {
+    inet 127.0.0.1 port ${stats_port} allow { 127.0.0.1; };
+};
+
 zone "lylat.space" {
 %{ if primary ~}
     type primary;

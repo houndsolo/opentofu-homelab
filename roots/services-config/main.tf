@@ -34,6 +34,7 @@ locals {
         primary             = name == var.dns_primary
         primary_address     = local.dns_addresses[var.dns_primary]
         secondary_addresses = [for peer, address in local.dns_addresses : address if peer != var.dns_primary]
+        stats_port          = local.dns_stats_port # dns-bind-exporter.tf
       }))
       zone_b64    = base64encode(local.zone_data)
       reverse_b64 = base64encode(local.reverse_zone_data)

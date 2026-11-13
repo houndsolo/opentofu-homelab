@@ -1,0 +1,20 @@
+# Managed by OpenTofu (services-config, dns-bind-exporter.tf). Local edits are overwritten.
+[Unit]
+Description=Prometheus exporter for BIND (statistics channel)
+Wants=network-online.target
+After=network-online.target bind9.service
+
+[Container]
+Image=${image}
+ContainerName=bind-exporter
+Network=host
+# named runs in its own container, so its pid file isn't visible here: no process metrics.
+Exec=--bind.stats-url=http://127.0.0.1:${stats_port} --web.listen-address=${listen} --bind.pid-file=
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

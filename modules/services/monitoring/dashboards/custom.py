@@ -2095,6 +2095,7 @@ def main():
     sys.path.insert(0, str(HERE))
     sys.dont_write_bytecode = True
     import databases
+    import dns
     import fwwan
     import logs
     import nginx
@@ -2105,7 +2106,7 @@ def main():
     import wireless
     for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS,
                        **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS, **triage.DASHBOARDS,
-                       **databases.DASHBOARDS, **nginx.DASHBOARDS}.items():
+                       **databases.DASHBOARDS, **nginx.DASHBOARDS, **dns.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = theme.apply_theme(theme.categorize(build(), rel))
