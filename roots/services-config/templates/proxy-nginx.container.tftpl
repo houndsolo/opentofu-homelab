@@ -1,0 +1,26 @@
+# Managed by OpenTofu (services-config, proxy.tf). Local edits are overwritten.
+# nginx reverse proxy as a rootful Podman Quadlet container on the host network (ports 80/443 on all
+# addresses, including the keepalived VIP). The config dir and the certificate dir are mounted as
+# directories, so files replaced by a deploy or a renewal are seen on the next reload.
+[Unit]
+Description=nginx reverse proxy (container ${image})
+Wants=network-online.target
+After=network-online.target proxy-nft.service
+
+[Container]
+Image=${image}
+ContainerName=nginx
+Network=host
+Volume=${conf_dir}:${conf_dir}:ro
+Volume=${cert_dir}:${cert_dir}:ro
+Exec=nginx -c ${conf_dir}/nginx.conf -g "daemon off;"
+Environment=NGINX_ENTRYPOINT_QUIET_LOGS=1
+
+[Service]
+# Graceful: new workers with the new config/certificate, open connections finish on the old ones.
+ExecReload=/usr/bin/podman exec nginx nginx -c ${conf_dir}/nginx.conf -s reload
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

@@ -1,8 +1,12 @@
-# Reverse proxy for the VLAN 2 web UIs: nginx (Debian package) on every role "proxy" VM terminates
+# Reverse proxy for the VLAN 2 web UIs: nginx (Podman Quadlet container, pinned official image, host
+# network; config in /etc/nginx-proxy) on every role "proxy" VM terminates
 # TLS for https://<name>.lylat.space with the Let's Encrypt wildcard *.lylat.space that roots/certs
 # installs in var.proxy.cert_dir, and forwards over plain HTTP to the service's own VIP (its address
 # from vips.auto.tfvars, e.g. grafana-vip). DNS: every host name and alias is generated as a CNAME
 # to proxy.lylat.space (dns-records.tf).
+#
+# A deploy that restarts nginx (new image/unit) on the node holding the VIP first hands the VIP to a
+# healthy peer (stops keepalived), so the switch costs ~1 s instead of the ~9 s health-check failover.
 #
 # HA: both nodes run nginx all the time with the same config (stateless). keepalived holds
 # var.proxy.vip on the VLAN 2 NIC of a node whose nginx answers /healthz, with use_vmac (fixed MAC,
@@ -14,8 +18,9 @@
 variable "proxy" {
   description = "Reverse proxy: published hosts (<key>.<domain> plus aliases) and the VIP + port they forward to, certificate path, proxy VIP. null = don't deploy."
   type = object({
-    domain   = optional(string, "lylat.space")  # the zone; the certificate is *.<domain>
-    cert_dir = optional(string, "/etc/ssl/svc") # = roots/certs var.certificate.directory
+    image    = optional(string, "docker.io/library/nginx:1.30.6") # nginx stable; bump the tag to upgrade
+    domain   = optional(string, "lylat.space")                    # the zone; the certificate is *.<domain>
+    cert_dir = optional(string, "/etc/ssl/svc")                   # = roots/certs var.certificate.directory
     hosts = optional(map(object({
       vip        = string                     # key in vips.auto.tfvars: nginx forwards to its address
       port       = number                     # the service's port on that VIP
@@ -84,6 +89,8 @@ locals {
     for h in values(local.proxy_hosts) : [for n in h.names : "https://${n}"] if var.vips[h.vip].address == var.netbox.vip
   ]))
 
+  proxy_conf_dir = "/etc/nginx-proxy" # mounted read-only into the container at the same path
+
   # Rendered twice: the config id (/healthz) is a hash of the config without it.
   proxy_nginx_vars = var.proxy == null ? null : {
     domain   = var.proxy.domain
@@ -95,9 +102,18 @@ locals {
 
   proxy_script = var.proxy == null ? {} : {
     for name, vm in local.proxy_vms : name => templatefile("${path.module}/templates/proxy-deploy.sh.tftpl", {
-      cert_dir   = var.proxy.cert_dir
-      config_id  = local.proxy_config_id
-      listen     = local.proxy_nics[name].service.address
+      cert_dir    = var.proxy.cert_dir
+      conf_dir    = local.proxy_conf_dir
+      image       = var.proxy.image
+      config_id   = local.proxy_config_id
+      listen      = local.proxy_nics[name].service.address
+      vip_address = local.proxy_vip
+      peers       = [for peer, n in local.proxy_nics : n.service.address if peer != name]
+      unit_b64 = base64encode(templatefile("${path.module}/templates/proxy-nginx.container.tftpl", {
+        image    = var.proxy.image
+        conf_dir = local.proxy_conf_dir
+        cert_dir = var.proxy.cert_dir
+      }))
       ha         = local.proxy_ha
       nginx_b64  = base64encode(local.proxy_nginx_conf)
       nft_b64    = base64encode(templatefile("${path.module}/templates/proxy.nft.tftpl", { clients = var.proxy.clients }))
