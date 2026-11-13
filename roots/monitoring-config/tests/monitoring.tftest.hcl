@@ -1090,11 +1090,12 @@ run "service_vm_alloy" {
   }
 
   assert {
-    # The DNS and proxy VMs (no backend VLAN NIC) push to Loki over mgmt; the others use the VIP.
+    # Every services-config Alloy VM has a backend VLAN NIC (DNS and proxy since 2026-11-13) and pushes to
+    # the VIP, so logging-guard needs no mgmt exceptions: only the backend VLAN reaches port 3100.
     condition = (
-      local.loki_mgmt_senders == tolist(["10.20.11.50/32", "10.20.11.51/32", "10.20.53.1/32", "10.20.53.2/32"]) &&
-      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.13.0.0/16, 10.20.11.50/32, 10.20.11.51/32, 10.20.53.1/32, 10.20.53.2/32 } accept")
+      length(local.loki_mgmt_senders) == 0 &&
+      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.13.0.0/16 } accept")
     )
-    error_message = "logging-guard lets the DNS and proxy VMs' mgmt addresses reach Loki's port 3100, nothing else new."
+    error_message = "No mgmt senders left: logging-guard lets only 10.13.0.0/16 reach Loki's port 3100."
   }
 }

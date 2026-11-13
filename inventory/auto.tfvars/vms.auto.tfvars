@@ -21,6 +21,12 @@ vms = {
         vlan_id      = 212
         ipv4_address = "10.21.53.1/24"
       },
+      {
+        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.53.1/16"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "dns"]
@@ -51,6 +57,12 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 212
         ipv4_address = "10.21.53.2/24"
+      },
+      {
+        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.53.2/16"
       },
     ]
     config = {
@@ -435,6 +447,12 @@ vms = {
         vlan_id      = 220
         ipv4_address = "10.21.18.50/24"
       },
+      {
+        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.50/16"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "proxy"]
@@ -467,6 +485,12 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 220
         ipv4_address = "10.21.18.51/24"
+      },
+      {
+        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
+        bridge       = "vmbr4000"
+        vlan_id      = 13
+        ipv4_address = "10.13.11.51/16"
       },
     ]
     config = {

@@ -594,7 +594,8 @@ Grafana --> VIP 10.13.11.101:3100 ;  Loki ruler --> both Alertmanagers (10.13.11
   moves between the VMs. `logging-guard` (an nftables table `inet logging_guard`, loaded by its own
   systemd unit) drops 3100 except from loopback and `logging_settings.loki_allowed_sources`
   (`10.13.0.0/16`) plus the mgmt addresses of services-config's Alloy VMs without a VLAN 13 NIC
-  (`loki_mgmt_senders` in main.tf: the DNS and proxy VMs push over mgmt), and 7946/9095 except from the three HA addresses. Nothing else is filtered.
+  (`loki_mgmt_senders` in main.tf; empty since the DNS and proxy VMs got VLAN 13 NICs on 2026-11-13),
+  and 7946/9095 except from the three HA addresses. Nothing else is filtered.
 - S3 keys live in `/etc/logging/loki.env` (0600) and are expanded by Loki (`-config.expand-env`);
   `loki.yaml` itself (output `loki_configs`) has no secrets.
 - With RF 3 and no shared chunk cache, all three ingesters flush the same chunks (same object keys,

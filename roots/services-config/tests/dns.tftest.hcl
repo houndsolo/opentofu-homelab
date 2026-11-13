@@ -256,14 +256,14 @@ run "alloy_journal_to_loki" {
     condition = (
       length(terraform_data.dns_alloy) == 2 &&
       keys(local.alloy_scripts) == sort(["dns01", "dns02", "netbox01", "netbox02", "proxy01", "proxy02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
-      # No backend VLAN NIC (DNS, proxy): every logging VM's own mgmt address, no VIP.
+      # Every Alloy VM has a NIC on VLAN 13 (DNS and proxy since 2026-11-13): Loki's backend VIP only.
+      # (Without one it would fall back to every logging VM's mgmt address, var.alloy.loki_mgmt_urls.)
       strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host = "dns01", max_age = "12h", loki_urls = ["http://10.20.11.34:3100", "http://10.20.11.35:3100", "http://10.20.11.36:3100"]
+        host = "dns01", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
       }))) &&
       strcontains(local.alloy_scripts.proxy02, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host = "proxy02", max_age = "12h", loki_urls = ["http://10.20.11.34:3100", "http://10.20.11.35:3100", "http://10.20.11.36:3100"]
+        host = "proxy02", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
       }))) &&
-      # A NIC on VLAN 13: Loki's backend VIP only.
       strcontains(local.alloy_scripts.netbox01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
         host = "netbox01", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
       }))) &&

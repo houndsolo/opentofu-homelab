@@ -16,8 +16,9 @@ locals {
   proxy_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "proxy" }
   ticketing_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "ticketing" }
   # Grafana Alloy from services-config (alloy.tf) on these VMs: HTTP on the mgmt address (alloy job).
-  # The ones without a backend VLAN NIC (DNS, proxy) push to Loki over mgmt, to every logging VM's
-  # own address, so logging-guard has to let their mgmt addresses reach port 3100.
+  # One without a backend VLAN NIC would push to Loki over mgmt, to every logging VM's own address, and
+  # logging-guard would have to let its mgmt address reach port 3100. Since 2026-11-13 all of them
+  # (DNS and proxy included) have a VLAN 13 NIC and push to the VIP, so this list is empty.
   alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
   loki_mgmt_senders = sort([
     for name in keys(local.alloy_service_vms) : "${local.mgmt[name]}/32"
