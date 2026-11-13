@@ -5,7 +5,12 @@
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  tofu = pkgs.opentofu;
+  # OpenTofu from nixos-unstable: the stable channel (26.05) ships 1.11.x. a0-nix puts
+  # <nixpkgs-unstable> on NIX_PATH (/etc/nixos: nix.nixPath); elsewhere fall back to <nixpkgs>.
+  unstable =
+    if builtins.any (e: e.prefix == "nixpkgs-unstable") builtins.nixPath
+    then import <nixpkgs-unstable> {} else pkgs;
+  tofu = unstable.opentofu;
   hcl2 = pkgs.python3Packages.python-hcl2;
 
   # Python with the HCL parser that tooling/with-secrets uses.
@@ -17,8 +22,8 @@ in
 
 # Stop with a clear error if a required version is too old.
 assert pkgs.lib.assertMsg
-  (pkgs.lib.versionAtLeast tofu.version "1.11.6")
-  "OpenTofu >= 1.11.6 is required. Select a newer nixpkgs channel.";
+  (pkgs.lib.versionAtLeast tofu.version "1.13.0")
+  "OpenTofu >= 1.13.0 is required. Select a newer nixpkgs channel.";
 
 assert pkgs.lib.assertMsg
   (pkgs.lib.versionAtLeast hcl2.version "7.3.1")
