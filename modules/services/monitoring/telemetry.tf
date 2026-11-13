@@ -14,7 +14,7 @@
 # container name, peers over the backend VLAN, each with that backend's token). IOS XE only
 # keeps one receiver of a subscription active (a second named receiver is a standby, checked
 # 2026-11-10), so the WLCs send to the VIP once (receiver "mon01", host = the VIP) and the
-# VIP holder's Telegraf fans out, like the InfluxDB relay does for VyOS (backends.tf).
+# VIP holder's Telegraf fans out.
 #
 # Measurements keep the YANG encoding paths as names (no aliases), e.g.
 # "Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats": the dashboards

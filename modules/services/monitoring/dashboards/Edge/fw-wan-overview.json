@@ -350,7 +350,7 @@
     {
       "type": "stat",
       "title": "WAN address",
-      "description": "eth5 (DHCP from Spectrum), from Telegraf.",
+      "description": "eth5 (DHCP from Spectrum), from VyOS (status-metrics.py).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -362,10 +362,10 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "show_interfaces_state{host=\"fw-wan\", interface=\"eth5\"}",
+          "expr": "max by (ip_addresses) (vyos_interface_info{host=\"fw-wan\", interface=\"eth5\"})",
           "legendFormat": "{{ip_addresses}}",
-          "range": true,
-          "instant": false,
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -1113,7 +1113,7 @@
     {
       "type": "stat",
       "title": "VyOS services",
-      "description": "Daemons VyOS expects for its config (Telegraf vyos_services: zebra, staticd, bgpd, charon...).",
+      "description": "Daemons VyOS expects for its config (zebra, staticd, bgpd, charon...), from status-metrics.py.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1125,10 +1125,10 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "label_replace(vyos_services_status{host=\"fw-wan\"}, \"service\", \"$1\", \"service\", \"\\\"(.*)\\\"\")",
+          "expr": "max by (service) (vyos_service_status{host=\"fw-wan\"})",
           "legendFormat": "{{service}}",
-          "range": true,
-          "instant": false,
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -3437,18 +3437,22 @@
         {
           "type": "table",
           "title": "Syslog (without firewall lines)",
-          "description": "fw-wan's syslog from Telegraf (InfluxDB bucket vyos), newest first, with the second copy of each line (VyOS's rsyslog sends them twice) left out, up to 300 lines. Firewall log lines are on the firewall dashboard.",
+          "description": "fw-wan's syslog in Loki, notice and above (informational lines are left out: mostly charon's packet chatter; the Logs dashboards show everything), newest first, up to 300 lines. Firewall log lines are on the firewall dashboard.",
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "loki",
+            "uid": "loki"
           },
           "targets": [
             {
               "datasource": {
-                "type": "influxdb",
-                "uid": "influxdb"
+                "type": "loki",
+                "uid": "loki"
               },
-              "query": "from(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r.host == \"fw-wan\" and (r._field == \"message\" or r._field == \"timestamp\"))\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.message)\n  |> map(fn: (r) => ({r with _value: r.message}))\n  |> filter(fn: (r) => not (r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/))\n  |> map(fn: (r) => ({r with key: (if exists r.timestamp then string(v: r.timestamp) else \"\") + \" \" + r._value}))\n  |> sort(columns: [\"_time\"])\n  |> unique(column: \"key\")\n  |> map(fn: (r) => ({_time: r._time, Severity: r.severity, App: r.appname, Message: r._value}))\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 300)\n",
+              "editorMode": "code",
+              "expr": "{host=\"fw-wan\", level!~\"informational|debug\"} !~ `\\[ipv[46]-[A-Z]+-[^\\]]+-[A-Z]\\]`",
+              "queryType": "range",
+              "legendFormat": "",
+              "maxLines": 300,
               "refId": "A"
             }
           ],
@@ -3478,6 +3482,42 @@
               }
             },
             "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 165
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 90
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "App"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              },
               {
                 "matcher": {
                   "id": "byName",
@@ -3524,65 +3564,34 @@
                             "color": "#ff6188",
                             "index": 3
                           },
+                          "error": {
+                            "text": "error",
+                            "color": "#ff6188",
+                            "index": 4
+                          },
                           "warning": {
                             "text": "warning",
                             "color": "#ffa352",
-                            "index": 4
+                            "index": 5
                           },
                           "notice": {
                             "text": "notice",
                             "color": "#6870ff",
-                            "index": 5
+                            "index": 6
                           },
-                          "info": {
+                          "informational": {
                             "text": "info",
                             "color": "#e5f3e2",
-                            "index": 6
+                            "index": 7
                           },
                           "debug": {
                             "text": "debug",
                             "color": "#e5f3e2",
-                            "index": 7
+                            "index": 8
                           }
                         }
                       }
                     ]
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Time"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 170
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Severity"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 90
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "App"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 150
                   }
                 ]
               }
@@ -3598,21 +3607,51 @@
               ],
               "countRows": false,
               "fields": ""
-            }
+            },
+            "sortBy": [
+              {
+                "displayName": "Time",
+                "desc": true
+              }
+            ]
           },
           "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "labels",
+                "format": "auto",
+                "replace": false,
+                "keepTime": false
+              }
+            },
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "Time",
+                    "level",
+                    "app",
+                    "Line"
+                  ]
+                }
+              }
+            },
             {
               "id": "organize",
               "options": {
                 "excludeByName": {},
                 "renameByName": {
-                  "_time": "Time"
+                  "Line": "Message",
+                  "level": "Severity",
+                  "app": "App"
                 },
                 "indexByName": {
-                  "_time": 0,
-                  "Severity": 1,
-                  "App": 2,
-                  "Message": 3
+                  "Time": 0,
+                  "level": 1,
+                  "app": 2,
+                  "Line": 3
                 }
               }
             }

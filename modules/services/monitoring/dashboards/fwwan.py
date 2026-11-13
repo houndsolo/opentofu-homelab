@@ -5,13 +5,16 @@ its helpers; see custom.py for the conventions. fw-wan is the VyOS edge router, 
 up by hand (roots/monitoring-config/README.md, "fw-wan"). Its data:
 
 - Prometheus job vyos-node (node_exporter, plus the textfile metrics of
-  vpn-metrics.py, vyos_ipsec_* and vyos_wireguard_*, and nft-metrics.py, per-rule
-  firewall and NAT counters vyos_firewall_rule_* / vyos_nat_rule_*), vyos-frr
-  (frr_exporter), vyos-telegraf (Telegraf's prometheus-client: systemd units, VyOS
-  services, interface state; its nftables_* counters cover only the named IPv4
-  chains, so they aren't used) and blackbox-icmp;
-- InfluxDB bucket vyos (Flux): the same Telegraf data plus the router's syslog,
-  which carries the firewall's log lines.
+  vpn-metrics.py, vyos_ipsec_* and vyos_wireguard_*, nft-metrics.py, per-rule
+  firewall and NAT counters vyos_firewall_rule_* / vyos_nat_rule_*, and
+  status-metrics.py, VyOS's interface and service state vyos_interface_* /
+  vyos_service_status), vyos-frr (frr_exporter), vyos-telegraf (Telegraf's
+  prometheus-client: systemd units and system counters) and blackbox-icmp;
+- Loki: the router's syslog (Alloy on the logging VIP), which carries the
+  firewall's log lines.
+Until 2026-11-13 the interface/service state came from Telegraf (show_interfaces_*,
+vyos_services_status) and the logs from a Telegraf copy in InfluxDB (bucket vyos);
+both went with the influxdb output.
 
 What a firewall rule does isn't in the metrics: fwwan_snapshot.py (written by
 fwwan_config.py from the router's config) maps family/chain/rule to action, jump target and match.
@@ -24,11 +27,11 @@ from custom import (
     fixed_color, gauge, mapping, organize, override, q, query_var, stat, state_timeline, steps,
     table, text, timeseries,
 )
+from logs import log_table, lq, on_loki
 from theme import ACCENT, ACCENT2, INFO
 import fwwan_snapshot as snap
 
 FW = 'host="fw-wan"'
-INFLUX = {"type": "influxdb", "uid": "influxdb"}
 UIDS = {"overview": "fw-wan-overview", "firewall": "fw-wan-firewall", "vpn": "fw-wan-vpn",
         "routing": "fw-wan-routing"}
 FW_LINK = {"type": "dashboards", "tags": ["fw-wan"], "asDropdown": True, "title": "fw-wan dashboards",
@@ -42,7 +45,7 @@ ACTION_MAP = mapping(**{a: ("not in snapshot" if a == "unknown" else a, c) for a
 # Telegraf systemd_units active_code.
 UNIT_MAP = mapping(**{"0": ("active", "green"), "1": ("reloading", "blue"), "2": ("inactive", "text"),
                       "3": ("failed", "red"), "4": ("activating", "orange"), "5": ("deactivating", "orange")})
-# show_interfaces_link (0 up, 1 down) + show_interfaces_state (0 up, 2 admin down).
+# vyos_interface_link (0 up, 1 down) + vyos_interface_state (0 up, 2 admin down), status-metrics.py.
 LINK_MAP = mapping(**{"0": ("up", "green"), "1": ("down", "red"), "2": ("admin down", "blue"),
                       "3": ("admin down", "blue")})
 LINK_STEPS = steps(("green", None), ("red", 1), ("blue", 2))
@@ -65,17 +68,6 @@ def go(title, key):
     return (title, f"/d/{UIDS[key]}/{UIDS[key]}?${{__url_time_range}}")
 
 
-def on_influx(p):
-    p["datasource"] = dict(INFLUX)
-    for t in p["targets"]:
-        t["datasource"] = dict(INFLUX)
-    return p
-
-
-def flux(query):
-    return {"datasource": INFLUX, "query": query}
-
-
 def value_text(p):
     """Bar gauge values in the text color (the bars keep their colors; dark ones are hard to read as text)."""
     p["options"]["valueMode"] = "text"
@@ -84,11 +76,6 @@ def value_text(p):
 
 def described(p, desc):
     p["description"] = desc
-    return p
-
-
-def display(p, name):
-    p["fieldConfig"]["defaults"]["displayName"] = name
     return p
 
 
@@ -258,83 +245,37 @@ def port_rate(h, window):
     return phys(f"rate(node_network_receive_bytes_total{sel}[{window}]) + rate(node_network_transmit_bytes_total{sel}[{window}])", h)
 
 
-# --- Flux --------------------------------------------------------------------------
+# --- Logs (Loki) ---------------------------------------------------------------------
+#
+# fw-wan's syslog reaches Loki through Alloy on the logging VIP (set system syslog remote 10.5.11.101):
+# labels host="fw-wan", app (the syslog tag: kernel, charon-systemd, ...) and level (informational,
+# notice, warning, ...). The firewall's log lines are kernel lines starting with VyOS's prefix
+# [ipv4-<HOOK>-<chain>-<rule>-<A|D|R>]. Until 2026-11-13 these panels read a second copy from
+# Telegraf (InfluxDB bucket vyos), which carried notice and above only; the router log panels keep
+# that floor (informational lines are mostly charon's packet chatter).
 
-SYSLOG = ('from(bucket: "vyos")\n'
-          '  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n'
-          '  |> filter(fn: (r) => r._measurement == "syslog" and r._field == "message" and r.host == "fw-wan")\n')
-FW_LOG_RE = r"/^\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\]/"
+FWLOG_SEL = '{host="fw-wan", app="kernel"} |~ `\\[ipv[46]-[A-Z]+-[^\\]]+-[A-Z]\\]`'
+FWLOG_PREFIX = r"| regexp `\[ipv[46]-[A-Z]+-(?P<chain>.+)-(?P<rule>[^-]+)-(?P<act>[A-Z])\]`"
+FWLOG = (FWLOG_SEL + " " + FWLOG_PREFIX +
+         " | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop"
+         "{{ else if eq .act \"R\" }}reject{{ else }}{{ .act }}{{ end }}`"
+         # One regexp per field: a line without that field (ICMP has no ports) just leaves it empty.
+         + "".join(f" | regexp `{k}=(?P<{k.lower()}>\\S*)`" for k in ("IN", "OUT", "PROTO", "SRC", "SPT", "DST", "DPT")))
+FWLOG_COUNT = f"sum(count_over_time({FWLOG_SEL} [$__range])) or vector(0)"
+FWLOG_RATE = (f"sum by (rule) (count_over_time({FWLOG_SEL} {FWLOG_PREFIX} | label_format rule=`{{{{ .chain }}}} #{{{{ .rule }}}}` "
+              "[$__auto]))")
+NOTICE_UP = 'level!~"informational|debug"'
 
-FW_LOG = ('import "regexp"\n\n'
-          'field = (re, v) => if v =~ re then regexp.replaceAllString(r: re, v: v, t: "$1") else ""\n\n'
-          + SYSLOG +
-          f'  |> filter(fn: (r) => r._value =~ {FW_LOG_RE})\n'
-          '  |> map(fn: (r) => {\n'
-          '      a = field(re: /^\\[ipv[46]-[A-Z]+-.+-[^-]+-([A-Z])\\].*$/, v: r._value)\n'
-          '      return {\n'
-          '        _time: r._time,\n'
-          '        Chain: field(re: /^\\[ipv[46]-[A-Z]+-(.+)-[^-]+-[A-Z]\\].*$/, v: r._value),\n'
-          '        Rule: field(re: /^\\[ipv[46]-[A-Z]+-.+-([^-]+)-[A-Z]\\].*$/, v: r._value),\n'
-          '        Action: if a == "A" then "accept" else if a == "D" then "drop" else if a == "R" then "reject" else a,\n'
-          '        In: field(re: /^.*[\\] ]IN=([^ ]*).*$/, v: r._value),\n'
-          '        Out: field(re: /^.* OUT=([^ ]*).*$/, v: r._value),\n'
-          '        Proto: field(re: /^.* PROTO=([^ ]*).*$/, v: r._value),\n'
-          '        Source: field(re: /^.* SRC=([^ ]*).*$/, v: r._value),\n'
-          '        Sport: field(re: /^.* SPT=([^ ]*).*$/, v: r._value),\n'
-          '        Destination: field(re: /^.* DST=([^ ]*).*$/, v: r._value),\n'
-          '        Dport: field(re: /^.* DPT=([^ ]*).*$/, v: r._value),\n'
-          '      }\n'
-          '  })\n'
-          '  |> group()\n'
-          '  |> sort(columns: ["_time"], desc: true)\n'
-          '  |> limit(n: 500)\n')
-
-FW_LOG_RATE = ('import "regexp"\n\n' + SYSLOG +
-               f'  |> filter(fn: (r) => r._value =~ {FW_LOG_RE})\n'
-               '  |> map(fn: (r) => ({r with _value: 1, rule: regexp.replaceAllString('
-               'r: /^\\[ipv[46]-[A-Z]+-(.+)-([^-]+)-[A-Z]\\].*$/, v: r._value, t: "$1 #$2")}))\n'
-               '  |> group(columns: ["rule"])\n'
-               '  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n')
-
-FW_LOG_COUNT = (SYSLOG + f'  |> filter(fn: (r) => r._value =~ {FW_LOG_RE})\n'
-                '  |> group()\n  |> count()\n')
+LEVEL_MAP = mapping(**{"emerg": ("emerg", "red"), "alert": ("alert", "red"), "crit": ("crit", "red"),
+                       "err": ("err", "red"), "error": ("error", "red"), "warning": ("warning", "orange"),
+                       "notice": ("notice", "blue"), "informational": ("info", "text"), "debug": ("debug", "text")})
 
 
-# fw-wan's rsyslog gets every non-kernel line twice (imuxsock and imjournal, see the Alloy
-# config in templates/config.alloy.tftpl) and forwards both to Telegraf, whose parser drops
-# the imuxsock copy's leading space: the twins only differ in _time (< 1 ms apart). They
-# share the series, the message and the sender's timestamp field (whole seconds), so unique()
-# on timestamp + message keeps the first. Identical lines in the same second count once.
-SYSLOG_DEDUP = ('from(bucket: "vyos")\n'
-                '  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n'
-                '  |> filter(fn: (r) => r._measurement == "syslog" and r.host == "fw-wan" and '
-                '(r._field == "message" or r._field == "timestamp"))\n'
-                '  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")\n'
-                '  |> filter(fn: (r) => exists r.message)\n'
-                '  |> map(fn: (r) => ({r with _value: r.message}))\n')
-
-
-def syslog_query(where, limit=300):
-    return (SYSLOG_DEDUP + f"  |> filter(fn: (r) => {where})\n"
-            '  |> map(fn: (r) => ({r with key: (if exists r.timestamp then string(v: r.timestamp) else "") + " " + r._value}))\n'
-            '  |> sort(columns: ["_time"])\n'
-            '  |> unique(column: "key")\n'
-            '  |> map(fn: (r) => ({_time: r._time, Severity: r.severity, App: r.appname, Message: r._value}))\n'
-            '  |> group()\n  |> sort(columns: ["_time"], desc: true)\n'
-            f'  |> limit(n: {limit})\n')
-
-
-SEVERITY_MAP = mapping(**{"emerg": ("emerg", "red"), "alert": ("alert", "red"), "crit": ("crit", "red"),
-                          "err": ("err", "red"), "warning": ("warning", "orange"), "notice": ("notice", "blue"),
-                          "info": ("info", "text"), "debug": ("debug", "text")})
-
-
-def log_table(title, query, desc):
-    return on_influx(table(title, [flux(query)], desc=desc, no_value="No log lines in range",
-                           transformations=[organize(rename={"_time": "Time"}, order=["Time", "Severity", "App", "Message"])],
-                           overrides=[cell("Severity", "color-text"), override("Severity", {"mappings": SEVERITY_MAP}),
-                                      override("Time", {"custom.width": 170}), override("Severity", {"custom.width": 90}),
-                                      override("App", {"custom.width": 150})]))
+def router_log(title, expr, desc, max_lines=300):
+    """Log lines as Time / Severity / App / Message, newest first."""
+    return log_table(title, expr, ["level", "app"], desc=desc, max_lines=max_lines, no_value="No log lines in range",
+                     rename={"level": "Severity", "app": "App"}, widths={"Severity": 90, "App": 150},
+                     overrides=[cell("Severity", "color-text"), override("Severity", {"mappings": LEVEL_MAP})])
 
 
 # --- shared panels -----------------------------------------------------------------
@@ -452,8 +393,10 @@ def overview():
         stat("Exporters", [q(f'label_replace(up{{{FW}, job=~"vyos-.*"}}, "job", "$1", "job", "vyos-(.*)")', "{{job}}")],
              text_mode="name", mappings=UP_MAP, thresholds=UP_STEPS,
              desc="node_exporter (vyos-node), frr_exporter (vyos-frr) and Telegraf (vyos-telegraf) on fw-wan."),
-        stat("WAN address", [q(f'show_interfaces_state{{{FW}, interface="eth5"}}', "{{ip_addresses}}")],
-             text_mode="name", color_mode="value", thresholds=BLUE, desc="eth5 (DHCP from Spectrum), from Telegraf."),
+        stat("WAN address", [q(f'max by (ip_addresses) (vyos_interface_info{{{FW}, interface="eth5"}})', "{{ip_addresses}}",
+                               instant=True)],
+             text_mode="name", color_mode="value", thresholds=BLUE,
+             desc="eth5 (DHCP from Spectrum), from VyOS (status-metrics.py)."),
     ], per_row=2)
     spark = dict(graph=True, color_mode="value", text_mode="value_and_name")
     b.add(stat("WAN in", [q(f'rate(node_network_receive_bytes_total{{{FW}, device="eth5"}}[$__rate_interval]) * 8', "eth5")],
@@ -486,9 +429,9 @@ def overview():
         desc="IPsec IKE SAs established and WireGuard peers with a handshake in the last 3 minutes (vpn-metrics.py).",
         links=[go("fw-wan VPNs", "vpn")]), 5, 5)
     b.add(stat("VyOS services", [
-        q(f'label_replace(vyos_services_status{{{FW}}}, "service", "$1", "service", "\\"(.*)\\"")', "{{service}}"),
+        q(f"max by (service) (vyos_service_status{{{FW}}})", "{{service}}", instant=True),
     ], text_mode="name", mappings=UP_MAP, thresholds=UP_STEPS,
-        desc="Daemons VyOS expects for its config (Telegraf vyos_services: zebra, staticd, bgpd, charon...)."), 6, 5)
+        desc="Daemons VyOS expects for its config (zebra, staticd, bgpd, charon...), from status-metrics.py."), 6, 5)
     b.add(stat("Units failed / restarting", [
         q(f'count(systemd_units_active_code{{{FW}, load="loaded"}} == 3) or vector(0)', "failed"),
         q(f'count(systemd_units_active_code{{{FW}, load="loaded"}} >= 4) or vector(0)', "(re)starting"),
@@ -597,11 +540,11 @@ def overview():
                               "parents eth1-3 are in the default VRF). Rates over the last 5 minutes."), 24, 12)
 
     b.row("Router log", collapsed=True)
-    b.add(log_table("Syslog (without firewall lines)",
-                    syslog_query(f"not (r._value =~ {FW_LOG_RE})"),
-                    "fw-wan's syslog from Telegraf (InfluxDB bucket vyos), newest first, with the second copy of each line "
-                    "(VyOS's rsyslog sends them twice) left out, up to 300 lines. Firewall log lines are on the firewall "
-                    "dashboard."), 24, 12)
+    b.add(router_log("Syslog (without firewall lines)",
+                     f'{{host="fw-wan", {NOTICE_UP}}} !~ `\\[ipv[46]-[A-Z]+-[^\\]]+-[A-Z]\\]`',
+                     "fw-wan's syslog in Loki, notice and above (informational lines are left out: mostly charon's packet "
+                     "chatter; the Logs dashboards show everything), newest first, up to 300 lines. Firewall log lines "
+                     "are on the firewall dashboard."), 24, 12)
 
     return dashboard(UIDS["overview"], "fw-wan overview",
                      "The VyOS edge router: health, WAN and VRF traffic, firewall verdicts, VPN tunnels, system.",
@@ -630,8 +573,9 @@ def firewall():
     ], decimals=0, text_mode="value_and_name", color_mode="value", thresholds=steps(("green", None), ("orange", 1)),
         no_value="0", desc="Packets that fell through every rule of input, forward and output (IPv4 + IPv6) to the "
                            "default action (drop for input and forward)."), 5, 6)
-    b.add(on_influx(stat("Logged in range", [flux(FW_LOG_COUNT)], decimals=0, color_mode="value", thresholds=BLUE,
-                         no_value="0", desc="Firewall log lines in the syslog (rules with `log`).")), 3, 6)
+    b.add(on_loki(stat("Logged in range", [lq(FWLOG_COUNT, "logged", instant=True)], decimals=0, color_mode="value",
+                       thresholds=BLUE, no_value="0", desc="Firewall log lines in the syslog (rules with `log`), from Loki.")),
+          3, 6)
     b.col(4,
           (stat("Rules not in snapshot", [
               q(f'count({only(fw(None), "action", "unknown")}) or vector(0)'),
@@ -762,17 +706,17 @@ def firewall():
              "dropped by conn_filter rule 20 when they reach a chain that jumps there."), 8, 9)
 
     b.row("Firewall log")
-    b.add(on_influx(display(timeseries("Logged packets", [flux(FW_LOG_RATE)], draw="bars", fill=80, stack=True,
-                                       calcs=("sum",), decimals=0, desc="Firewall log lines per interval, per rule."),
-                            "${__field.labels.rule}")), 8, 12)
-    b.add(on_influx(table("Firewall log", [flux(FW_LOG)], no_value="No firewall log lines in range",
-                          desc="Rules with `log` write a kernel line ([ipv4-NAM-<chain>-<rule>-<D|A|R>] IN= OUT= SRC= "
-                               "DST= ...) to the syslog, which Telegraf stores in InfluxDB. Newest first, up to 500.",
-                          transformations=[organize(rename={"_time": "Time"}, order=[
-                              "Time", "Chain", "Rule", "Action", "In", "Out", "Proto", "Source", "Sport", "Destination",
-                              "Dport"])],
-                          overrides=[cell("Action", "color-text"), override("Action", {"mappings": ACTION_MAP}),
-                                     override("Time", {"custom.width": 170})])), 16, 12)
+    b.add(on_loki(timeseries("Logged packets", [lq(FWLOG_RATE, "{{rule}}")], draw="bars", fill=80, stack=True,
+                             calcs=("sum",), decimals=0, no_value="No firewall log lines in range",
+                             desc="Firewall log lines per interval, per rule (Loki).")), 8, 12)
+    fields = {"chain": "Chain", "rule": "Rule", "action": "Action", "in": "In", "out": "Out", "proto": "Proto",
+              "src": "Source", "spt": "Sport", "dst": "Destination", "dpt": "Dport"}
+    fw_log = log_table("Firewall log", FWLOG, list(fields), max_lines=500, no_value="No firewall log lines in range",
+                       desc="Rules with `log` write a kernel line ([ipv4-NAM-<chain>-<rule>-<D|A|R>] IN= OUT= SRC= "
+                            "DST= ...) to the syslog, which reaches Loki through Alloy. Newest first, up to 500.",
+                       rename=fields, widths={"Chain": 120, "Rule": 60, "Action": 70, "Proto": 60, "Sport": 70, "Dport": 70},
+                       overrides=[cell("Action", "color-text"), override("Action", {"mappings": ACTION_MAP})])
+    b.add(fw_log, 16, 12)
 
     b.row("Rule reference", collapsed=True)
     b.add(rule_reference(), 24, 22)
@@ -853,15 +797,18 @@ def vpn():
     ], unit="pps", fill=0, calcs=("max", "lastNotNull"),
         desc="A VTI counts tx errors when it has no CHILD SA to send through (tunnel down)."), 6, 8)
     b.add(state_timeline("Link state", [
-        q(f'max by (interface) (show_interfaces_link{{{FW}, interface=~"vti.*|wg.*"}}) '
-          f'+ max by (interface) (show_interfaces_state{{{FW}, interface=~"vti.*|wg.*"}})', "{{interface}}"),
+        # The Telegraf series (until 2026-11-13) keep the history in long ranges.
+        q(f'(max by (interface) (vyos_interface_link{{{FW}, interface=~"vti.*|wg.*"}}) '
+          f'+ max by (interface) (vyos_interface_state{{{FW}, interface=~"vti.*|wg.*"}})) '
+          f'or (max by (interface) (show_interfaces_link{{{FW}, interface=~"vti.*|wg.*"}}) '
+          f'+ max by (interface) (show_interfaces_state{{{FW}, interface=~"vti.*|wg.*"}}))', "{{interface}}"),
     ], mappings=LINK_MAP, thresholds=LINK_STEPS,
-        desc="From VyOS (Telegraf show_interfaces): admin down = disabled in the config."), 6, 8)
+        desc="From VyOS (status-metrics.py): admin down = disabled in the config."), 6, 8)
     lbl = "max by (interface)"
     tsel = f'{FW}, interface=~"vti.*|wg.*"'
     b.add(table("Tunnel interfaces", [
-        q(f"{lbl} (show_interfaces_link{{{tsel}}} + on (interface) show_interfaces_state{{{tsel}}})", table=True),
-        q(f"max by (interface, ip_addresses) (show_interfaces_state{{{tsel}}})", table=True),
+        q(f"{lbl} (vyos_interface_link{{{tsel}}} + on (interface) vyos_interface_state{{{tsel}}})", table=True),
+        q(f"max by (interface, ip_addresses) (vyos_interface_info{{{tsel}}})", table=True),
         q(f'{lbl} (label_replace(node_network_mtu_bytes{{{tun}}}, "interface", "$1", "device", "(.*)"))', table=True),
         q(f'{lbl} (label_replace(rate(node_network_receive_bytes_total{{{tun}}}[5m]) * 8, "interface", "$1", "device", "(.*)"))',
           table=True),
@@ -920,10 +867,10 @@ def vpn():
         desc="ipsec default-action: IKE/ESP from addresses that aren't configured peers."), 12, 8)
 
     b.row("IPsec log", collapsed=True)
-    b.add(log_table("charon", syslog_query('r.appname =~ /charon/', limit=1000),
-                    "strongSwan's log lines from the syslog (InfluxDB), newest first, without the duplicate copies, up to "
-                    "1000 lines. While a peer is unreachable charon logs a retry every few minutes, so long ranges can "
-                    "hit the cap."), 24, 12)
+    b.add(router_log("charon", f'{{host="fw-wan", app=~"charon.*", {NOTICE_UP}}}',
+                     "strongSwan's log lines in Loki, notice and above (its informational lines are every packet sent and "
+                     "retransmitted), newest first, up to 1000 lines. While a peer is unreachable charon logs a retry every "
+                     "few minutes, so long ranges can hit the cap.", max_lines=1000), 24, 12)
 
     return dashboard(UIDS["vpn"], "fw-wan VPNs",
                      "fw-wan's IPsec connections, VTI and WireGuard interfaces, WireGuard peers, BGP over the tunnels.",

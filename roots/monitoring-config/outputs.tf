@@ -25,17 +25,8 @@ output "backend_urls" {
 }
 
 output "monitoring_vips" {
-  description = "keepalived VIPs on the backends: monitoring (InfluxDB, the VyOS relay) and backend (Grafana's InfluxDB/Alertmanager datasources). null without backend_vrrp."
+  description = "keepalived VIPs on the backends: monitoring (InfluxDB) and backend (Grafana's InfluxDB/Alertmanager datasources). null without backend_vrrp."
   value       = module.monitoring.backend_vips
-}
-
-output "vyos_telegraf_influxdb" {
-  description = "Where VyOS Telegraf writes (service monitoring telegraf influxdb url/port): the relay on the monitoring VIP, which copies into bucket vyos on every backend. Same token as before (vyos_telegraf_token). null without the relay."
-  value = var.vyos_influx_relay_port == null ? null : {
-    url    = "http://${try(module.monitoring.backend_vips.monitoring, module.monitoring.backend_url_host)}"
-    port   = var.vyos_influx_relay_port
-    bucket = var.vyos_telegraf_bucket
-  }
 }
 
 output "grafana_urls" {
@@ -67,12 +58,6 @@ output "prometheus_config" {
 output "pve_metric_buckets" {
   description = "InfluxDB bucket per Proxmox metric server: cluster and each standalone host."
   value       = local.pve_metric_buckets
-}
-
-output "vyos_telegraf_token" {
-  description = "Write-only InfluxDB token for Telegraf on the VyOS routers: tofu output -raw vyos_telegraf_token"
-  value       = influxdb_authorization.vyos.token
-  sensitive   = true
 }
 
 output "wlc_telemetry_receiver" {

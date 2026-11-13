@@ -26,7 +26,7 @@ variable "primary_backend" {
 }
 
 variable "backend_vrrp" {
-  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (InfluxDB, the InfluxDB relay) and the backend VLAN (Grafana's InfluxDB and Alertmanager datasources), VRRP router id, PASS password (8 characters at most). Needs ha_address/interfaces on every backend and at least two. null = no keepalived, datasources on the primary."
+  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (InfluxDB) and the backend VLAN (Grafana's InfluxDB and Alertmanager datasources), VRRP router id, PASS password (8 characters at most). Needs ha_address/interfaces on every backend and at least two. null = no keepalived, datasources on the primary."
   type = object({
     vips = object({
       monitoring = string
@@ -40,30 +40,6 @@ variable "backend_vrrp" {
     condition     = var.backend_vrrp == null || try(can(cidrhost(var.backend_vrrp.vips.monitoring, 0)) && can(cidrhost(var.backend_vrrp.vips.backend, 0)) && var.backend_vrrp.router_id >= 1 && var.backend_vrrp.router_id <= 255 && length(var.backend_vrrp.auth_pass) <= 8, false)
     error_message = "backend_vrrp needs vips.monitoring/backend as IPv4 CIDRs, router_id 1..255 and auth_pass of at most 8 characters."
   }
-}
-
-variable "influx_relay" {
-  description = "InfluxDB write relay (Telegraf influxdb_v2_listener on every backend, port `port`) for writers that take a single InfluxDB URL (VyOS Telegraf): it accepts writes with secrets.listen_token and copies them into `bucket` on every backend in `targets` (local and peers). Point writers at the monitoring VIP. null leaves it out."
-  type = object({
-    port    = optional(number, 8087)
-    bucket  = string
-    targets = list(string) # backends whose InfluxDB gets the writes (each needs a token in influx_relay_secrets.tokens)
-  })
-  default = null
-  validation {
-    condition     = var.influx_relay == null || try(var.influx_relay.port >= 1024 && var.influx_relay.port <= 65535 && !contains([8086, 9273, 9274], var.influx_relay.port), false)
-    error_message = "influx_relay.port must be an unprivileged port other than 8086 (InfluxDB), 9273 and 9274 (Telegraf metrics)."
-  }
-}
-
-variable "influx_relay_secrets" {
-  description = "The token writers present to the relay (listen_token) and a write token per influx_relay.targets backend for its bucket."
-  sensitive   = true
-  type = object({
-    listen_token = string
-    tokens       = map(string)
-  })
-  default = null
 }
 
 variable "grafana" {

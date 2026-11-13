@@ -365,18 +365,21 @@
     {
       "type": "stat",
       "title": "Logged in range",
-      "description": "Firewall log lines in the syslog (rules with `log`).",
+      "description": "Firewall log lines in the syslog (rules with `log`), from Loki.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "loki",
+        "uid": "loki"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "loki",
+            "uid": "loki"
           },
-          "query": "from(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/)\n  |> group()\n  |> count()\n",
+          "editorMode": "code",
+          "expr": "sum(count_over_time({host=\"fw-wan\", app=\"kernel\"} |~ `\\[ipv[46]-[A-Z]+-[^\\]]+-[A-Z]\\]` [$__range])) or vector(0)",
+          "queryType": "instant",
+          "legendFormat": "logged",
           "refId": "A"
         }
       ],
@@ -3519,18 +3522,21 @@
     {
       "type": "timeseries",
       "title": "Logged packets",
-      "description": "Firewall log lines per interval, per rule.",
+      "description": "Firewall log lines per interval, per rule (Loki).",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "loki",
+        "uid": "loki"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "loki",
+            "uid": "loki"
           },
-          "query": "import \"regexp\"\n\nfrom(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/)\n  |> map(fn: (r) => ({r with _value: 1, rule: regexp.replaceAllString(r: /^\\[ipv[46]-[A-Z]+-(.+)-([^-]+)-[A-Z]\\].*$/, v: r._value, t: \"$1 #$2\")}))\n  |> group(columns: [\"rule\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: sum, createEmpty: false)\n",
+          "editorMode": "code",
+          "expr": "sum by (rule) (count_over_time({host=\"fw-wan\", app=\"kernel\"} |~ `\\[ipv[46]-[A-Z]+-[^\\]]+-[A-Z]\\]` | regexp `\\[ipv[46]-[A-Z]+-(?P<chain>.+)-(?P<rule>[^-]+)-(?P<act>[A-Z])\\]` | label_format rule=`{{ .chain }} #{{ .rule }}` [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{rule}}",
           "refId": "A"
         }
       ],
@@ -3550,6 +3556,7 @@
           },
           "mappings": [],
           "decimals": 0,
+          "noValue": "No firewall log lines in range",
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -3563,8 +3570,7 @@
             },
             "axisPlacement": "auto",
             "gradientMode": "none"
-          },
-          "displayName": "${__field.labels.rule}"
+          }
         },
         "overrides": []
       },
@@ -3593,18 +3599,22 @@
     {
       "type": "table",
       "title": "Firewall log",
-      "description": "Rules with `log` write a kernel line ([ipv4-NAM-<chain>-<rule>-<D|A|R>] IN= OUT= SRC= DST= ...) to the syslog, which Telegraf stores in InfluxDB. Newest first, up to 500.",
+      "description": "Rules with `log` write a kernel line ([ipv4-NAM-<chain>-<rule>-<D|A|R>] IN= OUT= SRC= DST= ...) to the syslog, which reaches Loki through Alloy. Newest first, up to 500.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "loki",
+        "uid": "loki"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "loki",
+            "uid": "loki"
           },
-          "query": "import \"regexp\"\n\nfield = (re, v) => if v =~ re then regexp.replaceAllString(r: re, v: v, t: \"$1\") else \"\"\n\nfrom(bucket: \"vyos\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"syslog\" and r._field == \"message\" and r.host == \"fw-wan\")\n  |> filter(fn: (r) => r._value =~ /^\\[ipv[46]-[A-Z]+-.+-[^-]+-[A-Z]\\]/)\n  |> map(fn: (r) => {\n      a = field(re: /^\\[ipv[46]-[A-Z]+-.+-[^-]+-([A-Z])\\].*$/, v: r._value)\n      return {\n        _time: r._time,\n        Chain: field(re: /^\\[ipv[46]-[A-Z]+-(.+)-[^-]+-[A-Z]\\].*$/, v: r._value),\n        Rule: field(re: /^\\[ipv[46]-[A-Z]+-.+-([^-]+)-[A-Z]\\].*$/, v: r._value),\n        Action: if a == \"A\" then \"accept\" else if a == \"D\" then \"drop\" else if a == \"R\" then \"reject\" else a,\n        In: field(re: /^.*[\\] ]IN=([^ ]*).*$/, v: r._value),\n        Out: field(re: /^.* OUT=([^ ]*).*$/, v: r._value),\n        Proto: field(re: /^.* PROTO=([^ ]*).*$/, v: r._value),\n        Source: field(re: /^.* SRC=([^ ]*).*$/, v: r._value),\n        Sport: field(re: /^.* SPT=([^ ]*).*$/, v: r._value),\n        Destination: field(re: /^.* DST=([^ ]*).*$/, v: r._value),\n        Dport: field(re: /^.* DPT=([^ ]*).*$/, v: r._value),\n      }\n  })\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> limit(n: 500)\n",
+          "editorMode": "code",
+          "expr": "{host=\"fw-wan\", app=\"kernel\"} |~ `\\[ipv[46]-[A-Z]+-[^\\]]+-[A-Z]\\]` | regexp `\\[ipv[46]-[A-Z]+-(?P<chain>.+)-(?P<rule>[^-]+)-(?P<act>[A-Z])\\]` | label_format action=`{{ if eq .act \"A\" }}accept{{ else if eq .act \"D\" }}drop{{ else if eq .act \"R\" }}reject{{ else }}{{ .act }}{{ end }}` | regexp `IN=(?P<in>\\S*)` | regexp `OUT=(?P<out>\\S*)` | regexp `PROTO=(?P<proto>\\S*)` | regexp `SRC=(?P<src>\\S*)` | regexp `SPT=(?P<spt>\\S*)` | regexp `DST=(?P<dst>\\S*)` | regexp `DPT=(?P<dpt>\\S*)`",
+          "queryType": "range",
+          "legendFormat": "",
+          "maxLines": 500,
           "refId": "A"
         }
       ],
@@ -3634,6 +3644,90 @@
           }
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Chain"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rule"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Action"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Proto"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sport"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Dport"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -3695,18 +3789,6 @@
                 ]
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 170
-              }
-            ]
           }
         ]
       },
@@ -3720,28 +3802,75 @@
           ],
           "countRows": false,
           "fields": ""
-        }
+        },
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
       },
       "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "format": "auto",
+            "replace": false,
+            "keepTime": false
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "Time",
+                "chain",
+                "rule",
+                "action",
+                "in",
+                "out",
+                "proto",
+                "src",
+                "spt",
+                "dst",
+                "dpt",
+                "Line"
+              ]
+            }
+          }
+        },
         {
           "id": "organize",
           "options": {
             "excludeByName": {},
             "renameByName": {
-              "_time": "Time"
+              "Line": "Message",
+              "chain": "Chain",
+              "rule": "Rule",
+              "action": "Action",
+              "in": "In",
+              "out": "Out",
+              "proto": "Proto",
+              "src": "Source",
+              "spt": "Sport",
+              "dst": "Destination",
+              "dpt": "Dport"
             },
             "indexByName": {
-              "_time": 0,
-              "Chain": 1,
-              "Rule": 2,
-              "Action": 3,
-              "In": 4,
-              "Out": 5,
-              "Proto": 6,
-              "Source": 7,
-              "Sport": 8,
-              "Destination": 9,
-              "Dport": 10
+              "Time": 0,
+              "chain": 1,
+              "rule": 2,
+              "action": 3,
+              "in": 4,
+              "out": 5,
+              "proto": 6,
+              "src": 7,
+              "spt": 8,
+              "dst": 9,
+              "dpt": 10,
+              "Line": 11
             }
           }
         }

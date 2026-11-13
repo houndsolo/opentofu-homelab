@@ -55,7 +55,7 @@ TIME = "${__url_time_range}"
 
 # Normalises `level` (see the module docstring). The regexp only feeds container lines;
 # lvl_ is dropped again so it doesn't show up as a label. The last alternative is a leading
-# RFC3339 timestamp: Telegraf and influx-relay ("2026-11-10T05:27:00Z I! Starting", one-letter
+# RFC3339 timestamp: Telegraf ("2026-11-10T05:27:00Z I! Starting", one-letter
 # I/W/E/D codes) and influxd's zap logger ("<ts>\tinfo\t...").
 LEVEL = (r'| regexp `(?:\blevel="?|\blvl=|^\[|\] |^\d{4}-\d\d-\d\dT\S+Z\s+)(?P<lvl_>[A-Za-z]+)` '
          r'| label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}'
@@ -69,7 +69,7 @@ LEVEL_COLORS = {"error": "red", "warning": "orange", "notice": "blue", "info": "
 NET_HOSTS = "LEAF-[0-9]+|fw-wan|m3[0-9]+-[0-9]+|switch-[0-9]+|c9800-wlc-[0-9]+"
 PVE_HOSTS = "fichina|macbeth|titania|zoness|fortuna|eldarad|venom|greatfox"
 MON_CONTAINERS = ("grafana|prometheus|alertmanager|mimir|loki|alloy|haproxy|blackbox-exporter|node-exporter|"
-                  "snmp-exporter|telegraf|influx-relay|influxdb|postgres|postgres-exporter")
+                  "snmp-exporter|telegraf|influxdb|postgres|postgres-exporter")
 
 
 # --- building blocks -------------------------------------------------------------

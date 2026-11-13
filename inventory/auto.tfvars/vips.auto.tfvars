@@ -26,7 +26,7 @@ vips = {
     address     = "10.5.11.102/16"
     vrid        = 102
     role        = "monitoring"
-    description = "InfluxDB and the VyOS InfluxDB relay on the monitoring network (mon01/02), monitoring-config backend_vrrp.vips.monitoring"
+    description = "InfluxDB on the monitoring network (mon01/02: Proxmox metric server, Grafana), monitoring-config backend_vrrp.vips.monitoring"
   }
   monitoring-vip = {
     address     = "10.13.11.102/16"

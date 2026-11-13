@@ -35,7 +35,7 @@ from theme import ACCENT, ACCENT2, ACCENT3, ERROR, INFO, OK, WARN_HIGH  # noqa: 
 DS = {"type": "prometheus", "uid": "prometheus"}
 
 NODE_JOBS = 'job=~"node|vyos-node"'
-STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influx-relay|influxdb|mimir"'
+STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir"'
 NODE_DASH = "/d/node-exporter-full/node-exporter-full"
 FRR_DASH = "/d/frr-evpn-fabric/frr-evpn-fabric"
 PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
@@ -420,7 +420,6 @@ def overview():
         ("Loki", 'avg(up{job="loki"})', STACK_DASH),
         ("Alloy (logs)", 'avg(up{job="alloy"})', STACK_DASH),
         ("InfluxDB", 'avg(up{job="influxdb"})', STACK_DASH),
-        ("InfluxDB relay", 'avg(up{job="influx-relay"})', STACK_DASH),
         ("Postgres", 'avg(up{job="patroni"}) * (sum(patroni_primary{job="patroni"}) == bool 1)', PG_DASH),
         ("etcd", 'avg(up{job="etcd"})', PG_DASH),
         ("Valkey", 'avg(redis_up{job="valkey"}) * (count(redis_instance_info{job="valkey", role="master"}) == bool 1)',
@@ -1196,18 +1195,7 @@ def stack():
         q(f'max by (output) (internal_write_buffer_limit{{{tg}}})', "{{output}} limit")],
         fill=0, decimals=0, desc="Metrics waiting to be written. It fills up while InfluxDB is unreachable; "
                                  "past the limit Telegraf drops the oldest."), 8, 8)
-    # InfluxDB relay on each backend (job influx-relay): VyOS Telegraf -> monitoring VIP -> bucket vyos on every backend.
-    # exported_host="": fw-wan's own Telegraf internal_* metrics pass through the relay (host tag -> exported_host).
-    rl = 'job="influx-relay", exported_host=""'
-    b.add(timeseries("InfluxDB relay (VyOS): writes per InfluxDB", [
-        q(f'sum by (host) (rate(internal_gather_metrics_gathered{{{rl}, input="influxdb_v2_listener"}}[$__rate_interval])) > 0', "{{host}} received/s"),
-        q(f'sum by (host, alias) (rate(internal_write_metrics_written{{{rl}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} -> {{alias}} written/s"),
-        q(f'sum by (host, alias) (rate(internal_write_metrics_dropped{{{rl}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} -> {{alias}} dropped/s"),
-        q(f'max by (host, alias) (internal_write_buffer_size{{{rl}, output="influxdb_v2"}}) > 0', "{{host}} -> {{alias}} queued"),
-    ], fill=0, desc="VyOS writes to the relay on the monitoring VIP (only the VIP holder receives); it copies every "
-                    "write into each backend's InfluxDB. A queue builds while a peer's InfluxDB is down."), 8, 8)
-
-    # InfluxDB 2 on each backend (job influxdb, its own /metrics): Proxmox (pve_*), VyOS and WLC buckets.
+    # InfluxDB 2 on each backend (job influxdb, its own /metrics): Proxmox (pve_*) and WLC buckets.
     ix = 'job="influxdb"'
     b.row("InfluxDB")
     b.add(stat("InfluxDB", [q(f"max by (host) (up{{{ix}}})", "{{host}}", instant=True)], text_mode="value_and_name",
@@ -1218,7 +1206,7 @@ def stack():
         q(f"sum by (host) (rate(storage_writer_err_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} errors/s"),
         q(f"sum by (host) (rate(storage_writer_dropped_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} dropped/s"),
         q(f"sum by (host) (rate(storage_writer_timeouts{{{ix}}}[$__rate_interval])) > 0", "{{host}} timeouts/s"),
-    ], fill=0, desc="Points stored per second (Proxmox metric server, the VyOS relay, the WLC Telegraf); errors, drops "
+    ], fill=0, desc="Points stored per second (Proxmox metric server, the WLC Telegraf); errors, drops "
                     "and timeouts only show when non-zero. Both backends should write about the same."), 7, 8)
     b.add(timeseries("InfluxDB: queries", [
         q(f"sum by (host) (rate(qc_all_duration_seconds_count{{{ix}}}[$__rate_interval]))", "{{host}} queries/s"),
@@ -1240,7 +1228,7 @@ def stack():
         unit="percentunit", fill=0, desc="CPU seconds per second (1 = one core)."), 12, 8)
 
     return dashboard("monitoring-stack", "Monitoring stack",
-                     "Prometheus, Alertmanager, Grafana, the exporters and Telegraf (C9800 telemetry, InfluxDB relay) on the "
+                     "Prometheus, Alertmanager, Grafana, the exporters and Telegraf (C9800 telemetry) on the "
                      "backends mon01/mon02 (Prometheus HA pair, Alertmanager cluster), "
                      "and the logging stack (Loki rings, ingest, S3 flushes, Alloy).",
                      b, tags=["prometheus", "alertmanager", "grafana", "loki"])

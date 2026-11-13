@@ -30,8 +30,7 @@ root runs the scripts over SSH and documents the behaviour.
   per-bucket RGW metrics from `roots/monitoring-config/pve-collectors` (dashboard `dashboards/rgw.py`).
 - `backends.tf`: backend HA (`var.backends`, `primary_backend`): the Alertmanager cluster (gossip on the
   HA VLAN), keepalived and its VIPs (`backend_vrrp`, with `ip_nonlocal_bind` so containers publish on the
-  VIPs), the InfluxDB write relay (`influx_relay`: Telegraf copying writes into every backend's InfluxDB),
-  their scrape job and the `monitoring-ha` alert group. `main.tf` renders every backend's units and
+  VIPs) and the `monitoring-ha` alert group. `main.tf` renders every backend's units and
   `deploy.sh` (Postgres on the primary only) and one `prometheus.yml` per backend (`__replica__`).
 - `templates/monitoring-keepalived.conf.tftpl`: the backends' VRRP instance.
 - `telemetry.tf`: Telegraf on the backend (`var.wlc_telemetry`; null leaves it out): the
@@ -64,7 +63,7 @@ root runs the scripts over SSH and documents the behaviour.
 Outputs: `backend_deployments`, `grafana_deployments` and `logging_deployments`
 (sensitive: they embed secrets), plus `prometheus_config`, `prometheus_rules`,
 `prometheus_configs`, `backend_services_by_host`, `backend_url_hosts`, `backend_vips`,
-`backend_keepalived_configs` (sensitive), `influx_relay_configs`, `wlc_telegraf_configs`, `wlc_receiver`, `alertmanager_targets`, `datasources_config`, `dashboard_providers_config`, `dashboards`, `units`,
+`backend_keepalived_configs` (sensitive), `wlc_telegraf_configs`, `wlc_receiver`, `alertmanager_targets`, `datasources_config`, `dashboard_providers_config`, `dashboards`, `units`,
 `backend_services`, `loki_configs`, `alloy_configs`, `haproxy_configs` and `loki_url`
 for review and tests. Mimir: `metrics_deployments` and `mimir_keepalived_configs` (sensitive),
 `mimir_configs`, `mimir_haproxy_configs`, `mimir_url`.

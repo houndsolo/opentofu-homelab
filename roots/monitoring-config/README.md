@@ -21,7 +21,6 @@ generates the secrets and does the SSH deployment.
 | | `postgres` (shared Grafana database), **mon01 only** | backend VLAN only: `10.13.11.30:5432` |
 | | `snmp-exporter`, `blackbox-exporter`, `pve-exporter` | not published; Prometheus reaches them by name on the `monitoring` Podman network |
 | | `telegraf` ([C9800 telemetry](#c9800-telemetry-model-driven-dial-out), `wlc_telemetry`) | gRPC MDT receiver on the monitoring network only: `10.5.11.30:57500` (mon02: `.31`, once `influxdb_replica_ready`; then also the VIP `10.5.11.102:57500`, where the WLCs send); its own metrics on the backend VLAN, 9273 |
-| | `influx-relay` (Telegraf, `vyos_influx_relay_port`) | InfluxDB v2 write listener 8087 on the monitoring address and VIP `10.5.11.102`; its own metrics on the backend VLAN, 9274 |
 | | `keepalived` (Debian package) | VRRP (router id 102) unicast over VLAN 215; VIPs `10.5.11.102/16` (vmbr100 NIC) and `10.13.11.102/16` (VLAN 13 NIC) |
 | | `node-exporter` | monitoring address, 9100 |
 | | `monitoring-network` | the Podman bridge network itself |
@@ -182,14 +181,14 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 
 | Folder | Dashboard (uid) | Source | Shows |
 | --- | --- | --- | --- |
-| Overview | lylat.space overview (`lylat-overview`) | custom (Prometheus + InfluxDB + Loki) | **Status:** targets up/down, firing alerts, failing probes, BGP and BFD across the fabric. **Services:** an HA services tile (Grafana, Prometheus, Alertmanager, Mimir, Loki, Alloy, InfluxDB relay, Postgres, etcd, Valkey, NetBox, dark-triage, DNS, nginx proxy: OK / DEGRADED / DOWN by the share of members answering, Postgres and Valkey also need exactly one leader/primary; click a tile for its dashboard), the keepalived VIPs and which VM holds each (node_exporter address-info), the published HTTPS sites and the certificate's remaining lifetime. **Databases:** Postgres leader, replicas streaming and lag, commits/s, Valkey primary and memory, NetBox's queued RQ jobs. Then Ceph (health, raw used, client IOPS/throughput, OSDs down / PGs not clean), Proxmox (nodes, guests, lylat CPU/memory, fullest storage), Edge (fw-wan up, WAN, VPN tunnels, firewall drops, conntrack), targets per job / per target and the firing alerts, probe status, BGP/BFD over time and EVPN totals, the host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full or its logs), the top 10 interfaces from node_exporter and SNMP, and log volume by source plus the noisiest hosts |
+| Overview | lylat.space overview (`lylat-overview`) | custom (Prometheus + InfluxDB + Loki) | **Status:** targets up/down, firing alerts, failing probes, BGP and BFD across the fabric. **Services:** an HA services tile (Grafana, Prometheus, Alertmanager, Mimir, Loki, Alloy, InfluxDB, Postgres, etcd, Valkey, NetBox, dark-triage, DNS, nginx proxy: OK / DEGRADED / DOWN by the share of members answering, Postgres and Valkey also need exactly one leader/primary; click a tile for its dashboard), the keepalived VIPs and which VM holds each (node_exporter address-info), the published HTTPS sites and the certificate's remaining lifetime. **Databases:** Postgres leader, replicas streaming and lag, commits/s, Valkey primary and memory, NetBox's queued RQ jobs. Then Ceph (health, raw used, client IOPS/throughput, OSDs down / PGs not clean), Proxmox (nodes, guests, lylat CPU/memory, fullest storage), Edge (fw-wan up, WAN, VPN tunnels, firewall drops, conntrack), targets per job / per target and the firing alerts, probe status, BGP/BFD over time and EVPN totals, the host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full or its logs), the top 10 interfaces from node_exporter and SNMP, and log volume by source plus the noisiest hosts |
 | Hosts | Node Exporter Full (`node-exporter-full`) | [grafana.com 1860](https://grafana.com/grafana/dashboards/1860) rev 46 | Everything node_exporter collects, for one host. Pick the job (`node` for the VMs, `vyos-node` for the VyOS routers), then the host |
 | Network | FRR / EVPN fabric (`frr-evpn-fabric`) | custom | BGP peer table (router, VRF, AFI/SAFI, peer, hostname, ASNs, state, uptime, prefixes rx/tx, message rates), session state timeline, established sessions per router, flaps in the time range, BFD peers, EVPN remote VTEPs/MACs/ARP-ND per router and per L2 VNI, routes per VRF, RIB vs FIB, BGP RIB, frr_exporter health. Router and VRF pickers |
 | Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
 | Network | SNMP Interface Detail (`snmp-interface-detail`) | [grafana.com 12492](https://grafana.com/grafana/dashboards/12492) rev 4 | Per interface: status, speed, traffic, unicast/multicast/broadcast packets, errors, discards |
-| Edge | fw-wan overview (`fw-wan-overview`) | custom (Prometheus + InfluxDB) | The VyOS edge router. **Status:** ICMP, exporters, uptime, WAN address, WAN in/out (sparklines), CPU, memory, conntrack table, BGP sessions, VPN tunnels, VyOS services, systemd units failed/restarting, firewall drops + rejects. **Traffic:** WAN (in up, out down), traffic per VRF (VRF devices), top interfaces with their VRF. **Firewall:** final verdicts (accept/drop/reject), drops + rejects per chain, NAT connections. **VPNs:** tunnel state timeline, VTI/WireGuard traffic. **System:** CPU by mode, memory, temperatures, softnet drops, load, units not active. Collapsed: interface table (VRF, description, state, MTU, speed, in/out, errors, drops), router syslog |
-| Edge | fw-wan firewall (`fw-wan-firewall`) | custom (Prometheus + InfluxDB) | Every IPv4/IPv6 filter chain (nft-metrics.py counters). **Summary:** final verdicts (accept/drop/reject per second), dropped + rejected in range, default-action drops per base chain, logged lines, rules missing from the snapshot, counter age. **Base chains:** input/forward/output verdicts by rule action (accept, → named chain, default drop/accept), default-action drops, what is being dropped (every drop/reject rule and default action). **Chains:** activity timeline, packets and traffic per chain. **Rules:** table (family, kind, chain, rule, action, jump target, match, packets/s, packets and bytes in range, totals), top rules, default actions hit. **NAT:** rule table (match/translation, connections per minute, in range, total) and connections per rule; conntrack entries, new connections, insert failures/drops/invalid; firewall log from the syslog (time, chain, rule, action, in/out, proto, addresses and ports) and logged packets per rule; collapsed rule and NAT reference |
-| Edge | fw-wan VPNs (`fw-wan-vpn`) | custom (Prometheus + InfluxDB) | IPsec connections, IKE state, CHILD SAs, WireGuard peers, BGP over the tunnels, vpn-metrics.py health; SA state timeline, SA age, rekeys in range, CHILD SA traffic and packets; VTI/WireGuard interface traffic, errors and drops, link state, tunnel interface table; WireGuard handshake age and peer traffic; BGP peers in `vpn_*` VRFs, prefixes, routes; VPN firewall chains; collapsed strongSwan log |
+| Edge | fw-wan overview (`fw-wan-overview`) | custom (Prometheus + Loki) | The VyOS edge router. **Status:** ICMP, exporters, uptime, WAN address, WAN in/out (sparklines), CPU, memory, conntrack table, BGP sessions, VPN tunnels, VyOS services, systemd units failed/restarting, firewall drops + rejects. **Traffic:** WAN (in up, out down), traffic per VRF (VRF devices), top interfaces with their VRF. **Firewall:** final verdicts (accept/drop/reject), drops + rejects per chain, NAT connections. **VPNs:** tunnel state timeline, VTI/WireGuard traffic. **System:** CPU by mode, memory, temperatures, softnet drops, load, units not active. Collapsed: interface table (VRF, description, state, MTU, speed, in/out, errors, drops), router syslog |
+| Edge | fw-wan firewall (`fw-wan-firewall`) | custom (Prometheus + Loki) | Every IPv4/IPv6 filter chain (nft-metrics.py counters). **Summary:** final verdicts (accept/drop/reject per second), dropped + rejected in range, default-action drops per base chain, logged lines, rules missing from the snapshot, counter age. **Base chains:** input/forward/output verdicts by rule action (accept, → named chain, default drop/accept), default-action drops, what is being dropped (every drop/reject rule and default action). **Chains:** activity timeline, packets and traffic per chain. **Rules:** table (family, kind, chain, rule, action, jump target, match, packets/s, packets and bytes in range, totals), top rules, default actions hit. **NAT:** rule table (match/translation, connections per minute, in range, total) and connections per rule; conntrack entries, new connections, insert failures/drops/invalid; firewall log from the syslog (time, chain, rule, action, in/out, proto, addresses and ports) and logged packets per rule; collapsed rule and NAT reference |
+| Edge | fw-wan VPNs (`fw-wan-vpn`) | custom (Prometheus + Loki) | IPsec connections, IKE state, CHILD SAs, WireGuard peers, BGP over the tunnels, vpn-metrics.py health; SA state timeline, SA age, rekeys in range, CHILD SA traffic and packets; VTI/WireGuard interface traffic, errors and drops, link state, tunnel interface table; WireGuard handshake age and peer traffic; BGP peers in `vpn_*` VRFs, prefixes, routes; VPN firewall chains; collapsed strongSwan log |
 | Edge | fw-wan VRFs & routing (`fw-wan-routing`) | custom | Router picker (default fw-wan, works for the leaves and DHCP VMs) and VRF picker: BGP/BFD summary, routes, VRFs, route changes, RIB not in FIB; routing table per VRF (IPv4/IPv6 RIB and FIB, BGP RIB, sessions up, changes), routes and route changes per VRF; BGP peer table (state, uptime, prefixes, messages, flaps), session state, BGP RIB, prefixes rx/tx, messages; traffic per VRF, interface traffic and table with the VRF (fw-wan); collapsed BFD peers and frr_exporter collectors |
 | Network | Wireless (C9800) (`wireless-overview`) | custom (InfluxDB + Prometheus) | The C9800 WLCs' [model-driven telemetry](#c9800-telemetry-model-driven-dial-out). **Status:** clients, APs joined, radios up/total and down, WLANs with clients, telemetry age per WLC, SNMP up. **Controllers:** table (HA role, clients, radios, Linux CPU, IOSd CPU, load, memory; click a WLC for its logs), CPU per core, memory, IOSd CPU and load. **Access points:** AP table (state, clients, IP, model, serial, software, mode, uptime, joined for, uplink state and speed, tags, last disconnect reason; click an AP for its join/leave lines), radio table (band, state, channel and bonded channels, width, tx power and level, clients, channel busy, tx/rx/non-Wi-Fi airtime, tx/rx traffic, last channel change, BSS color), channel busy, clients, traffic, channel, tx power and retries/failures per radio. **RF environment:** airtime breakdown per radio, AP uplink traffic, noise floor / strongest other network / other networks' airtime / other APs per scanned channel. **SSIDs:** WLAN table (clients, random-MAC clients, download/upload), clients per WLAN, traffic per SSID. **Clients:** table (MAC, IP, AP, SSID, band, protocol, channel, RSSI, SNR, PHY rate, MCS, streams, download/upload, retries, state, security, connected for; click a client for its history), clients per WLC and by band/protocol, RSSI and throughput per client. Collapsed: the WLCs' own interfaces from SNMP. WLC picker |
 | Network | Wireless client (C9800) (`wireless-client`) | custom (InfluxDB) | One client (MAC picker): its row of the clients table, RSSI/SNR, PHY rate and spatial streams, throughput and packets (download up, upload down), retries/drops/decrypt and MIC errors, and a timeline of its AP, SSID and channel (roams) |
@@ -237,8 +236,8 @@ newest sample within the last 2 minutes of the time range, so deleted or migrate
 drop out; a node counts as down once it hasn't reported for a minute.
 
 The fw-wan dashboards (`fw-wan` tag, folder Edge) share a "fw-wan dashboards" dropdown and
-read Prometheus (jobs `vyos-node`, `vyos-frr`, `vyos-telegraf`, `blackbox-icmp`) plus the
-syslog in the InfluxDB bucket `vyos` (firewall log, router log, strongSwan log). The firewall
+read Prometheus (jobs `vyos-node`, `vyos-frr`, `vyos-telegraf`, `blackbox-icmp`) plus fw-wan's
+syslog in Loki (firewall log, router log, strongSwan log; notice and up for the last two). The firewall
 and NAT counters are nft-metrics.py's (see [fw-wan](#fw-wan-vyos-edge-router-configured-by-hand));
 Telegraf's `nftables_*` series aren't used. What a firewall rule does isn't in the counters, so
 [`dashboards/fwwan_snapshot.py`](../../modules/services/monitoring/dashboards/fwwan_snapshot.py)
@@ -339,7 +338,8 @@ Panels that stay empty, and why:
   exactly one leading space for `logging_settings.syslog_dedup_hosts` (kernel lines excepted), so
   only lines from before that change are doubled. Indented continuation lines keep both copies, and
   the few lines that came only from the journal with one leading space (boot) are dropped too. The
-  fw-wan Router log and charon tables (InfluxDB) skip the second copy in Flux. The Ceph cluster log arrives once per mon: pick
+  The fw-wan dashboards read Loki since 2026-11-13, so their log tables show the same doubles for older
+  ranges. The Ceph cluster log arrives once per mon: pick
   one with the Ceph mon picker. BIND writes everything to stderr, so its BIND panels go by the
   line, not the level.
 - Hosts without an exporter yet (DNS VMs, the standalone greatfox) show as DOWN in
@@ -391,12 +391,16 @@ Review the diff, then apply. File and folder names must not contain spaces.
 fw-wan isn't managed by this repo, so its monitoring was set up by hand (2026-11-09).
 Prometheus scrapes it through `vyos_extra_targets` (node :9100 and FRR :9342 on the
 mgmt VRF, 10.20.10.255) and `vyos_telegraf_targets` (job `vyos-telegraf`, :9273 on
-`lylat_service`, 10.5.0.255). Telegraf also writes to the InfluxDB bucket `vyos`
-(`telegraf.tf`): VyOS only enables its exec inputs, including the per-rule nftables
-counters (`nftables_pkts`/`nftables_bytes{chain,ruleid}`), when the influxdb output
-is set. [`vyos/vpn-metrics.py`](vyos/vpn-metrics.py) runs every minute from the task
-scheduler and writes IPsec (VICI) and WireGuard state to node_exporter's textfile
-collector (`vyos_ipsec_*`, `vyos_wireguard_*`).
+`lylat_service`, 10.5.0.255). Telegraf has no InfluxDB output (since 2026-11-13; it used to
+write bucket `vyos` through the InfluxDB relay): VyOS only runs its exec inputs (nftables
+counters, interface and service state) while that output is set, and everything they gave
+now comes from three scripts the task scheduler runs every minute, which write
+node_exporter's textfile collector (job `vyos-node`):
+[`vyos/vpn-metrics.py`](vyos/vpn-metrics.py) (IPsec via VICI and WireGuard:
+`vyos_ipsec_*`, `vyos_wireguard_*`), [`vyos/nft-metrics.py`](vyos/nft-metrics.py) (firewall
+and NAT rule counters, below) and [`vyos/status-metrics.py`](vyos/status-metrics.py)
+(`vyos_interface_{state,link,info}`, `vyos_service_status`: it runs the two scripts VyOS ships
+for Telegraf's exec input and converts their output). The router's log is in Loki only.
 
 ```
 set service monitoring prometheus node-exporter listen-address '10.20.10.255'
@@ -409,14 +413,10 @@ set service monitoring prometheus frr-exporter collector bgp peer-hostname
 set service monitoring prometheus frr-exporter collector bgp peer-description 'plain-text'
 set service monitoring prometheus frr-exporter collector bgp peer-type
 set service monitoring telegraf vrf 'lylat_service'
-set service monitoring telegraf influxdb url 'http://10.5.11.30'
-set service monitoring telegraf influxdb port '8086'
-set service monitoring telegraf influxdb bucket 'vyos'
-set service monitoring telegraf influxdb authentication organization 'lylat'
-set service monitoring telegraf influxdb authentication token '<tofu output -raw vyos_telegraf_token>'
 set service monitoring telegraf prometheus-client listen-address '10.5.0.255'
 set service monitoring telegraf prometheus-client port '9273'
 set service monitoring telegraf prometheus-client allow-from '10.5.11.30/32'
+set service monitoring telegraf prometheus-client allow-from '10.5.11.31/32'
 set firewall ipv4 input filter rule 9100 action 'accept'
 set firewall ipv4 input filter rule 9100 destination port '9100,9342'
 set firewall ipv4 input filter rule 9100 protocol 'tcp'
@@ -429,6 +429,8 @@ set system task-scheduler task vpn-metrics interval '1m'
 set system task-scheduler task vpn-metrics executable path '/config/scripts/vpn-metrics.py'
 set system task-scheduler task nft-metrics interval '1m'
 set system task-scheduler task nft-metrics executable path '/config/scripts/nft-metrics.py'
+set system task-scheduler task status-metrics interval '1m'
+set system task-scheduler task status-metrics executable path '/config/scripts/status-metrics.py'
 set system syslog remote 10.5.11.101 facility all level 'info'
 set system syslog remote 10.5.11.101 port '514'
 set system syslog remote 10.5.11.101 protocol 'tcp'
@@ -443,12 +445,15 @@ The `system syslog remote` lines send fw-wan's log (firewall `log` rules, strong
 from `lylat_service`. The other hand-configured log senders (PVE nodes, CRS317s, FS
 switches, WLCs) are in [log-senders](log-senders/README.md).
 
-Install the scripts with `sudo install -m 0755 vpn-metrics.py nft-metrics.py /config/scripts/`
-on the router. [`vyos/nft-metrics.py`](vyos/nft-metrics.py) adds per-rule counters for every
+Install the scripts with `sudo install -m 0755 vpn-metrics.py nft-metrics.py status-metrics.py
+/config/scripts/` on the router. [`vyos/nft-metrics.py`](vyos/nft-metrics.py) adds per-rule counters for every
 filter chain (input/forward/output base chains and their default actions, named chains,
 IPv4 and IPv6) and NAT (`vyos_firewall_rule_{packets,bytes}_total{family,kind,chain,rule}`,
 `vyos_nat_rule_{packets,bytes}_total{family,type,rule}`); Telegraf's VyOS script only
 covers the named IPv4 chains. Telegraf's `syslog_*` series are dropped at scrape time.
+The fw-wan dashboards read the firewall log, the router log and charon's log from Loki
+(`{host="fw-wan"}`; firewall lines are `app="kernel"` with VyOS's `[ipv4-<hook>-<chain>-<rule>-<A|D|R>]`
+prefix).
 
 ## C9800 telemetry (model-driven, dial-out)
 
@@ -498,7 +503,7 @@ per-replica bits below. The rendering is in the module's `backends.tf`; the repl
 - **Prometheus HA pair.** Both scrape every target with the same config; `external_labels` are
   `{site = "lylat", ha_cluster = "lylat", __replica__ = "<vm>"}`. With Mimir on ([Metrics: Mimir HA](#metrics-mimir-ha)) both
   remote_write to it and Mimir's HA tracker keeps one replica's samples, then drops `ha_cluster` and `site`. The
-  `prometheus`, `alertmanager`, `telegraf`, `influx-relay` and `influxdb` (InfluxDB's own `/metrics` on 8086) jobs
+  `prometheus`, `alertmanager`, `telegraf` and `influxdb` (InfluxDB's own `/metrics` on 8086) jobs
   target every backend by backend-VLAN address
   (label `host`), so each replica scrapes both and the deduplicated data still has every instance. Grafana has
   `Prometheus mon01`/`Prometheus mon02` datasources (uids `prometheus-mon01/-mon02`) to look at one replica directly.
@@ -507,7 +512,7 @@ per-replica bits below. The rendering is in the module's `backends.tf`; the repl
   both Alertmanagers; `alert_relabel_configs` drops `__replica__`, so the two replicas' alerts are identical and the
   cluster notifies once. Without an address on VLAN 215 on every backend, gossip falls back to the backend VLAN.
 - **keepalived** (`backend_vrrp`, router id 102): one instance, unicast adverts over VLAN 215, VIPs `10.5.11.102/16`
-  (monitoring network: InfluxDB, the VyOS relay, `influxdb-vip.lylat.space`) and `10.13.11.102/16` (backend VLAN: Grafana's
+  (monitoring network: InfluxDB, `influxdb-vip.lylat.space`) and `10.13.11.102/16` (backend VLAN: Grafana's
   InfluxDB and Alertmanager datasources). BACKUP + `nopreempt` (mon01 wins the first election), FAULT when InfluxDB
   `/health` or Alertmanager `/-/ready` fails locally. Containers publish on the VIPs too, so the backends set
   `net.ipv4.ip_nonlocal_bind = 1` (`/etc/sysctl.d/90-monitoring-vip.conf`). Alert `MonitoringVIPNotHeldOnce`.
@@ -516,10 +521,7 @@ per-replica bits below. The rendering is in the module's `backends.tf`; the repl
   send to the WLC Telegraf on the monitoring VIP `10.5.11.102:57500`, and each Telegraf writes bucket `wlc` on
   both InfluxDBs (local by container name, the peer over the backend VLAN with that InfluxDB's token; alerts
   `WlcTelemetryStopped` over both, `WlcTelemetryWriteDropping`). A second named receiver per subscription
-  doesn't work: IOS XE keeps only one receiver of a subscription active, the rest are standbys. VyOS Telegraf (one URL, one token) writes to `influx-relay` on the
-  monitoring VIP, `http://10.5.11.102:8087`, with its existing token, and the relay copies every write into bucket
-  `vyos` on both InfluxDBs (200k metrics buffered per output while a peer is down; alerts `InfluxRelayDropping`,
-  `InfluxRelayBacklog`). Write tokens are generated per InfluxDB, which is why VyOS can't just use a VIP'd InfluxDB.
+  doesn't work: IOS XE keeps only one receiver of a subscription active, the rest are standbys.
 - **Two stages.** The `influxdb.replica` provider has to reach a running InfluxDB to plan, so mon02's buckets,
   tokens, metric servers and WLC Telegraf wait for `influxdb_replica_ready = true` (deploy mon02 first; until then the
   provider points at the primary and manages nothing). mon02's InfluxDB history can be copied from mon01 with Flux
@@ -859,8 +861,7 @@ graf01/02 --sslmode=require--> VIP 10.13.11.104:5432 (keepalived on the Patroni 
 | `monitoring_primary` | `"mon01"` | [Backend HA](#backend-ha-mon01--mon02): the backend with Postgres and the default `influxdb` provider; the other `role = "monitoring"` VM (at most one) is the replica |
 | `monitoring_ha_vlan_id` | `215` | HA VLAN of the backends (L2VNI `ha_monitor`): keepalived adverts, Alertmanager gossip; each backend needs one addressed NIC on it |
 | `backend_vrrp` | VIPs `10.5.11.102/16`, `10.13.11.102/16`, router id 102 | keepalived on the backends (password generated); `null` = no VIPs, Grafana uses the primary |
-| `influxdb_replica_ready` | `false` | Stage 2: make mon02's buckets/tokens (provider `influxdb.replica`), its Proxmox metric servers and WLC Telegraf, and the relay's writes to it. Set once mon02's InfluxDB runs |
-| `vyos_influx_relay_port` | `8087` | The InfluxDB write relay VyOS Telegraf uses (on the monitoring VIP); `null` leaves it out |
+| `influxdb_replica_ready` | `false` | Stage 2: make mon02's buckets/tokens (provider `influxdb.replica`), its Proxmox metric servers and WLC Telegraf. Set once mon02's InfluxDB runs |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
 | `images` | pinned tags | Container images; override one key at a time |
 | `settings` | see `variables.tf` | Prometheus retention (90d / 120GB), InfluxDB org/initial bucket/retention, the Grafana InfluxDB datasource's default bucket (`pve_cluster`), Grafana root URL, DNS probe zone |
@@ -990,7 +991,7 @@ dropdown, query only the provisioned InfluxDB datasource and the `wlc` bucket, a
 Alertmanagers, Postgres on mon01 only, Alertmanager gossip on VLAN 215, the keepalived config (VIPs on
 eth2/eth3, adverts over eth4, vrid 102, mon01 first) and the VIP publishes, Grafana's VIP and per-replica
 datasources, the replica's buckets/tokens/metric servers and WLC Telegraf only with `influxdb_replica_ready`,
-the relay's outputs, and that a missing VLAN 215 NIC fails the plan.
+and that a missing VLAN 215 NIC fails the plan.
 
 ```sh
 nix-shell --run 'tofu -chdir=roots/monitoring-config test'

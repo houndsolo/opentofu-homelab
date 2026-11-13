@@ -52,7 +52,7 @@ variable "monitoring_ha_vlan_id" {
 }
 
 variable "backend_vrrp" {
-  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (InfluxDB, the VyOS InfluxDB relay) and the backend VLAN (Grafana's InfluxDB/Alertmanager datasources), VRRP router id. The PASS password is generated. null = no keepalived; datasources stay on the primary."
+  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (InfluxDB) and the backend VLAN (Grafana's InfluxDB/Alertmanager datasources), VRRP router id. The PASS password is generated. null = no keepalived; datasources stay on the primary."
   type = object({
     vips = optional(object({
       monitoring = optional(string, "10.5.11.102/16")
@@ -64,15 +64,9 @@ variable "backend_vrrp" {
 }
 
 variable "influxdb_replica_ready" {
-  description = "true once the replica backend (mon02) is deployed and its InfluxDB answers: creates its buckets and write tokens (provider influxdb.replica), its Proxmox metric servers, and turns on its WLC Telegraf and the relay's writes to it. The provider can't plan against an InfluxDB that isn't running yet."
+  description = "true once the replica backend (mon02) is deployed and its InfluxDB answers: creates its buckets and write tokens (provider influxdb.replica), its Proxmox metric servers, and turns on its WLC Telegraf. The provider can't plan against an InfluxDB that isn't running yet."
   type        = bool
   default     = false
-}
-
-variable "vyos_influx_relay_port" {
-  description = "Port of the InfluxDB relay on every backend (and the monitoring VIP): VyOS Telegraf writes there with its existing token, and the relay copies into the vyos bucket on every backend's InfluxDB. null leaves the relay out (VyOS then has to write to one InfluxDB directly)."
-  type        = number
-  default     = 8087
 }
 
 variable "monitoring_bridge" {
@@ -303,12 +297,6 @@ variable "pve_metrics" {
     retention_days           = optional(number, 90)
   })
   default = {}
-}
-
-variable "vyos_telegraf_bucket" {
-  description = "InfluxDB bucket that Telegraf on the VyOS routers (fw-wan) writes to. Same retention as pve_metrics."
-  type        = string
-  default     = "vyos"
 }
 
 variable "wlc_telemetry" {

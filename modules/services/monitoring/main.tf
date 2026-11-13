@@ -186,7 +186,6 @@ locals {
       job_name       = "netbox"
       static_configs = [for t in var.targets.netbox : { targets = ["${t.address}:80"], labels = { host = t.host } }]
     }],
-    local.relay_scrape_configs, # backends.tf
   )
 
   # One per backend: the same scrapes and rules, only __replica__ differs. Mimir's HA
@@ -445,8 +444,8 @@ locals {
   # Telegraf (WLC telemetry) where wlc_telemetry.backends lists the backend.
   backend_containers = {
     for host in local.backend_names : host => {
-      for name, c in merge(local.backend_container_defs[host], local.wlc_container[host], local.relay_container[host]) : name => c # telemetry.tf, backends.tf
-      if(name != "pve-exporter" || local.pve_enabled) && (name != "telegraf" || contains(local.wlc_backends, host)) && (name != "postgres" || (host == local.primary && local.legacy_postgres)) && (name != "influx-relay" || local.relay_enabled)
+      for name, c in merge(local.backend_container_defs[host], local.wlc_container[host]) : name => c # telemetry.tf
+      if(name != "pve-exporter" || local.pve_enabled) && (name != "telegraf" || contains(local.wlc_backends, host)) && (name != "postgres" || (host == local.primary && local.legacy_postgres))
     }
   }
   backend_container_defs = {
@@ -506,7 +505,7 @@ locals {
       influxdb = {
         description = "InfluxDB 2 (Proxmox metric server target)"
         image       = var.images.influxdb
-        # Also on both VIPs (backends.tf): VyOS's relay target and Grafana's datasource.
+        # Also on both VIPs (backends.tf): influxdb-vip on the monitoring network and Grafana's datasource.
         publish = concat(
           ["${b.monitoring_address}:8086:8086", "${b.backend_address}:8086:8086"],
           [for vip in concat(local.backend_vip_monitoring, local.backend_vip_backend) : "${vip}:8086:8086"],
@@ -551,7 +550,7 @@ locals {
   # Restart and health order on each backend.
   backend_order = {
     for host in local.backend_names : host => [
-      for name in ["postgres", "influxdb", "telegraf", "influx-relay", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
+      for name in ["postgres", "influxdb", "telegraf", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
       if contains(keys(local.backend_containers[host]), name)
     ]
   }
@@ -651,7 +650,6 @@ locals {
       }] : [],
       local.wlc_files[host],        # telemetry.tf
       local.backend_ha_files[host], # backends.tf
-      local.relay_files[host],      # backends.tf
     )
   }
 
@@ -681,7 +679,6 @@ locals {
       local.alloy_dirs,
       local.wlc_dirs[host],  # telemetry.tf
       local.backend_ha_dirs, # backends.tf
-      local.relay_dirs,      # backends.tf
     )
   }
 
@@ -697,7 +694,7 @@ locals {
       local.alloy_validation[host],
       # Loads the bundled snmp.yml with our modules (and auths) exactly as the container does.
       "podman run --rm --network=none ${join(" ", [for v in local.snmp_volumes : "-v \"$root${v}\""])} '${var.images.snmp_exporter}' --dry-run ${join(" ", [for f in local.snmp_config_files : "--config.file=${f}"])}",
-    ], local.wlc_validations[host], local.backend_ha_validations, local.relay_validations) # telemetry.tf, backends.tf
+    ], local.wlc_validations[host], local.backend_ha_validations) # telemetry.tf, backends.tf
   }
 
   backend_health = {
@@ -709,8 +706,7 @@ locals {
       ],
       host == local.primary && local.legacy_postgres ? ["podman exec postgres pg_isready -q -U grafana -d grafana"] : [], # postgres.tf
       [local.alloy_health[host]],
-      local.wlc_health[host],   # telemetry.tf
-      local.relay_health[host], # backends.tf
+      local.wlc_health[host], # telemetry.tf
     )
   }
 
@@ -729,7 +725,7 @@ locals {
       prune_dirs   = []
       files        = local.backend_files[host]
       validations  = local.backend_validations[host]
-      post_install = local.backend_ha_post_install
+      post_install = concat(local.backend_ha_post_install, local.backend_relay_cleanup) # backends.tf
       services     = local.backend_services[host]
       health       = local.backend_health[host]
     })

@@ -66,11 +66,6 @@ output "backend_keepalived_configs" {
   sensitive   = true
 }
 
-output "influx_relay_configs" {
-  description = "Backend VM name => the InfluxDB relay's telegraf.conf (tokens stay environment references), \"\" when off."
-  value       = local.relay_telegraf_conf
-}
-
 output "wlc_telegraf_configs" {
   description = "Backend VM name => the WLC telemetry Telegraf's telegraf.conf (tokens stay environment references), \"\" when off."
   value       = local.telegraf_conf

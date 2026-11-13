@@ -303,7 +303,7 @@ run "inventory_targets" {
 }
 
 # node_exporter collectors, the exporters' self-scrapes and the ceph-mixin alerts (main.tf),
-# the relay's prometheus_client filter (backends.tf).
+# the retired InfluxDB relay's cleanup (backends.tf).
 run "exporters_and_ceph_alerts" {
   command = plan
 
@@ -336,8 +336,17 @@ run "exporters_and_ceph_alerts" {
   }
 
   assert {
-    condition     = alltrue([for name in ["mon01", "mon02"] : endswith(module.monitoring.influx_relay_configs[name], "  namepass = [\"internal_*\"]\n  [outputs.prometheus_client.tagdrop]\n    host = [\"*\"]\n")])
-    error_message = "The relay's prometheus_client output passes only its own internal_* metrics (the writers' carry a host tag)."
+    # The InfluxDB relay is retired: no unit, scrape job or alerts, and the deploy removes its files.
+    condition = (
+      !contains([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j.job_name], "influx-relay") &&
+      !strcontains(module.monitoring.prometheus_rules, "InfluxRelay") &&
+      alltrue([for name in ["mon01", "mon02"] : (
+        !contains(keys(module.monitoring.units[name]), "influx-relay") &&
+        !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), ":8087") &&
+        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "rm -rf /etc/monitoring/influx-relay /etc/monitoring/influx-relay.env;")
+      )])
+    )
+    error_message = "No influx-relay unit, scrape job or alerts; the backend deploy removes its config dir and env file."
   }
 
   assert {
@@ -525,7 +534,7 @@ run "wlc_telemetry" {
       output.wlc_telemetry_receiver == { address = "10.5.11.30", receivers = { mon01 = "10.5.11.30" }, port = 57500, bucket = "wlc" } && # VIP once influxdb_replica_ready
       influxdb_bucket.wlc[0].retention_period == 90 * 86400 &&
       length(influxdb_authorization.wlc[0].permissions) == 1 && influxdb_authorization.wlc[0].permissions[0].action == "write" &&
-      module.monitoring.backend_services == ["monitoring-network", "postgres", "influxdb", "telegraf", "influx-relay", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
+      module.monitoring.backend_services == ["monitoring-network", "postgres", "influxdb", "telegraf", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
     )
     error_message = "C9800 telemetry gets its own bucket and write-only token, and Telegraf starts right after InfluxDB."
   }
@@ -807,7 +816,7 @@ run "grafana_vrrp_disabled" {
 }
 
 # Backend HA (backends.tf): mon01 (primary, Postgres) + mon02, Alertmanager cluster and
-# keepalived over the ha_monitor VLAN 215, VIPs 10.5.11.102 / 10.13.11.102, InfluxDB relay.
+# keepalived over the ha_monitor VLAN 215, VIPs 10.5.11.102 / 10.13.11.102.
 run "backend_ha" {
   command = plan
 
@@ -841,7 +850,7 @@ run "backend_ha" {
       !contains(keys(module.monitoring.units.mon02), "postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "/var/lib/monitoring/postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "pg_isready") &&
-      module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "influxdb", "influx-relay", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
+      module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "influxdb", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.13.11.30:5432")
     )
     error_message = "Postgres stays on mon01 (Grafana's database); mon02 gets the rest, keepalived last."
@@ -891,15 +900,9 @@ run "backend_ha" {
   }
 
   assert {
-    # Before influxdb_replica_ready: nothing on mon02's InfluxDB, the relay writes to mon01 only.
-    condition = (
-      length(influxdb_bucket.replica) == 0 && length(proxmox_metrics_server.cluster_replica) == 0 &&
-      strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon01\"") &&
-      strcontains(module.monitoring.influx_relay_configs.mon02, "http://10.13.11.30:8086") &&
-      !strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon02\"") &&
-      output.vyos_telegraf_influxdb == { url = "http://10.5.11.102", port = 8087, bucket = "vyos" }
-    )
-    error_message = "The replica's InfluxDB objects wait for influxdb_replica_ready; VyOS writes to the relay on the monitoring VIP."
+    # Before influxdb_replica_ready: nothing on mon02's InfluxDB.
+    condition     = length(influxdb_bucket.replica) == 0 && length(proxmox_metrics_server.cluster_replica) == 0
+    error_message = "The replica's InfluxDB objects wait for influxdb_replica_ready."
   }
 }
 
@@ -922,7 +925,7 @@ run "backend_replica_ready" {
 
   assert {
     condition = (
-      toset(keys(influxdb_bucket.replica)) == toset(["pve-cluster", "pve-greatfox", "vyos", "wlc"]) &&
+      toset(keys(influxdb_bucket.replica)) == toset(["pve-cluster", "pve-greatfox", "wlc"]) &&
       alltrue([for a in values(influxdb_authorization.replica) : length(a.permissions) == 1 && a.permissions[0].action == "write"]) &&
       proxmox_metrics_server.cluster_replica[0].name == "influxdb-mon02" &&
       proxmox_metrics_server.cluster_replica[0].server == "10.5.11.31" &&
@@ -938,13 +941,9 @@ run "backend_replica_ready" {
       contains(keys(module.monitoring.units.mon02), "telegraf") &&
       strcontains(module.monitoring.units.mon02.telegraf, "PublishPort=10.5.11.31:57500:57500\n") &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.31:9273") &&
-      output.wlc_telemetry_receiver.receivers == { mon01 = "10.5.11.30", mon02 = "10.5.11.31" } &&
-      # Each relay writes locally by container name and to the peer over the backend VLAN.
-      strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon02\"\n  urls = [\"http://influxdb:8086\"]") &&
-      strcontains(module.monitoring.influx_relay_configs.mon02, "alias = \"mon01\"\n  urls = [\"http://10.13.11.30:8086\"]") &&
-      strcontains(module.monitoring.influx_relay_configs.mon01, "alias = \"mon02\"\n  urls = [\"http://10.13.11.31:8086\"]")
+      output.wlc_telemetry_receiver.receivers == { mon01 = "10.5.11.30", mon02 = "10.5.11.31" }
     )
-    error_message = "With influxdb_replica_ready, mon02 runs the WLC Telegraf with its own token and the relay writes to both InfluxDBs."
+    error_message = "With influxdb_replica_ready, mon02 runs the WLC Telegraf with its own token."
   }
 
   # IOS XE keeps one receiver per subscription active, so the WLCs send to the monitoring VIP
@@ -1007,7 +1006,7 @@ run "backend_ha_nic_required" {
 }
 
 # A single backend (mon02 left out of the inventory): mon01 alone, no cluster, no VIPs; Grafana
-# and the relay use mon01.
+# uses mon01.
 run "backend_single" {
   command = plan
   variables { vms = { for name, vm in var.vms : name => vm if name != "mon02" } }
@@ -1028,11 +1027,9 @@ run "backend_single" {
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "influxdb"]) == "http://10.13.11.30:8086" &&
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.30:9093" &&
       !contains([for d in yamldecode(module.monitoring.datasources_config).datasources : d.uid], "prometheus-mon02") &&
-      output.vyos_telegraf_influxdb.url == "http://10.5.11.30" &&
-      !strcontains(module.monitoring.influx_relay_configs.mon01, "10.13.11.31") &&
       length(influxdb_bucket.replica) == 0
     )
-    error_message = "Without mon02, mon01 runs alone: no Alertmanager peers, no keepalived/VIPs, Grafana and the VyOS relay on mon01."
+    error_message = "Without mon02, mon01 runs alone: no Alertmanager peers, no keepalived/VIPs, Grafana on mon01."
   }
 }
 

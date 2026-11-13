@@ -2,11 +2,9 @@
 # stack (main.tf). This file adds what ties them together:
 #   - the Alertmanager cluster (gossip on 9094 over the HA VLAN, ha_monitor);
 #   - keepalived (backend_vrrp): one VRRP instance, adverts unicast over the HA VLAN, VIPs
-#     on the monitoring network (InfluxDB, the relay) and the backend VLAN (Grafana's
+#     on the monitoring network (InfluxDB) and the backend VLAN (Grafana's
 #     InfluxDB and Alertmanager datasources). The containers publish on the VIPs too,
 #     which needs net.ipv4.ip_nonlocal_bind (the VIP is only on one backend at a time);
-#   - the InfluxDB relay (influx_relay): Telegraf listening for InfluxDB v2 writes and
-#     copying them into every backend's InfluxDB, for writers that take one URL (VyOS);
 #   - the alert rules for all of that.
 # Postgres (Grafana's database) stays on the primary only: a known single point of failure.
 locals {
@@ -81,100 +79,14 @@ locals {
   # keepalived last: it only takes the VIPs once InfluxDB and Alertmanager answer.
   backend_ha_services = local.backend_vrrp_enabled ? ["keepalived"] : []
 
-  # InfluxDB relay.
-  relay_enabled = var.influx_relay != null
-  relay_port    = try(var.influx_relay.port, 8087)
-  relay_bucket  = try(var.influx_relay.bucket, "")
-  relay_conf    = "${local.backend_conf}/influx-relay"
-  relay_targets = local.relay_enabled ? [for name in local.backend_names : name if contains(var.influx_relay.targets, name)] : []
-  relay_secrets = var.influx_relay_secrets != null ? var.influx_relay_secrets : { listen_token = "", tokens = {} }
-  relay_env_var = { for name in local.backend_names : name => "INFLUX_TOKEN_${upper(replace(name, "/[^A-Za-z0-9]/", "_"))}" }
+  # The InfluxDB relay (VyOS Telegraf -> every backend's InfluxDB) is retired. The deploy
+  # stops and removes its Quadlet (state file); this removes its config dir and env file,
+  # which no prune covers. Idempotent: drop it once both backends are clean.
+  backend_relay_cleanup = [
+    "if [ -e ${local.backend_conf}/influx-relay ] || [ -e ${local.backend_conf}/influx-relay.env ]; then rm -rf ${local.backend_conf}/influx-relay ${local.backend_conf}/influx-relay.env; echo \"removed the retired influx-relay config\"; fi",
+  ]
 
-  relay_telegraf_conf = {
-    for host in local.backend_names : host => local.relay_enabled ? join("\n", concat([
-      "# Managed by OpenTofu (monitoring-config). Local edits are overwritten.",
-      "# InfluxDB write relay: writes accepted here go to bucket \"${local.relay_bucket}\" on every listed backend.",
-      "[agent]",
-      "  interval = \"30s\"", # internal metrics only
-      "  flush_interval = \"5s\"",
-      "  metric_batch_size = 5000",
-      "  metric_buffer_limit = 200000", # per output: rides out a peer's restart or short outage
-      "  omit_hostname = true",
-      "",
-      "[[inputs.influxdb_v2_listener]]",
-      "  service_address = \":${local.relay_port}\"",
-      "  token = \"$${RELAY_LISTEN_TOKEN}\"", # influx-relay.env: the token the writers already use
-      "  max_body_size = \"32MiB\"",
-      "",
-      "[[inputs.internal]]",
-      "",
-      ], flatten([for target in local.relay_targets : [
-        "[[outputs.influxdb_v2]]",
-        "  alias = \"${target}\"",
-        # The local InfluxDB by container name, peers over the backend VLAN.
-        "  urls = [\"${target == host ? "http://influxdb:8086" : "http://${var.backends[target].backend_address}:8086"}\"]",
-        "  token = \"$${${local.relay_env_var[target]}}\"",
-        "  organization = \"${var.settings.influxdb_org}\"",
-        "  bucket = \"${local.relay_bucket}\"",
-        "  namedrop = [\"internal_*\"]",
-        "",
-      ]]), [
-      "[[outputs.prometheus_client]]",
-      "  listen = \":9274\"",
-      "  namepass = [\"internal_*\"]",
-      # Only the relay's own internal metrics (no host tag: omit_hostname). The writers'
-      # Telegraf internal_* (fw-wan's, host=fw-wan) would otherwise pass as the relay's.
-      "  [outputs.prometheus_client.tagdrop]",
-      "    host = [\"*\"]",
-      "",
-    ])) : ""
-  }
-  relay_env = join("", concat(
-    ["RELAY_LISTEN_TOKEN=${local.relay_secrets.listen_token}\n"],
-    [for target in local.relay_targets : "${local.relay_env_var[target]}=${try(coalesce(local.relay_secrets.tokens[target]), "missing")}\n"],
-  ))
-
-  # Always defined (main.tf filters it out unless enabled), like wlc_container.
-  relay_container = {
-    for host, b in var.backends : host => {
-      influx-relay = {
-        description = "Telegraf: InfluxDB write relay -> ${try(var.influx_relay.bucket, "")} on every backend"
-        image       = var.images.telegraf
-        publish = concat(
-          ["${b.monitoring_address}:${local.relay_port}:${local.relay_port}"],
-          [for vip in local.backend_vip_monitoring : "${vip}:${local.relay_port}:${local.relay_port}"],
-          ["${b.backend_address}:9274:9274"],
-        )
-        volumes   = ["${local.relay_conf}:/etc/telegraf:ro"]
-        env_files = ["${local.backend_conf}/influx-relay.env"]
-        user      = "telegraf" # see the WLC Telegraf (telemetry.tf)
-        reload    = true
-      }
-    }
-  }
-  relay_files = {
-    for host in local.backend_names : host => local.relay_enabled ? [
-      { path = "${local.relay_conf}/telegraf.conf", mode = "0644", owner = "root", content = local.relay_telegraf_conf[host], restart = [], reload = ["influx-relay"] },
-      { path = "${local.backend_conf}/influx-relay.env", mode = "0600", owner = "root", content = local.relay_env, restart = ["influx-relay"], reload = [] },
-    ] : []
-  }
-  relay_dirs = local.relay_enabled ? [{ path = local.relay_conf, mode = "0755", owner = "root" }] : []
-  relay_validations = local.relay_enabled ? [
-    "podman run --rm --network=none --user 0 --entrypoint telegraf -v \"$root${local.relay_conf}:/etc/telegraf:ro\" '${var.images.telegraf}' config check --config /etc/telegraf/telegraf.conf",
-  ] : []
-  # Any HTTP answer (404 on /) proves the listener's published port works.
-  relay_health = {
-    for host, b in var.backends : host => local.relay_enabled ? [
-      "curl -sS -o /dev/null --max-time 3 http://${b.monitoring_address}:${local.relay_port}/",
-      "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9274/metrics",
-    ] : []
-  }
-  relay_scrape_configs = local.relay_enabled ? [{
-    job_name       = "influx-relay"
-    static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:9274"], labels = { host = name } }]
-  }] : []
-
-  backend_rules = length(var.backends) > 1 || local.relay_enabled ? [{
+  backend_rules = length(var.backends) > 1 ? [{
     name = "monitoring-ha"
     rules = concat(
       local.am_cluster_enabled ? [{
@@ -191,22 +103,6 @@ locals {
         labels                     = { severity = "critical", vip = ip[0], network = net }
         annotations                = { summary = "Monitoring VIP ${ip[0]} (${net}) is held by {{ $value }} backends instead of exactly one" }
       } if length(ip) > 0],
-      local.relay_enabled ? [
-        {
-          alert       = "InfluxRelayDropping"
-          expr        = "sum by (host, alias) (increase(internal_write_metrics_dropped{job=\"influx-relay\"}[15m])) > 0"
-          for         = "5m"
-          labels      = { severity = "warning" }
-          annotations = { summary = "InfluxDB relay on {{ $labels.host }} dropped writes for {{ $labels.alias }} (buffer full)" }
-        },
-        {
-          alert       = "InfluxRelayBacklog"
-          expr        = "max by (host, alias) (internal_write_buffer_size{job=\"influx-relay\"}) > 20000"
-          for         = "15m"
-          labels      = { severity = "warning" }
-          annotations = { summary = "InfluxDB relay on {{ $labels.host }} can't write to {{ $labels.alias }}'s InfluxDB ({{ $value }} metrics queued)" }
-        },
-      ] : [],
     )
   }] : []
 }

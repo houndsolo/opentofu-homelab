@@ -2,7 +2,7 @@
   "id": null,
   "uid": "monitoring-stack",
   "title": "Monitoring stack",
-  "description": "Prometheus, Alertmanager, Grafana, the exporters and Telegraf (C9800 telemetry, InfluxDB relay) on the backends mon01/mon02 (Prometheus HA pair, Alertmanager cluster), and the logging stack (Loki rings, ingest, S3 flushes, Alloy).",
+  "description": "Prometheus, Alertmanager, Grafana, the exporters and Telegraf (C9800 telemetry) on the backends mon01/mon02 (Prometheus HA pair, Alertmanager cluster), and the logging stack (Loki rings, ingest, S3 flushes, Alloy).",
   "tags": [
     "alertmanager",
     "grafana",
@@ -89,7 +89,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "up{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influx-relay|influxdb|mimir\"}",
+          "expr": "up{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir\"}",
           "legendFormat": "{{job}} {{host}}",
           "range": false,
           "instant": true,
@@ -6267,129 +6267,15 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "InfluxDB relay (VyOS): writes per InfluxDB",
-      "description": "VyOS writes to the relay on the monitoring VIP (only the VIP holder receives); it copies every write into each backend's InfluxDB. A queue builds while a peer's InfluxDB is down.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(internal_gather_metrics_gathered{job=\"influx-relay\", exported_host=\"\", input=\"influxdb_v2_listener\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} received/s",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host, alias) (rate(internal_write_metrics_written{job=\"influx-relay\", exported_host=\"\", output=\"influxdb_v2\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} -> {{alias}} written/s",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host, alias) (rate(internal_write_metrics_dropped{job=\"influx-relay\", exported_host=\"\", output=\"influxdb_v2\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} -> {{alias}} dropped/s",
-          "range": true,
-          "instant": false,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max by (host, alias) (internal_write_buffer_size{job=\"influx-relay\", exported_host=\"\", output=\"influxdb_v2\"}) > 0",
-          "legendFormat": "{{host}} -> {{alias}} queued",
-          "range": true,
-          "instant": false,
-          "refId": "D"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 79,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 178
-      }
-    },
-    {
       "type": "row",
       "title": "InfluxDB",
       "collapsed": false,
-      "id": 80,
+      "id": 79,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 186
+        "y": 178
       },
       "panels": []
     },
@@ -6473,18 +6359,18 @@
           "valueSize": 18
         }
       },
-      "id": 81,
+      "id": 80,
       "gridPos": {
         "h": 8,
         "w": 4,
         "x": 0,
-        "y": 187
+        "y": 179
       }
     },
     {
       "type": "timeseries",
       "title": "InfluxDB: points written",
-      "description": "Points stored per second (Proxmox metric server, the VyOS relay, the WLC Telegraf); errors, drops and timeouts only show when non-zero. Both backends should write about the same.",
+      "description": "Points stored per second (Proxmox metric server, the WLC Telegraf); errors, drops and timeouts only show when non-zero. Both backends should write about the same.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -6587,12 +6473,12 @@
           "sort": "desc"
         }
       },
-      "id": 82,
+      "id": 81,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 4,
-        "y": 187
+        "y": 179
       }
     },
     {
@@ -6694,12 +6580,12 @@
           "sort": "desc"
         }
       },
-      "id": 83,
+      "id": 82,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 11,
-        "y": 187
+        "y": 179
       }
     },
     {
@@ -6784,24 +6670,24 @@
           "sort": "desc"
         }
       },
-      "id": 84,
+      "id": 83,
       "gridPos": {
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 187
+        "y": 179
       }
     },
     {
       "type": "row",
       "title": "Resources",
       "collapsed": false,
-      "id": 85,
+      "id": 84,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 195
+        "y": 187
       },
       "panels": []
     },
@@ -6820,7 +6706,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "process_resident_memory_bytes{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influx-relay|influxdb|mimir\"}",
+          "expr": "process_resident_memory_bytes{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir\"}",
           "legendFormat": "{{job}} {{host}}",
           "range": true,
           "instant": false,
@@ -6876,12 +6762,12 @@
           "sort": "desc"
         }
       },
-      "id": 86,
+      "id": 85,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 196
+        "y": 188
       }
     },
     {
@@ -6899,7 +6785,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "rate(process_cpu_seconds_total{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influx-relay|influxdb|mimir\"}[$__rate_interval])",
+          "expr": "rate(process_cpu_seconds_total{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir\"}[$__rate_interval])",
           "legendFormat": "{{job}} {{host}}",
           "range": true,
           "instant": false,
@@ -6955,12 +6841,12 @@
           "sort": "desc"
         }
       },
-      "id": 87,
+      "id": 86,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 196
+        "y": 188
       }
     }
   ]

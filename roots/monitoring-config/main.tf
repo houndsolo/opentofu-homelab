@@ -274,20 +274,6 @@ module "monitoring" {
     local.replica_influxdb && var.wlc_telemetry != null ? { (local.replica_name) = influxdb_authorization.replica["wlc"].token } : {},
   )
 
-  # VyOS Telegraf -> monitoring VIP :8087 -> bucket vyos on every backend (influxdb-replica.tf).
-  influx_relay = var.vyos_influx_relay_port == null ? null : {
-    port    = var.vyos_influx_relay_port
-    bucket  = influxdb_bucket.vyos.name
-    targets = concat([var.monitoring_primary], local.replica_influxdb ? [local.replica_name] : [])
-  }
-  influx_relay_secrets = {
-    listen_token = influxdb_authorization.vyos.token # the token fw-wan already has
-    tokens = merge(
-      { (var.monitoring_primary) = influxdb_authorization.vyos.token },
-      local.replica_influxdb ? { (local.replica_name) = influxdb_authorization.replica["vyos"].token } : {},
-    )
-  }
-
   # Unaddressed networks become 0.0.0.0 here and fail terraform_data.logging's precondition.
   logging = {
     for name, n in local.logging_nic : name => {
