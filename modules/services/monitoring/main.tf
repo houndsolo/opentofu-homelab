@@ -251,6 +251,17 @@ locals {
         labels      = { severity = "warning" }
         annotations = { summary = "{{ $labels.ceph_daemon }}: {{ $value | humanize }} slow BlueStore AIO waits in the last hour" }
       },
+      # One alert per active HEALTH_WARN check (DT-020). The mixin's CephHealthWarning only sees
+      # ceph_health_status == 1, so one long-lived check (BLUESTORE_SLOW_OP_ALERT for days) pins
+      # it and hides any check that starts after it. Alertmanager inhibits CephHealthWarning
+      # while one of these fires; it stays as the fallback for a WARN without a detail series.
+      {
+        alert       = "CephHealthCheckWarn"
+        expr        = "ceph_health_detail{job=\"ceph\",severity=\"HEALTH_WARN\"} == 1"
+        for         = "15m"
+        labels      = { severity = "warning" }
+        annotations = { summary = "Ceph health check {{ $labels.name }} is active on cluster {{ $labels.cluster }} (ceph health detail)" }
+      },
     ]
   }]
 
@@ -287,14 +298,20 @@ locals {
 
   # Placeholder routing: alerts are visible in Alertmanager/Grafana but not sent anywhere yet.
   alertmanager_yml = yamlencode({
+    # group_by name: each Ceph health check (CephHealthCheckWarn) is its own group (DT-020).
     route = {
       receiver        = "null"
-      group_by        = ["alertname", "job"]
+      group_by        = ["alertname", "job", "name"]
       group_wait      = "30s"
       group_interval  = "5m"
       repeat_interval = "4h"
     }
     receivers = [{ name = "null" }]
+    inhibit_rules = [{
+      source_matchers = ["alertname=\"CephHealthCheckWarn\""]
+      target_matchers = ["alertname=\"CephHealthWarning\""]
+      equal           = ["cluster"]
+    }]
   })
 
   blackbox_yml = yamlencode({
