@@ -226,12 +226,10 @@ run "inventory_targets" {
   }
 
   assert {
-    # The wireless dashboards read InfluxDB (C9800 telemetry); some add Prometheus panels.
     # The log dashboards (Logs/) read Loki.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
       (
         strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") ||
-        (startswith(rel, "Network/wireless-") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}")) ||
         (startswith(rel, "Logs/") && strcontains(content, "{\"type\":\"loki\",\"uid\":\"loki\"}"))
       ) &&
       !strcontains(content, "$${DS_") &&            # import-time placeholders
@@ -270,17 +268,16 @@ run "inventory_targets" {
   }
 
   assert {
-    # The wireless dashboards (C9800 telemetry) query only the provisioned InfluxDB datasource, read only
-    # the wlc bucket, pick WLCs by the telemetry's source tag and share a "Wireless dashboards" dropdown.
+    # The wireless dashboards read the C9800 telemetry's wlc_* series (job wlc) from the Prometheus datasource,
+    # no InfluxDB or Flux left, pick WLCs by the series' host label and share a "Wireless dashboards" dropdown.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
       contains(jsondecode(content).tags, "wireless") &&
       length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "wireless")]) == 1 &&
-      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) > 0 &&
-      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) == length(regexall("\"type\":\"influxdb\",\"uid\":\"influxdb\"", content)) &&
-      length(split("from(bucket: ", content)) == length(split("from(bucket: \\\"wlc\\\")", content)) &&
-      length([for v in jsondecode(content).templating.list : v if v.name == "wlc" && strcontains(v.query, "tag: \"source\"")]) == 1
+      strcontains(content, "wlc_") &&
+      !strcontains(content, "influx") && !strcontains(content, "from(bucket") &&
+      length([for v in jsondecode(content).templating.list : v if v.name == "wlc" && v.definition == "label_values(wlc_cpu_five_seconds, host)"]) == 1
     ) if startswith(rel, "Network/wireless-")]) && length([for rel in keys(module.monitoring.dashboards) : rel if startswith(rel, "Network/wireless-")]) == 2
-    error_message = "Wireless dashboards carry the wireless tag and dropdown, use the provisioned InfluxDB datasource on the wlc bucket and a WLC picker on the source tag."
+    error_message = "Wireless dashboards carry the wireless tag and dropdown, read wlc_* from Prometheus (no InfluxDB/Flux) and pick WLCs by host."
   }
 
   assert {

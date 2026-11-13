@@ -88,14 +88,21 @@
         "label": "WLC",
         "type": "query",
         "datasource": {
-          "type": "influxdb",
-          "uid": "influxdb"
+          "type": "prometheus",
+          "uid": "prometheus"
         },
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"wlc\", tag: \"source\",\n  predicate: (r) => r._measurement == \"Cisco-IOS-XE-process-cpu-oper:cpu-usage/cpu-utilization\", start: v.timeRangeStart, stop: v.timeRangeStop)",
-        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"wlc\", tag: \"source\",\n  predicate: (r) => r._measurement == \"Cisco-IOS-XE-process-cpu-oper:cpu-usage/cpu-utilization\", start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "definition": "label_values(wlc_cpu_five_seconds, host)",
+        "query": {
+          "query": "label_values(wlc_cpu_five_seconds, host)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 2,
         "multi": true,
         "includeAll": true,
+        "options": [],
+        "sort": 1,
+        "regex": "",
+        "hide": 0,
         "allValue": ".*",
         "current": {
           "selected": true,
@@ -105,48 +112,51 @@
           "value": [
             "$__all"
           ]
-        },
-        "options": [],
-        "sort": 1,
-        "regex": "",
-        "hide": 0
+        }
       },
       {
         "name": "client",
         "label": "Client (MAC)",
         "type": "query",
         "datasource": {
-          "type": "influxdb",
-          "uid": "influxdb"
+          "type": "prometheus",
+          "uid": "prometheus"
         },
-        "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and r._field == \"ap_name\" and r.source =~ /^${wlc:regex}$/)\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> unique(column: \"client_mac\")\n  |> keep(columns: [\"client_mac\"])\n  |> rename(columns: {client_mac: \"_value\"})",
-        "definition": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and r._field == \"ap_name\" and r.source =~ /^${wlc:regex}$/)\n  |> last()\n  |> group()\n  |> sort(columns: [\"_time\"], desc: true)\n  |> unique(column: \"client_mac\")\n  |> keep(columns: [\"client_mac\"])\n  |> rename(columns: {client_mac: \"_value\"})",
+        "definition": "query_result(sort_desc(max by (client_mac) (max_over_time(timestamp(wlc_client_common_info{host=~\"${wlc:regex}\"})[$__range:1m]))))",
+        "query": {
+          "query": "query_result(sort_desc(max by (client_mac) (max_over_time(timestamp(wlc_client_common_info{host=~\"${wlc:regex}\"})[$__range:1m]))))",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 2,
         "multi": false,
         "includeAll": false,
-        "current": {},
         "options": [],
         "sort": 0,
-        "regex": "",
-        "hide": 0
+        "regex": "/client_mac=\"([^\"]+)\"/",
+        "hide": 0,
+        "current": {}
       },
       {
         "name": "client_cisco",
+        "label": "",
         "type": "query",
         "datasource": {
-          "type": "influxdb",
-          "uid": "influxdb"
+          "type": "prometheus",
+          "uid": "prometheus"
         },
-        "query": "import \"strings\"\nimport \"array\"\nm = strings.replaceAll(v: \"${client}\", t: \":\", u: \"\")\ncisco = if strings.strlen(v: m) == 12 then strings.substring(v: m, start: 0, end: 4) + \".\"\n  + strings.substring(v: m, start: 4, end: 8) + \".\" + strings.substring(v: m, start: 8, end: 12)\n  else \"${client}\"\narray.from(rows: [{_value: cisco}])",
-        "definition": "import \"strings\"\nimport \"array\"\nm = strings.replaceAll(v: \"${client}\", t: \":\", u: \"\")\ncisco = if strings.strlen(v: m) == 12 then strings.substring(v: m, start: 0, end: 4) + \".\"\n  + strings.substring(v: m, start: 4, end: 8) + \".\" + strings.substring(v: m, start: 8, end: 12)\n  else \"${client}\"\narray.from(rows: [{_value: cisco}])",
+        "definition": "query_result(label_replace(label_replace(label_replace(vector(1), \"m\", \"${client}\", \"\", \"\"), \"cisco\", \"$1\", \"m\", \"(.*)\"), \"cisco\", \"$1$2.$3$4.$5$6\", \"m\", \"([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2})\"))",
+        "query": {
+          "query": "query_result(label_replace(label_replace(label_replace(vector(1), \"m\", \"${client}\", \"\", \"\"), \"cisco\", \"$1\", \"m\", \"(.*)\"), \"cisco\", \"$1$2.$3$4.$5$6\", \"m\", \"([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2})\"))",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 1,
         "multi": false,
         "includeAll": false,
-        "current": {},
         "options": [],
         "sort": 0,
-        "regex": "",
-        "hide": 2
+        "regex": "/cisco=\"([^\"]+)\"/",
+        "hide": 2,
+        "current": {}
       }
     ]
   },
@@ -169,49 +179,165 @@
       "title": "Client",
       "description": "The selected client now (empty when it isn't associated). Download/upload over the last 3 minutes.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nimport \"regexp\"\nimport \"strings\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and (r._field == \"ap_name\" or r._field == \"co_state\" or r._field == \"ms_radio_type\") and r.source =~ /^${wlc:regex}$/ and r.client_mac == \"${client}\")\n  |> last()\n  |> pivot(rowKey: [\"source\", \"client_mac\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.client_mac, ap: r.ap_name, state: r.co_state, source: r.source,\n      band: if strings.containsStr(v: r.ms_radio_type, substr: \"24-ghz\") or strings.containsStr(v: r.ms_radio_type, substr: \"24ghz\") then \"2.4 GHz\"\n            else if strings.containsStr(v: r.ms_radio_type, substr: \"6ghz\") or strings.containsStr(v: r.ms_radio_type, substr: \"6-ghz\") then \"6 GHz\"\n            else \"5 GHz\",\n      protocol: strings.replaceAll(v: regexp.findString(r: /dot11[a-z]+/, v: r.ms_radio_type), t: \"dot11\", u: \"802.11\")}))",
+          "editorMode": "code",
+          "expr": "topk by (host, mac) (1, max by (host, mac, ap_name, co_state, band, protocol) (label_replace(label_replace(label_replace(label_replace(label_replace(wlc_client_common_info{host=~\"${wlc:regex}\", client_mac=\"${client}\"}, \"mac\", \"$1\", \"client_mac\", \"(.*)\"), \"band\", \"5 GHz\", \"ms_radio_type\", \".*\"), \"band\", \"6 GHz\", \"ms_radio_type\", \".*6-?ghz.*\"), \"band\", \"2.4 GHz\", \"ms_radio_type\", \".*24-?ghz.*\"), \"protocol\", \"802.11$1\", \"ms_radio_type\", \".*dot11([a-z]+).*\")))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/dot11-oper-data\" and (r._field == \"vap_ssid\" or r._field == \"current_channel\" or r._field == \"ms_wifi/wpa_version\" or r._field == \"ms_wifi/auth_key_mgmt\" or r._field == \"ms_assoc_time\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> last()\n  |> pivot(rowKey: [\"source\", \"ms_mac_address\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.ms_mac_address, ssid: r.vap_ssid, channel: r.current_channel,\n      security: r[\"ms_wifi/wpa_version\"] + \" \" + r[\"ms_wifi/auth_key_mgmt\"],\n      connected: float(v: uint(v: v.timeRangeStop) - uint(v: time(v: r.ms_assoc_time))) / 1000000000.0}))",
+          "editorMode": "code",
+          "expr": "topk by (host, mac) (1, max by (host, mac, vap_ssid, security) (label_join(label_replace(wlc_client_dot11_info{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\"), \"security\", \" \", \"ms_wifi_wpa_version\", \"ms_wifi_auth_key_mgmt\")))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "B"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"most_recent_rssi\" or r._field == \"most_recent_snr\" or r._field == \"speed\" or r._field == \"current_rate\" or r._field == \"spatial_stream\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> last()\n  |> pivot(rowKey: [\"source\", \"ms_mac_address\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.ms_mac_address, rssi: r.most_recent_rssi, snr: r.most_recent_snr,\n      speed: r.speed * 1000000, mcs: r.current_rate, nss: r.spatial_stream}))",
+          "editorMode": "code",
+          "expr": "max by (host, mac) (label_replace(wlc_client_dot11_current_channel{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "C"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 10m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"bytes_tx\" or r._field == \"bytes_rx\" or r._field == \"data_retries\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: 3m, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> pivot(rowKey: [\"source\", \"ms_mac_address\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> map(fn: (r) => ({mac: r.ms_mac_address, down: r.bytes_tx * 8.0, up: r.bytes_rx * 8.0,\n      retries: r.data_retries}))",
+          "editorMode": "code",
+          "expr": "max by (host, mac) (label_replace(wlc_client_traffic_most_recent_rssi{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "D"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"wlc\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/sisf-db-mac\" and r._field == \"ipv4_binding/ip_key/ip_addr\" and r.source =~ /^${wlc:regex}$/ and r.mac_addr == \"${client}\")\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({mac: r.mac_addr, ip: r._value}))",
+          "editorMode": "code",
+          "expr": "max by (host, mac) (label_replace(wlc_client_traffic_most_recent_snr{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, mac) (label_replace(wlc_client_traffic_speed{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\")) * 1000000",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, mac) (label_replace(wlc_client_traffic_current_rate_mcs{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host, mac) (label_replace(wlc_client_traffic_spatial_stream{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}, \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host, mac) (label_replace(rate(wlc_client_traffic_bytes_tx{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[3m]), \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\")) * 8",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host, mac) (label_replace(rate(wlc_client_traffic_bytes_rx{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[3m]), \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\")) * 8",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "J"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (host, mac) (label_replace(rate(wlc_client_traffic_data_retries{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[3m]), \"mac\", \"$1\", \"ms_mac_address\", \"(.*)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "K"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "topk by (host, mac) (1, max by (host, mac, ipv4_binding_ip_key_ip_addr) (label_replace(wlc_client_ip_info{host=~\"${wlc:regex}\", mac_addr=\"${client}\"}, \"mac\", \"$1\", \"mac_addr\", \"(.*)\")))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "L"
         }
       ],
       "fieldConfig": {
@@ -383,18 +509,6 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Connected for"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "dtdurations"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
               "options": "Download"
             },
             "properties": [
@@ -472,57 +586,57 @@
       },
       "transformations": [
         {
-          "id": "joinByField",
-          "options": {
-            "byField": "mac",
-            "mode": "outer"
-          }
+          "id": "merge",
+          "options": {}
         },
         {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true,
+              "Value #A": true,
+              "Value #B": true,
+              "Value #L": true
+            },
             "renameByName": {
               "mac": "Client",
-              "ip": "IP",
-              "ap": "AP",
-              "ssid": "SSID",
+              "ipv4_binding_ip_key_ip_addr": "IP",
+              "ap_name": "AP",
+              "vap_ssid": "SSID",
               "band": "Band",
               "protocol": "Protocol",
-              "channel": "Channel",
-              "rssi": "RSSI",
-              "snr": "SNR",
-              "speed": "Rate",
-              "mcs": "MCS",
-              "nss": "Streams",
-              "down": "Download",
-              "up": "Upload",
-              "retries": "Retries",
-              "state": "State",
+              "Value #C": "Channel",
+              "Value #D": "RSSI",
+              "Value #E": "SNR",
+              "Value #F": "Rate",
+              "Value #G": "MCS",
+              "Value #H": "Streams",
+              "Value #I": "Download",
+              "Value #J": "Upload",
+              "Value #K": "Retries",
+              "co_state": "State",
               "security": "Security",
-              "connected": "Connected for",
-              "source": "WLC"
+              "host": "WLC"
             },
             "indexByName": {
               "mac": 0,
-              "ip": 1,
-              "ap": 2,
-              "ssid": 3,
+              "ipv4_binding_ip_key_ip_addr": 1,
+              "ap_name": 2,
+              "vap_ssid": 3,
               "band": 4,
               "protocol": 5,
-              "channel": 6,
-              "rssi": 7,
-              "snr": 8,
-              "speed": 9,
-              "mcs": 10,
-              "nss": 11,
-              "down": 12,
-              "up": 13,
-              "retries": 14,
-              "state": 15,
+              "Value #C": 6,
+              "Value #D": 7,
+              "Value #E": 8,
+              "Value #F": 9,
+              "Value #G": 10,
+              "Value #H": 11,
+              "Value #I": 12,
+              "Value #J": 13,
+              "Value #K": 14,
+              "co_state": 15,
               "security": 16,
-              "connected": 17,
-              "source": 18
+              "host": 17
             }
           }
         }
@@ -553,17 +667,33 @@
       "title": "Signal",
       "description": "RSSI (dBm, at the AP) and SNR (dB). Below about -75 dBm / 20 dB, rates and retries suffer.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"most_recent_rssi\" or r._field == \"most_recent_snr\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: if r._field == \"most_recent_rssi\" then \"RSSI (dBm)\" else \"SNR (dB)\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max(wlc_client_traffic_most_recent_rssi{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"})",
+          "legendFormat": "RSSI (dBm)",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(wlc_client_traffic_most_recent_snr{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"})",
+          "legendFormat": "SNR (dB)",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -671,24 +801,32 @@
       "title": "PHY rate and streams",
       "description": "Current PHY data rate and spatial streams.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and r._field == \"speed\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> map(fn: (r) => ({r with _value: float(v: r._value) * 1000000.0}))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"PHY rate\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max(wlc_client_traffic_speed{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}) * 1000000",
+          "legendFormat": "PHY rate",
+          "range": true,
+          "instant": false,
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and r._field == \"spatial_stream\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"Spatial streams\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max(wlc_client_traffic_spatial_stream{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"})",
+          "legendFormat": "Spatial streams",
+          "range": true,
+          "instant": false,
           "refId": "B"
         }
       ],
@@ -823,17 +961,33 @@
       "title": "Throughput",
       "description": "Download (sent to the client) up, upload down. Counters refresh every 90 s.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "every = if int(v: v.windowPeriod) > int(v: 3m) then v.windowPeriod else 3m\nfrom(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"bytes_tx\" or r._field == \"bytes_rx\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: every, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with _value: (if r._field == \"bytes_tx\" then 8.0 else -8.0) * r._value}))\n  |> map(fn: (r) => ({r with series: if r._field == \"bytes_tx\" then \"download\" else \"upload\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_bytes_tx{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval])) * 8",
+          "legendFormat": "download",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_bytes_rx{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval])) * -8",
+          "legendFormat": "upload",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -929,6 +1083,7 @@
           "sort": "desc"
         }
       },
+      "interval": "45s",
       "id": 7,
       "gridPos": {
         "h": 8,
@@ -942,17 +1097,33 @@
       "title": "Packets",
       "description": "",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "every = if int(v: v.windowPeriod) > int(v: 3m) then v.windowPeriod else 3m\nfrom(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"pkts_tx\" or r._field == \"pkts_rx\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: every, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with _value: if r._field == \"pkts_tx\" then r._value else -r._value}))\n  |> map(fn: (r) => ({r with series: if r._field == \"pkts_tx\" then \"download\" else \"upload\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_pkts_tx{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "download",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_pkts_rx{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval])) * -1",
+          "legendFormat": "upload",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1048,6 +1219,7 @@
           "sort": "desc"
         }
       },
+      "interval": "45s",
       "id": 8,
       "gridPos": {
         "h": 8,
@@ -1061,17 +1233,117 @@
       "title": "Retries, drops and errors",
       "description": "Per second. data_retries are frames the AP sent again; tx_total_drops frames it gave up on; decrypt_failed/mic_* point at key or security problems.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "every = if int(v: v.windowPeriod) > int(v: 3m) then v.windowPeriod else 3m\nfrom(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats\" and (r._field == \"data_retries\" or r._field == \"tx_retries\" or r._field == \"tx_excessive_retries\" or r._field == \"tx_total_drops\" or r._field == \"decrypt_failed\" or r._field == \"mic_mismatch\" or r._field == \"mic_missing\" or r._field == \"duplicate_rcv\" or r._field == \"policy_errs\") and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: every, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n  |> map(fn: (r) => ({r with series: r._field}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_data_retries{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "data_retries",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_tx_retries{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "tx_retries",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_tx_excessive_retries{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "tx_excessive_retries",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_tx_total_drops{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "tx_total_drops",
+          "range": true,
+          "instant": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_decrypt_failed{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "decrypt_failed",
+          "range": true,
+          "instant": false,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_mic_mismatch{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "mic_mismatch",
+          "range": true,
+          "instant": false,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_mic_missing{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "mic_missing",
+          "range": true,
+          "instant": false,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_duplicate_rcv{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "duplicate_rcv",
+          "range": true,
+          "instant": false,
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(wlc_client_traffic_policy_errs{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"}[$__rate_interval]))",
+          "legendFormat": "policy_errs",
+          "range": true,
+          "instant": false,
+          "refId": "I"
         }
       ],
       "fieldConfig": {
@@ -1272,6 +1544,7 @@
           "sort": "desc"
         }
       },
+      "interval": "45s",
       "id": 9,
       "gridPos": {
         "h": 8,
@@ -1296,34 +1569,46 @@
     {
       "type": "state-timeline",
       "title": "AP, SSID and channel",
-      "description": "Roams (AP), SSID and channel changes; gaps are times the client wasn't associated.",
+      "description": "Roams (AP), SSID and channel changes: a row per AP and SSID the client used (shaded while it was on it), and its channel; gaps are times the client wasn't associated.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data\" and r._field == \"ap_name\" and r.source =~ /^${wlc:regex}$/ and r.client_mac == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"AP\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max by (ap_name) (wlc_client_common_info{host=~\"${wlc:regex}\", client_mac=\"${client}\"})",
+          "legendFormat": "AP: {{ap_name}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/dot11-oper-data\" and r._field == \"vap_ssid\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with series: \"SSID\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max by (vap_ssid) (wlc_client_dot11_info{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"})",
+          "legendFormat": "SSID: {{vap_ssid}}",
+          "range": true,
+          "instant": false,
           "refId": "B"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"wlc\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"Cisco-IOS-XE-wireless-client-oper:client-oper-data/dot11-oper-data\" and r._field == \"current_channel\" and r.source =~ /^${wlc:regex}$/ and r.ms_mac_address == \"${client}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> map(fn: (r) => ({r with _value: \"ch \" + string(v: r._value)}))\n  |> map(fn: (r) => ({r with series: \"Channel\"}))\n  |> group(columns: [\"series\"])\n  |> sort(columns: [\"_time\"])\n  |> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max(wlc_client_dot11_current_channel{host=~\"${wlc:regex}\", ms_mac_address=\"${client}\"})",
+          "legendFormat": "Channel",
+          "range": true,
+          "instant": false,
           "refId": "C"
         }
       ],
@@ -1349,6 +1634,41 @@
           "noValue": "Client not seen in this time range (pick a client / WLC)"
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "(AP|SSID): .*"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "associated",
+                        "color": "#e5f3e2",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Channel"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "prefix:ch "
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byRegexp",

@@ -7,7 +7,7 @@ The JSON files it writes are committed and provisioned like the community ones,
 so edit this script and re-run it rather than editing them by hand. It needs no
 network access. The Proxmox dashboards (pvestatd) are built by pve.py, the
 fw-wan ones by fwwan.py, the log dashboards (Loki) by logs.py, the wireless
-ones (C9800 telemetry, InfluxDB) by wireless.py and Ceph RGW buckets by rgw.py,
+ones (C9800 telemetry, wlc_* series) by wireless.py and Ceph RGW buckets by rgw.py,
 which this script imports. Each dashboard:
 
 - queries the provisioned Prometheus datasource (uid "prometheus") directly;

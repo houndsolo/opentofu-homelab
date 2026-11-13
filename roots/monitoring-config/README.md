@@ -190,8 +190,8 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Edge | fw-wan firewall (`fw-wan-firewall`) | custom (Prometheus + Loki) | Every IPv4/IPv6 filter chain (nft-metrics.py counters). **Summary:** final verdicts (accept/drop/reject per second), dropped + rejected in range, default-action drops per base chain, logged lines, rules missing from the snapshot, counter age. **Base chains:** input/forward/output verdicts by rule action (accept, → named chain, default drop/accept), default-action drops, what is being dropped (every drop/reject rule and default action). **Chains:** activity timeline, packets and traffic per chain. **Rules:** table (family, kind, chain, rule, action, jump target, match, packets/s, packets and bytes in range, totals), top rules, default actions hit. **NAT:** rule table (match/translation, connections per minute, in range, total) and connections per rule; conntrack entries, new connections, insert failures/drops/invalid; firewall log from the syslog (time, chain, rule, action, in/out, proto, addresses and ports) and logged packets per rule; collapsed rule and NAT reference |
 | Edge | fw-wan VPNs (`fw-wan-vpn`) | custom (Prometheus + Loki) | IPsec connections, IKE state, CHILD SAs, WireGuard peers, BGP over the tunnels, vpn-metrics.py health; SA state timeline, SA age, rekeys in range, CHILD SA traffic and packets; VTI/WireGuard interface traffic, errors and drops, link state, tunnel interface table; WireGuard handshake age and peer traffic; BGP peers in `vpn_*` VRFs, prefixes, routes; VPN firewall chains; collapsed strongSwan log |
 | Edge | fw-wan VRFs & routing (`fw-wan-routing`) | custom | Router picker (default fw-wan, works for the leaves and DHCP VMs) and VRF picker: BGP/BFD summary, routes, VRFs, route changes, RIB not in FIB; routing table per VRF (IPv4/IPv6 RIB and FIB, BGP RIB, sessions up, changes), routes and route changes per VRF; BGP peer table (state, uptime, prefixes, messages, flaps), session state, BGP RIB, prefixes rx/tx, messages; traffic per VRF, interface traffic and table with the VRF (fw-wan); collapsed BFD peers and frr_exporter collectors |
-| Network | Wireless (C9800) (`wireless-overview`) | custom (InfluxDB + Prometheus) | The C9800 WLCs' [model-driven telemetry](#c9800-telemetry-model-driven-dial-out). **Status:** clients, APs joined, radios up/total and down, WLANs with clients, telemetry age per WLC, SNMP up. **Controllers:** table (HA role, clients, radios, Linux CPU, IOSd CPU, load, memory; click a WLC for its logs), CPU per core, memory, IOSd CPU and load. **Access points:** AP table (state, clients, IP, model, serial, software, mode, uptime, joined for, uplink state and speed, tags, last disconnect reason; click an AP for its join/leave lines), radio table (band, state, channel and bonded channels, width, tx power and level, clients, channel busy, tx/rx/non-Wi-Fi airtime, tx/rx traffic, last channel change, BSS color), channel busy, clients, traffic, channel, tx power and retries/failures per radio. **RF environment:** airtime breakdown per radio, AP uplink traffic, noise floor / strongest other network / other networks' airtime / other APs per scanned channel. **SSIDs:** WLAN table (clients, random-MAC clients, download/upload), clients per WLAN, traffic per SSID. **Clients:** table (MAC, IP, AP, SSID, band, protocol, channel, RSSI, SNR, PHY rate, MCS, streams, download/upload, retries, state, security, connected for; click a client for its history), clients per WLC and by band/protocol, RSSI and throughput per client. Collapsed: the WLCs' own interfaces from SNMP. WLC picker |
-| Network | Wireless client (C9800) (`wireless-client`) | custom (InfluxDB) | One client (MAC picker): its row of the clients table, RSSI/SNR, PHY rate and spatial streams, throughput and packets (download up, upload down), retries/drops/decrypt and MIC errors, and a timeline of its AP, SSID and channel (roams) |
+| Network | Wireless (C9800) (`wireless-overview`) | custom (Prometheus: `wlc_*`, job `wlc`) | The C9800 WLCs' [model-driven telemetry](#c9800-telemetry-model-driven-dial-out). **Status:** clients, APs joined, radios up/total and down, WLANs with clients, telemetry age per WLC, SNMP up. **Controllers:** table (HA role, clients, radios, Linux CPU, IOSd CPU, load, memory; click a WLC for its logs), CPU per core, memory, IOSd CPU and load. **Access points:** AP table (state, clients, IP, model, serial, software, mode, uplink state and speed, tags, last disconnect reason; click an AP for its join/leave lines), radio table (band, state, channel and bonded channels, width, tx power and level, clients, channel busy, tx/rx/non-Wi-Fi airtime, tx/rx traffic, last channel change, BSS color), channel busy, clients, traffic, channel, tx power and retries/failures per radio. **RF environment:** airtime breakdown per radio, AP uplink traffic, noise floor / strongest other network / other networks' airtime / other APs per scanned channel. **SSIDs:** WLAN table (clients, random-MAC clients, download/upload), clients per WLAN, traffic per SSID. **Clients:** table (MAC, IP, AP, SSID, band, protocol, channel, RSSI, SNR, PHY rate, MCS, streams, download/upload, retries, state, security; click a client for its history), clients per WLC and by band/protocol, RSSI and throughput per client. Collapsed: the WLCs' own interfaces from SNMP. WLC picker |
+| Network | Wireless client (C9800) (`wireless-client`) | custom (Prometheus: `wlc_*`, job `wlc`) | One client (MAC picker, most recently seen first): its row of the clients table, RSSI/SNR, PHY rate and spatial streams, throughput and packets (download up, upload down), retries/drops/decrypt and MIC errors, and a timeline of its AP, SSID (a row each) and channel (roams) |
 | Network | Mikrotik monitoring (`mikrotik-snmp`) | [grafana.com 14420](https://grafana.com/grafana/dashboards/14420) rev 9 | MikroTik `mikrotik_lite` module: board/firmware, CPU temperature, per-interface traffic and Ethernet error counters, interface table, neighbors (MNDP/LLDP) |
 | Probes | Blackbox probes (`blackbox-probes`) | custom | ICMP/HTTP/DNS SOA probes: status, availability over the time range, duration, ICMP RTT and hop limit, HTTP status/phases (no TLS)/size, DNS query time, SOA serial and drift between the DNS servers |
 | Monitoring | Monitoring stack (`monitoring-stack`) | custom | Component status and versions, config reloads; Prometheus targets per job, scrape duration, samples, head series, TSDB size, ingestion, rule evaluation, query latency; Alertmanager alerts, silences, notifications; Grafana requests, latency, datasource queries, DB connections, alerting; **Loki and Alloy**: up, ACTIVE ring members per ring, unhealthy/memberlist members, RGWs UP per haproxy, flush failures, Alloy drops and syslog parse errors, lines/bytes received, Alloy sent/received, chunks flushed to S3, S3 requests and p95 latency, in-memory streams and flush queue; SNMP/FRR/node exporter scrape times; **Telegraf** (C9800 telemetry): metrics received per input, InfluxDB writes/drops/errors, output buffer; process memory and CPU |
@@ -246,14 +246,18 @@ config by [`fwwan_config.py`](../../modules/services/monitoring/dashboards/fwwan
 in snapshot" turns orange when fw-wan has rules the snapshot doesn't know.
 
 The wireless dashboards (`wireless` tag, folder Network) share a "Wireless dashboards" dropdown and
-read the C9800 telemetry in the InfluxDB bucket `wlc` (Flux, uid `influxdb`; see
-[C9800 telemetry](#c9800-telemetry-model-driven-dial-out)). The **WLC** picker filters on the
-telemetry's `source` tag, which equals the SNMP jobs' `host` label (`c9800-wlc-1/2`), so the SNMP
-panels follow it too. "Now" values are the newest sample in the last 3 minutes of the time range:
-clients and APs that leave just stop reporting, so they drop out. The APs refresh their counters
-only every 90 s (client traffic, per-SSID stats) or 180 s (radio and uplink counters, RRM), and the
-WLC re-sends the old value in between, so rates are taken over windows of at least 3 minutes and
-channel utilization moves in 3-minute steps. Client traffic is from the AP's side: download is
+read the C9800 telemetry's `wlc_*` series (job `wlc`) from the Prometheus datasource (PromQL, uid
+`prometheus`; see [C9800 telemetry](#c9800-telemetry-model-driven-dial-out)); the InfluxDB history
+from 2026-11-09 on is backfilled into Mimir under the same names. String leaves (AP/client names,
+SSIDs, states, IPs) are labels of `wlc_<short>_info` series, joined in with `group_left`; the
+telemetry's timestamps aren't exported, so there is no AP uptime/joined-for or client connected-for.
+The **WLC** picker filters on the series' `host` label (the WLC, `c9800-wlc-1/2`, the same as the
+SNMP jobs'), so the SNMP panels follow it too. "Now" values are instant queries: Telegraf drops a
+series 150 s after its last push, so clients and APs that leave drop out. The APs refresh their
+counters only every 90 s (client traffic, per-SSID stats) or 180 s (radio and uplink counters, RRM),
+and the WLC re-sends the old value in between, so rate panels have a minimum interval that makes
+`$__rate_interval` at least 3 (or 6) minutes, the tables use `[3m]`/`[6m]`, and channel utilization
+moves in 3-minute steps. Client traffic is from the AP's side: download is
 `bytes_tx` (sent to the client). The tables link to the network device logs (WLC, AP join/leave)
 and the client dashboard; the top bar links to the WLC logs and the SNMP dashboards. c9800-wlc-2
 has no APs or clients, so it only shows up in the controller panels.
@@ -376,9 +380,9 @@ Panels that stay empty, and why:
   which `custom.py` imports and runs; the fw-wan ones' in
   [`dashboards/fwwan.py`](../../modules/services/monitoring/dashboards/fwwan.py), the log
   dashboards' (LogQL) in [`dashboards/logs.py`](../../modules/services/monitoring/dashboards/logs.py),
-  the wireless ones' (Flux, C9800 telemetry) in
+  the wireless ones' (PromQL on the C9800 telemetry's `wlc_*`) in
   [`dashboards/wireless.py`](../../modules/services/monitoring/dashboards/wireless.py), whose docstring
-  lists the measurement and tag names it relies on; the Databases ones (Postgres/Patroni, Valkey) in
+  lists the metric and label names it relies on; the Databases ones (Postgres/Patroni, Valkey) in
   [`dashboards/databases.py`](../../modules/services/monitoring/dashboards/databases.py), the nginx
   reverse proxy's in [`dashboards/nginx.py`](../../modules/services/monitoring/dashboards/nginx.py), DNS
   (BIND)'s in [`dashboards/dns.py`](../../modules/services/monitoring/dashboards/dns.py). After
@@ -490,8 +494,11 @@ no TLS), sent from each WLC's Vlan5 address. Its host is `tofu output wlc_teleme
 monitoring VIP `10.5.11.102` with two backends (see [Backend HA](#backend-ha-mon01--mon02); set by
 `~/network_automation/mon-ha/live/wlc-vip.sh`), else mon01's `10.5.11.30`. The exact CLI is in
 `~/network_automation/wlc-telemetry/wlc-config.md`. The measurement, tag and field names (from a
-real capture) are in `~/network_automation/wlc-telemetry/fields.md`, and the dashboards
-([Wireless (C9800)](#dashboards)) use exactly those.
+real capture) are in `~/network_automation/wlc-telemetry/fields.md`. The dashboards
+([Wireless (C9800)](#dashboards)) read the Prometheus copy of the same data: Telegraf clones every
+message through [`telegraf/wlc.star`](../../modules/services/monitoring/telegraf/wlc.star) into
+`wlc_<short>_<field>` series (string leaves as labels of `wlc_<short>_info`, the WLC as `host`),
+served on `:9275` and scraped by both replicas as job `wlc`; `wireless.py`'s docstring has the names.
 To check that data arrives: `journalctl -u telegraf` on mon01, or in Grafana's Explore
 (InfluxDB): `import "influxdata/influxdb/schema" schema.measurements(bucket: "wlc")`.
 
@@ -989,8 +996,8 @@ bucket and its write-only token, Telegraf started right after InfluxDB, its unit
 on the monitoring address only, `User=telegraf`, token from a 0600 env file, SIGHUP reload), the
 config check and gRPC health check in `deploy.sh`, the `telegraf` scrape job and alert, and that
 `wlc_telemetry = null` leaves all of it out. The two wireless dashboards carry the `wireless` tag and
-dropdown, query only the provisioned InfluxDB datasource and the `wlc` bucket, and pick WLCs by the
-`source` tag. Backend HA (`backend_ha`, `backend_replica_ready`, `backend_vrrp_disabled`,
+dropdown, read `wlc_*` from the Prometheus datasource (no InfluxDB or Flux left), and pick WLCs by the
+`host` label. Backend HA (`backend_ha`, `backend_replica_ready`, `backend_vrrp_disabled`,
 `backend_ha_nic_required`): identical scrapes with per-replica `__replica__`, alerts without it to both
 Alertmanagers, Postgres on mon01 only, Alertmanager gossip on VLAN 215, the keepalived config (VIPs on
 eth2/eth3, adverts over eth4, vrid 102, mon01 first) and the VIP publishes, Grafana's VIP and per-replica
