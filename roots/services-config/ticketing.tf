@@ -15,7 +15,7 @@ variable "ticketing" {
   description = "dark-triage source (pinned commit), listen ports, database and VIP. null = don't deploy."
   type = object({
     repo   = optional(string, "houndsolo/vc-ticketing-system")
-    commit = optional(string, "768822f3542c8c1806e3df1eb5257a5f1ae8101f")
+    commit = optional(string, "7cb8b90bbb9ab110ce55ad1663a7a344bb0b22c9")
     admin  = optional(string, "admin") # bootstrap admin username
     # Postgres on the Patroni cluster (monitoring-config postgres_apps creates role + database
     # "triage" and allows the app VMs' backend addresses). Used only when app_db_passwords has
