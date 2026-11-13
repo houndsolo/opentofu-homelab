@@ -1,7 +1,7 @@
-# The replica backend's InfluxDB (mon02): the same buckets as mon01, each with its own
-# write-only token, and a second Proxmox metric server per cluster/standalone host, so
-# pvestatd pushes to both InfluxDBs. The C9800s send to the monitoring VIP, whose
-# Telegraf writes into both (module telemetry.tf).
+# The replica backend's InfluxDB (mon02): the same buckets as mon01. The C9800s send to the
+# monitoring VIP, whose Telegraf writes into both (module telemetry.tf) with the wlc bucket's
+# write-only token. The pve buckets only keep pvestatd's history until 2026-11-13 (backfill
+# source, pve-metrics.tf): pvestatd no longer writes to InfluxDB, so they have no token.
 #
 # Both InfluxDBs were set up with the same operator token (random_password.influxdb_token),
 # which the replica provider and Grafana use. Write tokens differ per InfluxDB (they're
@@ -43,7 +43,7 @@ resource "influxdb_bucket" "replica" {
 }
 
 resource "influxdb_authorization" "replica" {
-  for_each = local.replica_influxdb ? local.replica_buckets : {}
+  for_each = local.replica_influxdb ? { for key, b in local.replica_buckets : key => b if !startswith(key, "pve-") } : {}
   provider = influxdb.replica
 
   org_id      = data.influxdb_organization.replica[0].id
@@ -56,34 +56,4 @@ resource "influxdb_authorization" "replica" {
       org_id = data.influxdb_organization.replica[0].id
     }
   }]
-}
-
-# A second metric server entry per cluster/host, next to "influxdb" (mon01, pve-metrics.tf).
-resource "proxmox_metrics_server" "cluster_replica" {
-  count = local.replica_influxdb ? 1 : 0
-
-  name                = "influxdb-${local.replica_name}"
-  server              = local.monitoring_address[local.replica_name]
-  port                = local.pve_metric_server.port
-  type                = local.pve_metric_server.type
-  influx_db_proto     = local.pve_metric_server.influx_db_proto
-  influx_organization = local.pve_metric_server.influx_organization
-  influx_bucket       = influxdb_bucket.replica["pve-cluster"].name
-  influx_token        = influxdb_authorization.replica["pve-cluster"].token
-  disable             = local.pve_metric_server.disable
-}
-
-resource "proxmox_metrics_server" "standalone_replica" {
-  for_each = local.replica_influxdb ? toset(local.standalone_pve) : toset([])
-  provider = proxmox.greatfox
-
-  name                = "influxdb-${local.replica_name}"
-  server              = local.monitoring_address[local.replica_name]
-  port                = local.pve_metric_server.port
-  type                = local.pve_metric_server.type
-  influx_db_proto     = local.pve_metric_server.influx_db_proto
-  influx_organization = local.pve_metric_server.influx_organization
-  influx_bucket       = influxdb_bucket.replica["pve-${each.key}"].name
-  influx_token        = influxdb_authorization.replica["pve-${each.key}"].token
-  disable             = local.pve_metric_server.disable
 }

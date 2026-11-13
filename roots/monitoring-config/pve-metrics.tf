@@ -1,11 +1,11 @@
-# Proxmox external metric servers -> InfluxDB on mon01.
+# Proxmox external metric servers (pvestatd, every ~10 s).
 #
-# pvestatd on every node pushes node, guest (VM/LXC) and storage stats every ~10 s
-# over HTTP (InfluxDB v2 API) to mon01's monitoring-network address. The cluster
-# and each standalone host get their own bucket and a token that can only write
-# to it. The metric server entries are cluster-wide (/etc/pve/status.cfg), so the
-# cluster has one, managed through its API, and greatfox has its own. Both were
-# first created by hand and imported (tofu import proxmox_metrics_server.cluster influxdb).
+# Since 2026-11-13 pvestatd writes only to the pvestatd Telegraf on each monitoring backend, which
+# serves the data to Prometheus (below and modules/services/monitoring/pvestatd.tf). The InfluxDB
+# metric servers ("influxdb" -> mon01, "influxdb-mon02") and their write-only tokens are retired.
+# The buckets below (one for the cluster, one per standalone host; mon02's copies in
+# influxdb-replica.tf) keep the history from 2026-11-09 until it is backfilled into Mimir; then
+# they can go too.
 
 locals {
   pve_metric_buckets = merge(
@@ -27,63 +27,9 @@ resource "influxdb_bucket" "pve" {
   retention_period = var.pve_metrics.retention_days * 86400
 }
 
-resource "influxdb_authorization" "pve" {
-  for_each = local.pve_metric_buckets
-
-  org_id      = data.influxdb_organization.monitoring.id
-  description = "Proxmox metric server (${each.key}) -> ${each.value}, write only"
-  permissions = [{
-    action = "write"
-    resource = {
-      type   = "buckets"
-      id     = influxdb_bucket.pve[each.key].id
-      org_id = data.influxdb_organization.monitoring.id
-    }
-  }]
-}
-
-locals {
-  pve_metric_server = {
-    name                = "influxdb"
-    server              = coalesce(try(local.monitoring_address[local.backend_name], null), "0.0.0.0")
-    port                = 8086
-    type                = "influxdb"
-    influx_db_proto     = "http"
-    influx_organization = var.settings.influxdb_org
-    disable             = !var.pve_metrics.enabled
-  }
-}
-
-resource "proxmox_metrics_server" "cluster" {
-  name                = local.pve_metric_server.name
-  server              = local.pve_metric_server.server
-  port                = local.pve_metric_server.port
-  type                = local.pve_metric_server.type
-  influx_db_proto     = local.pve_metric_server.influx_db_proto
-  influx_organization = local.pve_metric_server.influx_organization
-  influx_bucket       = influxdb_bucket.pve["cluster"].name
-  influx_token        = influxdb_authorization.pve["cluster"].token
-  disable             = local.pve_metric_server.disable
-}
-
-resource "proxmox_metrics_server" "standalone" {
-  for_each = toset(local.standalone_pve)
-  provider = proxmox.greatfox
-
-  name                = local.pve_metric_server.name
-  server              = local.pve_metric_server.server
-  port                = local.pve_metric_server.port
-  type                = local.pve_metric_server.type
-  influx_db_proto     = local.pve_metric_server.influx_db_proto
-  influx_organization = local.pve_metric_server.influx_organization
-  influx_bucket       = influxdb_bucket.pve[each.key].name
-  influx_token        = influxdb_authorization.pve[each.key].token
-  disable             = local.pve_metric_server.disable
-}
-
-# pvestatd -> Telegraf -> Prometheus (modules/services/monitoring/pvestatd.tf): one more metric
-# server per monitoring backend, on the cluster and on each standalone host, pointing at that
-# backend's pvestatd Telegraf instead of InfluxDB. Every backend gets the writes, so both
+# pvestatd -> Telegraf -> Prometheus (modules/services/monitoring/pvestatd.tf): one metric server
+# per monitoring backend, on the cluster and on each standalone host, pointing at that backend's
+# pvestatd Telegraf. Every backend gets the writes, so both
 # Prometheus replicas see the same data. Type "influxdb" is the protocol; nothing is stored in
 # InfluxDB (the bucket name is required by PVE and ignored by the listener). They're created
 # after the backends' deploy, so the listener already answers.

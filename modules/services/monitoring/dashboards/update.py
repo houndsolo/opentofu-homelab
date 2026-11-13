@@ -19,11 +19,7 @@ upstream JSON stays readable:
   dashboard with that tag; the SNMP ones also get an "snmp" tag and a dropdown
   that jumps between them keeping the selected device and time range, and the
   Ceph ones a "ceph" tag and a "Ceph dashboards" dropdown (shared with the
-  custom Ceph dashboards), the Proxmox one a "proxmox" tag and a "Proxmox
-  dashboards" dropdown (shared with pve.py's);
-- InfluxDB references point at the provisioned InfluxDB datasource (uid
-  "influxdb"), and the Proxmox bucket picker offers only pve_cluster and
-  pve_greatfox;
+  custom Ceph dashboards);
 - per-dashboard fixes for upstream bugs and for what differs here (metric names,
   labels, units, joins): query text replacements ("replace"), panel edits by
   id ("panel_patches") and panels removed by id ("drop_panels": metrics that
@@ -221,23 +217,6 @@ def status_colors(colors):
         for value, c in colors.items():
             options[value]["color"] = c
         panel["fieldConfig"]["defaults"]["thresholds"] = steps(("green", None), ("orange", 2))
-    return patch
-
-
-def load_avg_right_axis(panel):
-    for override in panel["fieldConfig"]["overrides"]:
-        if override["matcher"] == {"id": "byName", "options": "avg1"}:
-            override["matcher"] = {"id": "byFrameRefID", "options": "C"}
-            return
-    raise SystemExit(f"panel {panel['id']}: no override for 'avg1'")
-
-
-def organize_rename(**names):
-    def patch(panel):
-        organize = next(t for t in panel["transformations"] if t["id"] == "organize")["options"]
-        organize["renameByName"].update(names)
-        if "nodename" in names:  # upstream orders _time, host, _value; the node goes before the uptime
-            organize["indexByName"].update(nodename=2, _value=3)
     return patch
 
 
@@ -591,34 +570,6 @@ DASHBOARDS = {
             **{pid: defaults(thresholds=steps(("green", None), ("orange", 0.7), ("red", 0.8))) for pid in (44, 50)},
         },
     },
-    # PVE external metric server in InfluxDB 2 (Flux). The most used one; the newer ones on
-    # grafana.com are forks of it. The custom Proxmox dashboards (pve.py) go further.
-    "Proxmox/proxmox-cluster-flux.json": {
-        "gnet_id": 15356, "revision": 14, "uid": "proxmox-cluster-flux", "group": "proxmox",
-        "title": "Proxmox cluster [Flux] (community)",
-        "bucket_var": "Bucket",  # upstream lists every bucket (buckets()); offer only the PVE ones
-        # The LXC panels compared nodename with the (multi-value, regex formatted) server
-        # variable, matching nothing unless exactly one server is picked.
-        "replace": [('r["nodename"] == "${server}"', 'r["nodename"] =~ /^${server:regex}$/'),
-                    # Disk counters restart with the guest (restart, migration): no negative rates.
-                    ("|> derivative(unit: 1s)\n", "|> derivative(unit: 1s, nonNegative: true)\n", (30, 31))],
-        "panel_patches": {
-            # Guest CPU is a 0..1 fraction of the guest's CPUs.
-            26: defaults(unit="percentunit", min=0),
-            28: chain(defaults(unit="percentunit", min=0), defaults(noValue="No containers")),
-            # Load average to the right axis: Flux fields carry labels, so byName "avg1" never matched.
-            21: chain(defaults(displayName="${__field.labels.host} ${__field.name}"), load_avg_right_axis),
-            24: defaults(displayName="${__field.labels.host} ${__field.name}"),
-            27: defaults(displayName="${__field.labels.host} ${__field.labels.nodename}"),
-            29: defaults(displayName="${__field.labels.host}", noValue="No containers"),
-            16: chain(organize_rename(nodename="Node"), defaults(noValue="No running VMs")),
-            19: chain(organize_rename(host="Container"), defaults(noValue="No containers")),
-            **{pid: defaults(noValue="No containers") for pid in (32, 33)},
-            # derivative(unit: 1s): rates, not byte counts.
-            34: defaults(unit="Bps"), 35: defaults(unit="Bps"),
-            **{pid: defaults(unit="Bps", noValue="No containers") for pid in (36, 37)},
-        },
-    },
 }
 
 NAV_LINK = {
@@ -636,16 +587,9 @@ CEPH_LINK = {
     "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
     "tooltip": "", "url": "",
 }
-PROXMOX_LINK = {
-    "type": "dashboards", "tags": ["proxmox"], "asDropdown": True, "title": "Proxmox dashboards",
-    "includeVars": True, "keepTime": True, "icon": "external link", "targetBlank": False,
-    "tooltip": "", "url": "",
-}
-GROUP_LINKS = {"snmp": SNMP_LINK, "ceph": CEPH_LINK, "proxmox": PROXMOX_LINK}
+GROUP_LINKS = {"snmp": SNMP_LINK, "ceph": CEPH_LINK}
 
 PROMETHEUS = {"type": "prometheus", "uid": "prometheus"}
-INFLUXDB = {"type": "influxdb", "uid": "influxdb"}  # Flux, org lylat
-PVE_BUCKETS = "lylat cluster : pve_cluster,greatfox : pve_greatfox"
 UPSTREAM_DS_UIDS = {"${DS_MAYA}", "${DS_PROMETHEUS}", "$DS_PROMETHEUS", "$source", "${source}", "PBFA97CFB590B2093",
                     "${ds_prometheus}", "$ds_prometheus", "$datasource", "${datasource}"}
 
@@ -653,9 +597,7 @@ UPSTREAM_DS_UIDS = {"${DS_MAYA}", "${DS_PROMETHEUS}", "$DS_PROMETHEUS", "$source
 def fix_datasources(node):
     if isinstance(node, dict):
         ds = node.get("datasource")
-        if isinstance(ds, dict) and ds.get("type") == "influxdb":
-            node["datasource"] = dict(INFLUXDB)
-        elif isinstance(ds, dict) and (ds.get("type") == "prometheus" or ds.get("uid") in UPSTREAM_DS_UIDS):
+        if isinstance(ds, dict) and (ds.get("type") == "prometheus" or ds.get("uid") in UPSTREAM_DS_UIDS):
             node["datasource"] = dict(PROMETHEUS)
         elif isinstance(ds, str) and ds in UPSTREAM_DS_UIDS:
             node["datasource"] = dict(PROMETHEUS)
@@ -759,11 +701,6 @@ def adapt(dash, spec, rel=""):
         elif v["name"] in spec.get("reset_vars", []):
             v["current"] = {}
             v.pop("options", None)
-        elif v["name"] == spec.get("bucket_var"):
-            for key in ("datasource", "definition", "regex", "sort"):
-                v.pop(key, None)
-            v.update({"type": "custom", "query": PVE_BUCKETS, "label": "Cluster", "options": [],
-                      "current": {"text": "lylat cluster", "value": "pve_cluster", "selected": True}})
     var_patches = dict(spec.get("var_patches", {}))
     for v in variables:
         if v["name"] in var_patches:

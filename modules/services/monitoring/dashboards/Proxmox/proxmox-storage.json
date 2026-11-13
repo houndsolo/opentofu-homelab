@@ -71,29 +71,29 @@
   "templating": {
     "list": [
       {
-        "name": "bucket",
+        "name": "cluster",
         "label": "Cluster",
         "type": "custom",
         "hide": 0,
-        "query": "lylat cluster : pve_cluster,greatfox : pve_greatfox",
-        "description": "InfluxDB bucket: pve_cluster (the lylat cluster) or pve_greatfox (the standalone greatfox).",
+        "query": "lylat cluster : !=,greatfox : =",
+        "description": "The lylat cluster (every node but greatfox) or the standalone greatfox.",
         "multi": false,
         "includeAll": false,
         "options": [
           {
             "text": "lylat cluster",
-            "value": "pve_cluster",
+            "value": "!=",
             "selected": true
           },
           {
             "text": "greatfox",
-            "value": "pve_greatfox",
+            "value": "=",
             "selected": false
           }
         ],
         "current": {
           "text": "lylat cluster",
-          "value": "pve_cluster",
+          "value": "!=",
           "selected": true
         }
       },
@@ -102,11 +102,14 @@
         "label": "Storage",
         "type": "query",
         "datasource": {
-          "type": "influxdb",
-          "uid": "influxdb"
+          "type": "prometheus",
+          "uid": "prometheus"
         },
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"system\" and r.object == \"storages\",\n  start: v.timeRangeStart, stop: v.timeRangeStop)",
-        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"system\" and r.object == \"storages\",\n  start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "definition": "label_values(pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\"}, host)",
+        "query": {
+          "query": "label_values(pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\"}, host)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 2,
         "multi": true,
         "includeAll": true,
@@ -114,6 +117,7 @@
         "sort": 1,
         "regex": "",
         "hide": 0,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -145,16 +149,21 @@
       "title": "Storage used",
       "description": "Used / total. Shared storages once, local ones per node.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n  |> keep(columns: [\"storage\", \"pct\"])",
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "A"
         }
       ],
@@ -199,7 +208,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^pct$/",
+          "fields": "/^Value$/",
           "limit": 50
         },
         "showUnfilled": true,
@@ -217,8 +226,22 @@
       "links": [
         {
           "title": "Proxmox storage",
-          "url": "/d/proxmox-storage/proxmox-storage?var-bucket=${bucket}&${__url_time_range}",
+          "url": "/d/proxmox-storage/proxmox-storage?${cluster:queryparam}&${__url_time_range}",
           "targetBlank": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value",
+                "desc": true
+              }
+            ]
+          }
         }
       ],
       "id": 2,
@@ -227,24 +250,53 @@
         "w": 10,
         "x": 0,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "stat",
       "title": "Storages",
       "description": "Storages reporting now (shared ones once), the ones that reported earlier in the time range but not in the last 2 minutes (went inactive, node down or storage removed), and the fullest one. PVE sends only active storages to the metric server, so a storage that was never active in the range (an unreachable PBS, say) is not counted: `pvesm status` lists those.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nquiet = from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and r._field == \"shared\")\n  |> last()\n  |> group()\n  |> map(fn: (r) => ({storage: if r._value == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\", t: int(v: r._time)}))\n  |> group(columns: [\"storage\"])\n  |> max(column: \"t\")\n  |> group()\n  |> reduce(identity: {n: 0}, fn: (r, accumulator) => ({\n       n: accumulator.n + (if r.t < int(v: date.sub(d: 2m, from: v.timeRangeStop)) then 1 else 0)}))\n  |> findRecord(fn: (key) => true, idx: 0)\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n|> reduce(identity: {storages: 0, fullest: 0.0}, fn: (r, accumulator) => ({\n     storages: accumulator.storages + 1,\n     fullest: if r.pct > accumulator.fullest then r.pct else accumulator.fullest}))\n|> map(fn: (r) => ({r with quiet: if exists quiet.n then quiet.n else 0}))",
+          "editorMode": "code",
+          "expr": "count(max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))) or vector(0)",
+          "legendFormat": "storages",
+          "range": false,
+          "instant": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(max by (storage) (label_replace(max by (host) ((max by (host, nodename) (present_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[$__range]))) and on (host, nodename) (max by (host, nodename) (last_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[$__range])) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (present_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[$__range]))) and on (host, nodename) (max by (host, nodename) (last_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[$__range])) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\")) unless on (storage) max by (storage) (label_replace(max by (host) ((max by (host, nodename) (present_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[2m]))) and on (host, nodename) (max by (host, nodename) (last_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[$__range])) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (present_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[2m]))) and on (host, nodename) (max by (host, nodename) (last_over_time(pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}[$__range])) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))) or vector(0)",
+          "legendFormat": "quiet",
+          "range": false,
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\")))",
+          "legendFormat": "fullest",
+          "range": false,
+          "instant": true,
+          "refId": "C"
         }
       ],
       "fieldConfig": {
@@ -373,27 +425,14 @@
         "wideLayout": true,
         "showPercentChange": false
       },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "renameByName": {},
-            "indexByName": {
-              "storages": 0,
-              "quiet": 1,
-              "fullest": 2
-            }
-          }
-        }
-      ],
       "id": 3,
       "gridPos": {
         "h": 10,
         "w": 5,
         "x": 10,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "stat",
@@ -586,17 +625,139 @@
       "title": "Storages",
       "description": "Now, shared storages once. Growth is the change of used space over the time range, per day; Full in extrapolates it (\"not filling up\" when not growing). Click a storage: Ceph storages open the Ceph cluster dashboard, local ones their node.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\ncur = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nused = from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and r._field == \"used\")\ngrowth = join(tables: {f: used |> first(), l: used |> last()}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({host: r.host, nodename: r.nodename,\n       rate: if r._time_l > r._time_f then (r._value_l - r._value_f) / (float(v: int(v: r._time_l) - int(v: r._time_f)) / 1000000000.0) else 0.0}))\njoin(tables: {a: join(tables: {n: cur, s: strs}, on: [\"host\", \"nodename\"]), g: growth}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({\n       storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       nodename: if r.shared == 1.0 then \"all\" else r.nodename,\n       type: r.type, content: r.content, shared: r.shared, active: r.active, enabled: r.enabled,\n       used: r.used, avail: r.avail, total: r.total, pct: if r.total > 0.0 then r.used / r.total else 0.0,\n       day: r.rate * 86400.0,\n       full: if r.rate > 0.0 then r.avail / r.rate else -1.0,\n       link: if r.type == \"rbd\" or r.type == \"cephfs\" then \"/d/ceph-cluster/ceph-cluster?orgId=1\"\n             else if r.shared == 1.0 then \"/d/proxmox-storage/proxmox-storage?var-bucket=${bucket}&var-storage=\" + r.host\n             else \"/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=\" + r.nodename}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)",
+          "editorMode": "code",
+          "expr": "max by (storage, node, type, content, link) (label_replace(label_replace(label_replace(label_replace(topk by (host) (1, topk by (host, nodename) (1, pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\"), \"node\", \"all\", \"host\", \".*\"), \"link\", \"/d/proxmox-storage/proxmox-storage?var-storage=$1\", \"host\", \"(.*)\"), \"link\", \"/d/ceph-cluster/ceph-cluster?orgId=1\", \"type\", \"rbd|cephfs\") or label_replace(label_replace(label_replace(label_replace(label_join(topk by (host, nodename) (1, pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"), \"node\", \"$1\", \"nodename\", \"(.*)\"), \"link\", \"/d/proxmox-node/proxmox-node?var-node=$1\", \"nodename\", \"(.*)\"), \"link\", \"/d/ceph-cluster/ceph-cluster?orgId=1\", \"type\", \"rbd|cephfs\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_active{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_active{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_enabled{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_enabled{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}))[$__range:5m]) / $__range_s * 86400) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}))[$__range:5m]) / $__range_s * 86400) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) (((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / ((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}))[$__range:5m]) / $__range_s) > 0)) or (max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) * 0 - 1)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join(((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / ((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}))[$__range:5m]) / $__range_s) > 0)) or (max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) * 0 - 1)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "J"
         }
       ],
       "fieldConfig": {
@@ -671,7 +832,7 @@
                 "value": [
                   {
                     "title": "${__data.fields.Storage}",
-                    "url": "${__data.fields.link}&${__url_time_range}"
+                    "url": "${__data.fields.link}&${cluster:queryparam}&${__url_time_range}"
                   }
                 ]
               }
@@ -904,38 +1065,45 @@
       },
       "transformations": [
         {
+          "id": "merge",
+          "options": {}
+        },
+        {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true,
+              "Value #A": true
+            },
             "renameByName": {
               "storage": "Storage",
-              "nodename": "Node",
+              "node": "Node",
               "type": "Type",
               "content": "Content",
-              "shared": "Shared",
-              "active": "Active",
-              "enabled": "Enabled",
-              "used": "Used",
-              "avail": "Available",
-              "total": "Total",
-              "pct": "Used %",
-              "day": "Growth / day",
-              "full": "Full in"
+              "Value #B": "Used",
+              "Value #C": "Available",
+              "Value #D": "Total",
+              "Value #E": "Used %",
+              "Value #F": "Shared",
+              "Value #G": "Active",
+              "Value #H": "Enabled",
+              "Value #I": "Growth / day",
+              "Value #J": "Full in"
             },
             "indexByName": {
               "storage": 0,
-              "nodename": 1,
+              "node": 1,
               "type": 2,
-              "shared": 3,
+              "Value #F": 3,
               "content": 4,
-              "used": 5,
-              "avail": 6,
-              "total": 7,
-              "pct": 8,
-              "day": 9,
-              "full": 10,
-              "active": 11,
-              "enabled": 12,
+              "Value #B": 5,
+              "Value #C": 6,
+              "Value #D": 7,
+              "Value #E": 8,
+              "Value #I": 9,
+              "Value #J": 10,
+              "Value #G": 11,
+              "Value #H": 12,
               "link": 13
             }
           }
@@ -947,7 +1115,8 @@
         "w": 24,
         "x": 0,
         "y": 11
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "row",
@@ -967,16 +1136,20 @@
       "title": "Used",
       "description": "",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.used,\n       series: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\"}))\n  |> group(columns: [\"series\"])\n  |> unique(column: \"_time\")\n  |> sort(columns: [\"_time\"])",
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "{{storage}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -1036,23 +1209,28 @@
         "w": 8,
         "x": 0,
         "y": 22
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Used %",
       "description": "",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.used / r.total,\n       series: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\"}))\n  |> group(columns: [\"series\"])\n  |> unique(column: \"_time\")\n  |> sort(columns: [\"_time\"])",
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "{{storage}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -1112,23 +1290,28 @@
         "w": 8,
         "x": 8,
         "y": 22
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Free",
       "description": "Total - used.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and\n       (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({_time: r._time, _value: r.total - r.used,\n       series: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\"}))\n  |> group(columns: [\"series\"])\n  |> unique(column: \"_time\")\n  |> sort(columns: [\"_time\"])",
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) - max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) - max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "{{storage}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -1187,7 +1370,8 @@
         "w": 8,
         "x": 16,
         "y": 22
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "row",
@@ -1206,16 +1390,21 @@
           "title": "Local storage used per node",
           "description": "Used share of each node-local storage.",
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
           "targets": [
             {
               "datasource": {
-                "type": "influxdb",
-                "uid": "influxdb"
+                "type": "prometheus",
+                "uid": "prometheus"
               },
-              "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.host =~ /^${storage:regex}$/ and (r._field == \"used\" or r._field == \"total\" or r._field == \"shared\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => r.shared == 0.0)\n  |> map(fn: (r) => ({nodename: r.nodename, host: r.host, pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> pivot(rowKey: [\"nodename\"], columnKey: [\"host\"], valueColumn: \"pct\")",
+              "editorMode": "code",
+              "expr": "max by (nodename, host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename${cluster}\"greatfox\", host=~\"$storage\"}) == 0))",
+              "legendFormat": "",
+              "range": false,
+              "instant": true,
+              "format": "table",
               "refId": "A"
             }
           ],
@@ -1312,7 +1501,7 @@
                     "value": [
                       {
                         "title": "Proxmox node",
-                        "url": "/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=${__data.fields.nodename}&${__url_time_range}"
+                        "url": "/d/proxmox-node/proxmox-node?${cluster:queryparam}&var-node=${__data.fields.Node}&${__url_time_range}"
                       }
                     ]
                   },
@@ -1350,11 +1539,20 @@
           },
           "transformations": [
             {
+              "id": "groupingToMatrix",
+              "options": {
+                "columnField": "host",
+                "rowField": "nodename",
+                "valueField": "Value",
+                "emptyValue": "null"
+              }
+            },
+            {
               "id": "organize",
               "options": {
                 "excludeByName": {},
                 "renameByName": {
-                  "nodename": "Node"
+                  "nodename\\host": "Node"
                 },
                 "indexByName": {}
               }
@@ -1366,7 +1564,8 @@
             "w": 24,
             "x": 0,
             "y": 32
-          }
+          },
+          "interval": "10s"
         }
       ]
     }

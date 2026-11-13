@@ -181,7 +181,7 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 
 | Folder | Dashboard (uid) | Source | Shows |
 | --- | --- | --- | --- |
-| Overview | lylat.space overview (`lylat-overview`) | custom (Prometheus + InfluxDB + Loki) | **Status:** targets up/down, firing alerts, failing probes, BGP and BFD across the fabric. **Services:** an HA services tile (Grafana, Prometheus, Alertmanager, Mimir, Loki, Alloy, InfluxDB, Postgres, etcd, Valkey, NetBox, dark-triage, DNS, nginx proxy: OK / DEGRADED / DOWN by the share of members answering, Postgres and Valkey also need exactly one leader/primary; click a tile for its dashboard), the keepalived VIPs and which VM holds each (node_exporter address-info), the published HTTPS sites and the certificate's remaining lifetime. **Databases:** Postgres leader, replicas streaming and lag, commits/s, Valkey primary and memory, NetBox's queued RQ jobs. Then Ceph (health, raw used, client IOPS/throughput, OSDs down / PGs not clean), Proxmox (nodes, guests, lylat CPU/memory, fullest storage), Edge (fw-wan up, WAN, VPN tunnels, firewall drops, conntrack), targets per job / per target and the firing alerts, probe status, BGP/BFD over time and EVPN totals, the host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full or its logs), the top 10 interfaces from node_exporter and SNMP, and log volume by source plus the noisiest hosts |
+| Overview | lylat.space overview (`lylat-overview`) | custom (Prometheus + Loki) | **Status:** targets up/down, firing alerts, failing probes, BGP and BFD across the fabric. **Services:** an HA services tile (Grafana, Prometheus, Alertmanager, Mimir, Loki, Alloy, InfluxDB, Postgres, etcd, Valkey, NetBox, dark-triage, DNS, nginx proxy: OK / DEGRADED / DOWN by the share of members answering, Postgres and Valkey also need exactly one leader/primary; click a tile for its dashboard), the keepalived VIPs and which VM holds each (node_exporter address-info), the published HTTPS sites and the certificate's remaining lifetime. **Databases:** Postgres leader, replicas streaming and lag, commits/s, Valkey primary and memory, NetBox's queued RQ jobs. Then Ceph (health, raw used, client IOPS/throughput, OSDs down / PGs not clean), Proxmox (nodes, guests, lylat CPU/memory, fullest storage), Edge (fw-wan up, WAN, VPN tunnels, firewall drops, conntrack), targets per job / per target and the firing alerts, probe status, BGP/BFD over time and EVPN totals, the host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full or its logs), the top 10 interfaces from node_exporter and SNMP, and log volume by source plus the noisiest hosts |
 | Hosts | Node Exporter Full (`node-exporter-full`) | [grafana.com 1860](https://grafana.com/grafana/dashboards/1860) rev 46 | Everything node_exporter collects, for one host. Pick the job (`node` for the VMs, `vyos-node` for the VyOS routers), then the host |
 | Network | FRR / EVPN fabric (`frr-evpn-fabric`) | custom | BGP peer table (router, VRF, AFI/SAFI, peer, hostname, ASNs, state, uptime, prefixes rx/tx, message rates), session state timeline, established sessions per router, flaps in the time range, BFD peers, EVPN remote VTEPs/MACs/ARP-ND per router and per L2 VNI, routes per VRF, RIB vs FIB, BGP RIB, frr_exporter health. Router and VRF pickers |
 | Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
@@ -205,11 +205,10 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Storage | Ceph RBD overview (mixin) (`ceph-rbd-overview`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | RBD IOPS/throughput/latency totals and the top images |
 | Storage | Ceph RBD details (mixin) (`ceph-rbd-details`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | One image: IOPS, throughput, latency |
 | Storage | Ceph filesystem (mixin) (`ceph-filesystem`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | CephFS: metadata/data pool usage and I/O, MDS requests, sessions, caps, cache, journal, reply latency |
-| Proxmox | Proxmox overview (`proxmox-overview`) | custom (InfluxDB) | **Cluster:** nodes up/down, guests (running VMs/CTs, stopped, templates), CPU and memory over all nodes (sparklines), vCPUs and memory allocated to running guests vs the nodes' cores and RAM. **Nodes:** table (state, uptime, CPU, cores, load per core, IO wait, memory, RAM, swap, root FS, guests, physical NIC in/out; click for Proxmox node). **Node trends:** CPU, memory, load per core, physical NIC traffic, IO wait per node. **Guests:** top 10 by CPU, memory, disk I/O and network, running guests over time, guest CPU per node. **Storage:** used % per storage (shared ones once) and over time |
-| Proxmox | Proxmox node (`proxmox-node`) | custom (InfluxDB + Prometheus) | One node (picker): state, uptime, CPU/memory/swap/root FS gauges, load per core, guests, cores/RAM/swap/disk, node_exporter state (click for Node Exporter Full); CPU and IO wait, load averages vs cores; memory (used/available, ZFS ARC where there is one), swap, root FS; physical NICs, bridges and bonds, interface table; its guests (table, click for Proxmox guests; stacked CPU, memory, disk I/O and network); its storages; collapsed: temperatures and disk busy from node_exporter |
-| Proxmox | Proxmox guests (`proxmox-guest`) | custom (InfluxDB) | Every guest on the selected nodes (table: type, node, status, uptime, vCPUs, CPU, memory used/configured, disk size, disk and net rates, tags), then one guest (picker by name, value = vmid): status, type, node, uptime, vCPUs, memory, disk size, tags, CPU/memory/balloon/CT root disk gauges, pressure (PSI), QEMU version and machine; CPU, memory (used, host, configured, balloon target), pressure; disk throughput, per-disk IOPS, latency and throughput, CT root disk, I/O errors; network total and per NIC; collapsed: balloon, guest page faults and swap |
-| Proxmox | Proxmox storage (`proxmox-storage`) | custom (InfluxDB + Prometheus) | Used % per storage (shared ones once, local ones per node), count/inactive/fullest, Ceph health and raw used (click for Ceph cluster); storage table (type, shared, content, used, available, total, %, growth per day over the time range, when it's full at that rate; click: Ceph storages open Ceph cluster, local ones their node); used, used % and free over time; collapsed: local storage used per node. Storage picker |
-| Proxmox | Proxmox cluster [Flux] (community) (`proxmox-cluster-flux`) | [grafana.com 15356](https://grafana.com/grafana/dashboards/15356) rev 14 | The most used PVE/InfluxDB 2 dashboard: per-node summary rows (repeated per server: CPU, cores, memory, swap, load, IO wait, storage pools), running VMs/LXCs, host CPU and memory, VM and LXC CPU, memory, disk I/O and traffic. Cluster (bucket) and server pickers |
+| Proxmox | Proxmox overview (`proxmox-overview`) | custom (Prometheus, job `pvestatd`) | **Cluster:** nodes up/down, guests (running VMs/CTs, stopped, templates), CPU and memory over all nodes (sparklines), vCPUs and memory allocated to running guests vs the nodes' cores and RAM. **Nodes:** table (state, uptime, CPU, cores, load per core, IO wait, memory, RAM, swap, root FS, guests, physical NIC in/out; click for Proxmox node). **Node trends:** CPU, memory, load per core, physical NIC traffic, IO wait per node. **Guests:** top 10 by CPU, memory, disk I/O and network, running guests over time, guest CPU per node. **Storage:** used % per storage (shared ones once) and over time |
+| Proxmox | Proxmox node (`proxmox-node`) | custom (Prometheus, job `pvestatd`) | One node (picker): state, uptime, CPU/memory/swap/root FS gauges, load per core, guests, cores/RAM/swap/disk, node_exporter state (click for Node Exporter Full); CPU and IO wait, load averages vs cores; memory (used/available, ZFS ARC where there is one), swap, root FS; physical NICs, bridges and bonds, interface table; its guests (table, click for Proxmox guests; stacked CPU, memory, disk I/O and network); its storages; collapsed: temperatures and disk busy from node_exporter |
+| Proxmox | Proxmox guests (`proxmox-guest`) | custom (Prometheus, job `pvestatd`) | Every guest on the selected nodes (table: type, node, status, uptime, vCPUs, CPU, memory used/configured, disk size, disk and net rates, tags), then one guest (picker by name, value = vmid): status, type, node, uptime, vCPUs, memory, disk size, tags, CPU/memory/balloon/CT root disk gauges, pressure (PSI); CPU, memory (used, host, configured, balloon target), pressure; disk throughput, per-disk IOPS, latency and throughput, CT root disk, I/O errors; network total and per NIC; collapsed: balloon, guest page faults and swap |
+| Proxmox | Proxmox storage (`proxmox-storage`) | custom (Prometheus, job `pvestatd`) | Used % per storage (shared ones once, local ones per node), count/inactive/fullest, Ceph health and raw used (click for Ceph cluster); storage table (type, shared, content, used, available, total, %, growth per day over the time range, when it's full at that rate; click: Ceph storages open Ceph cluster, local ones their node); used, used % and free over time; collapsed: local storage used per node. Storage picker |
 | Logs | Logs overview (`logs-overview`) | custom (Loki) | Lines, lines/s, errors and warnings in range, hosts sending, syslog parse errors; lines by source, level and host, errors/warnings by host; noisiest hosts (click to filter) and apps, most errors; newest errors table; log browser. Source, host, app, level and search (regex) pickers |
 | Logs | Network device logs (`logs-network`) | custom (Loki) | Leaves, fw-wan, MikroTik spines/CRS317, FS switches, C9800 WLCs: event counts (BGP/BFD, interface up/down, STP, auth failures, logins, config changes, AP join/leave, client failures), events per device (status history), events by category, lines per device; BGP and BFD session changes of the VyOS routers from frr_exporter (Prometheus: changed or restarted sessions, state timeline), RouterOS session state lines, interface events, STP, logins/auth failures/config changes, AP join/leave table, client failures, Cisco/FS message types; all device logs. Device and search pickers |
 | Logs | fw-wan firewall & VPN logs (`logs-fw-wan`) | custom (Loki) | Firewall log parsed with LogQL (chain, rule, action, in/out, proto, addresses, ports): logged/dropped/rejected/accepted, distinct sources and ports, by rule/action/interface, top dropped sources, destinations, ports and rules, firewall log table; strongSwan IKE events (initiating, established, retransmits, failures, deletes), initiations per connection, charon log without packet traces, WireGuard; config commits and the rest of the router log. Action, address and search pickers |
@@ -226,14 +225,14 @@ in the top bar ("SNMP dashboards") switches between them and keeps the selected
 device and time range. The device and host pickers show each target's `host` label.
 The Ceph dashboards (`ceph` tag) likewise share a "Ceph dashboards" dropdown.
 
-The Proxmox dashboards (`proxmox` tag) read what `pvestatd` pushes to InfluxDB (see
-[Things to know](#things-to-know)) through the provisioned InfluxDB datasource (uid
-`influxdb`, Flux). A **Cluster** picker selects the bucket: `pve_cluster` (the lylat
-cluster) or `pve_greatfox` (the standalone greatfox). They share a "Proxmox dashboards"
-dropdown that carries the selected cluster, node and guest along (the community one
-calls its picker `Bucket`, so it starts on the lylat cluster). Values shown "now" are the
-newest sample within the last 2 minutes of the time range, so deleted or migrated guests
-drop out; a node counts as down once it hasn't reported for a minute.
+The Proxmox dashboards (`proxmox` tag) read what `pvestatd` pushes (see
+[Things to know](#things-to-know)) as `pvestatd_<measurement>_<field>` series (job `pvestatd`,
+10 s) from the default Prometheus datasource (Mimir); their panels have a 10 s minimum
+interval. A **Cluster** picker selects the lylat cluster (every node but greatfox) or the
+standalone greatfox. They share a "Proxmox dashboards" dropdown that carries the selected
+cluster, node and guest along. Values shown "now" are instant queries at the end of the time
+range (a guest that stops being reported drops out a minute later, when the pvestatd Telegraf
+expires it); a node counts as down once it hasn't reported for a minute.
 
 The fw-wan dashboards (`fw-wan` tag, folder Edge) share a "fw-wan dashboards" dropdown and
 read Prometheus (jobs `vyos-node`, `vyos-frr`, `vyos-telegraf`, `blackbox-icmp`) plus fw-wan's
@@ -344,17 +343,20 @@ Panels that stay empty, and why:
   line, not the level.
 - Hosts without an exporter yet (DNS VMs, the standalone greatfox) show as DOWN in
   the target tables and are left out of everything else.
-- **Proxmox dashboards:** the PVE metric servers started writing on 2026-11-09, so trends,
-  growth and "Full in" need a few days of history to mean much. PVE reports no disk usage
+- **Proxmox dashboards:** the `pvestatd_*` series start on 2026-11-13 10:10Z; the InfluxDB
+  history (`pve_cluster`/`pve_greatfox`, since 2026-11-09) shows up once it's backfilled into
+  Mimir under the same names. Trends, growth and "Full in" need a few days of history to mean much. PVE reports no disk usage
   inside VMs (`disk` is 0 without a guest agent query), so "Root disk (CT)" and "Root disk
-  used (CT)" are containers only, and the per-disk IOPS/latency, per-NIC, QEMU, balloon and
+  used (CT)" are containers only, and the per-disk IOPS/latency, per-NIC, balloon and
   "I/O errors" panels are VMs only (container NICs are veths on the node). Latency and the
   top-guest disk/network bars are empty while nothing does I/O. The balloon page-fault and
   swap panels need the guest's balloon driver to report stats (empty for the C9800 WLCs).
   There is no KSM or per-node pressure data in pvestatd's output, and no ZFS on the cluster
   nodes (ARC stays hidden). node_exporter panels on the node dashboard are empty for
-  greatfox (no exporter). In the community dashboard, the LXC panels are empty for nodes
-  without running containers.
+  greatfox (no exporter). pvestatd's strings aren't exported: a guest's status is running or
+  stopped only (paused/suspended read stopped), the interface table's Type follows PVE's
+  physical-NIC name rule, and the QEMU version/machine are not shown. A storage's `content`
+  label arrives in a different order per push, so storage queries collapse it (max by host, nodename).
 
 ### Changing the dashboards
 
@@ -370,7 +372,7 @@ Panels that stay empty, and why:
   [`dashboards/custom.py`](../../modules/services/monitoring/dashboards/custom.py)
   and run `python3 -I modules/services/monitoring/dashboards/custom.py`. It writes
   the JSON offline. Don't edit the generated JSON by hand. The Proxmox dashboards' builders
-  (Flux queries) live in [`dashboards/pve.py`](../../modules/services/monitoring/dashboards/pve.py),
+  (PromQL on `pvestatd_*`) live in [`dashboards/pve.py`](../../modules/services/monitoring/dashboards/pve.py),
   which `custom.py` imports and runs; the fw-wan ones' in
   [`dashboards/fwwan.py`](../../modules/services/monitoring/dashboards/fwwan.py), the log
   dashboards' (LogQL) in [`dashboards/logs.py`](../../modules/services/monitoring/dashboards/logs.py),
@@ -517,13 +519,13 @@ per-replica bits below. The rendering is in the module's `backends.tf`; the repl
   `/health` or Alertmanager `/-/ready` fails locally. Containers publish on the VIPs too, so the backends set
   `net.ipv4.ip_nonlocal_bind = 1` (`/etc/sysctl.d/90-monitoring-vip.conf`). Alert `MonitoringVIPNotHeldOnce`.
 - **InfluxDB on both.** Both are initialised with the same operator token (Grafana, the providers). Every writer
-  writes to both: the Proxmox cluster and greatfox have a second metric server `influxdb-mon02`; the C9800s
-  send to the WLC Telegraf on the monitoring VIP `10.5.11.102:57500`, and each Telegraf writes bucket `wlc` on
+  writes to both: the C9800s send to the WLC Telegraf on the monitoring VIP `10.5.11.102:57500`, and each Telegraf writes bucket `wlc` on
   both InfluxDBs (local by container name, the peer over the backend VLAN with that InfluxDB's token; alerts
   `WlcTelemetryStopped` over both, `WlcTelemetryWriteDropping`). A second named receiver per subscription
-  doesn't work: IOS XE keeps only one receiver of a subscription active, the rest are standbys.
+  doesn't work: IOS XE keeps only one receiver of a subscription active, the rest are standbys. The pve buckets
+  on both only hold pvestatd's history up to 2026-11-13 (no writer, no token).
 - **Two stages.** The `influxdb.replica` provider has to reach a running InfluxDB to plan, so mon02's buckets,
-  tokens, metric servers and WLC Telegraf wait for `influxdb_replica_ready = true` (deploy mon02 first; until then the
+  tokens and WLC Telegraf wait for `influxdb_replica_ready = true` (deploy mon02 first; until then the
   provider points at the primary and manages nothing). mon02's InfluxDB history can be copied from mon01 with Flux
   `to()` (runbook).
 - **Grafana's database** is the Patroni cluster on pg01-03 (VIP 10.13.11.104) since 2026-11-10; mon01's
@@ -861,13 +863,13 @@ graf01/02 --sslmode=require--> VIP 10.13.11.104:5432 (keepalived on the Patroni 
 | `monitoring_primary` | `"mon01"` | [Backend HA](#backend-ha-mon01--mon02): the backend with Postgres and the default `influxdb` provider; the other `role = "monitoring"` VM (at most one) is the replica |
 | `monitoring_ha_vlan_id` | `215` | HA VLAN of the backends (L2VNI `ha_monitor`): keepalived adverts, Alertmanager gossip; each backend needs one addressed NIC on it |
 | `backend_vrrp` | VIPs `10.5.11.102/16`, `10.13.11.102/16`, router id 102 | keepalived on the backends (password generated); `null` = no VIPs, Grafana uses the primary |
-| `influxdb_replica_ready` | `false` | Stage 2: make mon02's buckets/tokens (provider `influxdb.replica`), its Proxmox metric servers and WLC Telegraf. Set once mon02's InfluxDB runs |
+| `influxdb_replica_ready` | `false` | Stage 2: make mon02's buckets/tokens (provider `influxdb.replica`) and WLC Telegraf. Set once mon02's InfluxDB runs |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
 | `images` | pinned tags | Container images; override one key at a time |
 | `settings` | see `variables.tf` | Prometheus local retention (7d / 20GB; Mimir keeps the long-term copy), InfluxDB org/initial bucket/retention, the Grafana InfluxDB datasource's default bucket (`pve_cluster`), Grafana root URL, DNS probe zone |
 | `pve_api_token`, `greatfox_api_token` | required | Proxmox API tokens for the metric servers, from the linked `proxmox.secret.auto.tfvars` |
 | `pve_api_node` | `null` (`nodes.cluster_api_node`) | Cluster node whose API manages the cluster's metric server; set another node if that one is unreachable |
-| `pve_metrics` | see `variables.tf` | Proxmox metric servers: `enabled`, bucket names (`pve_cluster`, `pve_<standalone host>`), `retention_days` (90) |
+| `pve_metrics` | see `variables.tf` | Proxmox metric servers: `enabled`, `pvestatd_port` (8186), the history buckets' names (`pve_cluster`, `pve_<standalone host>`) and `retention_days` (90) |
 | `pve_exporter_token` | `null` | PVE API token; `null` leaves pve-exporter out |
 | `grafana_admin_password`, `influxdb_admin_password` | `null` (generated) | Fixed UI passwords; set them in a git-ignored `*.secret.auto.tfvars`. Only used when Grafana/InfluxDB first initialise. InfluxDB needs 8+ characters |
 | `snmp_v3_auths` | `{}` | SNMPv3 credentials for snmp_exporter (git-ignored `*.secret.auto.tfvars`); written to `/etc/monitoring/snmp-exporter/auths.yml` and loaded as a second exporter config file. The WLCs' `lylat_v3` lives here |
@@ -920,11 +922,14 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
   Alertmanager and Grafana but not sent anywhere until you add a receiver.
 - **Postgres is reachable only on the backend VLAN**, which no other VRF routes to.
 - **The Proxmox metric servers are managed here** ([`pve-metrics.tf`](pve-metrics.tf)).
-  The cluster and the standalone greatfox each have a PVE metric server called
-  `influxdb` (`/etc/pve/status.cfg`) that `pvestatd` uses to push node, guest (VM/LXC)
-  and storage stats every ~10 s over HTTP to InfluxDB on mon01's monitoring
-  address. Each writes to its own bucket (`pve_cluster`, `pve_greatfox`; 90-day
-  retention) with its own write-only token. Buckets and tokens are created through
+  The cluster and the standalone greatfox each have one PVE metric server per monitoring
+  backend, `pvestatd-mon01` and `pvestatd-mon02` (`/etc/pve/status.cfg`, type `influxdb`),
+  that `pvestatd` uses to push node, guest (VM/LXC) and storage stats every ~10 s over HTTP
+  to that backend's pvestatd Telegraf (`:8186`, token-checked), which Prometheus scrapes as
+  job `pvestatd` (10 s; module `pvestatd.tf`). Until 2026-11-13 they wrote to InfluxDB
+  (metric servers `influxdb` and `influxdb-mon02`, buckets `pve_cluster`, `pve_greatfox`;
+  90-day retention): those buckets stay as history (no writer, no token) until it's
+  backfilled into Mimir. Buckets are created through
   the InfluxDB API by the `komminarlabs/influxdb` provider, so mon01 must be
   deployed before they can be planned; the metric servers go through the bpg
   provider (cluster API and the `proxmox.greatfox` alias), which needs
@@ -933,10 +938,9 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
   The InfluxDB setup's initial bucket (`proxmox`) is unused.
 - **greatfox unreachable = untargeted plans fail.** greatfox is a standalone PVE host (not in the
   cluster), reached on its own API. When it's down, any untargeted `plan`/`apply` of this root
-  fails while refreshing `proxmox_metrics_server.standalone["greatfox"]` and
-  `proxmox_metrics_server.standalone_replica["greatfox"]` (`dial tcp 10.20.7.20:8006`). Until it's
-  back, exclude both:
-  `tofu -chdir=roots/monitoring-config plan -exclude='proxmox_metrics_server.standalone' -exclude='proxmox_metrics_server.standalone_replica'`
+  fails while refreshing `proxmox_metrics_server.pvestatd_standalone["greatfox/mon01"]` and
+  `["greatfox/mon02"]` (`dial tcp 10.20.7.20:8006`). Until it's back, exclude them:
+  `tofu -chdir=roots/monitoring-config plan -exclude='proxmox_metrics_server.pvestatd_standalone'`
   (same for `apply`). Nothing else here depends on them, so the rest of the root plans normally.
 - **Grafana.com dashboard 12468** ("Cisco Catalyst 9800 - Client Stats") isn't provisioned: it is
   InfluxQL, which would need a DBRP mapping for `wlc` (the `komminarlabs/influxdb` provider has no
@@ -971,7 +975,7 @@ Postgres/InfluxDB data-directory owners, the dashboard provider and files (the
 expected files and uids per folder, every query uses the provisioned Prometheus
 datasource, no import-time placeholders, every dashboard in the `lylat` links
 dropdown, the Ceph dashboards' `ceph` tag and dropdown with no `$datasource` left, the Proxmox
-dashboards' `proxmox` tag and dropdown, InfluxDB datasource and PVE-only bucket picker, the fw-wan
+dashboards' `proxmox` tag and dropdown, `pvestatd_*` queries with no InfluxDB/Flux left and the cluster picker, the fw-wan
 dashboards' `fw-wan` tag and dropdown and the routing one's fw-wan default, Node Exporter Full's job and host pickers, the overview as home
 dashboard, no restart for JSON changes, stale files pruned), that a missing
 backend NIC fails the plan, and the logging stack: Loki's ring on the HA VLAN, RF 3, S3 through the

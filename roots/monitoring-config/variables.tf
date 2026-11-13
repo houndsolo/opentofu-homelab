@@ -289,9 +289,9 @@ variable "pve_api_node" {
 }
 
 variable "pve_metrics" {
-  description = "Proxmox external metric servers (pvestatd, every ~10 s) writing to InfluxDB on mon01 over HTTP: one bucket and one write-only token for the cluster (\"<cluster_bucket>\") and one per standalone host (\"<standalone_bucket_prefix><host>\")."
+  description = "Proxmox external metric servers (pvestatd, every ~10 s): one per monitoring backend on the cluster and on each standalone host, writing to that backend's pvestatd Telegraf on pvestatd_port (-> Prometheus). The InfluxDB buckets (\"<cluster_bucket>\", \"<standalone_bucket_prefix><host>\", retention_days) only hold the history from before 2026-11-13."
   type = object({
-    enabled                  = optional(bool, true) # false keeps the config but stops pvestatd sending
+    enabled                  = optional(bool, true) # false keeps the config but stops pvestatd sending (pvestatd Telegrafs off too)
     cluster_bucket           = optional(string, "pve_cluster")
     standalone_bucket_prefix = optional(string, "pve_")
     retention_days           = optional(number, 90)

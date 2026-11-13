@@ -53,7 +53,30 @@ from custom import (
     fixed_color, gauge, hidden, mapping, organize, override, q, stat, state_timeline, steps, table, timeseries,
 )
 from theme import ACCENT, ACCENT2, SERIES
-from pve import bars, field_links, joined, text_stat
+from pve import field_links
+
+
+# Flux table helpers (pve.py had them while it read InfluxDB too).
+def bars(title, targets, **kw):
+    """A bar per row of one table (sorted in Flux); the row's string column names the bar."""
+    p = bargauge(title, targets, **kw)
+    p["options"]["reduceOptions"] = {"values": True, "calcs": ["lastNotNull"], "fields": "", "limit": 50}
+    return p
+
+
+def text_stat(title, targets, **kw):
+    """A stat that shows string fields (status, tags, versions)."""
+    kw.setdefault("color_mode", "value")
+    p = stat(title, targets, **kw)
+    # Every field but the time column: a "fields" regex matches the time field too, which would show up
+    # as a "Time" tile next to the value.
+    p["options"]["reduceOptions"] = {"values": False, "calcs": ["lastNotNull"], "fields": "/^(?!Time$).*$/"}
+    return p
+
+
+def joined(by):
+    return {"id": "joinByField", "options": {"byField": by, "mode": "outer"}}
+
 
 INFLUX = {"type": "influxdb", "uid": "influxdb"}
 BUCKET = "wlc"  # wlc_telemetry.bucket in roots/monitoring-config
@@ -112,7 +135,7 @@ M = {
 
 # --- Flux --------------------------------------------------------------------------
 #
-# Like pve.py: plain Flux with %(name)s placeholders, %(m_<key>)s for a measurement filter.
+# Plain Flux with %(name)s placeholders, %(m_<key>)s for a measurement filter.
 FRAGMENTS = {
     "src": f'from(bucket: "{BUCKET}")',
     "range": "range(start: v.timeRangeStart, stop: v.timeRangeStop)",

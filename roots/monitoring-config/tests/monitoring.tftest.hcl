@@ -138,7 +138,6 @@ run "inventory_targets" {
         "Network/wireless-overview.json"                   = "wireless-overview"
         "Overview/overview.json"                           = "lylat-overview"
         "Probes/blackbox-probes.json"                      = "blackbox-probes"
-        "Proxmox/proxmox-cluster-flux.json"                = "proxmox-cluster-flux"
         "Proxmox/proxmox-guest.json"                       = "proxmox-guest"
         "Proxmox/proxmox-node.json"                        = "proxmox-node"
         "Proxmox/proxmox-overview.json"                    = "proxmox-overview"
@@ -227,12 +226,11 @@ run "inventory_targets" {
   }
 
   assert {
-    # The Proxmox and wireless dashboards read InfluxDB (PVE metric servers, C9800 telemetry); some add Prometheus panels.
+    # The wireless dashboards read InfluxDB (C9800 telemetry); some add Prometheus panels.
     # The log dashboards (Logs/) read Loki.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
       (
         strcontains(content, "{\"type\":\"prometheus\",\"uid\":\"prometheus\"}") ||
-        (startswith(rel, "Proxmox/") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}")) ||
         (startswith(rel, "Network/wireless-") && strcontains(content, "{\"type\":\"influxdb\",\"uid\":\"influxdb\"}")) ||
         (startswith(rel, "Logs/") && strcontains(content, "{\"type\":\"loki\",\"uid\":\"loki\"}"))
       ) &&
@@ -259,18 +257,16 @@ run "inventory_targets" {
   }
 
   assert {
-    # The Proxmox dashboards (custom and community) query only the provisioned InfluxDB datasource,
-    # pick the bucket from the two PVE buckets (not buckets(), which lists InfluxDB's own too) and
-    # share a "Proxmox dashboards" dropdown.
+    # The Proxmox dashboards read pvestatd's series (job pvestatd) from the Prometheus datasource, no
+    # InfluxDB or Flux left, pick the cluster (lylat or greatfox) and share a "Proxmox dashboards" dropdown.
     condition = alltrue([for rel, content in module.monitoring.dashboards : (
       contains(jsondecode(content).tags, "proxmox") &&
       length([for l in jsondecode(content).links : l if l.type == "dashboards" && contains(l.tags, "proxmox")]) == 1 &&
-      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) > 0 &&
-      length(regexall("\"type\":\"influxdb\",\"uid\":\"[^\"]*\"", content)) == length(regexall("\"type\":\"influxdb\",\"uid\":\"influxdb\"", content)) &&
-      length([for v in jsondecode(content).templating.list : v if lower(v.name) == "bucket" && v.type == "custom" && v.query == "lylat cluster : pve_cluster,greatfox : pve_greatfox"]) == 1 &&
-      !strcontains(content, "buckets()")
+      strcontains(content, "pvestatd_") &&
+      !strcontains(content, "influx") && !strcontains(content, "from(bucket") &&
+      length([for v in jsondecode(content).templating.list : v if v.name == "cluster" && v.type == "custom" && v.query == "lylat cluster : !=,greatfox : ="]) == 1
     ) if startswith(rel, "Proxmox/")])
-    error_message = "Proxmox dashboards carry the proxmox tag and dropdown, use the provisioned InfluxDB datasource and offer only the PVE buckets."
+    error_message = "Proxmox dashboards carry the proxmox tag and dropdown, read pvestatd_* from Prometheus (no InfluxDB/Flux) and offer the cluster picker."
   }
 
   assert {
@@ -348,6 +344,7 @@ run "exporters_and_ceph_alerts" {
       )]) &&
       strcontains(module.monitoring.pvestatd_telegraf_config, "token = \"$${PVESTATD_TOKEN}\"") &&
       strcontains(module.monitoring.pvestatd_telegraf_config, "string_as_label = false") &&
+      strcontains(module.monitoring.pvestatd_telegraf_config, "sep.join(sorted(") && # tags/content in a fixed order
       one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "pvestatd"]).scrape_interval == "10s" &&
       one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "pvestatd"]).static_configs[0].targets == ["pvestatd:9274"] &&
       strcontains(module.monitoring.prometheus_rules, "PveMetricsStopped")
@@ -539,14 +536,12 @@ run "pve_metric_servers" {
     condition = (
       output.pve_metric_buckets == { cluster = "pve_cluster", greatfox = "pve_greatfox" } &&
       influxdb_bucket.pve["cluster"].retention_period == 90 * 86400 &&
-      proxmox_metrics_server.cluster.server == "10.5.11.30" &&
-      proxmox_metrics_server.cluster.influx_bucket == "pve_cluster" &&
-      proxmox_metrics_server.cluster.influx_db_proto == "http" &&
-      !proxmox_metrics_server.cluster.disable &&
-      proxmox_metrics_server.standalone["greatfox"].influx_bucket == "pve_greatfox" &&
-      alltrue([for a in influxdb_authorization.pve : length(a.permissions) == 1 && a.permissions[0].action == "write"])
+      # pvestatd writes only to the pvestatd Telegrafs: one metric server per backend, on the cluster and on greatfox.
+      toset(keys(proxmox_metrics_server.pvestatd)) == toset(["mon01", "mon02"]) &&
+      toset(keys(proxmox_metrics_server.pvestatd_standalone)) == toset(["greatfox/mon01", "greatfox/mon02"]) &&
+      alltrue([for s in values(proxmox_metrics_server.pvestatd) : s.port == 8186 && s.influx_db_proto == "http" && !s.disable])
     )
-    error_message = "The cluster and greatfox each push over HTTP to mon01, into their own bucket, with a write-only token."
+    error_message = "The cluster and greatfox each push over HTTP to every backend's pvestatd Telegraf; the pve buckets stay for their history."
   }
 }
 
@@ -930,7 +925,7 @@ run "backend_ha" {
 
   assert {
     # Before influxdb_replica_ready: nothing on mon02's InfluxDB.
-    condition     = length(influxdb_bucket.replica) == 0 && length(proxmox_metrics_server.cluster_replica) == 0
+    condition     = length(influxdb_bucket.replica) == 0 && length(influxdb_authorization.replica) == 0
     error_message = "The replica's InfluxDB objects wait for influxdb_replica_ready."
   }
 }
@@ -955,14 +950,11 @@ run "backend_replica_ready" {
   assert {
     condition = (
       toset(keys(influxdb_bucket.replica)) == toset(["pve-cluster", "pve-greatfox", "wlc"]) &&
-      alltrue([for a in values(influxdb_authorization.replica) : length(a.permissions) == 1 && a.permissions[0].action == "write"]) &&
-      proxmox_metrics_server.cluster_replica[0].name == "influxdb-mon02" &&
-      proxmox_metrics_server.cluster_replica[0].server == "10.5.11.31" &&
-      proxmox_metrics_server.cluster_replica[0].influx_bucket == "pve_cluster" &&
-      proxmox_metrics_server.standalone_replica["greatfox"].influx_bucket == "pve_greatfox" &&
-      proxmox_metrics_server.cluster.server == "10.5.11.30" # the primary's entry stays
+      # Only the WLC Telegraf writes to InfluxDB: the pve buckets (history) have no token.
+      toset(keys(influxdb_authorization.replica)) == toset(["wlc"]) &&
+      alltrue([for a in values(influxdb_authorization.replica) : length(a.permissions) == 1 && a.permissions[0].action == "write"])
     )
-    error_message = "mon02's InfluxDB gets the same buckets with write-only tokens, and a second metric server per cluster/host."
+    error_message = "mon02's InfluxDB gets the same buckets; only the wlc bucket has a write-only token."
   }
 
   assert {

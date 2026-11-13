@@ -83,29 +83,29 @@
   "templating": {
     "list": [
       {
-        "name": "bucket",
+        "name": "cluster",
         "label": "Cluster",
         "type": "custom",
         "hide": 0,
-        "query": "lylat cluster : pve_cluster,greatfox : pve_greatfox",
-        "description": "InfluxDB bucket: pve_cluster (the lylat cluster) or pve_greatfox (the standalone greatfox).",
+        "query": "lylat cluster : !=,greatfox : =",
+        "description": "The lylat cluster (every node but greatfox) or the standalone greatfox.",
         "multi": false,
         "includeAll": false,
         "options": [
           {
             "text": "lylat cluster",
-            "value": "pve_cluster",
+            "value": "!=",
             "selected": true
           },
           {
             "text": "greatfox",
-            "value": "pve_greatfox",
+            "value": "=",
             "selected": false
           }
         ],
         "current": {
           "text": "lylat cluster",
-          "value": "pve_cluster",
+          "value": "!=",
           "selected": true
         }
       },
@@ -114,11 +114,14 @@
         "label": "Node",
         "type": "query",
         "datasource": {
-          "type": "influxdb",
-          "uid": "influxdb"
+          "type": "prometheus",
+          "uid": "prometheus"
         },
-        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"cpustat\", start: v.timeRangeStart, stop: v.timeRangeStop)",
-        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"${bucket}\", tag: \"host\",\n  predicate: (r) => r._measurement == \"cpustat\", start: v.timeRangeStart, stop: v.timeRangeStop)",
+        "definition": "label_values(pvestatd_cpustat_cpus{object=\"nodes\", host${cluster}\"greatfox\"}, host)",
+        "query": {
+          "query": "label_values(pvestatd_cpustat_cpus{object=\"nodes\", host${cluster}\"greatfox\"}, host)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 2,
         "multi": false,
         "includeAll": false,
@@ -149,16 +152,20 @@
       "title": "State",
       "description": "UP if the node reported within the last minute of the time range.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r.host == \"${node}\" and r._field == \"avg1\")\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: if int(v: v.timeRangeStop) - int(v: r._time) < 60000000000 then 1 else 0}))",
+          "editorMode": "code",
+          "expr": "max(present_over_time(pvestatd_cpustat_avg1{object=\"nodes\", host=\"$node\"}[1m])) or max(last_over_time(pvestatd_cpustat_avg1{object=\"nodes\", host=\"$node\"}[$__range])) * 0",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -223,23 +230,28 @@
         "w": 3,
         "x": 0,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "stat",
       "title": "Uptime",
       "description": "",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"uptime\"))\n  |> last()",
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_system_uptime{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -285,23 +297,28 @@
         "w": 3,
         "x": 0,
         "y": 5
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "gauge",
       "title": "CPU",
       "description": "Busy share of all cores.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"cpu\"))\n  |> last()",
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_cpustat_cpu{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -356,23 +373,28 @@
         "w": 3,
         "x": 3,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "gauge",
       "title": "Memory",
       "description": "Used = total - available.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"memory\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"memused\" or r._field == \"memtotal\"))\n  |> last()\n              |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n              |> map(fn: (r) => ({_time: r._time, _value: r.memused / r.memtotal}))",
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_memory_memused{object=\"nodes\", host=\"$node\"}[$__range]) / last_over_time(pvestatd_memory_memtotal{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -427,23 +449,28 @@
         "w": 3,
         "x": 6,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "gauge",
       "title": "Swap",
       "description": "",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"memory\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"swapused\" or r._field == \"swaptotal\"))\n  |> last()\n              |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n              |> map(fn: (r) => ({_time: r._time, _value: if r.swaptotal > 0.0 then r.swapused / r.swaptotal else 0.0}))",
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_memory_swapused{object=\"nodes\", host=\"$node\"}[$__range]) / clamp_min(last_over_time(pvestatd_memory_swaptotal{object=\"nodes\", host=\"$node\"}[$__range]), 1))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -498,23 +525,28 @@
         "w": 3,
         "x": 9,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "gauge",
       "title": "Root FS",
       "description": "The node's root filesystem (local storage lives on it).",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"blockstat\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"per\"))\n  |> last()\n              |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value) / 100.0}))",
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_blockstat_per{object=\"nodes\", host=\"$node\"}[$__range])) / 100",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -573,24 +605,53 @@
         "w": 3,
         "x": 12,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "stat",
       "title": "Load / core",
       "description": "Load averages divided by the cores; above 1 means tasks wait for a CPU.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"avg1\" or r._field == \"avg5\" or r._field == \"avg15\" or r._field == \"cpus\"))\n  |> last()\n              |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n              |> map(fn: (r) => ({_time: r._time, _1m: r.avg1 / r.cpus, _5m: r.avg5 / r.cpus, _15m: r.avg15 / r.cpus}))",
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_cpustat_avg1{object=\"nodes\", host=\"$node\"}[$__range]) / last_over_time(pvestatd_cpustat_cpus{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "_1m",
+          "range": false,
+          "instant": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_cpustat_avg5{object=\"nodes\", host=\"$node\"}[$__range]) / last_over_time(pvestatd_cpustat_cpus{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "_5m",
+          "range": false,
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_cpustat_avg15{object=\"nodes\", host=\"$node\"}[$__range]) / last_over_time(pvestatd_cpustat_cpus{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "_15m",
+          "range": false,
+          "instant": true,
+          "refId": "C"
         }
       ],
       "fieldConfig": {
@@ -673,46 +734,71 @@
         "wideLayout": true,
         "showPercentChange": false
       },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "_time": true
-            },
-            "renameByName": {},
-            "indexByName": {
-              "_1m": 0,
-              "_5m": 1,
-              "_15m": 2
-            }
-          }
-        }
-      ],
       "id": 8,
       "gridPos": {
         "h": 8,
         "w": 3,
         "x": 15,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "stat",
       "title": "Guests",
       "description": "On this node now: running VMs and CTs, stopped guests (templates not counted), templates.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and (r._field == \"status\" or r._field == \"template\"))\n  |> last()\n  |> map(fn: (r) => ({vmid: r.vmid, nodename: r.nodename, object: r.object, _field: r._field, _value: string(v: r._value)}))\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"nodename\", \"object\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> reduce(identity: {vms: 0, cts: 0, stopped: 0, templates: 0}, fn: (r, accumulator) => ({\n       vms: accumulator.vms + (if r.status == \"running\" and r.object == \"qemu\" then 1 else 0),\n       cts: accumulator.cts + (if r.status == \"running\" and r.object == \"lxc\" then 1 else 0),\n       stopped: accumulator.stopped + (if r.status != \"running\" and not exists r.template then 1 else 0),\n       templates: accumulator.templates + (if exists r.template then 1 else 0)}))",
+          "editorMode": "code",
+          "expr": "count(pvestatd_system_running{object=~\"qemu|lxc\", nodename=\"$node\", object=\"qemu\"} == 1) or vector(0)",
+          "legendFormat": "vms",
+          "range": false,
+          "instant": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(pvestatd_system_running{object=~\"qemu|lxc\", nodename=\"$node\", object=\"lxc\"} == 1) or vector(0)",
+          "legendFormat": "cts",
+          "range": false,
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(pvestatd_system_running{object=~\"qemu|lxc\", nodename=\"$node\"} == 0 unless on (object, vmid, nodename) pvestatd_system_template{object=~\"qemu|lxc\", nodename=\"$node\"}) or vector(0)",
+          "legendFormat": "stopped",
+          "range": false,
+          "instant": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(pvestatd_system_template{object=~\"qemu|lxc\", nodename=\"$node\"}) or vector(0)",
+          "legendFormat": "templates",
+          "range": false,
+          "instant": true,
+          "refId": "D"
         }
       ],
       "fieldConfig": {
@@ -832,24 +918,65 @@
         "w": 3,
         "x": 18,
         "y": 1
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "stat",
       "title": "Hardware",
       "description": "",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r.object == \"nodes\" and r.host == \"${node}\" and ((r._measurement == \"cpustat\" and r._field == \"cpus\") or\n       (r._measurement == \"memory\" and (r._field == \"memtotal\" or r._field == \"swaptotal\")) or (r._measurement == \"blockstat\" and r._field == \"blocks\")))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\"], columnKey: [\"_field\"], valueColumn: \"_value\")",
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_cpustat_cpus{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "cpus",
+          "range": false,
+          "instant": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_memory_memtotal{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "memtotal",
+          "range": false,
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_memory_swaptotal{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "swaptotal",
+          "range": false,
+          "instant": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(last_over_time(pvestatd_blockstat_blocks{object=\"nodes\", host=\"$node\"}[$__range]))",
+          "legendFormat": "blocks",
+          "range": false,
+          "instant": true,
+          "refId": "D"
         }
       ],
       "fieldConfig": {
@@ -967,30 +1094,14 @@
           "valueSize": 16
         }
       },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "host": true
-            },
-            "renameByName": {},
-            "indexByName": {
-              "cpus": 0,
-              "memtotal": 1,
-              "swaptotal": 2,
-              "blocks": 3
-            }
-          }
-        }
-      ],
       "id": 10,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 0,
         "y": 9
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "stat",
@@ -1102,17 +1213,33 @@
       "title": "CPU",
       "description": "Busy share of all cores, and the share spent waiting for I/O.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"cpu\" or r._field == \"wait\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> map(fn: (r) => ({r with series: if r._field == \"cpu\" then \"busy\" else \"IO wait\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "pvestatd_cpustat_cpu{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "busy",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "pvestatd_cpustat_wait{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "IO wait",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1202,24 +1329,65 @@
         "w": 12,
         "x": 0,
         "y": 18
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Load average",
       "description": "1, 5 and 15 minute load averages; the dashed line is the node's core count.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"strings\"\nfrom(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"cpustat\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"avg1\" or r._field == \"avg5\" or r._field == \"avg15\" or r._field == \"cpus\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> map(fn: (r) => ({r with series: if r._field == \"cpus\" then \"cores\" else strings.trimPrefix(v: r._field, prefix: \"avg\") + \"m\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "pvestatd_cpustat_avg1{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "1m",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "pvestatd_cpustat_avg5{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "5m",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "pvestatd_cpustat_avg15{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "15m",
+          "range": true,
+          "instant": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "pvestatd_cpustat_cpus{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "cores",
+          "range": true,
+          "instant": false,
+          "refId": "D"
         }
       ],
       "fieldConfig": {
@@ -1304,7 +1472,8 @@
         "w": 12,
         "x": 12,
         "y": 18
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "row",
@@ -1324,17 +1493,45 @@
       "title": "Memory",
       "description": "Used (total - available) and available stack up to the total. ZFS ARC shows only on nodes with ZFS.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"memory\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"memused\" or r._field == \"memavailable\" or r._field == \"arcsize\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> filter(fn: (r) => r._field != \"arcsize\" or r._value > 1048576.0)\n        |> map(fn: (r) => ({r with series: if r._field == \"memused\" then \"used\" else if r._field == \"memavailable\" then \"available\" else \"ZFS ARC\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "pvestatd_memory_memused{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "used",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "pvestatd_memory_memavailable{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "available",
+          "range": true,
+          "instant": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "pvestatd_memory_arcsize{object=\"nodes\", host=\"$node\"} > 1048576",
+          "legendFormat": "ZFS ARC",
+          "range": true,
+          "instant": false,
+          "refId": "C"
         }
       ],
       "fieldConfig": {
@@ -1449,24 +1646,41 @@
         "w": 12,
         "x": 0,
         "y": 27
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Swap",
       "description": "",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"memory\" and r.object == \"nodes\" and r.host == \"${node}\" and (r._field == \"swapused\" or r._field == \"swaptotal\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> map(fn: (r) => ({r with series: if r._field == \"swapused\" then \"used\" else \"total\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "pvestatd_memory_swapused{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "used",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "pvestatd_memory_swaptotal{object=\"nodes\", host=\"$node\"}",
+          "legendFormat": "total",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1569,23 +1783,28 @@
         "w": 6,
         "x": 12,
         "y": 27
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Root filesystem",
       "description": "Used share of /, as df reports it.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"blockstat\" and r.object == \"nodes\" and r.host == \"${node}\" and r._field == \"per\")\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> map(fn: (r) => ({r with _value: r._value / 100.0}))\n        |> map(fn: (r) => ({r with series: \"used\"}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "pvestatd_blockstat_per{object=\"nodes\", host=\"$node\"} / 100",
+          "legendFormat": "used",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -1658,7 +1877,8 @@
         "w": 6,
         "x": 18,
         "y": 27
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "row",
@@ -1678,17 +1898,33 @@
       "title": "Physical NICs",
       "description": "Every physical NIC; inbound up, outbound down.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"nics\" and r.object == \"nodes\" and r.host == \"${node}\" and r.instance =~ /^(eth|en|wl)/ and (r._field == \"receive\" or r._field == \"transmit\"))\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> map(fn: (r) => ({r with _value: r._value * 8.0}))\n            |> map(fn: (r) => ({r with series: r.instance + (if r._field == \"receive\" then \" in\" else \" out\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "rate(pvestatd_nics_receive{object=\"nodes\", host=\"$node\", device=~\"(eth|en|wl).*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} in",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(pvestatd_nics_transmit{object=\"nodes\", host=\"$node\", device=~\"(eth|en|wl).*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1780,24 +2016,41 @@
         "w": 12,
         "x": 0,
         "y": 36
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Bridges and bonds",
       "description": "Linux bridges (guest traffic and VLANs) and bonds.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n            |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n            |> filter(fn: (r) => r._measurement == \"nics\" and r.object == \"nodes\" and r.host == \"${node}\" and r.instance =~ /^(vmbr|bond)/ and (r._field == \"receive\" or r._field == \"transmit\"))\n            |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n            |> map(fn: (r) => ({r with _value: r._value * 8.0}))\n            |> map(fn: (r) => ({r with series: r.instance + (if r._field == \"receive\" then \" in\" else \" out\")}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "rate(pvestatd_nics_receive{object=\"nodes\", host=\"$node\", device=~\"(vmbr|bond).*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} in",
+          "range": true,
+          "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(pvestatd_nics_transmit{object=\"nodes\", host=\"$node\", device=~\"(vmbr|bond).*\"}[$__rate_interval]) * 8",
+          "legendFormat": "{{device}} out",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1889,32 +2142,69 @@
         "w": 12,
         "x": 12,
         "y": 36
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "table",
       "title": "Interfaces",
-      "description": "Physical NICs, bonds, bridges and VLAN interfaces (guest tap/veth and firewall bridges left out). Totals are bytes since the node booted.",
+      "description": "Physical NICs, bonds, bridges and VLAN interfaces (guest tap/veth and firewall bridges left out). Totals are bytes since the node booted. Type follows PVE's rule for physical NIC names.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"nics\" and r.object == \"nodes\" and r.host == \"${node}\" and r.instance !~ /^(tap|veth|fwbr|fwpr|fwln|lo$)/ and (r._field == \"receive\" or r._field == \"transmit\"))\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> map(fn: (r) => ({instance: r.instance, _field: r._field + \"_rate\", _value: r._value * 8.0}))\n  |> group()\n  |> pivot(rowKey: [\"instance\"], columnKey: [\"_field\"], valueColumn: \"_value\")",
+          "editorMode": "code",
+          "expr": "max by (device, type) (label_replace(label_replace(rate(pvestatd_nics_receive{object=\"nodes\", host=\"$node\", device!~\"(tap|veth|fwbr|fwpr|fwln).*|lo\"}[$__rate_interval]) * 8, \"type\", \"virtual\", \"device\", \".*\"), \"type\", \"physical\", \"device\", \"(eth[0-9]+|en[^:.]+|ib[^:.]+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"nics\" and r.object == \"nodes\" and r.host == \"${node}\" and r.instance !~ /^(tap|veth|fwbr|fwpr|fwln|lo$)/)\n  |> last()\n  |> map(fn: (r) => ({instance: r.instance, _field: r._field, _value: string(v: r._value)}))\n  |> group()\n  |> pivot(rowKey: [\"instance\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({instance: r.instance, type: r.type, receive: float(v: r.receive), transmit: float(v: r.transmit)}))",
+          "editorMode": "code",
+          "expr": "max by (device, type) (label_replace(label_replace(rate(pvestatd_nics_transmit{object=\"nodes\", host=\"$node\", device!~\"(tap|veth|fwbr|fwpr|fwln).*|lo\"}[$__rate_interval]) * 8, \"type\", \"virtual\", \"device\", \".*\"), \"type\", \"physical\", \"device\", \"(eth[0-9]+|en[^:.]+|ib[^:.]+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (device, type) (label_replace(label_replace(pvestatd_nics_receive{object=\"nodes\", host=\"$node\", device!~\"(tap|veth|fwbr|fwpr|fwln).*|lo\"}, \"type\", \"virtual\", \"device\", \".*\"), \"type\", \"physical\", \"device\", \"(eth[0-9]+|en[^:.]+|ib[^:.]+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (device, type) (label_replace(label_replace(pvestatd_nics_transmit{object=\"nodes\", host=\"$node\", device!~\"(tap|veth|fwbr|fwpr|fwln).*|lo\"}, \"type\", \"virtual\", \"device\", \".*\"), \"type\", \"physical\", \"device\", \"(eth[0-9]+|en[^:.]+|ib[^:.]+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
         }
       ],
       "fieldConfig": {
@@ -2080,31 +2370,30 @@
       },
       "transformations": [
         {
-          "id": "joinByField",
-          "options": {
-            "byField": "instance",
-            "mode": "outer"
-          }
+          "id": "merge",
+          "options": {}
         },
         {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true
+            },
             "renameByName": {
-              "instance": "Interface",
+              "device": "Interface",
               "type": "Type",
-              "receive_rate": "In",
-              "transmit_rate": "Out",
-              "receive": "Received",
-              "transmit": "Sent"
+              "Value #A": "In",
+              "Value #B": "Out",
+              "Value #C": "Received",
+              "Value #D": "Sent"
             },
             "indexByName": {
-              "instance": 0,
+              "device": 0,
               "type": 1,
-              "receive_rate": 2,
-              "transmit_rate": 3,
-              "receive": 4,
-              "transmit": 5
+              "Value #A": 2,
+              "Value #B": 3,
+              "Value #C": 4,
+              "Value #D": 5
             }
           }
         }
@@ -2115,7 +2404,8 @@
         "w": 24,
         "x": 0,
         "y": 45
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "row",
@@ -2135,33 +2425,165 @@
       "title": "Guests",
       "description": "Now (end of the time range). Memory is what the guest uses on the host (VM: memhost, CT: mem); Configured is its maximum. CPU is the share of its own vCPUs. Click a name for the guest's dashboard.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and\n       (r._field == \"cpu\" or r._field == \"cpus\" or r._field == \"mem\" or r._field == \"memhost\" or r._field == \"maxmem\" or r._field == \"uptime\" or r._field == \"maxdisk\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({vmid: r.vmid, cpu: r.cpu, cpus: r.cpus, used: if exists r.memhost then r.memhost else r.mem,\n       maxmem: r.maxmem, mempct: if r.maxmem > 0.0 then (if exists r.memhost then r.memhost else r.mem) / r.maxmem else 0.0,\n       uptime: r.uptime, maxdisk: r.maxdisk}))",
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (pvestatd_system_running{object=~\"qemu|lxc\", nodename=\"$node\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and (r._field == \"status\" or r._field == \"tags\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\", \"host\", \"nodename\", \"object\"], columnKey: [\"_field\"], valueColumn: \"_value\")",
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (pvestatd_system_uptime{object=~\"qemu|lxc\", nodename=\"$node\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "B"
         },
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nfrom(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 3m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and\n       (r._field == \"diskread\" or r._field == \"diskwrite\" or r._field == \"netin\" or r._field == \"netout\"))\n  |> derivative(unit: 1s, nonNegative: true)\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"vmid\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({r with netin: r.netin * 8.0, netout: r.netout * 8.0}))",
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (pvestatd_system_cpus{object=~\"qemu|lxc\", nodename=\"$node\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (pvestatd_system_cpu{object=~\"qemu|lxc\", nodename=\"$node\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) ((pvestatd_system_memhost{object=~\"qemu|lxc\", nodename=\"$node\"} or pvestatd_system_mem{object=~\"qemu|lxc\", nodename=\"$node\"}))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (pvestatd_system_maxmem{object=~\"qemu|lxc\", nodename=\"$node\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) ((pvestatd_system_memhost{object=~\"qemu|lxc\", nodename=\"$node\"} or pvestatd_system_mem{object=~\"qemu|lxc\", nodename=\"$node\"}) / (pvestatd_system_maxmem{object=~\"qemu|lxc\", nodename=\"$node\"} > 0))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (pvestatd_system_maxdisk{object=~\"qemu|lxc\", nodename=\"$node\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (rate(pvestatd_system_diskread{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (rate(pvestatd_system_diskwrite{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "J"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (rate(pvestatd_system_netin{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval]) * 8)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "K"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (vmid, host, object, nodename, tags) (rate(pvestatd_system_netout{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval]) * 8)",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "L"
         }
       ],
       "fieldConfig": {
@@ -2215,30 +2637,15 @@
                   {
                     "type": "value",
                     "options": {
-                      "running": {
+                      "1": {
                         "text": "running",
                         "color": "#02E5A8",
                         "index": 0
                       },
-                      "stopped": {
+                      "0": {
                         "text": "stopped",
                         "color": "#e5f3e2",
                         "index": 1
-                      },
-                      "paused": {
-                        "text": "paused",
-                        "color": "#ffa352",
-                        "index": 2
-                      },
-                      "prelaunch": {
-                        "text": "prelaunch",
-                        "color": "#6870ff",
-                        "index": 3
-                      },
-                      "suspended": {
-                        "text": "suspended",
-                        "color": "#ffa352",
-                        "index": 4
                       }
                     }
                   }
@@ -2499,7 +2906,7 @@
                 "value": [
                   {
                     "title": "Proxmox guest",
-                    "url": "/d/proxmox-guest/proxmox-guest?var-bucket=${bucket}&var-guest=${__data.fields.vmid}&${__url_time_range}"
+                    "url": "/d/proxmox-guest/proxmox-guest?${cluster:queryparam}&var-guest=${__data.fields.vmid}&${__url_time_range}"
                   }
                 ]
               }
@@ -2527,16 +2934,14 @@
       },
       "transformations": [
         {
-          "id": "joinByField",
-          "options": {
-            "byField": "vmid",
-            "mode": "outer"
-          }
+          "id": "merge",
+          "options": {}
         },
         {
           "id": "organize",
           "options": {
             "excludeByName": {
+              "Time": true,
               "nodename": true
             },
             "renameByName": {
@@ -2544,36 +2949,36 @@
               "vmid": "VMID",
               "object": "Type",
               "nodename": "Node",
-              "status": "Status",
-              "uptime": "Uptime",
-              "cpus": "vCPUs",
-              "cpu": "CPU",
-              "used": "Memory",
-              "maxmem": "Configured",
-              "mempct": "Memory %",
-              "maxdisk": "Disk size",
-              "diskread": "Disk read",
-              "diskwrite": "Disk write",
-              "netin": "Net in",
-              "netout": "Net out",
-              "tags": "Tags"
+              "tags": "Tags",
+              "Value #A": "Status",
+              "Value #B": "Uptime",
+              "Value #C": "vCPUs",
+              "Value #D": "CPU",
+              "Value #E": "Memory",
+              "Value #F": "Configured",
+              "Value #G": "Memory %",
+              "Value #H": "Disk size",
+              "Value #I": "Disk read",
+              "Value #J": "Disk write",
+              "Value #K": "Net in",
+              "Value #L": "Net out"
             },
             "indexByName": {
               "host": 0,
               "vmid": 1,
               "object": 2,
-              "status": 3,
-              "uptime": 4,
-              "cpus": 5,
-              "cpu": 6,
-              "used": 7,
-              "maxmem": 8,
-              "mempct": 9,
-              "maxdisk": 10,
-              "diskread": 11,
-              "diskwrite": 12,
-              "netin": 13,
-              "netout": 14,
+              "Value #A": 3,
+              "Value #B": 4,
+              "Value #C": 5,
+              "Value #D": 6,
+              "Value #E": 7,
+              "Value #F": 8,
+              "Value #G": 9,
+              "Value #H": 10,
+              "Value #I": 11,
+              "Value #J": 12,
+              "Value #K": 13,
+              "Value #L": 14,
               "tags": 15
             }
           }
@@ -2585,23 +2990,28 @@
         "w": 24,
         "x": 0,
         "y": 55
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Guest CPU (cores)",
       "description": "Cores each guest keeps busy (CPU share x vCPUs), stacked.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and (r._field == \"cpu\" or r._field == \"cpus\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n        |> map(fn: (r) => ({r with _value: r.cpu * r.cpus}))\n        |> filter(fn: (r) => r._value > 0.0)\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max by (host, vmid) (pvestatd_system_cpu{object=~\"qemu|lxc\", nodename=\"$node\"} * pvestatd_system_cpus{object=~\"qemu|lxc\", nodename=\"$node\"}) > 0",
+          "legendFormat": "{{host}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -2660,23 +3070,28 @@
         "w": 12,
         "x": 0,
         "y": 65
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Guest memory (host)",
       "description": "Host memory each guest uses (VM: memhost, CT: mem), stacked.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and (r._field == \"mem\" or r._field == \"memhost\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n        |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n        |> map(fn: (r) => ({r with _value: if exists r.memhost then r.memhost else r.mem}))\n        |> filter(fn: (r) => r._value > 0.0)\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max by (host, vmid) (pvestatd_system_memhost{object=~\"qemu|lxc\", nodename=\"$node\"} or pvestatd_system_mem{object=~\"qemu|lxc\", nodename=\"$node\"}) > 0",
+          "legendFormat": "{{host}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -2735,23 +3150,28 @@
         "w": 12,
         "x": 12,
         "y": 65
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Guest disk I/O",
       "description": "Read + write per guest, stacked.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and (r._field == \"diskread\" or r._field == \"diskwrite\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n        |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n        |> map(fn: (r) => ({r with _value: r.diskread + r.diskwrite}))\n        |> filter(fn: (r) => r._value > 0.0)\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max by (host, vmid) (rate(pvestatd_system_diskread{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval]) + rate(pvestatd_system_diskwrite{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval])) > 0",
+          "legendFormat": "{{host}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -2810,23 +3230,28 @@
         "w": 12,
         "x": 0,
         "y": 74
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "timeseries",
       "title": "Guest network",
       "description": "In + out per guest, stacked.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "from(bucket: \"${bucket}\")\n        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n        |> filter(fn: (r) => r._measurement == \"system\" and (r.object == \"qemu\" or r.object == \"lxc\") and r.nodename == \"${node}\" and (r._field == \"netin\" or r._field == \"netout\"))\n        |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> derivative(unit: 1s, nonNegative: true)\n        |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n        |> map(fn: (r) => ({r with _value: (r.netin + r.netout) * 8.0}))\n        |> filter(fn: (r) => r._value > 0.0)\n        |> map(fn: (r) => ({r with series: r.host}))\n|> group(columns: [\"series\"])\n|> sort(columns: [\"_time\"])\n|> keep(columns: [\"_time\", \"_value\", \"series\"])",
+          "editorMode": "code",
+          "expr": "max by (host, vmid) ((rate(pvestatd_system_netin{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval]) + rate(pvestatd_system_netout{object=~\"qemu|lxc\", nodename=\"$node\"}[$__rate_interval])) * 8) > 0",
+          "legendFormat": "{{host}}",
+          "range": true,
+          "instant": false,
           "refId": "A"
         }
       ],
@@ -2885,7 +3310,8 @@
         "w": 12,
         "x": 12,
         "y": 74
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "row",
@@ -2905,16 +3331,21 @@
       "title": "Storage used",
       "description": "Used / total. Shared storages once, local ones per node.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\nnums = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.nodename == \"${node}\" and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.nodename == \"${node}\" and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\njoin(tables: {n: nums, s: strs}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({r with storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       pct: if r.total > 0.0 then r.used / r.total else 0.0}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)\n  |> keep(columns: [\"storage\", \"pct\"])",
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename=\"$node\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename=\"$node\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "A"
         }
       ],
@@ -2959,7 +3390,7 @@
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "/^pct$/",
+          "fields": "/^Value$/",
           "limit": 50
         },
         "showUnfilled": true,
@@ -2977,8 +3408,22 @@
       "links": [
         {
           "title": "Proxmox storage",
-          "url": "/d/proxmox-storage/proxmox-storage?var-bucket=${bucket}&${__url_time_range}",
+          "url": "/d/proxmox-storage/proxmox-storage?${cluster:queryparam}&${__url_time_range}",
           "targetBlank": false
+        }
+      ],
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Value",
+                "desc": true
+              }
+            ]
+          }
         }
       ],
       "id": 30,
@@ -2987,24 +3432,147 @@
         "w": 8,
         "x": 0,
         "y": 83
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "table",
       "title": "Storages",
       "description": "Now, shared storages once. Growth is the change of used space over the time range, per day; Full in extrapolates it (\"not filling up\" when not growing). Click a storage: Ceph storages open the Ceph cluster dashboard, local ones their node.",
       "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb"
+        "type": "prometheus",
+        "uid": "prometheus"
       },
       "targets": [
         {
           "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
-          "query": "import \"date\"\ncur = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.nodename == \"${node}\" and\n       (r._field == \"total\" or r._field == \"used\" or r._field == \"avail\" or r._field == \"shared\" or r._field == \"active\" or r._field == \"enabled\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nstrs = from(bucket: \"${bucket}\")\n  |> range(start: date.sub(d: 2m, from: v.timeRangeStop), stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.nodename == \"${node}\" and (r._field == \"type\" or r._field == \"content\"))\n  |> last()\n  |> group()\n  |> pivot(rowKey: [\"host\", \"nodename\"], columnKey: [\"_field\"], valueColumn: \"_value\")\nused = from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"system\" and r.object == \"storages\" and r.nodename == \"${node}\" and r._field == \"used\")\ngrowth = join(tables: {f: used |> first(), l: used |> last()}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({host: r.host, nodename: r.nodename,\n       rate: if r._time_l > r._time_f then (r._value_l - r._value_f) / (float(v: int(v: r._time_l) - int(v: r._time_f)) / 1000000000.0) else 0.0}))\njoin(tables: {a: join(tables: {n: cur, s: strs}, on: [\"host\", \"nodename\"]), g: growth}, on: [\"host\", \"nodename\"])\n  |> map(fn: (r) => ({\n       storage: if r.shared == 1.0 then r.host else r.host + \" (\" + r.nodename + \")\",\n       nodename: if r.shared == 1.0 then \"all\" else r.nodename,\n       type: r.type, content: r.content, shared: r.shared, active: r.active, enabled: r.enabled,\n       used: r.used, avail: r.avail, total: r.total, pct: if r.total > 0.0 then r.used / r.total else 0.0,\n       day: r.rate * 86400.0,\n       full: if r.rate > 0.0 then r.avail / r.rate else -1.0,\n       link: if r.type == \"rbd\" or r.type == \"cephfs\" then \"/d/ceph-cluster/ceph-cluster?orgId=1\"\n             else if r.shared == 1.0 then \"/d/proxmox-storage/proxmox-storage?var-bucket=${bucket}&var-storage=\" + r.host\n             else \"/d/proxmox-node/proxmox-node?var-bucket=${bucket}&var-node=\" + r.nodename}))\n  |> group(columns: [\"storage\"])\n  |> first(column: \"storage\")\n  |> group()\n  |> sort(columns: [\"pct\"], desc: true)",
+          "editorMode": "code",
+          "expr": "max by (storage, node, type, content, link) (label_replace(label_replace(label_replace(label_replace(topk by (host) (1, topk by (host, nodename) (1, pvestatd_system_total{object=\"storages\", nodename=\"$node\"}) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\"), \"node\", \"all\", \"host\", \".*\"), \"link\", \"/d/proxmox-storage/proxmox-storage?var-storage=$1\", \"host\", \"(.*)\"), \"link\", \"/d/ceph-cluster/ceph-cluster?orgId=1\", \"type\", \"rbd|cephfs\") or label_replace(label_replace(label_replace(label_replace(label_join(topk by (host, nodename) (1, pvestatd_system_total{object=\"storages\", nodename=\"$node\"}) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"), \"node\", \"$1\", \"nodename\", \"(.*)\"), \"link\", \"/d/proxmox-node/proxmox-node?var-node=$1\", \"nodename\", \"(.*)\"), \"link\", \"/d/ceph-cluster/ceph-cluster?orgId=1\", \"type\", \"rbd|cephfs\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename=\"$node\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}) / (max by (host, nodename) (pvestatd_system_total{object=\"storages\", nodename=\"$node\"}) > 0)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_active{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_active{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((max by (host, nodename) (pvestatd_system_enabled{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((max by (host, nodename) (pvestatd_system_enabled{object=\"storages\", nodename=\"$node\"})) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) ((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}))[$__range:5m]) / $__range_s * 86400) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}))[$__range:5m]) / $__range_s * 86400) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (storage) (label_replace(max by (host) (((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename=\"$node\"}) / ((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}))[$__range:5m]) / $__range_s) > 0)) or (max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename=\"$node\"}) * 0 - 1)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 1)), \"storage\", \"$1\", \"host\", \"(.*)\") or label_replace(label_join(((max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename=\"$node\"}) / ((delta((max by (host, nodename) (pvestatd_system_used{object=\"storages\", nodename=\"$node\"}))[$__range:5m]) / $__range_s) > 0)) or (max by (host, nodename) (pvestatd_system_avail{object=\"storages\", nodename=\"$node\"}) * 0 - 1)) and on (host, nodename) (max by (host, nodename) (pvestatd_system_shared{object=\"storages\", nodename=\"$node\"}) == 0), \"storage\", \" (\", \"host\", \"nodename\"), \"storage\", \"$1)\", \"storage\", \"(.+)\"))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "J"
         }
       ],
       "fieldConfig": {
@@ -3079,7 +3647,7 @@
                 "value": [
                   {
                     "title": "${__data.fields.Storage}",
-                    "url": "${__data.fields.link}&${__url_time_range}"
+                    "url": "${__data.fields.link}&${cluster:queryparam}&${__url_time_range}"
                   }
                 ]
               }
@@ -3312,38 +3880,45 @@
       },
       "transformations": [
         {
+          "id": "merge",
+          "options": {}
+        },
+        {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true,
+              "Value #A": true
+            },
             "renameByName": {
               "storage": "Storage",
-              "nodename": "Node",
+              "node": "Node",
               "type": "Type",
               "content": "Content",
-              "shared": "Shared",
-              "active": "Active",
-              "enabled": "Enabled",
-              "used": "Used",
-              "avail": "Available",
-              "total": "Total",
-              "pct": "Used %",
-              "day": "Growth / day",
-              "full": "Full in"
+              "Value #B": "Used",
+              "Value #C": "Available",
+              "Value #D": "Total",
+              "Value #E": "Used %",
+              "Value #F": "Shared",
+              "Value #G": "Active",
+              "Value #H": "Enabled",
+              "Value #I": "Growth / day",
+              "Value #J": "Full in"
             },
             "indexByName": {
               "storage": 0,
-              "nodename": 1,
+              "node": 1,
               "type": 2,
-              "shared": 3,
+              "Value #F": 3,
               "content": 4,
-              "used": 5,
-              "avail": 6,
-              "total": 7,
-              "pct": 8,
-              "day": 9,
-              "full": 10,
-              "active": 11,
-              "enabled": 12,
+              "Value #B": 5,
+              "Value #C": 6,
+              "Value #D": 7,
+              "Value #E": 8,
+              "Value #I": 9,
+              "Value #J": 10,
+              "Value #G": 11,
+              "Value #H": 12,
               "link": 13
             }
           }
@@ -3355,7 +3930,8 @@
         "w": 16,
         "x": 8,
         "y": 83
-      }
+      },
+      "interval": "10s"
     },
     {
       "type": "row",

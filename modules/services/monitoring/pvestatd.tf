@@ -15,7 +15,7 @@
 # nodename, vmid, type (storages) and device (pvestatd's "instance": disk or NIC; renamed so it
 # doesn't clash with Prometheus's instance). Counters (rd_bytes, netin...) arrive untyped; rate()
 # works on them. String fields are dropped, except: status -> pvestatd_system_running (1 = running),
-# and a guest's tags / a storage's content as labels.
+# and a guest's tags / a storage's content as labels (each list sorted: pvestatd's order is random).
 locals {
   pvestatd_enabled      = var.pvestatd != null
   pvestatd_port         = try(var.pvestatd.port, 8186)
@@ -57,8 +57,23 @@ locals {
     "    [processors.enum.mapping.value_mappings]",
     "      running = 1",
     "",
-    "[[processors.converter]]",
+    # pvestatd sends a guest's tags and a storage's content list in a different order on each push;
+    # as labels every order would be its own series (144 series for 46 storages), so sort them first.
+    # The Mimir backfill of the old InfluxDB data (pve_backfill.py) sorts the same way.
+    "[[processors.starlark]]",
     "  order = 3",
+    "  namepass = [\"pvestatd_system\"]",
+    "  source = '''",
+    "def apply(metric):",
+    "    for key, sep in [(\"tags\", \";\"), (\"content\", \",\")]:",
+    "        v = metric.fields.get(key)",
+    "        if type(v) == \"string\":",
+    "            metric.fields[key] = sep.join(sorted([p for p in v.split(sep) if p]))",
+    "    return metric",
+    "'''",
+    "",
+    "[[processors.converter]]",
+    "  order = 4",
     "  namepass = [\"pvestatd_system\"]",
     "  [processors.converter.fields]",
     "    tag = [\"tags\", \"content\"]",
