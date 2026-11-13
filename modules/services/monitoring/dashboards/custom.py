@@ -35,7 +35,7 @@ from theme import ACCENT, ACCENT2, ACCENT3, ERROR, INFO, OK, WARN_HIGH  # noqa: 
 DS = {"type": "prometheus", "uid": "prometheus"}
 
 NODE_JOBS = 'job=~"node|vyos-node"'
-STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir"'
+STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir"'
 NODE_DASH = "/d/node-exporter-full/node-exporter-full"
 FRR_DASH = "/d/frr-evpn-fabric/frr-evpn-fabric"
 PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
@@ -1178,13 +1178,17 @@ def stack():
     b.add(timeseries("node / frr exporter scrape duration", [
         q('scrape_duration_seconds{job=~"node|vyos-node|vyos-frr"}', "{{job}} {{host}}")], unit="s", fill=0,
         calcs=("mean", "max")), 8, 8)
-    # Telegraf on each backend (job telegraf): the C9800s' model-driven telemetry -> its InfluxDB bucket wlc.
+    # Telegraf on each backend: job telegraf = the C9800s' model-driven telemetry -> its InfluxDB bucket wlc;
+    # job pvestatd = the PVE metric servers' writes -> Prometheus (scraped by container name, host "pvestatd").
     tg = 'job="telegraf"'
     b.add(timeseries("Telegraf: metrics received", [
-        q(f"sum by (host, input) (rate(internal_gather_metrics_gathered{{{tg}}}[$__rate_interval]))", "{{host}} {{input}}")],
+        q(f"sum by (host, input) (rate(internal_gather_metrics_gathered{{{tg}}}[$__rate_interval]))", "{{host}} {{input}}"),
+        q('sum by (input) (rate(internal_gather_metrics_gathered{job="pvestatd", input="influxdb_v2_listener"}[$__rate_interval]))',
+          "pvestatd (PVE metric servers)")],
         unit="short", fill=0, calcs=("mean", "max", "lastNotNull"),
         desc="Metrics per second from each Telegraf input; cisco_telemetry_mdt is the C9800s' gRPC dial-out "
-             "(one metric per YANG list entry per push). 0 for long fires WlcTelemetryStopped."), 8, 8)
+             "(one metric per YANG list entry per push), 0 for long fires WlcTelemetryStopped; pvestatd is every PVE "
+             "node's pvestatd (each Prometheus scrapes its own backend's Telegraf), 0 for long fires PveMetricsStopped."), 8, 8)
     b.add(timeseries("Telegraf: InfluxDB writes", [
         q(f'sum by (host) (rate(internal_write_metrics_written{{{tg}, output="influxdb_v2"}}[$__rate_interval]))', "{{host}} written/s"),
         q(f'sum by (host) (rate(internal_write_metrics_dropped{{{tg}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} dropped/s"),
@@ -1195,7 +1199,7 @@ def stack():
         q(f'max by (output) (internal_write_buffer_limit{{{tg}}})', "{{output}} limit")],
         fill=0, decimals=0, desc="Metrics waiting to be written. It fills up while InfluxDB is unreachable; "
                                  "past the limit Telegraf drops the oldest."), 8, 8)
-    # InfluxDB 2 on each backend (job influxdb, its own /metrics): Proxmox (pve_*) and WLC buckets.
+    # InfluxDB 2 on each backend (job influxdb, its own /metrics): the WLC bucket (pve_* = history only).
     ix = 'job="influxdb"'
     b.row("InfluxDB")
     b.add(stat("InfluxDB", [q(f"max by (host) (up{{{ix}}})", "{{host}}", instant=True)], text_mode="value_and_name",
@@ -1206,13 +1210,13 @@ def stack():
         q(f"sum by (host) (rate(storage_writer_err_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} errors/s"),
         q(f"sum by (host) (rate(storage_writer_dropped_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} dropped/s"),
         q(f"sum by (host) (rate(storage_writer_timeouts{{{ix}}}[$__rate_interval])) > 0", "{{host}} timeouts/s"),
-    ], fill=0, desc="Points stored per second (Proxmox metric server, the WLC Telegraf); errors, drops "
+    ], fill=0, desc="Points stored per second (the WLC Telegraf; Proxmox writes here until 2026-11-13); errors, drops "
                     "and timeouts only show when non-zero. Both backends should write about the same."), 7, 8)
     b.add(timeseries("InfluxDB: queries", [
         q(f"sum by (host) (rate(qc_all_duration_seconds_count{{{ix}}}[$__rate_interval]))", "{{host}} queries/s"),
         q(f"histogram_quantile(0.95, sum by (host, le) (rate(qc_all_duration_seconds_bucket{{{ix}}}[$__rate_interval])))",
           "{{host}} p95"),
-    ], fill=0, desc="Flux queries (Grafana's Proxmox, fw-wan and wireless dashboards) and their p95 duration.",
+    ], fill=0, desc="Flux queries (Grafana's wireless dashboards) and their p95 duration.",
         overrides=[override(".*p95", {"unit": "s", "custom.axisPlacement": "right"}, regex=True)]), 7, 8)
     b.add(timeseries("InfluxDB: disk", [
         q(f"sum by (host) (storage_shard_disk_size{{{ix}}})", "{{host}} shards"),

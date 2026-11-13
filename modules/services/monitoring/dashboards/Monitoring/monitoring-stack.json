@@ -89,7 +89,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "up{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir\"}",
+          "expr": "up{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir\"}",
           "legendFormat": "{{job}} {{host}}",
           "range": false,
           "instant": true,
@@ -5997,7 +5997,7 @@
     {
       "type": "timeseries",
       "title": "Telegraf: metrics received",
-      "description": "Metrics per second from each Telegraf input; cisco_telemetry_mdt is the C9800s' gRPC dial-out (one metric per YANG list entry per push). 0 for long fires WlcTelemetryStopped.",
+      "description": "Metrics per second from each Telegraf input; cisco_telemetry_mdt is the C9800s' gRPC dial-out (one metric per YANG list entry per push), 0 for long fires WlcTelemetryStopped; pvestatd is every PVE node's pvestatd (each Prometheus scrapes its own backend's Telegraf), 0 for long fires PveMetricsStopped.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -6014,6 +6014,18 @@
           "range": true,
           "instant": false,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (input) (rate(internal_gather_metrics_gathered{job=\"pvestatd\", input=\"influxdb_v2_listener\"}[$__rate_interval]))",
+          "legendFormat": "pvestatd (PVE metric servers)",
+          "range": true,
+          "instant": false,
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -6370,7 +6382,7 @@
     {
       "type": "timeseries",
       "title": "InfluxDB: points written",
-      "description": "Points stored per second (Proxmox metric server, the WLC Telegraf); errors, drops and timeouts only show when non-zero. Both backends should write about the same.",
+      "description": "Points stored per second (the WLC Telegraf; Proxmox writes here until 2026-11-13); errors, drops and timeouts only show when non-zero. Both backends should write about the same.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -6484,7 +6496,7 @@
     {
       "type": "timeseries",
       "title": "InfluxDB: queries",
-      "description": "Flux queries (Grafana's Proxmox, fw-wan and wireless dashboards) and their p95 duration.",
+      "description": "Flux queries (Grafana's wireless dashboards) and their p95 duration.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -6706,7 +6718,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "process_resident_memory_bytes{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir\"}",
+          "expr": "process_resident_memory_bytes{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir\"}",
           "legendFormat": "{{job}} {{host}}",
           "range": true,
           "instant": false,
@@ -6785,7 +6797,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "rate(process_cpu_seconds_total{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|influxdb|mimir\"}[$__rate_interval])",
+          "expr": "rate(process_cpu_seconds_total{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir\"}[$__rate_interval])",
           "legendFormat": "{{job}} {{host}}",
           "range": true,
           "instant": false,
