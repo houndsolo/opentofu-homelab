@@ -777,6 +777,43 @@ def valkey():
                      b, tags=["databases", "valkey"], extra_links=[DB_LINK])
 
 
+def overview_row(b):
+    """Postgres and Valkey at a glance for custom.overview(): one line of tiles linking to their dashboards."""
+    pg = 'job="patroni"'
+    pg_link = [("Postgres cluster (Patroni)", CLUSTER_DASH + "?" + TIME)]
+    vk_link = [("Valkey", VALKEY_DASH + "?" + TIME)]
+    leader = f"on (host) (patroni_primary{{{pg}}} == 1)"
+    b.add(stat("Postgres leader", [q(f"max by (host) (patroni_primary{{{pg}}}) == 1", "{{host}}", instant=True)],
+               text_mode="name", color_mode="value", thresholds=BLUE, no_value="NO LEADER", text_size=(12, 26),
+               links=pg_link, desc="Patroni's leader (takes the writes and holds postgres-vip). Grafana, NetBox and "
+                                   "dark-triage keep their data here."), 4, 5)
+    b.add(stat("Postgres members", [
+        q(f"count(patroni_replica{{{pg}}} == 1 and on (host) patroni_postgres_streaming{{{pg}}} == 1) or vector(0)",
+          "replicas streaming", instant=True),
+        q(f"max(patroni_xlog_location{{{pg}}}) - min(patroni_xlog_replayed_location{{{pg}}} and on (host) "
+          f"patroni_replica{{{pg}}} == 1)", "max lag", instant=True),
+    ], text_mode="value_and_name", color_mode="value", thresholds=BLUE, text_size=(11, 18), links=pg_link,
+        overrides=[override("max lag", {"unit": "bytes", "thresholds": steps(("green", None), ("orange", 1048576))}),
+                   override("replicas streaming", {"thresholds": steps(("red", None), ("orange", 1), ("green", 2))})],
+        desc="Replicas streaming from the leader (2 of 2 expected) and the largest replay lag. Over 1 MiB a replica "
+             "can't take over (maximum_lag_on_failover)."), 5, 5)
+    b.add(stat("Postgres transactions/s", [
+        q('sum(rate(pg_stat_database_xact_commit{job="postgres"}[$__rate_interval]) and ' + leader + ')',
+          "commits")], decimals=1, graph=True, color_mode="value", thresholds=BLUE, links=pg_link,
+        desc="Commits per second on the leader, all databases."), 4, 5)
+    b.add(stat("Valkey primary", [q(f'max by (host) (redis_instance_info{{{VK}, role="master"}})', "{{host}}",
+                                    instant=True)],
+               text_mode="name", color_mode="value", thresholds=BLUE, no_value="NO PRIMARY", text_size=(12, 26),
+               links=vk_link, desc="NetBox's task queue and cache; Sentinel picks the primary."), 4, 5)
+    b.add(gauge("Valkey memory", [q(f"max(redis_memory_used_bytes{{{VK}}} / redis_memory_max_bytes{{{VK}}} and {PRIMARY})",
+                                    instant=True)],
+                unit="percentunit", min_=0, max_=1, thresholds=steps(("green", None), ("orange", 0.8), ("red", 0.95)),
+                links=vk_link, desc="used_memory / maxmemory (noeviction: at 100 % NetBox's writes fail)."), 3, 5)
+    b.add(stat("NetBox jobs queued", [q(f"{RQ_QUEUED} or {RQ_ZERO}", instant=True)], decimals=0, color_mode="value",
+               thresholds=steps(("green", None), ("orange", 10), ("red", 100)), links=vk_link, text_size=(12, 26),
+               desc="RQ jobs waiting in Valkey. Growing = netbox-worker down or stuck."), 4, 5)
+
+
 DASHBOARDS = {
     "Databases/postgres-cluster.json": cluster,
     "Databases/postgres-instance.json": instance,

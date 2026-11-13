@@ -114,6 +114,9 @@ run "inventory_targets" {
       strcontains(module.monitoring.dashboard_providers_config, "\"foldersFromFilesStructure\": true") &&
       strcontains(module.monitoring.dashboard_providers_config, "\"allowUiUpdates\": false") &&
       { for rel, content in module.monitoring.dashboards : rel => jsondecode(content).uid } == {
+        "Databases/postgres-cluster.json"                  = "postgres-cluster"
+        "Databases/postgres-instance.json"                 = "postgres-instance"
+        "Databases/valkey.json"                            = "valkey"
         "Edge/fw-wan-firewall.json"                        = "fw-wan-firewall"
         "Edge/fw-wan-overview.json"                        = "fw-wan-overview"
         "Edge/fw-wan-routing.json"                         = "fw-wan-routing"
@@ -141,6 +144,7 @@ run "inventory_targets" {
         "Proxmox/proxmox-overview.json"                    = "proxmox-overview"
         "Proxmox/proxmox-storage.json"                     = "proxmox-storage"
         "Services/dark-triage.json"                        = "dark-triage"
+        "Services/nginx-proxy.json"                        = "nginx-proxy"
         "Storage/ceph-cluster.json"                        = "ceph-cluster"
         "Storage/ceph-osd.json"                            = "ceph-osd"
         "Storage/ceph-rgw-buckets.json"                    = "ceph-rgw-buckets"

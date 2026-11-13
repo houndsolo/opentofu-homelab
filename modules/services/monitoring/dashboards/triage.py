@@ -13,7 +13,7 @@ from custom import (DS, Board, ERROR, OK, WARN_HIGH, bargauge, cell, dashboard, 
 from theme import ACCENT, ACCENT2, INFO, TEXT_MUTED, WARN
 
 TRIAGE = {"type": "grafana-postgresql-datasource", "uid": "triage"}
-APP = "http://dark-triage.lylat.space"
+APP = "https://dark-triage.lylat.space"
 OPEN = "status NOT IN ('Resolved', 'Canceled')"
 PRIO_ORDER = "CASE t.priority WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END"
 PRIO_COLORS = {"Critical": ERROR, "High": WARN_HIGH, "Medium": WARN, "Low": TEXT_MUTED}

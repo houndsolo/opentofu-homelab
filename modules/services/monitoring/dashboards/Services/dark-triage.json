@@ -1058,7 +1058,7 @@
                 "value": [
                   {
                     "title": "Open ${__value.raw} in dark-triage",
-                    "url": "http://dark-triage.lylat.space/#${__value.raw}",
+                    "url": "https://dark-triage.lylat.space/#${__value.raw}",
                     "targetBlank": true
                   }
                 ]
@@ -1840,7 +1840,7 @@
                 "value": [
                   {
                     "title": "Open ${__value.raw} in dark-triage",
-                    "url": "http://dark-triage.lylat.space/#${__value.raw}",
+                    "url": "https://dark-triage.lylat.space/#${__value.raw}",
                     "targetBlank": true
                   }
                 ]
@@ -2039,7 +2039,7 @@
       "title": "About",
       "options": {
         "mode": "markdown",
-        "content": "Data: dark-triage's Postgres database (read-only role `triage_grafana`). App: [http://dark-triage.lylat.space](http://dark-triage.lylat.space). Bots file tickets with `dt` (claude) and `lylat-triage` (qwen)."
+        "content": "Data: dark-triage's Postgres database (read-only role `triage_grafana`). App: [https://dark-triage.lylat.space](https://dark-triage.lylat.space). Bots file tickets with `dt` (claude) and `lylat-triage` (qwen)."
       },
       "id": 24,
       "gridPos": {

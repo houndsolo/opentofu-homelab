@@ -7,7 +7,7 @@ locals {
     static_configs = [for t in var.targets.nginx : { targets = ["${t.address}:9113"], labels = { host = t.host } }]
   }]
 
-  nginx_rules = length(var.targets.nginx) == 0 ? [] : [{
+  nginx_rules = concat(length(var.targets.nginx) == 0 ? [] : [{
     name = "nginx"
     rules = [
       {
@@ -26,5 +26,25 @@ locals {
         annotations = { summary = "No nginx reverse proxy is up: https://grafana/netbox/dark-triage.lylat.space are unreachable" }
       },
     ]
-  }]
+    }], length(lookup(var.targets.blackbox, "https", [])) == 0 ? [] : [{
+    # The Let's Encrypt wildcard (roots/certs) as the sites serve it, from the blackbox-https probes. The
+    # certs root renews from 30 days left (ARI window), so < 14 days means renewals stopped running.
+    name = "tls"
+    rules = [
+      {
+        alert       = "TLSCertExpiringSoon"
+        expr        = "min by (instance) (probe_ssl_earliest_cert_expiry{job=\"blackbox-https\"}) - time() < 14 * 86400"
+        for         = "1h"
+        labels      = { severity = "warning" }
+        annotations = { summary = "TLS certificate of {{ $labels.instance }} expires in {{ $value | humanizeDuration }}: is the certs renewal running?" }
+      },
+      {
+        alert       = "TLSCertExpiryCritical"
+        expr        = "min by (instance) (probe_ssl_earliest_cert_expiry{job=\"blackbox-https\"}) - time() < 3 * 86400"
+        for         = "10m"
+        labels      = { severity = "critical" }
+        annotations = { summary = "TLS certificate of {{ $labels.instance }} expires in {{ $value | humanizeDuration }}" }
+      },
+    ]
+  }])
 }

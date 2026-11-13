@@ -2,7 +2,7 @@
 # Complete nginx.conf for the nginx container (Quadlet nginx.container, host network): TLS reverse
 # proxy for <name>.${domain}, one server block per published host (its name plus aliases), upstreams
 # are the services' own VIPs over HTTP. IPv4 only (the proxies have no global IPv6 address).
-# Logs: the image links /var/log/nginx/*.log to stdout/stderr, so they land in the journal.
+# Logs: the image links /var/log/nginx/*.log to stdout/stderr, so they land in the journal (and Loki).
 
 user  nginx;
 worker_processes auto;
@@ -16,7 +16,13 @@ events {
 http {
   include      /etc/nginx/mime.types;
   default_type application/octet-stream;
-  access_log   /var/log/nginx/access.log;
+  # Access log in logfmt, one line per request: the nginx dashboard parses it in Loki with `| logfmt`
+  # (vhost, status, upstream time per site). vhost, not host: Loki's stream label host is the proxy VM.
+  log_format lylat 'vhost=$host status=$status method=$request_method uri="$uri" proto=$server_protocol '
+                   'bytes=$body_bytes_sent rt=$request_time urt="$upstream_response_time" '
+                   'ustatus="$upstream_status" upstream="$upstream_addr" client=$remote_addr '
+                   'tls=$ssl_protocol ua="$http_user_agent"';
+  access_log   /var/log/nginx/access.log lylat;
   sendfile     on;
   keepalive_timeout 65;
   server_tokens off;

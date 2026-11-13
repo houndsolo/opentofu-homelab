@@ -319,6 +319,9 @@ locals {
     modules = {
       icmp     = { prober = "icmp", timeout = "5s", icmp = { preferred_ip_protocol = "ip4" } }
       http_2xx = { prober = "http", timeout = "5s", http = { preferred_ip_protocol = "ip4" } }
+      # The published sites through the reverse proxy: must be HTTPS with a valid cert (also gives
+      # probe_ssl_earliest_cert_expiry for the expiry alert in nginx.tf).
+      https = { prober = "http", timeout = "5s", http = { preferred_ip_protocol = "ip4", fail_if_not_ssl = true } }
       dns_soa = {
         prober  = "dns"
         timeout = "5s"
@@ -775,7 +778,8 @@ locals {
         volumes     = local.node_exporter_volumes
         env         = {}
         env_files   = []
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${g.backend_address}:9100"], local.node_exporter_collectors)
+        # address-info: node_network_address_info shows which VM holds the Grafana VIP.
+        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${g.backend_address}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors)
         user        = null
         caps        = []
         podman_args = ["--pid=host"]

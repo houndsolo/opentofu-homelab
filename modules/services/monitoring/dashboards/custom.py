@@ -44,6 +44,10 @@ SNMP_DASH = "/d/snmp-device-summary/snmp-device-summary"
 CEPH_DASH = "/d/ceph-cluster/ceph-cluster"
 CEPH_OSD_DASH = "/d/ceph-osd/ceph-osd"
 LOGS_DASH = "/d/logs-overview/logs-overview"  # logs.py
+PG_DASH = "/d/postgres-cluster/postgres-cluster"  # databases.py
+VALKEY_DASH = "/d/valkey/valkey"  # databases.py
+TRIAGE_DASH = "/d/dark-triage/dark-triage"  # triage.py
+NGINX_DASH = "/d/nginx-proxy/nginx-reverse-proxy"  # nginx.py
 
 # Every dashboard tagged "ceph" (these and the ceph-mixin ones from update.py) gets
 # a "Ceph dashboards" dropdown.
@@ -80,6 +84,14 @@ RED_IF_ANY = steps((OK, None), (ERROR, 1))
 ORANGE_IF_ANY = steps((OK, None), (WARN_HIGH, 1))
 PERCENT = steps((OK, None), (WARN_HIGH, 75), (ERROR, 90))
 UP_STEPS = steps((ERROR, None), (OK, 1))
+# Share of a service's members that are healthy: 1 = OK, 0 = DOWN, anything between = DEGRADED.
+SERVICE_MAP = [
+    {"type": "value", "options": {"1": {"text": "OK", "color": OK, "index": 0},
+                                  "0": {"text": "DOWN", "color": ERROR, "index": 1}}},
+    {"type": "range", "options": {"from": 0.0001, "to": 0.9999,
+                                  "result": {"text": "DEGRADED", "color": WARN_HIGH, "index": 2}}},
+]
+SERVICE_STEPS = steps((ERROR, None), (WARN_HIGH, 0.0001), (OK, 1))
 
 
 def q(expr, legend="__auto", table=False, instant=False):
@@ -376,22 +388,66 @@ def probe(expr):
 # --- Overview ------------------------------------------------------------------
 
 def overview():
+    import databases  # the other builders import their helpers from this module; main() makes that possible
+    import fwwan
+    import logs
+    import nginx
+    import pve
     b = Board()
     b.row("Status")
     b.add(stat("Targets up", [q("sum(up)")], color_mode="value", thresholds=GREEN,
                desc="Scrape targets answering, across every job.",
                links=[("Monitoring stack", STACK_DASH + "?${__url_time_range}")]), 3, 5)
     b.add(stat("Targets down", [q("count(up == 0) or vector(0)")], thresholds=RED_IF_ANY,
-               desc="Scrape targets not answering. DNS VMs and Proxmox nodes have no exporter yet, "
-                    "so they count here.",
+               desc="Scrape targets not answering. The table under Targets and alerts lists them.",
                links=[("Monitoring stack", STACK_DASH + "?${__url_time_range}")]), 3, 5)
     b.add(stat("Firing alerts", [q('count(ALERTS{alertstate="firing"}) or vector(0)')],
-               thresholds=ORANGE_IF_ANY, desc="Prometheus alerts in state firing."), 3, 5)
+               thresholds=ORANGE_IF_ANY, desc="Prometheus alerts in state firing (listed under Targets and alerts)."),
+          3, 5)
     b.add(stat("Probes failing", [q("count(probe_success == 0) or vector(0)")], thresholds=RED_IF_ANY,
-               desc="Blackbox probes (ICMP, HTTP, DNS SOA) currently failing.",
+               desc="Blackbox probes (ICMP, HTTP, HTTPS, DNS SOA) currently failing.",
                links=[("Probes", PROBES_DASH + "?${__url_time_range}")]), 3, 5)
     b.add(bgp_summary(""), 6, 5)
     b.add(bfd_summary(""), 6, 5)
+
+    b.row("Services")
+    services = [
+        # (tile, healthy fraction 0..1, dashboard)
+        ("Grafana", 'avg(up{job="grafana"})', STACK_DASH),
+        ("Prometheus", 'avg(up{job="prometheus"})', STACK_DASH),
+        ("Alertmanager", 'avg(up{job="alertmanager"})', STACK_DASH),
+        ("Mimir", 'avg(up{job="mimir"})', STACK_DASH),
+        ("Loki", 'avg(up{job="loki"})', STACK_DASH),
+        ("Alloy (logs)", 'avg(up{job="alloy"})', STACK_DASH),
+        ("InfluxDB relay", 'avg(up{job="influx-relay"})', STACK_DASH),
+        ("Postgres", 'avg(up{job="patroni"}) * (sum(patroni_primary{job="patroni"}) == bool 1)', PG_DASH),
+        ("etcd", 'avg(up{job="etcd"})', PG_DASH),
+        ("Valkey", 'avg(redis_up{job="valkey"}) * (count(redis_instance_info{job="valkey", role="master"}) == bool 1)',
+         VALKEY_DASH),
+        ("NetBox", 'avg(probe_success{job="blackbox-http_2xx", host=~"netbox[0-9]+"})', PROBES_DASH),
+        ("dark-triage", 'avg(probe_success{job="blackbox-http_2xx", host=~"triage[0-9]+"})', TRIAGE_DASH),
+        ("DNS", 'avg(probe_success{job="blackbox-dns_soa"})', PROBES_DASH),
+        ("nginx proxy", 'avg(nginx_up{job="nginx"})', NGINX_DASH),
+    ]
+    b.add(stat("HA services", [q(f"({e}) or vector(0)", name, instant=True) for name, e, _ in services],
+               text_mode="value_and_name", mappings=SERVICE_MAP, thresholds=SERVICE_STEPS, text_size=(11, 14),
+               desc="Each service's members that answer, as a share: OK = all, DEGRADED = some (the service still runs "
+                    "on the others), DOWN = none. Postgres and Valkey also need exactly one leader/primary. NetBox and "
+                    "dark-triage: their per-node HTTP probes; DNS: the SOA probes of dns01/02. Click a tile for its "
+                    "dashboard.",
+               overrides=[override(name, {"links": [{"title": name, "url": dash + "?${__url_time_range}"}]})
+                          for name, _, dash in services]), 12, 8)
+    b.add(table("VIPs", [q('max by (role, address, host) (node_network_address_info{device=~"vrrp.*"})', table=True)],
+                desc="keepalived VIPs and the VM holding each one right now (node_exporter address-info). Every VIP "
+                     "should appear exactly once; one missing means nobody holds it (or that VM's node_exporter "
+                     "lacks --collector.netdev.address-info).",
+                transformations=[organize(exclude=["Time", "Value"], rename={
+                    "role": "Service", "address": "VIP", "host": "Held by"}, order=["Service", "VIP", "Held by"])],
+                sort="Service"), 6, 8)
+    nginx.overview_tiles(b, 6)
+
+    b.row("Databases")
+    databases.overview_row(b)
 
     b.row("Ceph storage")
     ceph_link = [("Ceph cluster", CEPH_DASH + "?${__url_time_range}")]
@@ -416,11 +472,9 @@ def overview():
                desc="OSDs down and placement groups that aren't active+clean."), 4, 5)
 
     b.row("Proxmox")
-    import pve  # pve.py imports its helpers from this module; main() makes that possible
     pve.overview_row(b)
 
     b.row("Edge (fw-wan)")
-    import fwwan  # fwwan.py imports its helpers from this module; main() makes that possible
     fwwan.overview_row(b)
 
     b.row("Targets and alerts")
@@ -521,8 +575,20 @@ def overview():
     ], unit="bps", desc="SNMP if_mib counters from the switches and WLCs: the 10 busiest ports over the selected range.",
         calcs=("mean", "max"), links=[("SNMP Device Summary", SNMP_DASH + "?${__url_time_range}")]), 12, 9)
 
+    b.row("Logs")
+    b.add(logs.by_total(logs.per_bucket("Log lines by source", [
+        logs.lq('sum by (source) (count_over_time({source=~".+"} [$__auto]))', "{{source}}")],
+        desc="Lines reaching Loki: syslog from the routers, switches, WLCs and PVE nodes; the systemd journal "
+             "from the Linux VMs.",
+        links=[("Logs overview", LOGS_DASH + "?${__url_time_range}")])), 12, 8)
+    b.add(logs.top("Noisiest hosts", 'sum by (host) (count_over_time({source=~".+"} [$__range]))', "{{host}}",
+                   desc="Log lines per host over the time range.",
+                   links=[("Logs of this host", LOGS_DASH + "?var-host=${__field.labels.host}&${__url_time_range}")]),
+          12, 8)
+
     return dashboard("lylat-overview", "lylat.space overview",
-                     "Landing page: target and alert status, Ceph, probes, the EVPN fabric, hosts and top talkers.",
+                     "Landing page: targets and alerts, the HA services and their VIPs, the published sites, databases, "
+                     "Ceph, Proxmox, fw-wan, the EVPN fabric, hosts, top talkers and log volume.",
                      b, tags=["overview"], nav_links=theme.category_links(), time_from="now-3h")
 
 
@@ -2005,6 +2071,7 @@ def main():
     import databases
     import fwwan
     import logs
+    import nginx
     import pve
     import rgw
     import snmp
@@ -2012,7 +2079,7 @@ def main():
     import wireless
     for rel, build in {**DASHBOARDS, **pve.DASHBOARDS, **fwwan.DASHBOARDS, **logs.DASHBOARDS,
                        **wireless.DASHBOARDS, **rgw.DASHBOARDS, **snmp.DASHBOARDS, **triage.DASHBOARDS,
-                       **databases.DASHBOARDS}.items():
+                       **databases.DASHBOARDS, **nginx.DASHBOARDS}.items():
         out = HERE / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         dash = theme.apply_theme(theme.categorize(build(), rel))

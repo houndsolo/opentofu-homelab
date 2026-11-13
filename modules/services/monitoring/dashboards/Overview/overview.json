@@ -2,7 +2,7 @@
   "id": null,
   "uid": "lylat-overview",
   "title": "lylat.space overview",
-  "description": "Landing page: target and alert status, Ceph, probes, the EVPN fabric, hosts and top talkers.",
+  "description": "Landing page: targets and alerts, the HA services and their VIPs, the published sites, databases, Ceph, Proxmox, fw-wan, the EVPN fabric, hosts, top talkers and log volume.",
   "tags": [
     "lylat",
     "lylat-overview",
@@ -271,7 +271,7 @@
     {
       "type": "stat",
       "title": "Targets down",
-      "description": "Scrape targets not answering. DNS VMs and Proxmox nodes have no exporter yet, so they count here.",
+      "description": "Scrape targets not answering. The table under Targets and alerts lists them.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -346,7 +346,7 @@
     {
       "type": "stat",
       "title": "Firing alerts",
-      "description": "Prometheus alerts in state firing.",
+      "description": "Prometheus alerts in state firing (listed under Targets and alerts).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -414,7 +414,7 @@
     {
       "type": "stat",
       "title": "Probes failing",
-      "description": "Blackbox probes (ICMP, HTTP, DNS SOA) currently failing.",
+      "description": "Blackbox probes (ICMP, HTTP, HTTPS, DNS SOA) currently failing.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -788,7 +788,7 @@
     },
     {
       "type": "row",
-      "title": "Ceph storage",
+      "title": "Services",
       "collapsed": false,
       "id": 8,
       "gridPos": {
@@ -796,6 +796,1341 @@
         "w": 24,
         "x": 0,
         "y": 6
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "HA services",
+      "description": "Each service's members that answer, as a share: OK = all, DEGRADED = some (the service still runs on the others), DOWN = none. Postgres and Valkey also need exactly one leader/primary. NetBox and dark-triage: their per-node HTTP probes; DNS: the SOA probes of dns01/02. Click a tile for its dashboard.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"grafana\"})) or vector(0)",
+          "legendFormat": "Grafana",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"prometheus\"})) or vector(0)",
+          "legendFormat": "Prometheus",
+          "range": false,
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"alertmanager\"})) or vector(0)",
+          "legendFormat": "Alertmanager",
+          "range": false,
+          "instant": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"mimir\"})) or vector(0)",
+          "legendFormat": "Mimir",
+          "range": false,
+          "instant": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"loki\"})) or vector(0)",
+          "legendFormat": "Loki",
+          "range": false,
+          "instant": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"alloy\"})) or vector(0)",
+          "legendFormat": "Alloy (logs)",
+          "range": false,
+          "instant": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"influx-relay\"})) or vector(0)",
+          "legendFormat": "InfluxDB relay",
+          "range": false,
+          "instant": true,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"patroni\"}) * (sum(patroni_primary{job=\"patroni\"}) == bool 1)) or vector(0)",
+          "legendFormat": "Postgres",
+          "range": false,
+          "instant": true,
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(up{job=\"etcd\"})) or vector(0)",
+          "legendFormat": "etcd",
+          "range": false,
+          "instant": true,
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(redis_up{job=\"valkey\"}) * (count(redis_instance_info{job=\"valkey\", role=\"master\"}) == bool 1)) or vector(0)",
+          "legendFormat": "Valkey",
+          "range": false,
+          "instant": true,
+          "refId": "J"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(probe_success{job=\"blackbox-http_2xx\", host=~\"netbox[0-9]+\"})) or vector(0)",
+          "legendFormat": "NetBox",
+          "range": false,
+          "instant": true,
+          "refId": "K"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(probe_success{job=\"blackbox-http_2xx\", host=~\"triage[0-9]+\"})) or vector(0)",
+          "legendFormat": "dark-triage",
+          "range": false,
+          "instant": true,
+          "refId": "L"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(probe_success{job=\"blackbox-dns_soa\"})) or vector(0)",
+          "legendFormat": "DNS",
+          "range": false,
+          "instant": true,
+          "refId": "M"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(avg(nginx_up{job=\"nginx\"})) or vector(0)",
+          "legendFormat": "nginx proxy",
+          "range": false,
+          "instant": true,
+          "refId": "N"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ff6188",
+                "value": null
+              },
+              {
+                "color": "#ffa352",
+                "value": 0.0001
+              },
+              {
+                "color": "#02E5A8",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "OK",
+                  "color": "#02E5A8",
+                  "index": 0
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "#ff6188",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0.0001,
+                "to": 0.9999,
+                "result": {
+                  "text": "DEGRADED",
+                  "color": "#ffa352",
+                  "index": 2
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Grafana"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Grafana",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Prometheus"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Prometheus",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Alertmanager"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Alertmanager",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mimir"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Mimir",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Loki"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Loki",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Alloy (logs)"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Alloy (logs)",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "InfluxDB relay"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "InfluxDB relay",
+                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Postgres"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Postgres",
+                    "url": "/d/postgres-cluster/postgres-cluster?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "etcd"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "etcd",
+                    "url": "/d/postgres-cluster/postgres-cluster?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Valkey"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Valkey",
+                    "url": "/d/valkey/valkey?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NetBox"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "NetBox",
+                    "url": "/d/blackbox-probes/blackbox-probes?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dark-triage"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "dark-triage",
+                    "url": "/d/dark-triage/dark-triage?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "DNS"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "DNS",
+                    "url": "/d/blackbox-probes/blackbox-probes?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "nginx proxy"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "nginx proxy",
+                    "url": "/d/nginx-proxy/nginx-reverse-proxy?${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 11,
+          "valueSize": 14
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      }
+    },
+    {
+      "type": "table",
+      "title": "VIPs",
+      "description": "keepalived VIPs and the VM holding each one right now (node_exporter address-info). Every VIP should appear exactly once; one missing means nobody holds it (or that VM's node_exporter lacks --collector.netdev.address-info).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (role, address, host) (node_network_address_info{device=~\"vrrp.*\"})",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "Service",
+            "desc": false
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "renameByName": {
+              "role": "Service",
+              "address": "VIP",
+              "host": "Held by"
+            },
+            "indexByName": {
+              "role": 0,
+              "address": 1,
+              "host": 2
+            }
+          }
+        }
+      ],
+      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Sites (HTTPS)",
+      "description": "https://<name>.lylat.space through the nginx proxy (proxy-vip), probed by name from mon01/02.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host) (probe_success{job=\"blackbox-https\"})",
+          "legendFormat": "{{host}}",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ff6188",
+                "value": null
+              },
+              {
+                "color": "#02E5A8",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "#ff6188",
+                  "index": 0
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "#02E5A8",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "noValue": "Needs the blackbox-https probes (monitoring-config blackbox_https_targets)"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 11,
+          "valueSize": 14
+        }
+      },
+      "links": [
+        {
+          "title": "nginx reverse proxy",
+          "url": "/d/nginx-proxy/nginx-reverse-proxy?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 11,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Certificate expires in",
+      "description": "*.lylat.space (Let's Encrypt, renewed by roots/certs at ~30 days left).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "min(probe_ssl_earliest_cert_expiry{job=\"blackbox-https\"}) - time()",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ff6188",
+                "value": null
+              },
+              {
+                "color": "#ffa352",
+                "value": 259200
+              },
+              {
+                "color": "#02E5A8",
+                "value": 1209600
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "dtdurations",
+          "noValue": "Needs the blackbox-https probes (monitoring-config blackbox_https_targets)"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 11,
+          "valueSize": 18
+        }
+      },
+      "links": [
+        {
+          "title": "nginx reverse proxy",
+          "url": "/d/nginx-proxy/nginx-reverse-proxy?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 12,
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 12
+      }
+    },
+    {
+      "type": "row",
+      "title": "Databases",
+      "collapsed": false,
+      "id": 13,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Postgres leader",
+      "description": "Patroni's leader (takes the writes and holds postgres-vip). Grafana, NetBox and dark-triage keep their data here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host) (patroni_primary{job=\"patroni\"}) == 1",
+          "legendFormat": "{{host}}",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6870ff",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "NO LEADER"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 26
+        }
+      },
+      "links": [
+        {
+          "title": "Postgres cluster (Patroni)",
+          "url": "/d/postgres-cluster/postgres-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 14,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Postgres members",
+      "description": "Replicas streaming from the leader (2 of 2 expected) and the largest replay lag. Over 1 MiB a replica can't take over (maximum_lag_on_failover).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "count(patroni_replica{job=\"patroni\"} == 1 and on (host) patroni_postgres_streaming{job=\"patroni\"} == 1) or vector(0)",
+          "legendFormat": "replicas streaming",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(patroni_xlog_location{job=\"patroni\"}) - min(patroni_xlog_replayed_location{job=\"patroni\"} and on (host) patroni_replica{job=\"patroni\"} == 1)",
+          "legendFormat": "max lag",
+          "range": false,
+          "instant": true,
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6870ff",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max lag"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#02E5A8",
+                      "value": null
+                    },
+                    {
+                      "color": "#ffa352",
+                      "value": 1048576
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "replicas streaming"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ff6188",
+                      "value": null
+                    },
+                    {
+                      "color": "#ffa352",
+                      "value": 1
+                    },
+                    {
+                      "color": "#02E5A8",
+                      "value": 2
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 11,
+          "valueSize": 18
+        }
+      },
+      "links": [
+        {
+          "title": "Postgres cluster (Patroni)",
+          "url": "/d/postgres-cluster/postgres-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 4,
+        "y": 16
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Postgres transactions/s",
+      "description": "Commits per second on the leader, all databases.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(pg_stat_database_xact_commit{job=\"postgres\"}[$__rate_interval]) and on (host) (patroni_primary{job=\"patroni\"} == 1))",
+          "legendFormat": "commits",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6870ff",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "links": [
+        {
+          "title": "Postgres cluster (Patroni)",
+          "url": "/d/postgres-cluster/postgres-cluster?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 16,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 9,
+        "y": 16
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Valkey primary",
+      "description": "NetBox's task queue and cache; Sentinel picks the primary.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (host) (redis_instance_info{job=\"valkey\", role=\"master\"})",
+          "legendFormat": "{{host}}",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6870ff",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "noValue": "NO PRIMARY"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 26
+        }
+      },
+      "links": [
+        {
+          "title": "Valkey",
+          "url": "/d/valkey/valkey?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 17,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 13,
+        "y": 16
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Valkey memory",
+      "description": "used_memory / maxmemory (noeviction: at 100 % NetBox's writes fail).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max(redis_memory_used_bytes{job=\"valkey\"} / redis_memory_max_bytes{job=\"valkey\"} and on (host) (redis_instance_info{job=\"valkey\", role=\"master\"}))",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              },
+              {
+                "color": "#ffa352",
+                "value": 0.8
+              },
+              {
+                "color": "#ff6188",
+                "value": 0.95
+              }
+            ]
+          },
+          "mappings": [],
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false,
+        "orientation": "auto",
+        "minVizWidth": 75,
+        "minVizHeight": 75,
+        "sizing": "auto"
+      },
+      "links": [
+        {
+          "title": "Valkey",
+          "url": "/d/valkey/valkey?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 18,
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 17,
+        "y": 16
+      }
+    },
+    {
+      "type": "stat",
+      "title": "NetBox jobs queued",
+      "description": "RQ jobs waiting in Valkey. Growing = netbox-worker down or stuck.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(redis_key_size{job=\"valkey\", db=\"db0\", key=~\"rq:queue:.*\"} and on (host) (redis_instance_info{job=\"valkey\", role=\"master\"})) or max(redis_key_size{job=\"valkey\", db=\"db0\", key=\"rq:workers\"} and on (host) (redis_instance_info{job=\"valkey\", role=\"master\"})) * 0",
+          "legendFormat": "__auto",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              },
+              {
+                "color": "#ffa352",
+                "value": 10
+              },
+              {
+                "color": "#ff6188",
+                "value": 100
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 26
+        }
+      },
+      "links": [
+        {
+          "title": "Valkey",
+          "url": "/d/valkey/valkey?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 19,
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 16
+      }
+    },
+    {
+      "type": "row",
+      "title": "Ceph storage",
+      "collapsed": false,
+      "id": 20,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
       },
       "panels": []
     },
@@ -892,12 +2227,12 @@
           "targetBlank": false
         }
       ],
-      "id": 9,
+      "id": 21,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 0,
-        "y": 7
+        "y": 22
       }
     },
     {
@@ -977,12 +2312,12 @@
           "targetBlank": false
         }
       ],
-      "id": 10,
+      "id": 22,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 4,
-        "y": 7
+        "y": 22
       }
     },
     {
@@ -1093,12 +2428,12 @@
           "targetBlank": false
         }
       ],
-      "id": 11,
+      "id": 23,
       "gridPos": {
         "h": 5,
         "w": 6,
         "x": 8,
-        "y": 7
+        "y": 22
       }
     },
     {
@@ -1208,12 +2543,12 @@
           "targetBlank": false
         }
       ],
-      "id": 12,
+      "id": 24,
       "gridPos": {
         "h": 5,
         "w": 6,
         "x": 14,
-        "y": 7
+        "y": 22
       }
     },
     {
@@ -1320,24 +2655,24 @@
           "targetBlank": false
         }
       ],
-      "id": 13,
+      "id": 25,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 20,
-        "y": 7
+        "y": 22
       }
     },
     {
       "type": "row",
       "title": "Proxmox",
       "collapsed": false,
-      "id": 14,
+      "id": 26,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 12
+        "y": 27
       },
       "panels": []
     },
@@ -1448,12 +2783,12 @@
           "targetBlank": false
         }
       ],
-      "id": 15,
+      "id": 27,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 0,
-        "y": 13
+        "y": 28
       }
     },
     {
@@ -1592,12 +2927,12 @@
           "targetBlank": false
         }
       ],
-      "id": 16,
+      "id": 28,
       "gridPos": {
         "h": 5,
         "w": 6,
         "x": 4,
-        "y": 13
+        "y": 28
       }
     },
     {
@@ -1669,12 +3004,12 @@
           "targetBlank": false
         }
       ],
-      "id": 17,
+      "id": 29,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 10,
-        "y": 13
+        "y": 28
       }
     },
     {
@@ -1746,12 +3081,12 @@
           "targetBlank": false
         }
       ],
-      "id": 18,
+      "id": 30,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 14,
-        "y": 13
+        "y": 28
       }
     },
     {
@@ -1827,24 +3162,24 @@
           "targetBlank": false
         }
       ],
-      "id": 19,
+      "id": 31,
       "gridPos": {
         "h": 5,
         "w": 6,
         "x": 18,
-        "y": 13
+        "y": 28
       }
     },
     {
       "type": "row",
       "title": "Edge (fw-wan)",
       "collapsed": false,
-      "id": 20,
+      "id": 32,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 33
       },
       "panels": []
     },
@@ -1931,12 +3266,12 @@
           "targetBlank": false
         }
       ],
-      "id": 21,
+      "id": 33,
       "gridPos": {
         "h": 5,
         "w": 3,
         "x": 0,
-        "y": 19
+        "y": 34
       }
     },
     {
@@ -2046,12 +3381,12 @@
           "targetBlank": false
         }
       ],
-      "id": 22,
+      "id": 34,
       "gridPos": {
         "h": 5,
         "w": 6,
         "x": 3,
-        "y": 19
+        "y": 34
       }
     },
     {
@@ -2149,12 +3484,12 @@
           "targetBlank": false
         }
       ],
-      "id": 23,
+      "id": 35,
       "gridPos": {
         "h": 5,
         "w": 6,
         "x": 9,
-        "y": 19
+        "y": 34
       }
     },
     {
@@ -2230,12 +3565,12 @@
           "targetBlank": false
         }
       ],
-      "id": 24,
+      "id": 36,
       "gridPos": {
         "h": 5,
         "w": 5,
         "x": 15,
-        "y": 19
+        "y": 34
       }
     },
     {
@@ -2312,24 +3647,24 @@
           "targetBlank": false
         }
       ],
-      "id": 25,
+      "id": 37,
       "gridPos": {
         "h": 5,
         "w": 4,
         "x": 20,
-        "y": 19
+        "y": 34
       }
     },
     {
       "type": "row",
       "title": "Targets and alerts",
       "collapsed": false,
-      "id": 26,
+      "id": 38,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 39
       },
       "panels": []
     },
@@ -2486,12 +3821,12 @@
           }
         }
       ],
-      "id": 27,
+      "id": 39,
       "gridPos": {
         "h": 10,
         "w": 7,
         "x": 0,
-        "y": 25
+        "y": 40
       }
     },
     {
@@ -2617,12 +3952,12 @@
           }
         }
       ],
-      "id": 28,
+      "id": 40,
       "gridPos": {
         "h": 10,
         "w": 9,
         "x": 7,
-        "y": 25
+        "y": 40
       }
     },
     {
@@ -2724,24 +4059,24 @@
           }
         }
       ],
-      "id": 29,
+      "id": 41,
       "gridPos": {
         "h": 10,
         "w": 8,
         "x": 16,
-        "y": 25
+        "y": 40
       }
     },
     {
       "type": "row",
       "title": "Probes and fabric",
       "collapsed": false,
-      "id": 30,
+      "id": 42,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 50
       },
       "panels": []
     },
@@ -2828,12 +4163,12 @@
           "targetBlank": false
         }
       ],
-      "id": 31,
+      "id": 43,
       "gridPos": {
         "h": 8,
         "w": 10,
         "x": 0,
-        "y": 36
+        "y": 51
       }
     },
     {
@@ -2956,12 +4291,12 @@
           "targetBlank": false
         }
       ],
-      "id": 32,
+      "id": 44,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 10,
-        "y": 36
+        "y": 51
       }
     },
     {
@@ -3063,24 +4398,24 @@
           "targetBlank": false
         }
       ],
-      "id": 33,
+      "id": 45,
       "gridPos": {
         "h": 8,
         "w": 7,
         "x": 17,
-        "y": 36
+        "y": 51
       }
     },
     {
       "type": "row",
       "title": "Hosts and routers",
       "collapsed": false,
-      "id": 34,
+      "id": 46,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 59
       },
       "panels": []
     },
@@ -3613,24 +4948,24 @@
           }
         }
       ],
-      "id": 35,
+      "id": 47,
       "gridPos": {
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 45
+        "y": 60
       }
     },
     {
       "type": "row",
       "title": "Traffic",
       "collapsed": false,
-      "id": 36,
+      "id": 48,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 59
+        "y": 74
       },
       "panels": []
     },
@@ -3704,12 +5039,12 @@
           "sort": "desc"
         }
       },
-      "id": 37,
+      "id": 49,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 60
+        "y": 75
       }
     },
     {
@@ -3789,12 +5124,186 @@
           "targetBlank": false
         }
       ],
-      "id": 38,
+      "id": 50,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 75
+      }
+    },
+    {
+      "type": "row",
+      "title": "Logs",
+      "collapsed": false,
+      "id": 51,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 84
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Log lines by source",
+      "description": "Lines reaching Loki: syslog from the routers, switches, WLCs and PVE nodes; the systemd journal from the Linux VMs.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (source) (count_over_time({source=~\".+\"} [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#02E5A8",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 70,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisPlacement": "auto",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "sum",
+            "max"
+          ],
+          "showLegend": true,
+          "sortBy": "Total",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "links": [
+        {
+          "title": "Logs overview",
+          "url": "/d/logs-overview/logs-overview?${__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 52,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 85
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Noisiest hosts",
+      "description": "Log lines per host over the time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sort_desc(topk(10, sum by (host) (count_over_time({source=~\".+\"} [$__range]))))",
+          "queryType": "instant",
+          "legendFormat": "{{host}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#6870ff",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0,
+          "noValue": "Nothing in range",
+          "links": [
+            {
+              "title": "Logs of this host",
+              "url": "/d/logs-overview/logs-overview?var-host=${__field.labels.host}&${__url_time_range}",
+              "targetBlank": false
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300
+      },
+      "id": 53,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 85
       }
     }
   ]

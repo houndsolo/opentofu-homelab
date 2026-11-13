@@ -219,6 +219,17 @@ variable "blackbox_icmp_targets" {
   }
 }
 
+variable "blackbox_https_targets" {
+  description = "host => https URL for probes of the sites published through the nginx reverse proxy (job blackbox-https: status, TLS, cert expiry). Keep in step with services-config var.proxy.hosts."
+  type        = map(string)
+  default = {
+    grafana     = "https://grafana.lylat.space/api/health"
+    netbox      = "https://netbox.lylat.space/login/"
+    dark-triage = "https://dark-triage.lylat.space/api/health"
+    proxy       = "https://proxy.lylat.space/" # the proxy's landing page
+  }
+}
+
 variable "blackbox_http_targets" {
   description = "host => URL for HTTP 2xx probes."
   type        = map(string)

@@ -148,6 +148,7 @@ locals {
     blackbox = {
       icmp     = [for host, address in var.blackbox_icmp_targets : { host = host, target = address }]
       http_2xx = [for host, url in var.blackbox_http_targets : { host = host, target = url }]
+      https    = [for host, url in var.blackbox_https_targets : { host = host, target = url }]
       dns_soa = [
         for name in keys(local.dns_vms) : {
           host = name

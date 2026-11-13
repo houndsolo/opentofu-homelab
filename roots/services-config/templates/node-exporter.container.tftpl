@@ -13,7 +13,8 @@ Volume=/:/host:ro,rslave
 Volume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
 PodmanArgs=--pid=host
 # The collectors and flags of monitoring-config's VMs (modules/services/monitoring/main.tf node_exporter_collectors).
-Exec=--path.rootfs=/host --web.listen-address=${listen} --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)
+# address-info: node_network_address_info shows which VM holds a keepalived VIP (the overview's VIP table).
+Exec=--path.rootfs=/host --web.listen-address=${listen} --collector.netdev.address-info --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)
 
 [Service]
 Restart=always
