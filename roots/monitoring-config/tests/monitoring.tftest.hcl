@@ -73,12 +73,15 @@ run "inventory_targets" {
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "10.5.1.11:9100") &&    # PVE node on vmbr100
-      strcontains(module.monitoring.prometheus_config, "10.13.11.32:9100") &&  # Grafana over the backend VLAN
+      strcontains(module.monitoring.prometheus_config, "10.55.11.32:9100") &&  # Grafana over lylat-telemetry
       strcontains(module.monitoring.prometheus_config, "10.20.10.17:9342") &&  # leaf FRR exporter
       strcontains(module.monitoring.prometheus_config, "10.20.10.255:9100") && # fw-wan extra target
       strcontains(module.monitoring.prometheus_config, "\"snmp-spines\"") &&
       strcontains(module.monitoring.prometheus_config, "10.8.53.1") && # DNS SOA probe on the service address
-      !strcontains(module.monitoring.prometheus_config, "\"/pve\"")    # no pve job without a token
+      !strcontains(module.monitoring.prometheus_config, "\"/pve\"") && # no pve job without a token
+      # VM jobs: instance = <host>:<port> (stable across address moves); device jobs keep theirs.
+      one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "node"]).relabel_configs[0].replacement == "$1:$2" &&
+      length(try(one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "vyos-frr"]).relabel_configs, [])) == 0
     )
     error_message = "Scrape targets must come from the inventory, and pve must be absent without a token."
   }
@@ -98,7 +101,7 @@ run "inventory_targets" {
       strcontains(module.monitoring.units.mon01.postgres, "PublishPort=10.13.11.30:5432:5432\n") &&
       !strcontains(module.monitoring.units.mon01.postgres, "10.5.11.30") &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.21.11.32:9094,10.21.11.33:9094") &&
-      strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.13.11.33:9100") &&
+      strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.55.11.33:9100") &&
       strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus") &&
       # Data dirs of images that drop from root to a service user stay owned by that user,
       # so a redeploy that doesn't restart Postgres/InfluxDB can't lock them out.
@@ -663,17 +666,18 @@ run "logging" {
         router_id     = 101
         priority      = p.prio
         auth_pass     = "mockmockmockmockmockmockmockmock" # mocked random_password
-        alloy_address = "10.13.11.${p.i}"
+        alloy_address = "10.55.18.${p.i}"
         ha_interface  = "eth5"
         ha_address    = "10.21.12.${p.i}"
         peers         = [for j in [34, 35, 36] : "10.21.12.${j}" if j != p.i]
         vips = [
           { cidr = "10.13.11.101/16", interface = "eth2" },
           { cidr = "10.5.11.101/16", interface = "eth3" },
+          { cidr = "10.55.18.101/16", interface = "eth6" },
         ]
       })))
     )])
-    error_message = "keepalived: vrid 101 over eth5 (HA VLAN), VIPs on eth2/eth3 (none on mgmt), priorities 150/100/50."
+    error_message = "keepalived: vrid 101 over eth5 (HA VLAN), VIPs on eth2/eth3/eth6 (backend, monitoring, telemetry; none on mgmt), priorities 150/100/50."
   }
 
   assert {
@@ -687,12 +691,12 @@ run "logging" {
       strcontains(module.monitoring.units.loki01.alloy, "Network=host") &&
       # The other VMs ship only their journal, to the VIP.
       !strcontains(module.monitoring.alloy_configs.mon01, "loki.source.syslog") &&
-      strcontains(module.monitoring.alloy_configs.graf01, "url = \"http://10.13.11.101:3100/loki/api/v1/push\"") &&
+      strcontains(module.monitoring.alloy_configs.graf01, "url = \"http://10.55.18.101:3100/loki/api/v1/push\"") &&
       !strcontains(module.monitoring.units.mon01.alloy, "stability.level") &&
-      strcontains(module.monitoring.units.graf02.alloy, "--server.http.listen-addr=10.13.11.33:12345") &&
+      strcontains(module.monitoring.units.graf02.alloy, "--server.http.listen-addr=10.55.11.33:12345") &&
       contains(module.monitoring.backend_services, "alloy")
     )
-    error_message = "Alloy: syslog (TCP/UDP 514, raw UDP 1514) on the logging VMs into the local Loki; journal-only on mon01/graf to the VIP."
+    error_message = "Alloy: syslog (TCP/UDP 514, raw UDP 1514) on the logging VMs into the local Loki; journal-only on mon01/graf to the telemetry VIP."
   }
 
   assert {
@@ -721,15 +725,15 @@ run "logging" {
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"loki\"") &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.34:3100") &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.36:8405") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.30:12345") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.35:9100") &&
+      strcontains(module.monitoring.prometheus_config, "10.55.16.30:12345") &&
+      strcontains(module.monitoring.prometheus_config, "10.55.18.35:9100") &&
       strcontains(module.monitoring.units.loki02["node-exporter"], "--collector.netdev.address-info") &&
       length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "logging"]) == 1 &&
-      length([for r in one([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules if g.name == "logging"]) : r if r.alert == "LoggingVIPNotHeldOnce"]) == 2 &&
+      length([for r in one([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules if g.name == "logging"]) : r if r.alert == "LoggingVIPNotHeldOnce"]) == 3 &&
       strcontains(module.monitoring.prometheus_rules, "loki_ingester_chunks_flush_failures_total") &&
       strcontains(module.monitoring.prometheus_rules, "loki_source_syslog_entries_total")
     )
-    error_message = "Prometheus scrapes Loki, haproxy, Alloy and node_exporter on the logging VMs over the backend VLAN, with logging alerts (one VIP rule per VIP: backend and monitoring, none on mgmt)."
+    error_message = "Prometheus scrapes Loki, haproxy, Alloy and node_exporter on the logging VMs (Loki and haproxy over the backend VLAN, Alloy and node_exporter over lylat-telemetry), with logging alerts (one VIP rule per VIP: backend, monitoring, telemetry; none on mgmt)."
   }
 
   assert {
@@ -860,7 +864,7 @@ run "backend_ha" {
     condition = (
       strcontains(module.monitoring.prometheus_config, "10.13.11.31:9090") && # every replica's Prometheus and Alertmanager
       strcontains(module.monitoring.prometheus_config, "10.13.11.31:9093") &&
-      strcontains(module.monitoring.prometheus_config, "10.5.11.31:9100") &&
+      strcontains(module.monitoring.prometheus_config, "10.55.16.31:9100") &&
       !strcontains(module.monitoring.prometheus_config, "localhost:9090") &&
       strcontains(module.monitoring.prometheus_rules, "AlertmanagerClusterDegraded") &&
       strcontains(module.monitoring.prometheus_rules, "address=\\\"10.5.11.102\\\"") &&
@@ -1077,25 +1081,25 @@ run "service_vm_alloy" {
   command = plan
 
   assert {
-    # services-config's Alloy (alloy.tf) on the mgmt address, next to this root's own Alloys.
+    # services-config's Alloy (alloy.tf) on the telemetry address (lylat-telemetry), next to this root's own Alloys.
     condition = (
-      alltrue([for a in ["10.20.53.1", "10.20.53.2", "10.20.11.43", "10.20.11.44", "10.20.11.45", "10.20.11.46", "10.20.11.47", "10.20.11.48", "10.20.11.49", "10.20.11.50", "10.20.11.51"] :
+      alltrue([for a in ["10.55.53.51", "10.55.53.52", "10.55.13.43", "10.55.13.44", "10.55.12.45", "10.55.12.46", "10.55.15.47", "10.55.15.48", "10.55.15.49", "10.55.10.50", "10.55.10.51"] :
       strcontains(module.monitoring.prometheus_config, "${a}:12345")]) &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.30:12345") &&
+      strcontains(module.monitoring.prometheus_config, "10.55.16.30:12345") &&
       # triage01/02 in the node job with their role (overview hosts and VIP tables).
-      strcontains(module.monitoring.prometheus_config, "10.20.11.43:9100") &&
+      strcontains(module.monitoring.prometheus_config, "10.55.13.43:9100") &&
       strcontains(module.monitoring.prometheus_config, "\"role\": \"ticketing\"")
     )
-    error_message = "Scrape Alloy on every services-config VM's mgmt address :12345 and node_exporter on triage01/02 (role ticketing)."
+    error_message = "Scrape Alloy on every services-config VM's telemetry address :12345 and node_exporter on triage01/02 (role ticketing)."
   }
 
   assert {
-    # Every services-config Alloy VM has a backend VLAN NIC (DNS and proxy since 2026-11-13) and pushes to
-    # the VIP, so logging-guard needs no mgmt exceptions: only the backend VLAN reaches port 3100.
+    # Every services-config Alloy VM has a telemetry NIC (since 2026-11-14) and pushes to the telemetry VIP, so
+    # logging-guard needs no mgmt exceptions: only the backend VLAN (Grafana) and lylat-telemetry reach port 3100.
     condition = (
       length(local.loki_mgmt_senders) == 0 &&
-      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.13.0.0/16 } accept")
+      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.13.0.0/16, 10.55.0.0/16 } accept")
     )
-    error_message = "No mgmt senders left: logging-guard lets only 10.13.0.0/16 reach Loki's port 3100."
+    error_message = "No mgmt senders left: logging-guard lets only 10.13.0.0/16 and 10.55.0.0/16 reach Loki's port 3100."
   }
 }

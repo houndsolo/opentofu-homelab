@@ -212,7 +212,7 @@ run "postgres_cluster" {
       length([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if contains(["patroni", "etcd", "postgres", "haproxy-postgres"], j.job_name)]) == 4 &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.40:8008") &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.42:2381") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.41:9187") &&
+      strcontains(module.monitoring.prometheus_config, "10.55.14.41:9187") && # postgres_exporter over lylat-telemetry
       length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "postgres"]) == 1 &&
       strcontains(module.monitoring.prometheus_rules, "PatroniNoLeader") &&
       strcontains(module.monitoring.prometheus_rules, "PostgresWALArchiveFailing") &&

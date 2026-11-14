@@ -290,7 +290,7 @@ locals {
   })
 
   pg_alloy_hosts = local.postgres_enabled ? {
-    for name, vm in var.postgres : name => { listen = vm.backend_address, loki_url = local.loki_url, syslog = false }
+    for name, vm in var.postgres : name => { listen = coalesce(vm.telemetry_address, vm.backend_address), loki_url = local.loki_push_url, syslog = false }
   } : {}
 
   pg_units = {
@@ -327,7 +327,7 @@ locals {
         # checkpoint counters out of pg_stat_bgwriter), postmaster start time, transactions open
         # > 1 min, xid/multixact age per database.
         exec = [
-          "--web.listen-address=${vm.backend_address}:9187",
+          "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9187",
           "--collector.stat_checkpointer",
           "--collector.postmaster",
           "--collector.long_running_transactions",
@@ -348,7 +348,7 @@ locals {
         env         = {}
         env_files   = []
         # address-info: which VM holds the VIP; textfile: pg-backup's result.
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${vm.backend_address}:9100", "--collector.netdev.address-info", "--collector.textfile.directory=/host${local.pg_textfile}"], local.node_exporter_collectors) # main.tf: the extra collectors
+        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info", "--collector.textfile.directory=/host${local.pg_textfile}"], local.node_exporter_collectors) # main.tf: the extra collectors
         user        = null
         caps        = []
         podman_args = ["--pid=host"]
@@ -498,7 +498,7 @@ locals {
         "etcdctl --endpoints=http://127.0.0.1:2379 endpoint health",
         # Postgres runs on this member (leader or streaming replica).
         "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:8008/health",
-        "curl -fsS -o /dev/null --max-time 3 http://${vm.backend_address}:9187/metrics",
+        "curl -fsS -o /dev/null --max-time 3 http://${coalesce(vm.telemetry_address, vm.backend_address)}:9187/metrics",
         lookup(local.alloy_health, name, "true"),
         "nft list table inet postgres_guard",
         "systemctl is-active --quiet pg-backup.timer",
@@ -518,7 +518,7 @@ locals {
     },
     {
       job_name       = "postgres"
-      static_configs = [for name in local.pg_names : { targets = ["${var.postgres[name].backend_address}:9187"], labels = { host = name } }]
+      static_configs = [for name in local.pg_names : { targets = ["${coalesce(var.postgres[name].telemetry_address, var.postgres[name].backend_address)}:9187"], labels = { host = name } }]
     },
     {
       job_name       = "haproxy-postgres"

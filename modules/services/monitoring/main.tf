@@ -206,7 +206,7 @@ locals {
         alertmanagers         = [{ static_configs = [{ targets = local.alertmanager_targets }] }]
       }
       rule_files     = ["/etc/prometheus/rules/*.yml"]
-      scrape_configs = local.scrape_configs
+      scrape_configs = local.scrape_configs_host_instance
     }, length(local.mimir_remote_write) > 0 ? { remote_write = local.mimir_remote_write } : {})) # metrics.tf
   }
 
@@ -538,7 +538,7 @@ locals {
         volumes     = local.node_exporter_volumes
         podman_args = ["--pid=host"]
         # address-info: node_network_address_info shows which backend holds each VIP.
-        exec = concat(["--path.rootfs=/host", "--web.listen-address=${b.monitoring_address}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors)
+        exec = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(b.telemetry_address, b.monitoring_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors)
       }
       pve-exporter = {
         description = "Prometheus Proxmox VE exporter"
@@ -785,7 +785,7 @@ locals {
         env         = {}
         env_files   = []
         # address-info: node_network_address_info shows which VM holds the Grafana VIP.
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${g.backend_address}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors)
+        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(g.telemetry_address, g.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors)
         user        = null
         caps        = []
         podman_args = ["--pid=host"]

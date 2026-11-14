@@ -17,9 +17,9 @@ locals {
       node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
         unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
           image  = var.ticketing_monitoring.node_exporter_image
-          listen = "${split("/", vm.management_address)[0]}:9100"
+          listen = "${local.scrape_ip[name]}:9100"
         }))
-        listen = "${split("/", vm.management_address)[0]}:9100"
+        listen = "${local.scrape_ip[name]}:9100"
       })
       alloy = lookup(local.alloy_scripts, name, null)
     }

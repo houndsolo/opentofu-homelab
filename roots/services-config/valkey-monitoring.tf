@@ -22,9 +22,9 @@ locals {
       node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
         unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
           image  = var.valkey_monitoring.node_exporter_image
-          listen = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.node}"
+          listen = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.node}"
         }))
-        listen = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.node}"
+        listen = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.node}"
       })
       exporters = templatefile("${path.module}/templates/valkey-exporters.sh.tftpl", {
         env_b64 = base64encode("REDIS_PASSWORD=${random_password.valkey[0].result}\n")
@@ -34,7 +34,7 @@ locals {
           after       = "valkey-server.service"
           image       = var.valkey_monitoring.redis_exporter_image
           addr        = "redis://127.0.0.1:6379"
-          listen      = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.valkey}"
+          listen      = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.valkey}"
           env_file    = "/etc/valkey-exporter.env"
           # NetBox's RQ keys in db0 (queue lengths, failed-job registries, registered workers) for the
           # Databases/valkey dashboard. Empty queues have no key (RQ deletes the list).
@@ -47,13 +47,13 @@ locals {
           after             = "valkey-sentinel.service"
           image             = var.valkey_monitoring.redis_exporter_image
           addr              = "redis://127.0.0.1:26379"
-          listen            = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.sentinel}"
+          listen            = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.sentinel}"
           env_file          = ""
           check_keys        = ""
           check_single_keys = ""
         }))
-        valkey_listen   = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.valkey}"
-        sentinel_listen = "${split("/", vm.management_address)[0]}:${local.valkey_monitoring_ports.sentinel}"
+        valkey_listen   = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.valkey}"
+        sentinel_listen = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.sentinel}"
       })
       alloy = lookup(local.alloy_scripts, name, null)
     }

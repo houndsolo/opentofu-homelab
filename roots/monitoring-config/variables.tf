@@ -315,6 +315,7 @@ variable "logging_settings" {
     vips = optional(object({
       backend    = optional(string, "10.13.11.101/16")
       monitoring = optional(string, "10.5.11.101/16")
+      telemetry  = optional(string, "10.55.18.101/16") # Alloy pushes from every VM (lylat-telemetry)
       # No mgmt VIP: syslog senders on the management network use each logging VM's own address.
     }), {})
     vrrp_router_id        = optional(number, 101)
@@ -322,9 +323,9 @@ variable "logging_settings" {
     retention_period      = optional(string, "90d")
     replication_factor    = optional(number, 3)
     schema_start          = optional(string, "2026-11-01")
-    loki_allowed_sources  = optional(list(string), ["10.13.0.0/16"])
-    syslog_host_overrides = optional(map(string), {})                         # sender IP => host label, on top of the snmp_targets addresses
-    syslog_dedup_hosts    = optional(string, "LEAF-[0-9]+|fw-wan|dhcp0[0-9]") # VyOS senders: drop the imuxsock copy of each line
+    loki_allowed_sources  = optional(list(string), ["10.13.0.0/16", "10.55.0.0/16"]) # backend VLAN (Grafana), lylat-telemetry (pushes)
+    syslog_host_overrides = optional(map(string), {})                                # sender IP => host label, on top of the snmp_targets addresses
+    syslog_dedup_hosts    = optional(string, "LEAF-[0-9]+|fw-wan|dhcp0[0-9]")        # VyOS senders: drop the imuxsock copy of each line
   })
   default = {}
 }
@@ -349,15 +350,16 @@ variable "metrics_ha_vlan_id" {
 variable "metrics_settings" {
   description = "Mimir (role = \"metrics\" VMs): VIP, VRRP router id, RGW endpoints, replication, retention, HA tracker labels, limits. See modules/services/monitoring (variable metrics_settings)."
   type = object({
-    vip                        = optional(string, "10.13.11.103/16")
-    vrrp_router_id             = optional(number, 103)
-    rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"]) # macbeth, titania, venom
-    replication_factor         = optional(number, 3)
-    retention_period           = optional(string, "396d")
-    ha_cluster_label           = optional(string, "ha_cluster")
-    ha_replica_label           = optional(string, "__replica__")
-    drop_labels                = optional(list(string), ["ha_cluster", "site"])
-    max_series                 = optional(number, 300000)
+    vip                = optional(string, "10.13.11.103/16")
+    vrrp_router_id     = optional(number, 103)
+    rgw_endpoints      = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"]) # macbeth, titania, venom
+    replication_factor = optional(number, 3)
+    retention_period   = optional(string, "396d")
+    ha_cluster_label   = optional(string, "ha_cluster")
+    ha_replica_label   = optional(string, "__replica__")
+    drop_labels        = optional(list(string), ["ha_cluster", "site"])
+    max_series         = optional(number, 600000) # in-memory series per tenant (all 3 ingesters hold all, RF 3); 300k was full on
+    #                                                            2026-11-14 when the instance relabel (instance-labels.tf) doubled the VM jobs' series for a few hours
     ingestion_rate             = optional(number, 300000)  # each of the 3 distributors allows a third; the VIP sends everything to one
     ingestion_burst_size       = optional(number, 2000000) # per distributor
     max_label_names_per_series = optional(number, 40)
@@ -451,4 +453,10 @@ variable "app_db_passwords" {
   sensitive   = true
   type        = map(string)
   default     = {}
+}
+
+variable "telemetry_vlan_id" {
+  description = "VLAN of lylat-telemetry (VNI 5501, flat 10.55.0.0/16; zone design in the Obsidian vault): every service VM's scrape and log-push NIC."
+  type        = number
+  default     = 1501
 }

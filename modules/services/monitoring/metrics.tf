@@ -154,7 +154,7 @@ locals {
 
   # Alloy on these VMs: journal only, to the Loki VIP (merged into alloy_hosts in logging.tf).
   mimir_alloy_hosts = local.mimir_enabled ? {
-    for name, vm in var.metrics : name => { listen = vm.backend_address, loki_url = local.loki_url, syslog = false }
+    for name, vm in var.metrics : name => { listen = coalesce(vm.telemetry_address, vm.backend_address), loki_url = local.loki_push_url, syslog = false }
   } : {}
 
   metrics_keepalived_conf = {
@@ -231,7 +231,7 @@ locals {
         env         = {}
         env_files   = []
         # address-info: node_network_address_info shows which VM holds the VIP.
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${vm.backend_address}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
+        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
         user        = null
         caps        = []
         podman_args = ["--pid=host"]

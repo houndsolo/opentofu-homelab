@@ -27,6 +27,18 @@ locals {
   deploy_vms = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
+  # lylat-telemetry (VLAN telemetry_vlan_id, flat 10.55.0.0/16, zone design): every service VM's scrape and log-push
+  # NIC. Exporters, node_exporter and Alloy listen there; Prometheus scrapes it; Alloy pushes to the Loki telemetry VIP.
+  telemetry_address = {
+    for name in keys(local.service_vms) : name => try(split("/", one([
+      for nic in local.nics[name] : nic.ipv4_address if nic.vlan_id == var.telemetry_vlan_id && nic.ipv4_address != null
+    ]))[0], null)
+  }
+  telemetry_interface = {
+    for name in keys(local.service_vms) : name => try(one([
+      for i, nic in local.nics[name] : "eth${i + 1}" if nic.vlan_id == var.telemetry_vlan_id && nic.ipv4_address != null
+    ]), null)
+  }
   mgmt = { for name, vm in local.service_vms : name => try(split("/", vm.management_address)[0], null) }
 
   # Address on the isolated backend VLAN, and the backend VM's monitoring-network address.
@@ -119,16 +131,17 @@ locals {
 
   targets = {
     node = concat(
-      [for name in keys(local.monitoring_vms) : { host = name, address = coalesce(local.monitoring_address[name], "0.0.0.0"), labels = { role = "monitoring" } }],
-      [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "grafana" } }],
-      [for name in keys(local.dns_vms) : { host = name, address = local.mgmt[name], labels = { role = "dns" } }],
-      [for name in keys(local.valkey_vms) : { host = name, address = local.mgmt[name], labels = { role = "valkey" } }],
-      [for name in keys(local.netbox_vms) : { host = name, address = local.mgmt[name], labels = { role = "netbox" } }],
-      [for name in keys(local.proxy_vms) : { host = name, address = local.mgmt[name], labels = { role = "proxy" } }],
-      [for name in keys(local.ticketing_vms) : { host = name, address = local.mgmt[name], labels = { role = "ticketing" } }],
-      [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
-      [for name, n in local.metrics_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "metrics" } } if local.mimir_enabled],
-      [for name, n in local.postgres_nic : { host = name, address = try(n.backend.address, "0.0.0.0"), labels = { role = "postgres" } } if local.postgres_enabled],
+      # Service VMs: their telemetry address (falls back to the old one while a VM has no telemetry NIC).
+      [for name in keys(local.monitoring_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.monitoring_address[name], "0.0.0.0"), labels = { role = "monitoring" } }],
+      [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.backend_address[name], "0.0.0.0"), labels = { role = "grafana" } }],
+      [for name in keys(local.dns_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "dns" } }],
+      [for name in keys(local.valkey_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "valkey" } }],
+      [for name in keys(local.netbox_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "netbox" } }],
+      [for name in keys(local.proxy_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "proxy" } }],
+      [for name in keys(local.ticketing_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "ticketing" } }],
+      [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
+      [for name, n in local.metrics_nic : { host = name, address = coalesce(local.telemetry_address[name], try(n.backend.address, "0.0.0.0")), labels = { role = "metrics" } } if local.mimir_enabled],
+      [for name, n in local.postgres_nic : { host = name, address = coalesce(local.telemetry_address[name], try(n.backend.address, "0.0.0.0")), labels = { role = "postgres" } } if local.postgres_enabled],
       [for name, address in local.pve_nodes : { host = name, address = address, labels = { role = "proxmox" } }],
       [for host, address in var.node_extra_targets : { host = host, address = address, labels = {} }],
     )
@@ -143,13 +156,12 @@ locals {
     grafana  = [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0") }]
     telegraf = [for host, address in var.vyos_telegraf_targets : { host = host, address = address }]
     ceph     = [for name in var.ceph_mgr_nodes : { host = name, address = local.pve_nodes[name] } if contains(keys(local.pve_nodes), name)]
-    # Valkey + Sentinel exporters (services-config valkey-monitoring.tf) on the mgmt address.
-    valkey = [for name in sort(keys(local.valkey_vms)) : { host = name, address = local.mgmt[name] }]
-    # nginx-prometheus-exporter (services-config proxy-monitoring.tf) on the proxy VMs' mgmt address.
-    nginx = [for name in sort(keys(local.proxy_vms)) : { host = name, address = local.mgmt[name] }]
-    alloy = [for name in sort(keys(local.alloy_service_vms)) : { host = name, address = local.mgmt[name] }]
-    # bind_exporter (services-config dns-bind-exporter.tf) on the DNS VMs' mgmt address.
-    bind = [for name in sort(keys(local.dns_vms)) : { host = name, address = local.mgmt[name] }]
+    # Exporters from services-config (valkey-monitoring.tf, proxy-monitoring.tf, alloy.tf, dns-bind-exporter.tf)
+    # listen on the VM's telemetry address (services-config local.scrape_ip; mgmt while a VM has no telemetry NIC).
+    valkey = [for name in sort(keys(local.valkey_vms)) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]) }]
+    nginx  = [for name in sort(keys(local.proxy_vms)) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]) }]
+    alloy  = [for name in sort(keys(local.alloy_service_vms)) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]) }]
+    bind   = [for name in sort(keys(local.dns_vms)) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]) }]
     # NetBox's /metrics (django-prometheus) on each node's own service address (the NIC with the
     # default gateway; port 80 is published there), not the VIP, so each node is scraped.
     netbox = [for name in sort(keys(local.netbox_vms)) : {
@@ -228,6 +240,7 @@ module "monitoring" {
     for name, n in local.monitoring_nic : name => {
       monitoring_address = coalesce(local.monitoring_address[name], "0.0.0.0")
       backend_address    = coalesce(local.backend_address[name], "0.0.0.0")
+      telemetry_address  = local.telemetry_address[name]
       ha_address         = try(n.ha.address, null)
       interfaces         = local.monitoring_ha_ready ? { ha = n.ha.interface, backend = n.backend, monitoring = n.monitoring } : null
     }
@@ -240,9 +253,10 @@ module "monitoring" {
   }
   grafana = {
     for name, n in local.grafana_nic : name => {
-      backend_address = coalesce(local.backend_address[name], "0.0.0.0")
-      ha_address      = try(n.ha.address, null)
-      interfaces      = n.ha == null || n.ui == null ? null : { ha = n.ha.interface, vip = n.ui }
+      backend_address   = coalesce(local.backend_address[name], "0.0.0.0")
+      telemetry_address = local.telemetry_address[name]
+      ha_address        = try(n.ha.address, null)
+      interfaces        = n.ha == null || n.ui == null ? null : { ha = n.ha.interface, vip = n.ui }
     }
   }
   grafana_vrrp = var.grafana_vrrp == null ? null : {
@@ -285,10 +299,12 @@ module "monitoring" {
       ha_address         = try(n.ha.address, "0.0.0.0")
       backend_address    = try(n.backend.address, "0.0.0.0")
       monitoring_address = try(n.monitoring.address, "0.0.0.0")
+      telemetry_address  = local.telemetry_address[name]
       interfaces = {
         ha         = try(n.ha.interface, "none")
         backend    = try(n.backend.interface, "none")
         monitoring = try(n.monitoring.interface, "none")
+        telemetry  = local.telemetry_interface[name]
       }
     }
   }
@@ -306,9 +322,10 @@ module "monitoring" {
   # metrics.tf: Mimir on the role = "metrics" VMs, once the RGW keys are set.
   metrics = {
     for name, n in local.metrics_nic : name => {
-      ha_address      = try(n.ha.address, "0.0.0.0")
-      backend_address = try(n.backend.address, "0.0.0.0")
-      interfaces      = { ha = try(n.ha.interface, "none"), backend = try(n.backend.interface, "none") }
+      ha_address        = try(n.ha.address, "0.0.0.0")
+      backend_address   = try(n.backend.address, "0.0.0.0")
+      telemetry_address = local.telemetry_address[name]
+      interfaces        = { ha = try(n.ha.interface, "none"), backend = try(n.backend.interface, "none") }
     }
   }
   metrics_settings = var.metrics_settings
@@ -322,9 +339,10 @@ module "monitoring" {
   # postgres.tf: the Patroni cluster on the role = "postgres" VMs, once the RGW keys are set.
   postgres = {
     for name, n in local.postgres_nic : name => {
-      ha_address      = try(n.ha.address, "0.0.0.0")
-      backend_address = try(n.backend.address, "0.0.0.0")
-      interfaces      = { ha = try(n.ha.interface, "none"), backend = try(n.backend.interface, "none") }
+      ha_address        = try(n.ha.address, "0.0.0.0")
+      backend_address   = try(n.backend.address, "0.0.0.0")
+      telemetry_address = local.telemetry_address[name]
+      interfaces        = { ha = try(n.ha.interface, "none"), backend = try(n.backend.interface, "none") }
     }
   }
   postgres_settings = var.postgres_settings

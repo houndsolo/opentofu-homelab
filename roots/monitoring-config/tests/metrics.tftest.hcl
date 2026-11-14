@@ -104,7 +104,7 @@ run "mimir" {
       yamldecode(module.monitoring.mimir_configs.mim01).limits.ha_cluster_label == "ha_cluster" &&
       yamldecode(module.monitoring.mimir_configs.mim01).limits.ha_replica_label == "__replica__" &&
       yamldecode(module.monitoring.mimir_configs.mim01).limits.drop_labels == ["ha_cluster", "site"] &&
-      yamldecode(module.monitoring.mimir_configs.mim01).limits.max_global_series_per_user == 300000 &&
+      yamldecode(module.monitoring.mimir_configs.mim01).limits.max_global_series_per_user == 600000 &&
       yamldecode(module.monitoring.mimir_configs.mim01).limits.compactor_blocks_retention_period == "396d" &&
       yamldecode(module.monitoring.mimir_configs.mim01).limits.compactor_block_upload_enabled
     )
@@ -119,8 +119,8 @@ run "mimir" {
       strcontains(module.monitoring.prometheus_config, "10.13.11.38:8080") &&
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"haproxy-mimir\"") &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.39:8405") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.37:9100") &&  # node job, role metrics
-      strcontains(module.monitoring.prometheus_config, "10.13.11.37:12345") && # Alloy
+      strcontains(module.monitoring.prometheus_config, "10.55.17.37:9100") &&  # node job, role metrics (lylat-telemetry)
+      strcontains(module.monitoring.prometheus_config, "10.55.17.37:12345") && # Alloy (lylat-telemetry)
       length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "metrics"]) == 1 &&
       strcontains(module.monitoring.prometheus_rules, "MimirVIPNotHeldOnce") &&
       strcontains(module.monitoring.prometheus_rules, "PrometheusRemoteWriteBehind")
@@ -160,7 +160,7 @@ run "mimir" {
       strcontains(module.monitoring.units[name].mimir, "Image=docker.io/grafana/mimir:3.2.4") &&
       strcontains(module.monitoring.units[name].mimir, "EnvironmentFile=/etc/metrics/mimir.env") &&
       strcontains(module.monitoring.units[name]["node-exporter"], "--collector.netdev.address-info") &&
-      strcontains(module.monitoring.alloy_configs[name], "url = \"${output.loki_url}/loki/api/v1/push\"") && # the Loki VIP
+      strcontains(module.monitoring.alloy_configs[name], "url = \"http://10.55.18.101:3100/loki/api/v1/push\"") && # the Loki telemetry VIP
       strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "-config.expand-env=true -modules") &&
       strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "nft -c -f") &&
       strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "for pkg in keepalived; do") &&

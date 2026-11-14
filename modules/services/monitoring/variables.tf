@@ -3,6 +3,7 @@ variable "backends" {
   type = map(object({
     monitoring_address = string           # Monitoring network (10.5/16): UIs, PVE metric pushes, node_exporter, WLC telemetry.
     backend_address    = string           # Isolated backend VLAN (10.13/16): Grafana -> datasources and Postgres.
+    telemetry_address  = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
     ha_address         = optional(string) # HA VLAN (ha_monitor): null on any VM keeps gossip on the backend VLAN and keepalived off
     interfaces = optional(object({
       ha         = string
@@ -45,8 +46,9 @@ variable "backend_vrrp" {
 variable "grafana" {
   description = "Grafana front ends, keyed by VM name. backend_address is the VM's address on the backend VLAN; ha_address on the Grafana HA VLAN (alerting gossip, VRRP), and interfaces the VM's NIC names for VRRP (ha, and vip: the UI NIC that holds grafana_vrrp.vip)."
   type = map(object({
-    backend_address = string
-    ha_address      = optional(string) # null on any VM: gossip stays on the backend and no keepalived
+    backend_address   = string
+    telemetry_address = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
+    ha_address        = optional(string) # null on any VM: gossip stays on the backend and no keepalived
     interfaces = optional(object({
       ha  = string
       vip = string
@@ -178,13 +180,15 @@ variable "settings" {
 variable "logging" {
   description = "Logging VMs (Loki ring, Alloy syslog receiver, haproxy to the RGWs, keepalived), keyed by VM name. Name order sets the VRRP priority (150, 100, 50). Empty leaves logging out; Alloy (journal) still runs on the backend and Grafana VMs."
   type = map(object({
-    backend_address    = string # backend VLAN: Loki HTTP API (Grafana, Alloy pushes), scrapes
-    ha_address         = string # HA VLAN: Loki ring (memberlist, ingester gRPC) and VRRP adverts
-    monitoring_address = string # monitoring network: syslog from devices and PVE nodes
-    interfaces = object({       # the VM's interface name on each of those networks (VRRP)
+    backend_address    = string           # backend VLAN: Loki HTTP API (Grafana, Alloy pushes), scrapes
+    telemetry_address  = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
+    ha_address         = string           # HA VLAN: Loki ring (memberlist, ingester gRPC) and VRRP adverts
+    monitoring_address = string           # monitoring network: syslog from devices and PVE nodes
+    interfaces = object({                 # the VM's interface name on each of those networks (VRRP)
       ha         = string
       backend    = string
       monitoring = string
+      telemetry  = optional(string) # holds the Loki push VIP (logging_settings.vips.telemetry)
     })
   }))
   default = {}
@@ -196,6 +200,7 @@ variable "logging_settings" {
     vips = optional(object({
       backend    = optional(string, "10.13.11.101/16") # Grafana datasource, Alloy pushes from the other VMs
       monitoring = optional(string, "10.5.11.101/16")  # syslog from devices and PVE nodes
+      telemetry  = optional(string)                    # Alloy pushes from every VM (lylat-telemetry); null = none
       # No VIP on the management network: the VyOS leaves, DHCP and DNS VMs send syslog to
       # every logging VM's own mgmt address (Loki drops the identical copies).
     }), {})
@@ -272,9 +277,10 @@ variable "wlc_telemetry_tokens" {
 variable "metrics" {
   description = "Mimir VMs (role = \"metrics\": Mimir ring, haproxy to the RGWs, keepalived, Alloy, node_exporter), keyed by VM name. Name order sets the VRRP priority (150, 100, 50). Empty, or metrics_secrets = null, leaves Mimir out: Prometheus then has no remote_write and Grafana queries Prometheus directly."
   type = map(object({
-    backend_address = string # backend VLAN: Mimir HTTP (push, queries), scrapes; holds the VIP
-    ha_address      = string # Mimir HA VLAN: memberlist, gRPC, VRRP adverts
-    interfaces = object({    # NIC names for VRRP
+    backend_address   = string           # backend VLAN: Mimir HTTP (push, queries), scrapes; holds the VIP
+    telemetry_address = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
+    ha_address        = string           # Mimir HA VLAN: memberlist, gRPC, VRRP adverts
+    interfaces = object({                # NIC names for VRRP
       ha      = string
       backend = string
     })
@@ -323,9 +329,10 @@ variable "metrics_secrets" {
 variable "postgres" {
   description = "Patroni members (role = \"postgres\": PostgreSQL (postgres_settings.pg_major, PGDG), Patroni, etcd, pgBackRest, keepalived, haproxy to the RGWs, exporters, Alloy), keyed by VM name. Name order sets the VRRP priority (first election only). Empty, or postgres_secrets = null, leaves the cluster out (Grafana stays on the primary backend's Postgres)."
   type = map(object({
-    backend_address = string # backend VLAN: Grafana -> the VIP, scrapes; holds the VIP
-    ha_address      = string # Postgres HA VLAN: replication, etcd, Patroni REST, VRRP adverts
-    interfaces = object({    # NIC names for VRRP
+    backend_address   = string           # backend VLAN: Grafana -> the VIP, scrapes; holds the VIP
+    telemetry_address = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
+    ha_address        = string           # Postgres HA VLAN: replication, etcd, Patroni REST, VRRP adverts
+    interfaces = object({                # NIC names for VRRP
       ha      = string
       backend = string
     })

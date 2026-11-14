@@ -20,9 +20,9 @@ locals {
       unit_b64 = base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", {
         image      = var.dns_bind_exporter.image
         stats_port = local.dns_stats_port
-        listen     = "${split("/", vm.management_address)[0]}:9119"
+        listen     = "${local.scrape_ip[name]}:9119"
       }))
-      listen = "${split("/", vm.management_address)[0]}:9119"
+      listen = "${local.scrape_ip[name]}:9119"
     }) if var.dns_bind_exporter != null
   }
 }

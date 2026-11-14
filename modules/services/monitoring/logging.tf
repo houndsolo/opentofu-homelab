@@ -16,9 +16,11 @@ locals {
   logging_vips    = var.logging_settings.vips
   # Every logging VM's HA address (sorted: memberlist join list, keepalived peers, ring guard).
   logging_ring_peers = sort(distinct([for name in local.logging_names : var.logging[name].ha_address]))
-  vip_address        = { for net, cidr in local.logging_vips : net => split("/", cidr)[0] }
-  # Grafana's datasource, Alloy pushes from the other VMs and the README all use the backend VIP.
+  vip_address        = { for net, cidr in local.logging_vips : net => split("/", cidr)[0] if cidr != null }
+  # Grafana's datasource and the README use the backend VIP.
   loki_url = "http://${local.vip_address.backend}:3100"
+  # Alloy pushes from every other VM: the telemetry VIP (lylat-telemetry, zone design) when set, else the backend VIP.
+  loki_push_url = contains(keys(local.vip_address), "telemetry") ? "http://${local.vip_address.telemetry}:3100" : local.loki_url
 
   # VRRP: priority by VM name order (150, 100, 50, ...). It only decides the first
   # election: every node is BACKUP with nopreempt, so the VIPs stay where they are until
@@ -139,9 +141,9 @@ locals {
   # Alloy everywhere: journal -> Loki; on the logging VMs also the syslog receiver,
   # pushing to the local Loki (which replicates to the others).
   alloy_hosts = merge(
-    { for name, b in var.backends : name => { listen = b.backend_address, loki_url = local.loki_url, syslog = false } },
-    { for name, g in var.grafana : name => { listen = g.backend_address, loki_url = local.loki_url, syslog = false } },
-    { for name, vm in var.logging : name => { listen = vm.backend_address, loki_url = "http://127.0.0.1:3100", syslog = true } },
+    { for name, b in var.backends : name => { listen = coalesce(b.telemetry_address, b.backend_address), loki_url = local.loki_push_url, syslog = false } },
+    { for name, g in var.grafana : name => { listen = coalesce(g.telemetry_address, g.backend_address), loki_url = local.loki_push_url, syslog = false } },
+    { for name, vm in var.logging : name => { listen = coalesce(vm.telemetry_address, vm.backend_address), loki_url = "http://127.0.0.1:3100", syslog = true } },
     local.mimir_alloy_hosts, # metrics.tf
     local.pg_alloy_hosts,    # postgres.tf
   )
@@ -214,11 +216,14 @@ locals {
       router_id     = var.logging_settings.vrrp_router_id
       priority      = local.logging_priority[name]
       auth_pass     = local.logging_secrets.vrrp_password
-      alloy_address = vm.backend_address
+      alloy_address = coalesce(vm.telemetry_address, vm.backend_address)
       ha_interface  = vm.interfaces.ha
       ha_address    = vm.ha_address
       peers         = [for a in local.logging_ring_peers : a if a != vm.ha_address]
-      vips          = [for net in ["backend", "monitoring"] : { cidr = local.logging_vips[net], interface = vm.interfaces[net] }]
+      vips = [
+        for net in ["backend", "monitoring", "telemetry"] : { cidr = local.logging_vips[net], interface = vm.interfaces[net] }
+        if local.logging_vips[net] != null && try(vm.interfaces[net], null) != null
+      ]
     })
   }
 
@@ -265,7 +270,7 @@ locals {
         env         = {}
         env_files   = []
         # address-info: node_network_address_info shows which VM holds each VIP.
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${vm.backend_address}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
+        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
         user        = null
         caps        = []
         podman_args = ["--pid=host"]

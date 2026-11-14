@@ -8,10 +8,11 @@
 variable "alloy" {
   description = "Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs. VMs with a NIC on backend_vlan_id push to loki_vip_url, the others to every loki_mgmt_urls entry. null = don't install it (and leave rsyslog alone)."
   type = object({
-    image           = optional(string, "docker.io/grafana/alloy:v1.21.3") # keep in step with monitoring-config images.alloy
-    port            = optional(number, 12345)                             # keep in step with modules/services/monitoring logging.tf
-    backend_vlan_id = optional(number, 13)
-    loki_vip_url    = optional(string, "http://10.13.11.101:3100") # Loki's backend VIP (monitoring-config logging_settings.vips.backend)
+    image              = optional(string, "docker.io/grafana/alloy:v1.21.3") # keep in step with monitoring-config images.alloy
+    port               = optional(number, 12345)                             # keep in step with modules/services/monitoring logging.tf
+    backend_vlan_id    = optional(number, 13)
+    loki_vip_url       = optional(string, "http://10.13.11.101:3100") # Loki's backend VIP (monitoring-config logging_settings.vips.backend)
+    loki_telemetry_url = optional(string, "http://10.55.18.101:3100") # Loki's telemetry VIP (monitoring-config logging_settings.vips.telemetry)
     # No Loki VIP on mgmt: every logging VM's own address. monitoring-config lets these VMs through
     # logging-guard (port 3100) by their mgmt address.
     loki_mgmt_urls = optional(list(string), ["http://10.20.11.34:3100", "http://10.20.11.35:3100", "http://10.20.11.36:3100"])
@@ -31,15 +32,17 @@ locals {
   alloy_scripts = var.alloy == null ? {} : {
     for name, vm in local.alloy_vms : name => templatefile("${path.module}/templates/alloy.sh.tftpl", {
       image  = var.alloy.image
-      listen = "${split("/", vm.management_address)[0]}:${var.alloy.port}"
+      listen = "${local.scrape_ip[name]}:${var.alloy.port}"
       unit_b64 = base64encode(templatefile("${path.module}/templates/alloy.container.tftpl", {
         image  = var.alloy.image
-        listen = "${split("/", vm.management_address)[0]}:${var.alloy.port}"
+        listen = "${local.scrape_ip[name]}:${var.alloy.port}"
       }))
       config_b64 = base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
         host    = name
         max_age = var.alloy.max_age
-        loki_urls = anytrue([
+        # The Loki telemetry VIP from the VM's telemetry NIC; else the backend VIP (VLAN 13 NIC); else every
+        # logging VM's mgmt address.
+        loki_urls = local.telemetry_ip[name] != null ? [var.alloy.loki_telemetry_url] : anytrue([
           for nic in(vm.network_devices == null ? [] : vm.network_devices) : nic.vlan_id == var.alloy.backend_vlan_id && nic.ipv4_address != null
         ]) ? [var.alloy.loki_vip_url] : var.alloy.loki_mgmt_urls
       }))

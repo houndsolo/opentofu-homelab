@@ -15,9 +15,9 @@ locals {
     for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
       unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
         image  = var.dns_node_exporter.image
-        listen = "${split("/", vm.management_address)[0]}:${var.dns_node_exporter.port}"
+        listen = "${local.scrape_ip[name]}:${var.dns_node_exporter.port}"
       }))
-      listen = "${split("/", vm.management_address)[0]}:${var.dns_node_exporter.port}"
+      listen = "${local.scrape_ip[name]}:${var.dns_node_exporter.port}"
     }) if var.dns_node_exporter != null
   }
 }

@@ -256,27 +256,27 @@ run "alloy_journal_to_loki" {
     condition = (
       length(terraform_data.dns_alloy) == 2 &&
       keys(local.alloy_scripts) == sort(["dns01", "dns02", "netbox01", "netbox02", "proxy01", "proxy02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
-      # Every Alloy VM has a NIC on VLAN 13 (DNS and proxy since 2026-11-13): Loki's backend VIP only.
-      # (Without one it would fall back to every logging VM's mgmt address, var.alloy.loki_mgmt_urls.)
+      # Every Alloy VM has a lylat-telemetry NIC (VLAN 1501, since 2026-11-14): Loki's telemetry VIP only.
+      # (Else the backend VIP with a VLAN 13 NIC, else every logging VM's mgmt address, var.alloy.loki_mgmt_urls.)
       strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host = "dns01", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
+        host = "dns01", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
       }))) &&
       strcontains(local.alloy_scripts.proxy02, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host = "proxy02", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
+        host = "proxy02", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
       }))) &&
       strcontains(local.alloy_scripts.netbox01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host = "netbox01", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
+        host = "netbox01", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
       }))) &&
       strcontains(local.alloy_scripts.triage02, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host = "triage02", max_age = "12h", loki_urls = ["http://10.13.11.101:3100"]
+        host = "triage02", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
       }))) &&
-      # The HTTP listener (scraped by monitoring-config's alloy job) on the management address.
+      # The HTTP listener (scraped by monitoring-config's alloy job) on the telemetry address.
       strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.container.tftpl", {
-        image = "docker.io/grafana/alloy:v1.21.3", listen = "10.20.53.1:12345"
+        image = "docker.io/grafana/alloy:v1.21.3", listen = "10.55.53.51:12345"
       }))) &&
-      strcontains(local.alloy_scripts.valkey03, "http://10.20.11.49:12345/-/ready")
+      strcontains(local.alloy_scripts.valkey03, "http://10.55.15.49:12345/-/ready")
     )
-    error_message = "Alloy on every DNS/NetBox/proxy/Valkey/ticketing VM: VIP when the VM has a backend VLAN NIC, else every logging VM's mgmt address; listener on the mgmt address :12345."
+    error_message = "Alloy on every DNS/NetBox/proxy/Valkey/ticketing VM: the telemetry VIP when the VM has a telemetry NIC, else the backend VIP (VLAN 13 NIC), else every logging VM's mgmt address; listener on the telemetry address :12345."
   }
   assert {
     condition = (
@@ -308,13 +308,13 @@ run "dns_node_exporter" {
   assert {
     condition = (
       length(terraform_data.dns_node_exporter) == 2 &&
-      strcontains(local.dns_node_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "docker.io/prom/node-exporter:v1.12.1", listen = "10.20.53.1:9100" }))) &&
-      strcontains(local.dns_node_exporter_script.dns02, "http://10.20.53.2:9100/metrics") &&
+      strcontains(local.dns_node_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "docker.io/prom/node-exporter:v1.12.1", listen = "10.55.53.51:9100" }))) &&
+      strcontains(local.dns_node_exporter_script.dns02, "http://10.55.53.52:9100/metrics") &&
       # The collectors of monitoring-config's VMs, and the D-Bus socket the systemd one needs.
-      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.20.53.1:9100" }), "\nExec=--path.rootfs=/host --web.listen-address=10.20.53.1:9100 --collector.netdev.address-info --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
-      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.20.53.1:9100" }), "\nVolume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro\n")
+      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.55.53.51:9100" }), "\nExec=--path.rootfs=/host --web.listen-address=10.55.53.51:9100 --collector.netdev.address-info --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
+      strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.55.53.51:9100" }), "\nVolume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro\n")
     )
-    error_message = "node_exporter on both DNS VMs, listening on their management address :9100, with address-info (VIP holder) and the processes/tcpstat/interrupts/systemd collectors."
+    error_message = "node_exporter on both DNS VMs, listening on their telemetry address :9100, with address-info (VIP holder) and the processes/tcpstat/interrupts/systemd collectors."
   }
 }
 
@@ -332,14 +332,14 @@ run "dns_bind_exporter" {
   assert {
     condition = (
       length(terraform_data.dns_bind_exporter) == 2 &&
-      strcontains(local.dns_bind_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "docker.io/prometheuscommunity/bind-exporter:v0.8.0", stats_port = 8053, listen = "10.20.53.1:9119" }))) &&
-      strcontains(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "i", stats_port = 8053, listen = "10.20.53.1:9119" }), "\nExec=--bind.stats-url=http://127.0.0.1:8053 --web.listen-address=10.20.53.1:9119 --bind.pid-file=\n") &&
-      strcontains(local.dns_bind_exporter_script.dns02, "http://10.20.53.2:9119/metrics") &&
+      strcontains(local.dns_bind_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "docker.io/prometheuscommunity/bind-exporter:v0.8.0", stats_port = 8053, listen = "10.55.53.51:9119" }))) &&
+      strcontains(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "i", stats_port = 8053, listen = "10.55.53.51:9119" }), "\nExec=--bind.stats-url=http://127.0.0.1:8053 --web.listen-address=10.55.53.51:9119 --bind.pid-file=\n") &&
+      strcontains(local.dns_bind_exporter_script.dns02, "http://10.55.53.52:9119/metrics") &&
       # The statistics channel it reads, loopback only, and a named.conf change is a reload, not a restart.
       strcontains(base64decode(regex("printf '%s' '([^']+)' \\| base64 -d > \"\\$stage/named.conf\"", local.deployments.dns02)[0]), "statistics-channels {\n    inet 127.0.0.1 port 8053 allow { 127.0.0.1; };\n};") &&
       strcontains(local.deployments.dns01, "podman kill --signal HUP bind9")
     )
-    error_message = "bind_exporter on both DNS VMs on their management address :9119, reading BIND's loopback statistics channel; named.conf changes reload BIND."
+    error_message = "bind_exporter on both DNS VMs on their telemetry address :9119, reading BIND's loopback statistics channel; named.conf changes reload BIND."
   }
 }
 
