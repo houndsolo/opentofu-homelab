@@ -1023,10 +1023,11 @@ run "service_vm_alloy" {
 
   assert {
     # Every services-config Alloy VM has a telemetry NIC (since 2026-11-14) and pushes to the telemetry VIP, so
-    # logging-guard needs no mgmt exceptions: only lylat-app (Grafana), lylat-obs and lylat-telemetry reach port 3100.
+    # logging-guard needs no mgmt exceptions: only lylat-app (Grafana), lylat-obs and lylat-telemetry reach port 3100,
+    # plus the Proxmox nodes' VLAN 5 addresses (Alloy for the Ceph daemon logs -> monitoring VIP, DT-021).
     condition = (
-      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.52.0.0/16, 10.54.0.0/16, 10.55.0.0/16 } accept")
+      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.52.0.0/16, 10.54.0.0/16, 10.55.0.0/16, 10.5.1.11, 10.5.1.12, 10.5.1.13, 10.5.1.14, 10.5.1.15, 10.5.1.16, 10.5.1.17, 10.5.1.20 } accept")
     )
-    error_message = "No mgmt senders left: logging-guard lets only 10.52.0.0/16, 10.54.0.0/16 and 10.55.0.0/16 reach Loki's port 3100."
+    error_message = "No mgmt senders left: logging-guard lets only 10.52.0.0/16, 10.54.0.0/16, 10.55.0.0/16 and the PVE nodes' 10.5.1.x reach Loki's port 3100."
   }
 }

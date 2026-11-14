@@ -261,6 +261,9 @@ module "monitoring" {
   }
   logging_settings = merge(var.logging_settings, {
     syslog_host_overrides = local.syslog_host_overrides
+    # + each Proxmox node's monitoring (VLAN 5) address: Alloy there pushes the Ceph daemon logs to the
+    # monitoring VIP, directly connected (log-senders/pve-alloy.config.alloy, DT-021).
+    loki_allowed_sources = concat(var.logging_settings.loki_allowed_sources, sort(values(local.pve_nodes)))
   })
   logging_secrets = var.loki_s3 == null ? null : {
     s3_bucket     = var.loki_s3.bucket
