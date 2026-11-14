@@ -74,6 +74,45 @@ loki.process "journal" {
       values = { level = "line_level" }
     }
   }
+  // dark-triage (Werkzeug on stderr, so priority err): its access lines carry no level; set it from the HTTP
+  // status (1xx-3xx info, 4xx warning, 5xx error). Its own messages start with the Python level name.
+  stage.match {
+    selector = "{source=\"journal\", unit=\"dark-triage.service\"} |~ \"HTTP/[0-9.]+\\\" [1-5][0-9][0-9] \""
+    stage.regex {
+      expression = `HTTP/[0-9.]+" (?P<line_level>[1-5])[0-9][0-9] `
+    }
+    stage.template {
+      source   = "line_level"
+      template = `{{ if eq .Value "5" }}error{{ else if eq .Value "4" }}warning{{ else }}info{{ end }}`
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
+  stage.match {
+    selector = "{source=\"journal\", unit=\"dark-triage.service\"} |~ \"^(DEBUG|INFO|WARNING|ERROR|CRITICAL) \""
+    stage.regex {
+      expression = `^(?P<line_level>DEBUG|INFO|WARNING|ERROR|CRITICAL) `
+    }
+    stage.template {
+      source   = "line_level"
+      template = `{{ ToLower .Value }}`
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
+  // BIND (named -f with named.conf's stderr channel, services-config): "<category>: <severity>: message";
+  // "debug 3" is debug.
+  stage.match {
+    selector = "{source=\"journal\", container=\"bind9\"} |~ \"^[a-z0-9-]+: (critical|error|warning|notice|info|debug)( [0-9]+)?: \""
+    stage.regex {
+      expression = `^[a-z0-9-]+: (?P<line_level>critical|error|warning|notice|info|debug)(?: [0-9]+)?: `
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
   forward_to = [loki.write.loki.receiver]
 }
 %{ if syslog ~}
@@ -136,6 +175,22 @@ loki.process "syslog" {
     selector            = "{app=\"kea-dhcp4\"} |= \"Received command 'ha-heartbeat'\""
     action              = "drop"
     drop_counter_reason = "kea_ha_heartbeat"
+  }
+  // Kea (kea-dhcp4, fw-wan's kea-vrf-helper) sends every line at syslog priority info and puts its own severity
+  // in the text ("WARN  HA_...", some lines with a date first). WARN/ERROR/FATAL/DEBUG set the level label
+  // (warning, error, critical, debug: DT-011); INFO keeps syslog's "informational" like every other syslog line.
+  stage.match {
+    selector = "{app=~\"kea.*\"} |~ \"^([0-9-]+ [0-9:.]+ )?(FATAL|ERROR|WARN|DEBUG) \""
+    stage.regex {
+      expression = `^(?:[0-9-]+ [0-9:.]+ )?(?P<kea_level>FATAL|ERROR|WARN|DEBUG) `
+    }
+    stage.template {
+      source   = "kea_level"
+      template = `{{ if eq .Value "FATAL" }}critical{{ else if eq .Value "WARN" }}warning{{ else }}{{ ToLower .Value }}{{ end }}`
+    }
+    stage.labels {
+      values = { level = "kea_level" }
+    }
   }
   forward_to = [loki.write.loki.receiver]
 }

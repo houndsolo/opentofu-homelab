@@ -770,6 +770,23 @@ run "logging" {
   }
 
   assert {
+    # Remaining level fixes (DT-011): Kea's own severity on the syslog path (logging VMs only); dark-triage's
+    # Werkzeug access lines by HTTP status and BIND's "<category>: <severity>:" prefix on every VM's journal.
+    # Selectors keep double-quoted LogQL strings: backtick ones fail at load time and alloy validate misses it.
+    condition = (
+      strcontains(module.monitoring.alloy_configs.loki01, "selector = \"{app=~\\\"kea.*\\\"} |~ \\\"^([0-9-]+ [0-9:.]+ )?(FATAL|ERROR|WARN|DEBUG) \\\"\"") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "values = { level = \"kea_level\" }") &&
+      !strcontains(module.monitoring.alloy_configs.mon01, "kea_level") &&
+      alltrue([for name in ["mon01", "graf01", "loki01", "mim01"] : (
+        strcontains(module.monitoring.alloy_configs[name], "selector = \"{source=\\\"journal\\\", unit=\\\"dark-triage.service\\\"} |~ \\\"HTTP/[0-9.]+\\\\\\\" [1-5][0-9][0-9] \\\"\"") &&
+        strcontains(module.monitoring.alloy_configs[name], "template = `{{ if eq .Value \"5\" }}error{{ else if eq .Value \"4\" }}warning{{ else }}info{{ end }}`") &&
+        strcontains(module.monitoring.alloy_configs[name], "selector = \"{source=\\\"journal\\\", container=\\\"bind9\\\"} |~ \\\"^[a-z0-9-]+: (critical|error|warning|notice|info|debug)( [0-9]+)?: \\\"\"")
+      )])
+    )
+    error_message = "Alloy sets level from Kea's severity (syslog, logging VMs), dark-triage's HTTP status and BIND's severity (journal, every VM)."
+  }
+
+  assert {
     condition = alltrue([for name in ["loki01", "loki02", "loki03"] : (
       strcontains(module.monitoring.haproxy_configs[name], "bind 127.0.0.1:7480") &&
       strcontains(module.monitoring.haproxy_configs[name], "server rgw1 10.27.0.12:7480") &&

@@ -79,5 +79,44 @@ loki.process "journal" {
       values = { level = "line_level" }
     }
   }
+  // dark-triage (Werkzeug on stderr, so priority err): its access lines carry no level; set it from the HTTP
+  // status (1xx-3xx info, 4xx warning, 5xx error). Its own messages start with the Python level name.
+  stage.match {
+    selector = "{source=\"journal\", unit=\"dark-triage.service\"} |~ \"HTTP/[0-9.]+\\\" [1-5][0-9][0-9] \""
+    stage.regex {
+      expression = `HTTP/[0-9.]+" (?P<line_level>[1-5])[0-9][0-9] `
+    }
+    stage.template {
+      source   = "line_level"
+      template = `{{ if eq .Value "5" }}error{{ else if eq .Value "4" }}warning{{ else }}info{{ end }}`
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
+  stage.match {
+    selector = "{source=\"journal\", unit=\"dark-triage.service\"} |~ \"^(DEBUG|INFO|WARNING|ERROR|CRITICAL) \""
+    stage.regex {
+      expression = `^(?P<line_level>DEBUG|INFO|WARNING|ERROR|CRITICAL) `
+    }
+    stage.template {
+      source   = "line_level"
+      template = `{{ ToLower .Value }}`
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
+  // BIND (named -f with named.conf's stderr channel, services-config): "<category>: <severity>: message";
+  // "debug 3" is debug.
+  stage.match {
+    selector = "{source=\"journal\", container=\"bind9\"} |~ \"^[a-z0-9-]+: (critical|error|warning|notice|info|debug)( [0-9]+)?: \""
+    stage.regex {
+      expression = `^[a-z0-9-]+: (?P<line_level>critical|error|warning|notice|info|debug)(?: [0-9]+)?: `
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
   forward_to = [loki.write.loki.receiver]
 }
