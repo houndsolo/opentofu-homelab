@@ -593,8 +593,8 @@ Grafana --> VIP 10.13.11.101:3100 ;  Loki ruler --> both Alertmanagers (10.13.11
 - **Ports**: Loki runs with host networking and listens on every address, because the backend VIP
   moves between the VMs. `logging-guard` (an nftables table `inet logging_guard`, loaded by its own
   systemd unit) drops 3100 except from loopback and `logging_settings.loki_allowed_sources`
-  (`10.13.0.0/16`) plus the mgmt addresses of services-config's Alloy VMs without a VLAN 13 NIC
-  (`loki_mgmt_senders` in main.tf; empty since the DNS and proxy VMs got VLAN 13 NICs on 2026-11-13),
+  (`10.13.0.0/16` for Grafana, `10.55.0.0/16` for Alloy pushes from every VM over lylat-telemetry to the
+  telemetry VIP `10.55.18.101`, since 2026-11-14),
   and 7946/9095 except from the three HA addresses. Nothing else is filtered.
 - S3 keys live in `/etc/logging/loki.env` (0600) and are expanded by Loki (`-config.expand-env`);
   `loki.yaml` itself (output `loki_configs`) has no secrets.
@@ -654,9 +654,8 @@ and Debian ships security updates for it. There's no trustworthy upstream keepal
   format doesn't parse as RFC 3164 (it shows in `loki_source_syslog_parsing_errors_total`).
 - If its messages carry no useful hostname, add its address to `snmp_targets` (if it's scraped) or
   `logging_settings.syslog_host_overrides`.
-- A Linux VM with Podman: give it Alloy like mon01 or services-config's `alloy.tf` (journal -> VIP
-  10.13.11.101 if it has a VLAN 13 NIC, otherwise to the three log VMs' mgmt addresses, which then need
-  to be in `loki_mgmt_senders`).
+- A Linux VM with Podman: give it a lylat-telemetry NIC (VLAN 1501) and Alloy like mon01 or services-config's
+  `alloy.tf` (journal -> the telemetry VIP 10.55.18.101).
 - The hand-configured senders are in [log-senders](log-senders/README.md).
 
 ### Ceph RGW on the PVE nodes

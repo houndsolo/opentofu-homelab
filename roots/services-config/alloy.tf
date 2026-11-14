@@ -2,26 +2,29 @@
 # Quadlet container included) to Loki with the same labels as monitoring-config's VMs
 # (source="journal", host, unit, container, app, level). It replaced the rsyslog forwarder
 # (source="syslog"); alloy.sh retires that on the first run. Alloy's HTTP listener (/metrics,
-# /-/ready) is on the management address, where monitoring-config's alloy job scrapes it
+# /-/ready) is on the telemetry address (telemetry.tf scrape_ip), where monitoring-config's alloy job scrapes it
 # (targets.alloy there; keep the port in step). The DNS VMs get it from terraform_data.dns_alloy
 # below, the others from their <role>-monitoring.tf resource, so changing it never restarts a service.
 variable "alloy" {
-  description = "Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs. VMs with a NIC on backend_vlan_id push to loki_vip_url, the others to every loki_mgmt_urls entry. null = don't install it (and leave rsyslog alone)."
+  description = "Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs, pushing to loki_url (Loki's telemetry VIP) from the VM's lylat-telemetry NIC. null = don't install it (and leave rsyslog alone)."
   type = object({
-    image              = optional(string, "docker.io/grafana/alloy:v1.21.3") # keep in step with monitoring-config images.alloy
-    port               = optional(number, 12345)                             # keep in step with modules/services/monitoring logging.tf
-    backend_vlan_id    = optional(number, 13)
-    loki_vip_url       = optional(string, "http://10.13.11.101:3100") # Loki's backend VIP (monitoring-config logging_settings.vips.backend)
-    loki_telemetry_url = optional(string, "http://10.55.18.101:3100") # Loki's telemetry VIP (monitoring-config logging_settings.vips.telemetry)
-    # No Loki VIP on mgmt: every logging VM's own address. monitoring-config lets these VMs through
-    # logging-guard (port 3100) by their mgmt address.
-    loki_mgmt_urls = optional(list(string), ["http://10.20.11.34:3100", "http://10.20.11.35:3100", "http://10.20.11.36:3100"])
-    max_age        = optional(string, "12h") # journal backlog read after an outage, as on monitoring-config's VMs
+    image    = optional(string, "docker.io/grafana/alloy:v1.21.3") # keep in step with monitoring-config images.alloy
+    port     = optional(number, 12345)                             # keep in step with modules/services/monitoring logging.tf
+    loki_url = optional(string, "http://10.55.18.101:3100")        # Loki's telemetry VIP (monitoring-config logging_settings.vips.telemetry)
+    max_age  = optional(string, "12h")                             # journal backlog read after an outage, as on monitoring-config's VMs
   })
   default = {}
   validation {
-    condition     = var.alloy == null || try(length(var.alloy.loki_mgmt_urls) > 0 && alltrue([for u in concat([var.alloy.loki_vip_url], var.alloy.loki_mgmt_urls) : can(regex("^https?://[A-Za-z0-9.:-]+$", u))]), false)
-    error_message = "alloy.loki_vip_url and loki_mgmt_urls are base URLs (http://host:port, no path), loki_mgmt_urls not empty."
+    condition     = var.alloy == null || try(can(regex("^https?://[A-Za-z0-9.:-]+$", var.alloy.loki_url)), false)
+    error_message = "alloy.loki_url is a base URL (http://host:port, no path)."
+  }
+}
+
+# Every Alloy VM pushes from its telemetry NIC; without one it has no route to the VIP (lylat-telemetry is isolated).
+check "alloy_telemetry_nic" {
+  assert {
+    condition     = var.alloy == null || alltrue([for name in keys(local.alloy_vms) : local.telemetry_ip[name] != null])
+    error_message = "Every Alloy VM needs a NIC on VLAN ${var.telemetry_vlan_id} (lylat-telemetry): ${join(", ", [for name in keys(local.alloy_vms) : name if local.telemetry_ip[name] == null])}."
   }
 }
 
@@ -38,13 +41,9 @@ locals {
         listen = "${local.scrape_ip[name]}:${var.alloy.port}"
       }))
       config_b64 = base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host    = name
-        max_age = var.alloy.max_age
-        # The Loki telemetry VIP from the VM's telemetry NIC; else the backend VIP (VLAN 13 NIC); else every
-        # logging VM's mgmt address.
-        loki_urls = local.telemetry_ip[name] != null ? [var.alloy.loki_telemetry_url] : anytrue([
-          for nic in(vm.network_devices == null ? [] : vm.network_devices) : nic.vlan_id == var.alloy.backend_vlan_id && nic.ipv4_address != null
-        ]) ? [var.alloy.loki_vip_url] : var.alloy.loki_mgmt_urls
+        host      = name
+        max_age   = var.alloy.max_age
+        loki_urls = [var.alloy.loki_url]
       }))
     })
   }

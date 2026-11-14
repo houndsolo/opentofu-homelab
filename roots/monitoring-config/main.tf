@@ -15,16 +15,10 @@ locals {
   netbox_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "netbox" }
   proxy_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "proxy" }
   ticketing_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "ticketing" }
-  # Grafana Alloy from services-config (alloy.tf) on these VMs: HTTP on the mgmt address (alloy job).
-  # One without a backend VLAN NIC would push to Loki over mgmt, to every logging VM's own address, and
-  # logging-guard would have to let its mgmt address reach port 3100. Since 2026-11-13 all of them
-  # (DNS and proxy included) have a VLAN 13 NIC and push to the VIP, so this list is empty.
+  # Grafana Alloy from services-config (alloy.tf) on these VMs: HTTP on the telemetry address (alloy job);
+  # they push to Loki's telemetry VIP (logging-guard allows 10.55.0.0/16 on 3100).
   alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
-  loki_mgmt_senders = sort([
-    for name in keys(local.alloy_service_vms) : "${local.mgmt[name]}/32"
-    if !anytrue([for nic in local.nics[name] : nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null])
-  ])
-  deploy_vms = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
+  deploy_vms        = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
   # lylat-telemetry (VLAN telemetry_vlan_id, flat 10.55.0.0/16, zone design): every service VM's scrape and log-push
@@ -310,7 +304,6 @@ module "monitoring" {
   }
   logging_settings = merge(var.logging_settings, {
     syslog_host_overrides = local.syslog_host_overrides
-    loki_allowed_sources  = concat(var.logging_settings.loki_allowed_sources, local.loki_mgmt_senders)
   })
   logging_secrets = var.loki_s3 == null ? null : {
     s3_bucket     = var.loki_s3.bucket

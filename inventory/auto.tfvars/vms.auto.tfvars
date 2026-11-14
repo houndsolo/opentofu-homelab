@@ -22,12 +22,6 @@ vms = {
         ipv4_address = "10.21.53.1/24"
       },
       {
-        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.53.1/16"
-      },
-      {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
         # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
         bridge       = "vmbr4000"
@@ -65,12 +59,6 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 212
         ipv4_address = "10.21.53.2/24"
-      },
-      {
-        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.53.2/16"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -528,12 +516,6 @@ vms = {
         ipv4_address = "10.21.18.50/24"
       },
       {
-        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.50/16"
-      },
-      {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
         # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
         bridge       = "vmbr4000"
@@ -573,12 +555,6 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 220
         ipv4_address = "10.21.18.51/24"
-      },
-      {
-        # Isolated monitoring backend: Alloy pushes the journal to Loki's backend VIP 10.13.11.101.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.51/16"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default

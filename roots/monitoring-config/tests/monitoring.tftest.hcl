@@ -1097,7 +1097,6 @@ run "service_vm_alloy" {
     # Every services-config Alloy VM has a telemetry NIC (since 2026-11-14) and pushes to the telemetry VIP, so
     # logging-guard needs no mgmt exceptions: only the backend VLAN (Grafana) and lylat-telemetry reach port 3100.
     condition = (
-      length(local.loki_mgmt_senders) == 0 &&
       strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.13.0.0/16, 10.55.0.0/16 } accept")
     )
     error_message = "No mgmt senders left: logging-guard lets only 10.13.0.0/16 and 10.55.0.0/16 reach Loki's port 3100."

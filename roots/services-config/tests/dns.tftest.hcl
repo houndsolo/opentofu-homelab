@@ -256,8 +256,7 @@ run "alloy_journal_to_loki" {
     condition = (
       length(terraform_data.dns_alloy) == 2 &&
       keys(local.alloy_scripts) == sort(["dns01", "dns02", "netbox01", "netbox02", "proxy01", "proxy02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
-      # Every Alloy VM has a lylat-telemetry NIC (VLAN 1501, since 2026-11-14): Loki's telemetry VIP only.
-      # (Else the backend VIP with a VLAN 13 NIC, else every logging VM's mgmt address, var.alloy.loki_mgmt_urls.)
+      # Every Alloy VM pushes to Loki's telemetry VIP from its lylat-telemetry NIC (VLAN 1501, since 2026-11-14).
       strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
         host = "dns01", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
       }))) &&
@@ -276,7 +275,7 @@ run "alloy_journal_to_loki" {
       }))) &&
       strcontains(local.alloy_scripts.valkey03, "http://10.55.15.49:12345/-/ready")
     )
-    error_message = "Alloy on every DNS/NetBox/proxy/Valkey/ticketing VM: the telemetry VIP when the VM has a telemetry NIC, else the backend VIP (VLAN 13 NIC), else every logging VM's mgmt address; listener on the telemetry address :12345."
+    error_message = "Alloy on every DNS/NetBox/proxy/Valkey/ticketing VM: the telemetry VIP; listener on the telemetry address :12345."
   }
   assert {
     condition = (
@@ -299,7 +298,7 @@ run "alloy_disabled" {
 
 run "reject_bad_alloy_url" {
   command = plan
-  variables { alloy = { loki_mgmt_urls = ["10.20.11.34:3100"] } }
+  variables { alloy = { loki_url = "10.55.18.101:3100" } }
   expect_failures = [var.alloy]
 }
 
@@ -350,10 +349,4 @@ run "dns_bind_exporter_disabled" {
     condition     = length(terraform_data.dns_bind_exporter) == 0
     error_message = "dns_bind_exporter = null installs nothing."
   }
-}
-
-run "reject_empty_alloy_mgmt_urls" {
-  command = plan
-  variables { alloy = { loki_mgmt_urls = [] } }
-  expect_failures = [var.alloy]
 }
