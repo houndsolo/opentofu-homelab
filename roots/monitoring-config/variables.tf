@@ -156,6 +156,10 @@ variable "snmp_targets" {
     fs-switches = {
       modules = ["if_mib", "system"]
       targets = { "switch-1" = "10.5.0.1", "switch-2" = "10.5.0.2" }
+      # switch-2's if_mib walk takes 6-10 s (1,272 PDUs) and hit the default 10 s timeout on ~47 % of
+      # scrapes (DT-093): same 30s/20s as the MikroTik jobs.
+      scrape_interval = "30s"
+      scrape_timeout  = "20s"
     }
     mikrotik-access = {
       # mikrotik_lite: only what the dashboards use, not the whole MIKROTIK-MIB (DT-023).
