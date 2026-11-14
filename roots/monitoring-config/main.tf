@@ -38,7 +38,7 @@ locals {
   # Address on the backend NIC (the zone segment, backend_vlan_ids), and the backend VM's monitoring-network address.
   backend_address = {
     for name in keys(local.deploy_vms) : name => try(split("/", one([
-      for nic in local.nics[name] : nic.ipv4_address if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
+      for nic in local.nics[name] : nic.ipv4_address if contains(var.backend_vlan_ids, coalesce(nic.vlan_id, -1)) && nic.ipv4_address != null
     ]))[0], null)
   }
   monitoring_address = {
@@ -59,7 +59,7 @@ locals {
         if nic.vlan_id == var.monitoring_ha_vlan_id && nic.ipv4_address != null
       ]), null)
       backend = try(one([
-        for i, nic in local.nics[name] : "eth${i + 1}" if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
+        for i, nic in local.nics[name] : "eth${i + 1}" if contains(var.backend_vlan_ids, coalesce(nic.vlan_id, -1)) && nic.ipv4_address != null
       ]), null)
       monitoring = try(one([
         for i, nic in local.nics[name] : "eth${i + 1}" if nic.bridge == var.monitoring_bridge && nic.ipv4_address != null
@@ -92,7 +92,7 @@ locals {
       ]), null)
       backend = try(one([
         for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
-        if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
+        if contains(var.backend_vlan_ids, coalesce(nic.vlan_id, -1)) && nic.ipv4_address != null
       ]), null)
       monitoring = try(one([
         for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }

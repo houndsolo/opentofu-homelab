@@ -17,7 +17,7 @@ locals {
       ]), null)
       backend = try(one([
         for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
-        if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
+        if contains(var.backend_vlan_ids, coalesce(nic.vlan_id, -1)) && nic.ipv4_address != null
       ]), null)
     }
   }
