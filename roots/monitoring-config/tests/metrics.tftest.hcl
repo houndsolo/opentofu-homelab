@@ -61,18 +61,18 @@ run "mimir" {
       yamldecode(module.monitoring.mimir_configs[name]).target == "all" &&
       yamldecode(module.monitoring.mimir_configs[name]).multitenancy_enabled == false &&
       yamldecode(module.monitoring.mimir_configs[name]).ingest_storage.enabled == false &&
-      yamldecode(module.monitoring.mimir_configs[name]).ingester.ring.instance_addr == "10.21.14.${i}" &&
+      yamldecode(module.monitoring.mimir_configs[name]).ingester.ring.instance_addr == "10.50.17.${i}" &&
       yamldecode(module.monitoring.mimir_configs[name]).ingester.ring.replication_factor == 3 &&
-      yamldecode(module.monitoring.mimir_configs[name]).store_gateway.sharding_ring.instance_addr == "10.21.14.${i}" &&
-      yamldecode(module.monitoring.mimir_configs[name]).memberlist.advertise_addr == "10.21.14.${i}" &&
+      yamldecode(module.monitoring.mimir_configs[name]).store_gateway.sharding_ring.instance_addr == "10.50.17.${i}" &&
+      yamldecode(module.monitoring.mimir_configs[name]).memberlist.advertise_addr == "10.50.17.${i}" &&
       yamldecode(module.monitoring.mimir_configs[name]).memberlist.cluster_label == "lylat-mimir" &&
-      yamldecode(module.monitoring.mimir_configs[name]).memberlist.join_members == ["10.21.14.37:7946", "10.21.14.38:7946", "10.21.14.39:7946"] &&
+      yamldecode(module.monitoring.mimir_configs[name]).memberlist.join_members == ["10.50.17.37:7946", "10.50.17.38:7946", "10.50.17.39:7946"] &&
       yamldecode(module.monitoring.mimir_configs[name]).blocks_storage.s3.endpoint == "127.0.0.1:7480" &&
       yamldecode(module.monitoring.mimir_configs[name]).blocks_storage.s3.bucket_name == "mimir" &&
       !strcontains(module.monitoring.mimir_configs[name], "MOCKMIMIRKEY") &&
       !strcontains(module.monitoring.mimir_configs[name], "mockmimirsecret")
     )])
-    error_message = "Mimir: monolithic, classic architecture, RF 3, ring on 10.21.14.x, S3 via 127.0.0.1:7480, no keys in mimir.yaml."
+    error_message = "Mimir: monolithic, classic architecture, RF 3, ring on 10.50.17.x, S3 via 127.0.0.1:7480, no keys in mimir.yaml."
   }
 
   assert {
@@ -122,8 +122,8 @@ run "mimir" {
     condition = (
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "10.13.11.103/16 dev eth2") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "interface eth4") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "unicast_src_ip 10.21.14.37") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "    10.21.14.39\n") &&
+      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "unicast_src_ip 10.50.17.37") &&
+      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "    10.50.17.39\n") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "virtual_router_id 103") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "auth_pass mimirvrp") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "http://127.0.0.1:8080/ready") &&

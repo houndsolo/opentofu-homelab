@@ -62,22 +62,22 @@ run "postgres_cluster" {
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.data_dir == "/var/lib/postgresql/patroni/18" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.bin_dir == "/usr/lib/postgresql/18/bin" &&
       yamldecode(module.monitoring.patroni_configs[name]).name == name &&
-      yamldecode(module.monitoring.patroni_configs[name]).restapi.connect_address == "10.21.15.${i}:8008" &&
-      yamldecode(module.monitoring.patroni_configs[name]).postgresql.connect_address == "10.21.15.${i}:5432" &&
+      yamldecode(module.monitoring.patroni_configs[name]).restapi.connect_address == "10.50.14.${i}:8008" &&
+      yamldecode(module.monitoring.patroni_configs[name]).postgresql.connect_address == "10.50.14.${i}:5432" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.listen == "0.0.0.0:5432" &&
-      yamldecode(module.monitoring.patroni_configs[name]).etcd3.hosts == ["10.21.15.40:2379", "10.21.15.41:2379", "10.21.15.42:2379"] &&
+      yamldecode(module.monitoring.patroni_configs[name]).etcd3.hosts == ["10.50.14.40:2379", "10.50.14.41:2379", "10.50.14.42:2379"] &&
       yamldecode(module.monitoring.patroni_configs[name]).bootstrap.dcs.failsafe_mode == true &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.parameters.archive_command == "pgbackrest --stanza=lylat-pg18 archive-push %p" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.parameters.password_encryption == "scram-sha-256" &&
-      yamldecode(module.monitoring.etcd_configs[name]).listen-peer-urls == "http://10.21.15.${i}:2380" &&
+      yamldecode(module.monitoring.etcd_configs[name]).listen-peer-urls == "http://10.50.14.${i}:2380" &&
       yamldecode(module.monitoring.etcd_configs[name]).listen-metrics-urls == "http://10.13.11.${i}:2381" &&
-      yamldecode(module.monitoring.etcd_configs[name]).initial-cluster == "pg01=http://10.21.15.40:2380,pg02=http://10.21.15.41:2380,pg03=http://10.21.15.42:2380" &&
+      yamldecode(module.monitoring.etcd_configs[name]).initial-cluster == "pg01=http://10.50.14.40:2380,pg02=http://10.50.14.41:2380,pg03=http://10.50.14.42:2380" &&
       yamldecode(module.monitoring.etcd_configs[name]).initial-cluster-state == "new" &&
       # etcd keeps cluster_name across Postgres majors: a new data dir/token would be a new etcd cluster.
       yamldecode(module.monitoring.etcd_configs[name]).data-dir == "/var/lib/etcd/lylat-pg" &&
       yamldecode(module.monitoring.etcd_configs[name]).initial-cluster-token == "lylat-pg"
     )])
-    error_message = "Patroni and etcd use the HA VLAN addresses 10.21.15.40-42; etcd metrics on the backend VLAN."
+    error_message = "Patroni and etcd use the HA VLAN addresses 10.50.14.40-42; etcd metrics on the backend VLAN."
   }
 
   assert {
@@ -96,7 +96,7 @@ run "postgres_cluster" {
       !strcontains(module.monitoring.patroni_configs.pg01, "mockmock") &&
       contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "hostssl grafana grafana ${local.backend_address.graf01}/32 scram-sha-256") &&
       contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "hostssl grafana grafana ${local.backend_address.graf02}/32 scram-sha-256") &&
-      contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "host replication replicator 10.21.15.42/32 scram-sha-256") &&
+      contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "host replication replicator 10.50.14.42/32 scram-sha-256") &&
       length([for l in yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba : l if strcontains(l, "0.0.0.0/0")]) == 0 &&
       contains(yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba, "host replication replicator 127.0.0.1/32 scram-sha-256") &&
       length([for l in yamldecode(module.monitoring.patroni_configs.pg01).postgresql.pg_hba : l if startswith(l, "host replication")]) == 4
@@ -107,9 +107,9 @@ run "postgres_cluster" {
   assert {
     # The guard: 5432 from Grafana + members, etcd only from members, REST/etcd metrics from the Prometheus backends.
     condition = (
-      strcontains(module.monitoring.postgres_guard, "tcp dport { 2379, 2380 } ip saddr { 10.21.15.40, 10.21.15.41, 10.21.15.42 } accept") &&
+      strcontains(module.monitoring.postgres_guard, "tcp dport { 2379, 2380 } ip saddr { 10.50.14.40, 10.50.14.41, 10.50.14.42 } accept") &&
       strcontains(module.monitoring.postgres_guard, "tcp dport 2381 ip saddr { ${local.backend_address.mon01}, ${local.backend_address.mon02} } accept") &&
-      strcontains(module.monitoring.postgres_guard, "tcp dport 5432 ip saddr { ${local.backend_address.graf01}, ${local.backend_address.graf02}, 10.21.15.40") &&
+      strcontains(module.monitoring.postgres_guard, "tcp dport 5432 ip saddr { ${local.backend_address.graf01}, ${local.backend_address.graf02}, 10.50.14.40") &&
       strcontains(module.monitoring.postgres_guard, "tcp dport { 5432, 8008, 2379, 2380, 2381 } drop")
     )
     error_message = "postgres-guard limits 5432/8008/2379-2381 to Grafana, the members and Prometheus."
@@ -120,7 +120,7 @@ run "postgres_cluster" {
     condition = alltrue([for name, i in { pg01 = 40, pg02 = 41, pg03 = 42 } : (
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "10.13.11.104/16 dev eth2") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "interface eth4") &&
-      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "unicast_src_ip 10.21.15.${i}") &&
+      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "unicast_src_ip 10.50.14.${i}") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "virtual_router_id 104") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "http://127.0.0.1:8008/primary") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "auth_pass pgvrrp01")

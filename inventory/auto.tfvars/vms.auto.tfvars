@@ -18,8 +18,9 @@ vms = {
       {
         # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
         bridge       = "vmbr4000"
-        vlan_id      = 212
-        ipv4_address = "10.21.53.1/24"
+        vlan_id      = 1053
+        ipv4_address = "10.50.53.51/24"
+        ipv6_address = "fd69:5053::51/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -57,8 +58,9 @@ vms = {
       {
         # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
         bridge       = "vmbr4000"
-        vlan_id      = 212
-        ipv4_address = "10.21.53.2/24"
+        vlan_id      = 1053
+        ipv4_address = "10.50.53.52/24"
+        ipv6_address = "fd69:5053::52/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -134,8 +136,9 @@ vms = {
       {
         # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.13.11.102) and Alertmanager gossip.
         bridge       = "vmbr4000"
-        vlan_id      = 215
-        ipv4_address = "10.21.13.30/24"
+        vlan_id      = 1016
+        ipv4_address = "10.50.16.30/24"
+        ipv6_address = "fd69:5016::30/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -183,8 +186,9 @@ vms = {
       {
         # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.11.105.
         bridge       = "vmbr4000"
-        vlan_id      = 218
-        ipv4_address = "10.21.16.43/24"
+        vlan_id      = 1013
+        ipv4_address = "10.50.13.43/24"
+        ipv6_address = "fd69:5013::43/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -232,8 +236,9 @@ vms = {
       {
         # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.11.105.
         bridge       = "vmbr4000"
-        vlan_id      = 218
-        ipv4_address = "10.21.16.44/24"
+        vlan_id      = 1013
+        ipv4_address = "10.50.13.44/24"
+        ipv6_address = "fd69:5013::44/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -287,8 +292,9 @@ vms = {
       {
         # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.2.11.106.
         bridge       = "vmbr4000"
-        vlan_id      = 219
-        ipv4_address = "10.21.17.45/24"
+        vlan_id      = 1012
+        ipv4_address = "10.50.12.45/24"
+        ipv6_address = "fd69:5012::45/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -342,8 +348,9 @@ vms = {
       {
         # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.2.11.106.
         bridge       = "vmbr4000"
-        vlan_id      = 219
-        ipv4_address = "10.21.17.46/24"
+        vlan_id      = 1012
+        ipv4_address = "10.50.12.46/24"
+        ipv6_address = "fd69:5012::46/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -512,8 +519,9 @@ vms = {
       },
       {
         bridge       = "vmbr4000"
-        vlan_id      = 220
-        ipv4_address = "10.21.18.50/24"
+        vlan_id      = 1010
+        ipv4_address = "10.50.10.50/24"
+        ipv6_address = "fd69:5010::50/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -553,8 +561,9 @@ vms = {
       },
       {
         bridge       = "vmbr4000"
-        vlan_id      = 220
-        ipv4_address = "10.21.18.51/24"
+        vlan_id      = 1010
+        ipv4_address = "10.50.10.51/24"
+        ipv6_address = "fd69:5010::51/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -604,8 +613,9 @@ vms = {
       {
         # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.13.11.102) and Alertmanager gossip.
         bridge       = "vmbr4000"
-        vlan_id      = 215
-        ipv4_address = "10.21.13.31/24"
+        vlan_id      = 1016
+        ipv4_address = "10.50.16.31/24"
+        ipv6_address = "fd69:5016::31/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -650,8 +660,9 @@ vms = {
       {
         # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
-        vlan_id      = 213
-        ipv4_address = "10.21.11.32/24"
+        vlan_id      = 1011
+        ipv4_address = "10.50.11.32/24"
+        ipv6_address = "fd69:5011::32/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -695,8 +706,9 @@ vms = {
       {
         # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
-        vlan_id      = 213
-        ipv4_address = "10.21.11.33/24"
+        vlan_id      = 1011
+        ipv4_address = "10.50.11.33/24"
+        ipv6_address = "fd69:5011::33/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -750,8 +762,9 @@ vms = {
       {
         # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 214
-        ipv4_address = "10.21.12.34/24"
+        vlan_id      = 1018
+        ipv4_address = "10.50.18.34/24"
+        ipv6_address = "fd69:5018::34/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -806,8 +819,9 @@ vms = {
       {
         # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 214
-        ipv4_address = "10.21.12.35/24"
+        vlan_id      = 1018
+        ipv4_address = "10.50.18.35/24"
+        ipv6_address = "fd69:5018::35/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -862,8 +876,9 @@ vms = {
       {
         # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 214
-        ipv4_address = "10.21.12.36/24"
+        vlan_id      = 1018
+        ipv4_address = "10.50.18.36/24"
+        ipv6_address = "fd69:5018::36/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -914,8 +929,9 @@ vms = {
       {
         # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 216
-        ipv4_address = "10.21.14.37/24"
+        vlan_id      = 1017
+        ipv4_address = "10.50.17.37/24"
+        ipv6_address = "fd69:5017::37/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -965,8 +981,9 @@ vms = {
       {
         # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 216
-        ipv4_address = "10.21.14.38/24"
+        vlan_id      = 1017
+        ipv4_address = "10.50.17.38/24"
+        ipv6_address = "fd69:5017::38/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -1016,8 +1033,9 @@ vms = {
       {
         # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 216
-        ipv4_address = "10.21.14.39/24"
+        vlan_id      = 1017
+        ipv4_address = "10.50.17.39/24"
+        ipv6_address = "fd69:5017::39/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -1069,8 +1087,9 @@ vms = {
       {
         # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 217
-        ipv4_address = "10.21.15.40/24"
+        vlan_id      = 1014
+        ipv4_address = "10.50.14.40/24"
+        ipv6_address = "fd69:5014::40/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -1121,8 +1140,9 @@ vms = {
       {
         # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 217
-        ipv4_address = "10.21.15.41/24"
+        vlan_id      = 1014
+        ipv4_address = "10.50.14.41/24"
+        ipv6_address = "fd69:5014::41/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -1173,8 +1193,9 @@ vms = {
       {
         # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
         bridge       = "vmbr4000"
-        vlan_id      = 217
-        ipv4_address = "10.21.15.42/24"
+        vlan_id      = 1014
+        ipv4_address = "10.50.14.42/24"
+        ipv6_address = "fd69:5014::42/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default

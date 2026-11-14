@@ -77,7 +77,7 @@ run "inventory_targets" {
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "promtool") &&
       strcontains(module.monitoring.units.mon01.postgres, "PublishPort=10.13.11.30:5432:5432\n") &&
       !strcontains(module.monitoring.units.mon01.postgres, "10.5.11.30") &&
-      strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.21.11.32:9094,10.21.11.33:9094") &&
+      strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.50.11.32:9094,10.50.11.33:9094") &&
       strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.55.11.33:9100") &&
       strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus") &&
       # The data dir of an image that drops from root to a service user stays owned by that user,
@@ -641,9 +641,9 @@ run "logging" {
   assert {
     # The ring (memberlist, ingester gRPC) runs on the HA VLAN; S3 goes through the local haproxy.
     condition = alltrue([for name, i in { loki01 = 34, loki02 = 35, loki03 = 36 } : (
-      yamldecode(module.monitoring.loki_configs[name]).common.instance_addr == "10.21.12.${i}" &&
-      yamldecode(module.monitoring.loki_configs[name]).memberlist.advertise_addr == "10.21.12.${i}" &&
-      yamldecode(module.monitoring.loki_configs[name]).memberlist.join_members == ["10.21.12.34:7946", "10.21.12.35:7946", "10.21.12.36:7946"] &&
+      yamldecode(module.monitoring.loki_configs[name]).common.instance_addr == "10.50.18.${i}" &&
+      yamldecode(module.monitoring.loki_configs[name]).memberlist.advertise_addr == "10.50.18.${i}" &&
+      yamldecode(module.monitoring.loki_configs[name]).memberlist.join_members == ["10.50.18.34:7946", "10.50.18.35:7946", "10.50.18.36:7946"] &&
       yamldecode(module.monitoring.loki_configs[name]).common.replication_factor == 3 &&
       yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.endpoint == "127.0.0.1:7480" &&
       yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.bucketnames == "loki" &&
@@ -668,8 +668,8 @@ run "logging" {
         auth_pass     = "mockmockmockmockmockmockmockmock" # mocked random_password
         alloy_address = "10.55.18.${p.i}"
         ha_interface  = "eth5"
-        ha_address    = "10.21.12.${p.i}"
-        peers         = [for j in [34, 35, 36] : "10.21.12.${j}" if j != p.i]
+        ha_address    = "10.50.18.${p.i}"
+        peers         = [for j in [34, 35, 36] : "10.50.18.${j}" if j != p.i]
         vips = [
           { cidr = "10.13.11.101/16", interface = "eth2" },
           { cidr = "10.5.11.101/16", interface = "eth3" },
@@ -812,11 +812,11 @@ run "grafana_ha" {
   assert {
     # Alerting gossip on the Grafana HA VLAN (213), published only there.
     condition = alltrue([for name, i in { graf01 = 32, graf02 = 33 } : (
-      strcontains(module.monitoring.units[name].grafana, "GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS=10.21.11.${i}:9094") &&
-      strcontains(module.monitoring.units[name].grafana, "PublishPort=10.21.11.${i}:9094:9094/udp") &&
+      strcontains(module.monitoring.units[name].grafana, "GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS=10.50.11.${i}:9094") &&
+      strcontains(module.monitoring.units[name].grafana, "PublishPort=10.50.11.${i}:9094:9094/udp") &&
       !strcontains(module.monitoring.units[name].grafana, "10.13.11.${i}:9094")
     )])
-    error_message = "Grafana alerting HA gossips over 10.21.11.32/.33:9094."
+    error_message = "Grafana alerting HA gossips over 10.50.11.32/.33:9094."
   }
 
   assert {
@@ -824,8 +824,8 @@ run "grafana_ha" {
     condition = (
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.2.11.100/16 dev eth1") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "interface eth3") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip 10.21.11.32") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    10.21.11.33\n") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip 10.50.11.32") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    10.50.11.33\n") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "priority 150") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "priority 100") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "virtual_router_id 100")
@@ -888,14 +888,14 @@ run "backend_ha" {
   assert {
     # Alertmanager gossip on the HA VLAN, published only there.
     condition = alltrue([for name, i in { mon01 = { me = 30, peer = 31 }, mon02 = { me = 31, peer = 30 } } : (
-      strcontains(module.monitoring.units[name].alertmanager, "--cluster.advertise-address=10.21.13.${i.me}:9094") &&
-      strcontains(module.monitoring.units[name].alertmanager, "--cluster.peer=10.21.13.${i.peer}:9094") &&
-      strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.21.13.${i.me}:9094:9094/udp") &&
+      strcontains(module.monitoring.units[name].alertmanager, "--cluster.advertise-address=10.50.16.${i.me}:9094") &&
+      strcontains(module.monitoring.units[name].alertmanager, "--cluster.peer=10.50.16.${i.peer}:9094") &&
+      strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.50.16.${i.me}:9094:9094/udp") &&
       strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.13.11.102:9093:9093\n") &&
       strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.5.11.102:57500:57500\n") &&
       strcontains(module.monitoring.units[name]["node-exporter"], "--collector.netdev.address-info")
     )])
-    error_message = "Alertmanager gossips over 10.21.13.30/.31:9094; the WLC Telegraf and Alertmanager also publish on the VIPs."
+    error_message = "Alertmanager gossips over 10.50.16.30/.31:9094; the WLC Telegraf and Alertmanager also publish on the VIPs."
   }
 
   assert {
@@ -904,8 +904,8 @@ run "backend_ha" {
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.5.11.102/16 dev eth2") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.13.11.102/16 dev eth3") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "interface eth4") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "unicast_src_ip 10.21.13.30") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "    10.21.13.31\n") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "unicast_src_ip 10.50.16.30") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "    10.50.16.31\n") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "priority 150") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "priority 100") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "virtual_router_id 102") &&
@@ -981,7 +981,7 @@ run "backend_ha_nic_required" {
         { bridge = "vmbr4000", vlan_id = 2, ipv4_address = "10.2.11.${i}/16", ipv4_gateway = "10.2.0.5" },
         { bridge = "vmbr100", ipv4_address = "10.5.11.${i}/16" },
         { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.${i}/16" },
-      ], name == "mon01" ? [{ bridge = "vmbr4000", vlan_id = 215, ipv4_address = "10.21.13.${i}/24" }] : [])
+      ], name == "mon01" ? [{ bridge = "vmbr4000", vlan_id = 1016, ipv4_address = "10.50.16.${i}/24" }] : [])
     } }
   }
 

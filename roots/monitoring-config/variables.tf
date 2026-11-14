@@ -19,13 +19,13 @@ variable "backend_vlan_id" {
 variable "ha_vlan_id" {
   description = "HA VLAN of the logging VMs (L2VNI ha_logging): Loki's ring (memberlist, ingester gRPC) and keepalived's unicast adverts. Each logging VM needs one addressed NIC on it."
   type        = number
-  default     = 214
+  default     = 1018
 }
 
 variable "grafana_ha_vlan_id" {
   description = "HA VLAN of the Grafana VMs (L2VNI ha_grafana): unified alerting's gossip (9094) and keepalived's unicast adverts. Every Grafana VM needs one addressed NIC on it, or gossip stays on the backend and keepalived is skipped."
   type        = number
-  default     = 213
+  default     = 1011
 }
 
 variable "grafana_vrrp" {
@@ -48,7 +48,7 @@ variable "monitoring_primary" {
 variable "monitoring_ha_vlan_id" {
   description = "HA VLAN of the monitoring backends (L2VNI ha_monitor): keepalived's unicast adverts and Alertmanager gossip (9094). Every backend needs one addressed NIC on it, or gossip stays on the backend VLAN and keepalived is skipped."
   type        = number
-  default     = 215
+  default     = 1016
 }
 
 variable "backend_vrrp" {
@@ -318,7 +318,7 @@ variable "loki_s3" {
 variable "metrics_ha_vlan_id" {
   description = "HA VLAN of the Mimir VMs (L2VNI ha_mimir): memberlist, gRPC and keepalived's unicast adverts. Each metrics VM needs one addressed NIC on it."
   type        = number
-  default     = 216
+  default     = 1017
 }
 
 variable "metrics_settings" {
@@ -358,7 +358,7 @@ variable "mimir_s3" {
 variable "postgres_ha_vlan_id" {
   description = "HA VLAN of the Patroni members (L2VNI ha_postgres): streaming replication, etcd, Patroni REST and keepalived's unicast adverts. Each postgres VM needs one addressed NIC on it."
   type        = number
-  default     = 217
+  default     = 1014
 }
 
 variable "postgres_settings" {
