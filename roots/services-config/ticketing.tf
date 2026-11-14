@@ -51,12 +51,6 @@ resource "random_password" "ticketing" {
   special = false
 }
 
-resource "random_password" "ticketing_vrrp" {
-  count   = var.ticketing != null ? 1 : 0
-  length  = 8 # VRRP PASS authentication uses at most 8 characters.
-  special = false
-}
-
 locals {
   ticketing_vms   = { for name, vm in var.vms : name => vm if vm.owner == "services-vms" && vm.role == "ticketing" }
   ticketing_names = sort(keys(local.ticketing_vms))
@@ -106,7 +100,6 @@ locals {
         router_id    = var.ticketing.router_id
         # Only the first election: nopreempt keeps the VIP where it is afterwards.
         priority  = name == local.ticketing_names[0] ? 150 : 100
-        auth_pass = random_password.ticketing_vrrp[0].result
         vip       = var.ticketing.vip
         interface = local.ticketing_nics[name].service.interface
       }))

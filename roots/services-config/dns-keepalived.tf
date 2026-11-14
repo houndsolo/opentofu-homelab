@@ -35,7 +35,6 @@ locals {
         router_id    = var.dns_vrrp.router_id
         # Only the first election: nopreempt keeps the VIP where it is afterwards.
         priority       = name == var.dns_primary ? 150 : 100
-        auth_pass      = random_password.dns_vrrp[0].result
         vip            = var.dns_vrrp.vip
         interface      = local.dns_nics[name].service
         zone_vip       = local.dns_nics[name].zone == null ? null : var.dns_vrrp.zone_vip
@@ -46,12 +45,6 @@ locals {
       }))
     })
   }
-}
-
-resource "random_password" "dns_vrrp" {
-  count   = var.dns_vrrp == null ? 0 : 1
-  length  = 8 # VRRP PASS authentication uses at most 8 characters.
-  special = false
 }
 
 resource "terraform_data" "dns_keepalived" {

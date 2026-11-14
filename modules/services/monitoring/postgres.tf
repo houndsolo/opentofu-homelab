@@ -37,7 +37,7 @@ locals {
   postgres_enabled = length(var.postgres) > 0 && nonsensitive(var.postgres_secrets != null)
   pg_secrets = local.postgres_enabled ? var.postgres_secrets : {
     s3_bucket        = "", s3_access_key = "", s3_secret_key = "", superuser_password = "", replication_password = ""
-    restapi_password = "", monitor_password = "", vrrp_password = ""
+    restapi_password = "", monitor_password = ""
   }
   pg_names   = sort(keys(var.postgres))
   pgs        = var.postgres_settings
@@ -265,7 +265,6 @@ locals {
       host          = name
       router_id     = local.pgs.vrrp_router_id
       priority      = local.pg_priority[name]
-      auth_pass     = local.pg_secrets.vrrp_password
       ha_interface  = vm.interfaces.ha
       ha_address    = vm.ha_address
       peers         = [for peer in local.pg_names : var.postgres[peer].ha_address if peer != name]

@@ -34,7 +34,6 @@ locals {
   alertmanager_targets = [for name in local.backend_names : "${var.backends[name].backend_address}:9093"]
 
   # keepalived.
-  # Only auth_pass is secret: whether keepalived is on and the VIPs aren't.
   backend_vrrp_enabled   = nonsensitive(var.backend_vrrp != null) && local.backend_ha_ready && alltrue([for b in values(var.backends) : b.interfaces != null])
   backend_vip_monitoring = local.backend_vrrp_enabled ? [split("/", nonsensitive(var.backend_vrrp.vips.monitoring))[0]] : []
   backend_vip_backend    = local.backend_vrrp_enabled ? [split("/", nonsensitive(var.backend_vrrp.vips.backend))[0]] : []
@@ -46,7 +45,6 @@ locals {
       host            = name
       router_id       = try(var.backend_vrrp.router_id, 0)
       priority        = max(150 - 50 * i, 10)
-      auth_pass       = try(var.backend_vrrp.auth_pass, "")
       backend_address = var.backends[name].backend_address
       ha_interface    = try(var.backends[name].interfaces.ha, "none")
       ha_address      = var.backends[name].ha_address

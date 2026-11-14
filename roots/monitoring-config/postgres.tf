@@ -71,12 +71,6 @@ resource "random_password" "pg_monitor" {
   special = false
 }
 
-# The Postgres VIP's VRRP instance (HA VLAN 217, router id 104): VRRPv2 PASS, 8 characters at most.
-resource "random_password" "pg_vrrp" {
-  length  = 8
-  special = false
-}
-
 check "postgres_s3" {
   assert {
     condition     = length(local.postgres_vms) == 0 || var.postgres_s3 != null

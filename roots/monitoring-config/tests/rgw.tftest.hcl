@@ -6,27 +6,6 @@ mock_provider "random" {
   }
 }
 
-# keepalived's PASS password is at most 8 characters (the shared mock result is longer).
-override_resource {
-  target = random_password.grafana_vrrp
-  values = { result = "mockvrrp" }
-}
-
-override_resource {
-  target = random_password.backend_vrrp
-  values = { result = "monvrrp1" }
-}
-
-override_resource {
-  target = random_password.mimir_vrrp
-  values = { result = "mimirvrp" }
-}
-
-override_resource {
-  target = random_password.pg_vrrp
-  values = { result = "pgvrrp01" }
-}
-
 mock_provider "proxmox" {}
 
 mock_provider "proxmox" {

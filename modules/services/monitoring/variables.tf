@@ -27,19 +27,18 @@ variable "primary_backend" {
 }
 
 variable "backend_vrrp" {
-  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (the C9800s' telemetry receiver) and the backend VLAN (Grafana's Alertmanager datasource, the wlc scrape), VRRP router id, PASS password (8 characters at most). Needs ha_address/interfaces on every backend and at least two. null = no keepalived, datasources on the primary."
+  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (the C9800s' telemetry receiver) and the backend VLAN (Grafana's Alertmanager datasource, the wlc scrape), VRRP router id. Needs ha_address/interfaces on every backend and at least two. null = no keepalived, datasources on the primary."
   type = object({
     vips = object({
       monitoring = string
       backend    = string
     })
     router_id = optional(number, 102)
-    auth_pass = string
   })
   default = null
   validation {
-    condition     = var.backend_vrrp == null || try(can(cidrhost(var.backend_vrrp.vips.monitoring, 0)) && can(cidrhost(var.backend_vrrp.vips.backend, 0)) && var.backend_vrrp.router_id >= 1 && var.backend_vrrp.router_id <= 255 && length(var.backend_vrrp.auth_pass) <= 8, false)
-    error_message = "backend_vrrp needs vips.monitoring/backend as IPv4 CIDRs, router_id 1..255 and auth_pass of at most 8 characters."
+    condition     = var.backend_vrrp == null || try(can(cidrhost(var.backend_vrrp.vips.monitoring, 0)) && can(cidrhost(var.backend_vrrp.vips.backend, 0)) && var.backend_vrrp.router_id >= 1 && var.backend_vrrp.router_id <= 255, false)
+    error_message = "backend_vrrp needs vips.monitoring/backend as IPv4 CIDRs, router_id 1..255."
   }
 }
 
@@ -57,16 +56,15 @@ variable "grafana" {
 }
 
 variable "grafana_vrrp" {
-  description = "keepalived VIP for Grafana (CIDR on the UI NIC), VRRP router id and PASS password (8 characters at most). Needs ha_address/interfaces on every Grafana VM and at least two VMs. null = no keepalived."
+  description = "keepalived VIP for Grafana (CIDR on the UI NIC), VRRP router id. Needs ha_address/interfaces on every Grafana VM and at least two VMs. null = no keepalived."
   type = object({
     vip       = string
     router_id = optional(number, 100)
-    auth_pass = string
   })
   default = null
   validation {
-    condition     = var.grafana_vrrp == null || try(can(cidrhost(var.grafana_vrrp.vip, 0)) && var.grafana_vrrp.router_id >= 1 && var.grafana_vrrp.router_id <= 255 && length(var.grafana_vrrp.auth_pass) <= 8, false)
-    error_message = "grafana_vrrp needs vip as an IPv4 CIDR, router_id 1..255 and auth_pass of at most 8 characters."
+    condition     = var.grafana_vrrp == null || try(can(cidrhost(var.grafana_vrrp.vip, 0)) && var.grafana_vrrp.router_id >= 1 && var.grafana_vrrp.router_id <= 255, false)
+    error_message = "grafana_vrrp needs vip as an IPv4 CIDR, router_id 1..255."
   }
 }
 
@@ -201,9 +199,9 @@ variable "logging_settings" {
     rgw_endpoints         = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
     retention_period      = optional(string, "90d")
     replication_factor    = optional(number, 3)
-    schema_start          = optional(string, "2026-11-01")           # never change once Loki has data; add a new period instead
+    schema_start          = optional(string, "2026-11-01")                                           # never change once Loki has data; add a new period instead
     loki_allowed_sources  = optional(list(string), ["10.52.0.0/16", "10.54.0.0/16", "10.55.0.0/16"]) # Loki HTTP (3100); the ring ports only accept the logging VMs
-    syslog_host_overrides = optional(map(string), {})                # sender IP => host label
+    syslog_host_overrides = optional(map(string), {})                                                # sender IP => host label
     # Host label regex (anchored) of the VyOS senders: their rsyslog sends each non-kernel line twice and
     # the receiver drops the copy with one leading space (templates/config.alloy.tftpl). "" turns it off.
     syslog_dedup_hosts = optional(string, "LEAF-[0-9]+|fw-wan|dhcp0[0-9]")
@@ -216,13 +214,12 @@ variable "logging_settings" {
 }
 
 variable "logging_secrets" {
-  description = "Loki's S3 bucket and keys (RGW user) and the VRRP password (8 characters at most, VRRPv2 PASS). Required when logging is non-empty."
+  description = "Loki's S3 bucket and keys (RGW user). Required when logging is non-empty."
   sensitive   = true
   type = object({
     s3_bucket     = string
     s3_access_key = string
     s3_secret_key = string
-    vrrp_password = string
   })
   default = null
 }
@@ -289,7 +286,7 @@ variable "metrics_settings" {
     ingestion_burst_size       = optional(number, 2000000)                      # per distributor (not split)
     max_label_names_per_series = optional(number, 40)                           # 21 at most today (default 30)
     out_of_order_time_window   = optional(string, "10m")
-    block_upload_enabled       = optional(bool, true) # mimirtool backfill
+    block_upload_enabled       = optional(bool, false) # true only while running a mimirtool backfill (mon-ha/mimir-runbook.md step 3)
     allowed_sources            = optional(list(string), ["10.54.0.0/16", "10.52.0.0/16"])
   })
   default = {}
@@ -300,13 +297,12 @@ variable "metrics_settings" {
 }
 
 variable "metrics_secrets" {
-  description = "Mimir's S3 bucket and keys (RGW user) and the VRRP password (8 characters at most). null leaves Mimir out."
+  description = "Mimir's S3 bucket and keys (RGW user). null leaves Mimir out."
   sensitive   = true
   type = object({
     s3_bucket     = string
     s3_access_key = string
     s3_secret_key = string
-    vrrp_password = string
   })
   default = null
 }
@@ -398,7 +394,7 @@ variable "postgres_app_passwords" {
 }
 
 variable "postgres_secrets" {
-  description = "pgBackRest's S3 bucket and keys (RGW user), the Patroni superuser/replication/REST API and postgres_exporter passwords and the VRRP password (8 characters at most). Grafana's role uses secrets.grafana_db_password. null leaves the cluster out."
+  description = "pgBackRest's S3 bucket and keys (RGW user), the Patroni superuser/replication/REST API and postgres_exporter passwords. Grafana's role uses secrets.grafana_db_password. null leaves the cluster out."
   sensitive   = true
   type = object({
     s3_bucket            = string
@@ -408,7 +404,6 @@ variable "postgres_secrets" {
     replication_password = string
     restapi_password     = string
     monitor_password     = string
-    vrrp_password        = string
   })
   default = null
 }

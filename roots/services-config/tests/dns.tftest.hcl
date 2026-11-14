@@ -245,7 +245,7 @@ run "dns_vrrp_disabled" {
   command = plan
   variables { dns_vrrp = null }
   assert {
-    condition     = output.dns_vip == null && length(terraform_data.dns_keepalived) == 0 && length(random_password.dns_vrrp) == 0
+    condition     = output.dns_vip == null && length(terraform_data.dns_keepalived) == 0
     error_message = "dns_vrrp = null deploys no keepalived and no VIP."
   }
 }

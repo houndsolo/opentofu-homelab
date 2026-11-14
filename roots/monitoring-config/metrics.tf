@@ -24,12 +24,6 @@ locals {
   metrics_ready = alltrue([for name, n in local.metrics_nic : n.ha != null && n.backend != null])
 }
 
-# Mimir's VRRP instance (HA VLAN 216, router id 103): VRRPv2 PASS, 8 characters at most.
-resource "random_password" "mimir_vrrp" {
-  length  = 8
-  special = false
-}
-
 check "mimir_s3" {
   assert {
     condition     = length(local.metrics_vms) == 0 || var.mimir_s3 != null

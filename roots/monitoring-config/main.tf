@@ -192,25 +192,6 @@ resource "random_password" "grafana_secret_key" {
   special = false
 }
 
-# VRRPv2 PASS authentication: at most 8 characters, sent in clear (it only guards
-# against accidental peers, like another keepalived reusing router id 101).
-resource "random_password" "vrrp" {
-  length  = 8
-  special = false
-}
-
-# Grafana's VRRP instance (its own HA VLAN, router id 100): same 8-character PASS limit.
-resource "random_password" "grafana_vrrp" {
-  length  = 8
-  special = false
-}
-
-# The backends' VRRP instance (ha_monitor VLAN, router id 102): same 8-character PASS limit.
-resource "random_password" "backend_vrrp" {
-  length  = 8
-  special = false
-}
-
 module "monitoring" {
   source = "../../modules/services/monitoring"
 
@@ -228,7 +209,6 @@ module "monitoring" {
   backend_vrrp = var.backend_vrrp == null ? null : {
     vips      = var.backend_vrrp.vips
     router_id = var.backend_vrrp.router_id
-    auth_pass = random_password.backend_vrrp.result
   }
   grafana = {
     for name, n in local.grafana_nic : name => {
@@ -241,7 +221,6 @@ module "monitoring" {
   grafana_vrrp = var.grafana_vrrp == null ? null : {
     vip       = var.grafana_vrrp.vip
     router_id = var.grafana_vrrp.router_id
-    auth_pass = random_password.grafana_vrrp.result
   }
   images   = var.images
   targets  = local.targets
@@ -287,7 +266,6 @@ module "monitoring" {
     s3_bucket     = var.loki_s3.bucket
     s3_access_key = var.loki_s3.access_key
     s3_secret_key = var.loki_s3.secret_key
-    vrrp_password = random_password.vrrp.result
   }
 
   # metrics.tf: Mimir on the role = "metrics" VMs, once the RGW keys are set.
@@ -304,7 +282,6 @@ module "monitoring" {
     s3_bucket     = var.mimir_s3.bucket
     s3_access_key = var.mimir_s3.access_key
     s3_secret_key = var.mimir_s3.secret_key
-    vrrp_password = random_password.mimir_vrrp.result
   }
 
   # postgres.tf: the Patroni cluster on the role = "postgres" VMs, once the RGW keys are set.
@@ -335,7 +312,6 @@ module "monitoring" {
     replication_password = random_password.pg_replication.result
     restapi_password     = random_password.pg_restapi.result
     monitor_password     = random_password.pg_monitor.result
-    vrrp_password        = random_password.pg_vrrp.result
   }
   rgw_bucket_alerts = var.rgw_bucket_alerts # pve-collectors/rgw-bucket-stats.py
 }

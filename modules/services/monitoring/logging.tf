@@ -11,7 +11,7 @@ locals {
   logging_enabled = length(var.logging) > 0
   # Without secrets the files still render (with empty values), so the plan reaches the
   # root's precondition, which stops the deploy with a clear message.
-  logging_secrets = var.logging_secrets != null ? var.logging_secrets : { s3_bucket = "", s3_access_key = "", s3_secret_key = "", vrrp_password = "" }
+  logging_secrets = var.logging_secrets != null ? var.logging_secrets : { s3_bucket = "", s3_access_key = "", s3_secret_key = "" }
   logging_names   = sort(keys(var.logging))
   logging_vips    = var.logging_settings.vips
   # Every logging VM's HA address (sorted: memberlist join list, keepalived peers, ring guard).
@@ -215,7 +215,6 @@ locals {
       host          = name
       router_id     = var.logging_settings.vrrp_router_id
       priority      = local.logging_priority[name]
-      auth_pass     = local.logging_secrets.vrrp_password
       alloy_address = coalesce(vm.telemetry_address, vm.backend_address)
       ha_interface  = vm.interfaces.ha
       ha_address    = vm.ha_address

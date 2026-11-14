@@ -338,7 +338,7 @@ variable "metrics_settings" {
     ingestion_burst_size       = optional(number, 2000000) # per distributor
     max_label_names_per_series = optional(number, 40)
     out_of_order_time_window   = optional(string, "10m")
-    block_upload_enabled       = optional(bool, true)
+    block_upload_enabled       = optional(bool, false)                                    # true only for a mimirtool backfill
     allowed_sources            = optional(list(string), ["10.54.0.0/16", "10.52.0.0/16"]) # lylat-obs (remote_write), lylat-app (Grafana)
   })
   default = {}

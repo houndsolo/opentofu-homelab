@@ -6,27 +6,6 @@ mock_provider "random" {
   }
 }
 
-# keepalived's PASS password is at most 8 characters (the shared mock result is longer).
-override_resource {
-  target = random_password.grafana_vrrp
-  values = { result = "mockvrrp" }
-}
-
-override_resource {
-  target = random_password.pg_vrrp
-  values = { result = "pgvrrp01" }
-}
-
-override_resource {
-  target = random_password.backend_vrrp
-  values = { result = "monvrrp1" }
-}
-
-override_resource {
-  target = random_password.mimir_vrrp
-  values = { result = "mimirvrp" }
-}
-
 mock_provider "proxmox" {}
 
 mock_provider "proxmox" {
@@ -86,9 +65,9 @@ run "mimir" {
       yamldecode(module.monitoring.mimir_configs.mim01).limits.drop_labels == ["ha_cluster", "site"] &&
       yamldecode(module.monitoring.mimir_configs.mim01).limits.max_global_series_per_user == 600000 &&
       yamldecode(module.monitoring.mimir_configs.mim01).limits.compactor_blocks_retention_period == "396d" &&
-      yamldecode(module.monitoring.mimir_configs.mim01).limits.compactor_block_upload_enabled
+      !yamldecode(module.monitoring.mimir_configs.mim01).limits.compactor_block_upload_enabled
     )
-    error_message = "Mimir: HA tracker (memberlist, ha_cluster/__replica__), drop_labels, 300k series, 396d retention, block upload on."
+    error_message = "Mimir: HA tracker (memberlist, ha_cluster/__replica__), drop_labels, 300k series, 396d retention, block upload off."
   }
 
   assert {

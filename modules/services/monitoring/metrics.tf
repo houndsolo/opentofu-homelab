@@ -15,7 +15,7 @@ locals {
   # Without secrets (no RGW user yet) Mimir is left out entirely: no deployment, Prometheus
   # keeps no remote_write and Grafana's "prometheus" datasource stays on Prometheus.
   mimir_enabled   = length(var.metrics) > 0 && nonsensitive(var.metrics_secrets != null)
-  metrics_secrets = local.mimir_enabled ? var.metrics_secrets : { s3_bucket = "", s3_access_key = "", s3_secret_key = "", vrrp_password = "" }
+  metrics_secrets = local.mimir_enabled ? var.metrics_secrets : { s3_bucket = "", s3_access_key = "", s3_secret_key = "" }
   metrics_names   = sort(keys(var.metrics))
   ms              = var.metrics_settings
 
@@ -162,7 +162,6 @@ locals {
       host          = name
       router_id     = local.ms.vrrp_router_id
       priority      = local.metrics_priority[name]
-      auth_pass     = local.metrics_secrets.vrrp_password
       mimir_port    = local.mimir_http_port
       ha_interface  = vm.interfaces.ha
       ha_address    = vm.ha_address

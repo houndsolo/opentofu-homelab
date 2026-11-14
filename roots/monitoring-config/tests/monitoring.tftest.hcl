@@ -4,22 +4,6 @@ mock_provider "random" {
   }
 }
 
-# keepalived's PASS password is at most 8 characters (the shared mock result is longer).
-override_resource {
-  target = random_password.grafana_vrrp
-  values = { result = "mockvrrp" }
-}
-
-override_resource {
-  target = random_password.pg_vrrp
-  values = { result = "pgvrrp01" }
-}
-
-override_resource {
-  target = random_password.backend_vrrp
-  values = { result = "monvrrp1" }
-}
-
 mock_provider "proxmox" {}
 
 mock_provider "proxmox" {
@@ -665,7 +649,6 @@ run "logging" {
         host          = name
         router_id     = 101
         priority      = p.prio
-        auth_pass     = "mockmockmockmockmockmockmockmock" # mocked random_password
         alloy_address = "10.55.18.${p.i}"
         ha_interface  = "eth4"
         ha_address    = "10.50.18.${p.i}"

@@ -17,7 +17,6 @@ locals {
       host         = name
       router_id    = try(var.grafana_vrrp.router_id, 0)
       priority     = local.grafana_priority[name]
-      auth_pass    = try(var.grafana_vrrp.auth_pass, "")
       ha_interface = try(g.interfaces.ha, "none")
       ha_address   = g.ha_address
       peers        = sort([for peer in local.grafana_names : var.grafana[peer].ha_address if peer != name])

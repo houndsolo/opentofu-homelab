@@ -75,12 +75,6 @@ resource "random_password" "netbox_token_pepper" {
   special = false
 }
 
-resource "random_password" "netbox_vrrp" {
-  count   = local.netbox_enabled ? 1 : 0
-  length  = 8 # VRRP PASS authentication uses at most 8 characters.
-  special = false
-}
-
 locals {
   netbox_vms   = { for name, vm in var.vms : name => vm if vm.owner == "services-vms" && vm.role == "netbox" }
   netbox_names = sort(keys(local.netbox_vms))
@@ -161,7 +155,6 @@ locals {
         router_id    = var.netbox.router_id
         # Only the first election: nopreempt keeps the VIP where it is afterwards.
         priority  = name == local.netbox_names[0] ? 150 : 100
-        auth_pass = random_password.netbox_vrrp[0].result
         vip       = var.netbox.vip
         interface = local.netbox_nics[name].service.interface
       }))
