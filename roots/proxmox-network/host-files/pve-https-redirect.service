@@ -1,0 +1,14 @@
+# Managed in the repo: roots/proxmox-network/host-files (installed by pve-https-install.sh).
+[Unit]
+Description=Redirect TCP 443 to pveproxy (8006) on this node's own addresses
+After=network-pre.target
+Before=pveproxy.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/pve-https-redirect.nft
+ExecStop=/usr/sbin/nft delete table ip pve_https
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+# Managed in the repo: roots/proxmox-network/host-files (installed by pve-https-install.sh).
+# https://<node>.lylat.space without :8006: TCP 443 to one of this node's own addresses goes to pveproxy on
+# 8006. "fib daddr type local" keeps it to the node itself: with br_netfilter (PVE firewall) bridged VM
+# traffic also passes prerouting, and VMs' own HTTPS must not be redirected. Own table, no "flush ruleset",
+# so the PVE firewall's tables stay untouched; loaded by pve-https-redirect.service (not nftables.service,
+# whose stock config flushes everything).
+table ip pve_https
+delete table ip pve_https
+
+table ip pve_https {
+  chain prerouting {
+    type nat hook prerouting priority dstnat; policy accept;
+    tcp dport 443 fib daddr type local redirect to :8006
+  }
+}
