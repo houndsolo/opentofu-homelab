@@ -37,6 +37,10 @@ variable "vnis" {
       advertise_default_gw = optional(bool, false)
       advertise_svi_ip     = optional(bool, false)
       export_ipv4_unicast  = optional(bool, false)
+      # IPv6 anycast gateway (CIDR, e.g. "fd69:5201::1/64", zone design step 8) and router advertisements on it
+      # (default route + on-link prefix, no SLAAC: hosts keep their static addresses). null = IPv4 only.
+      anycast_gw_ipv6 = optional(string)
+      router_advert   = optional(bool, false)
       dhcp = optional(object({
         scope = optional(object({
           ranges = map(object({
@@ -73,6 +77,8 @@ variable "vnis" {
           l2.anycast_gw_cidr >= 0 && l2.anycast_gw_cidr <= 32 &&
           can(cidrhost("${l2.anycast_gw_ip}/${l2.anycast_gw_cidr}", 0)) &&
           !strcontains(l2.anycast_gw_ip, ":") &&
+          (l2.anycast_gw_ipv6 == null || (strcontains(coalesce(l2.anycast_gw_ipv6, "x"), ":") && can(cidrhost(l2.anycast_gw_ipv6, 0)))) &&
+          (!l2.router_advert || l2.anycast_gw_ipv6 != null) &&
           can(regex("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$", l2.anycast_mac))
         ]
       )

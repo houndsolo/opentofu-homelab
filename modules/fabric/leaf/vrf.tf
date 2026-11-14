@@ -2,6 +2,7 @@ locals {
   vrf_commands = concat(
     local.vrf_base_commands,
     local.vrf_bgp_commands,
+    local.vrf_bgp6_commands,
     local.vrf_evpn_route_leak_commands,
   )
   # export_vpn_ipv4 / import_ipv4_vpn gate the ipv4-unicast VPN leaking lines, so
@@ -23,6 +24,24 @@ locals {
       "set vrf name ${vrf.vrf} protocols bgp parameters router-id '${local.router_id}'",
       "set vrf name ${vrf.vrf} protocols bgp system-as '${var.fabric.settings.overlay_as}'",
     ]
+  ])
+  # IPv6 (zone design step 8) in VRFs with an IPv6 anycast gateway: connected subnets into BGP, type-5/type-2
+  # into EVPN with the same RTs as IPv4, and the same local VPN leaking as IPv4.
+  vrf_bgp6_commands = flatten([
+    for vrf in local.role_vrfs : [
+      "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast redistribute connected route-map 'RM-${upper(vrf.vrf)}-CONNECTED-TO-BGP'",
+      "set vrf name ${vrf.vrf} protocols bgp address-family l2vpn-evpn advertise ipv6 unicast route-map 'RM-${upper(vrf.vrf)}-BGP-TO-EVPN'",
+      vrf.export_vpn_ipv4 ? [
+        "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast export vpn",
+        "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast rd vpn export '${local.router_id}:${vrf.vni}'",
+        "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast route-map vpn export 'RM-${upper(vrf.vrf)}-BGP-TO-LOCAL-VPN'",
+        "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast route-target vpn export '${vrf.ipv4_rt_exports}'",
+      ] : [],
+      vrf.import_ipv4_vpn ? [
+        "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast import vpn",
+        "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast route-target vpn import '${vrf.ipv4_rt_imports}'",
+      ] : [],
+    ] if length([for l2 in values(try(vrf.l2, {})) : l2 if try(l2.anycast_gw_ipv6, null) != null]) > 0
   ])
   vrf_base_commands = flatten([
     for vrf in local.role_vrfs : [

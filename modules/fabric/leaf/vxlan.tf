@@ -55,7 +55,35 @@ locals {
         "set interfaces pseudo-ethernet peth${vni.vni} source-interface 'br0.${vni.vlan_id}'",
         "set interfaces pseudo-ethernet peth${vni.vni} vrf '${vni.vrf}'",
       ]
-    ])
+    ]),
+    # IPv6 anycast gateway: the same address (and the same link-local, from the shared anycast MAC) on every
+    # leaf, so duplicate address detection must be off or the leaves flag each other's copy as a duplicate.
+    flatten([
+      for vni in local.l2vnis : [
+        "set interfaces pseudo-ethernet peth${vni.vni} address '${vni.anycast_gw_ipv6}'",
+        "set interfaces pseudo-ethernet peth${vni.vni} ipv6 dup-addr-detect-transmits '0'",
+      ] if try(vni.anycast_gw_ipv6, null) != null
+    ]),
+    # A host answers a leaf's neighbour solicitation (sent from the shared anycast link-local) to the anycast MAC,
+    # so the NA lands on the host's LOCAL leaf, which never asked: Linux ignores such untracked NAs, the leaf never
+    # learns the host, no type-2 MAC+IPv6 route exists and the asking leaf solicits forever (IPv6 between zones
+    # failed until this, 2026-11-14). accept_untracked_na is the IPv6 twin of the gateways' arp_accept. Set as the
+    # default: system sysctl (priority 318) runs before pseudo-ethernet (321), so every peth inherits it at boot.
+    length([for vni in local.l2vnis : vni if try(vni.anycast_gw_ipv6, null) != null]) == 0 ? [] : [
+      "set system sysctl parameter net.ipv6.conf.default.accept_untracked_na value '1'",
+      "set system sysctl parameter net.ipv6.conf.all.accept_untracked_na value '1'",
+    ],
+    # Router advertisements: on-link prefix (no SLAAC: hosts have static addresses from cloud-init, no
+    # DHCPv6) and an RFC 4191 route for the fabric's ULA space via the anycast link-local. Router lifetime 0:
+    # the zones have no IPv6 egress, so no IPv6 default route (the mgmt network sends no RAs either since
+    # 2026-11-14: switch-3/switch-4 mgmt-br ND disabled, the owner wants no IPv6 on eth0).
+    flatten([
+      for vni in local.l2vnis : [
+        "set service router-advert interface peth${vni.vni} prefix '${cidrsubnet(vni.anycast_gw_ipv6, 0, 0)}' no-autonomous-flag",
+        "set service router-advert interface peth${vni.vni} default-lifetime '0'",
+        [for r in var.router_advert_routes : "set service router-advert interface peth${vni.vni} route '${r}'"],
+      ] if try(vni.router_advert, false) && try(vni.anycast_gw_ipv6, null) != null
+    ]),
   ]
 
   # Standalone L2VNIs: VLAN<->VNI mapping, the access trunk, and an address-less SVI.
