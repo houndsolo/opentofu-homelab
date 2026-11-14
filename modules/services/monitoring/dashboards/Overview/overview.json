@@ -886,23 +886,11 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(avg(up{job=\"influxdb\"})) or vector(0)",
-          "legendFormat": "InfluxDB",
-          "range": false,
-          "instant": true,
-          "refId": "G"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
           "expr": "(avg(up{job=\"patroni\"}) * (sum(patroni_primary{job=\"patroni\"}) == bool 1)) or vector(0)",
           "legendFormat": "Postgres",
           "range": false,
           "instant": true,
-          "refId": "H"
+          "refId": "G"
         },
         {
           "datasource": {
@@ -914,7 +902,7 @@
           "legendFormat": "etcd",
           "range": false,
           "instant": true,
-          "refId": "I"
+          "refId": "H"
         },
         {
           "datasource": {
@@ -926,7 +914,7 @@
           "legendFormat": "Valkey",
           "range": false,
           "instant": true,
-          "refId": "J"
+          "refId": "I"
         },
         {
           "datasource": {
@@ -938,7 +926,7 @@
           "legendFormat": "NetBox",
           "range": false,
           "instant": true,
-          "refId": "K"
+          "refId": "J"
         },
         {
           "datasource": {
@@ -950,7 +938,7 @@
           "legendFormat": "dark-triage",
           "range": false,
           "instant": true,
-          "refId": "L"
+          "refId": "K"
         },
         {
           "datasource": {
@@ -962,7 +950,7 @@
           "legendFormat": "DNS",
           "range": false,
           "instant": true,
-          "refId": "M"
+          "refId": "L"
         },
         {
           "datasource": {
@@ -974,7 +962,7 @@
           "legendFormat": "nginx proxy",
           "range": false,
           "instant": true,
-          "refId": "N"
+          "refId": "M"
         }
       ],
       "fieldConfig": {
@@ -1126,23 +1114,6 @@
                 "value": [
                   {
                     "title": "Alloy (logs)",
-                    "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "InfluxDB"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "title": "InfluxDB",
                     "url": "/d/monitoring-stack/monitoring-stack?${__url_time_range}"
                   }
                 ]

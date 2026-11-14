@@ -8,24 +8,18 @@ output "alertmanager_url" {
   value       = "http://${module.monitoring.backend_url_host}:9093"
 }
 
-output "influxdb_url" {
-  description = "InfluxDB UI/API on the primary. The Proxmox metric servers (pve-metrics.tf) write here, and to each replica (influxdb-replica.tf)."
-  value       = "http://${module.monitoring.backend_url_host}:8086"
-}
-
 output "backend_urls" {
-  description = "Backend VM name => Prometheus, Alertmanager and InfluxDB UIs on its monitoring-network address."
+  description = "Backend VM name => Prometheus and Alertmanager UIs on its monitoring-network address."
   value = {
     for name, host in module.monitoring.backend_url_hosts : name => {
       prometheus   = "http://${host}:9090"
       alertmanager = "http://${host}:9093"
-      influxdb     = "http://${host}:8086"
     }
   }
 }
 
 output "monitoring_vips" {
-  description = "keepalived VIPs on the backends: monitoring (InfluxDB) and backend (Grafana's InfluxDB/Alertmanager datasources). null without backend_vrrp."
+  description = "keepalived VIPs on the backends: monitoring (the C9800s' telemetry receiver) and backend (Grafana's Alertmanager datasource, the wlc scrape). null without backend_vrrp."
   value       = module.monitoring.backend_vips
 }
 
@@ -44,30 +38,17 @@ output "grafana_admin_password" {
   sensitive   = true
 }
 
-output "influxdb_admin_token" {
-  description = "InfluxDB operator token (also used by Grafana for now; the Proxmox metric servers have their own write-only tokens)."
-  value       = random_password.influxdb_token.result
-  sensitive   = true
-}
-
 output "prometheus_config" {
   description = "Rendered prometheus.yml."
   value       = module.monitoring.prometheus_config
 }
 
-output "pve_metric_buckets" {
-  description = "InfluxDB bucket per Proxmox metric server: cluster and each standalone host."
-  value       = local.pve_metric_buckets
-}
-
 output "wlc_telemetry_receiver" {
-  description = "Where the C9800s send model-driven telemetry: address = the host of their one receiver (\"mon01\") on every telemetry ietf subscription (the monitoring VIP once both backends run Telegraf, which then write to both InfluxDBs; else the primary), receivers = every backend's own listener, and the InfluxDB bucket. null when wlc_telemetry is off."
+  description = "Where the C9800s send model-driven telemetry: address = the host of their one receiver (\"mon01\") on every telemetry ietf subscription (the monitoring VIP when both backends run Telegraf with keepalived; else the primary), receivers = every backend's own listener. null when wlc_telemetry is off."
   value = var.wlc_telemetry == null ? null : {
-    address = coalesce(module.monitoring.wlc_receiver, module.monitoring.backend_url_host)
-    # Telegraf listens on each backend's own address too (the replica's once influxdb_replica_ready).
-    receivers = { for name, host in module.monitoring.backend_url_hosts : name => host if name == local.backend_name || local.replica_influxdb }
+    address   = coalesce(module.monitoring.wlc_receiver, module.monitoring.backend_url_host)
+    receivers = module.monitoring.backend_url_hosts
     port      = var.wlc_telemetry.port
-    bucket    = var.wlc_telemetry.bucket
   }
 }
 

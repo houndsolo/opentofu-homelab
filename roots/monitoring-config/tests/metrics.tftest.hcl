@@ -27,24 +27,11 @@ override_resource {
   values = { result = "mimirvrp" }
 }
 
-mock_provider "influxdb" {
-  mock_data "influxdb_organization" {
-    defaults = { id = "0123456789abcdef" }
-  }
-  mock_resource "influxdb_bucket" {
-    defaults = { id = "fedcba9876543210" }
-  }
-}
+# influxdb.tf: the retired InfluxDBs' providers, only there to drop their objects from the state.
+mock_provider "influxdb" {}
 
-# The replica backend's InfluxDB (influxdb-replica.tf).
 mock_provider "influxdb" {
   alias = "replica"
-  mock_data "influxdb_organization" {
-    defaults = { id = "1123456789abcdef" }
-  }
-  mock_resource "influxdb_bucket" {
-    defaults = { id = "1edcba9876543210" }
-  }
 }
 
 mock_provider "proxmox" {}

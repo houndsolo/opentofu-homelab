@@ -103,7 +103,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "up{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir\"}",
+          "expr": "up{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|mimir\"}",
           "legendFormat": "{{job}} {{host}}",
           "range": false,
           "instant": true,
@@ -585,7 +585,7 @@
     {
       "type": "stat",
       "title": "Backend disk free",
-      "description": "Free space on each backend VM's root filesystem, where the Prometheus and InfluxDB data live.",
+      "description": "Free space on each backend VM's root filesystem, where the Prometheus data lives (and the retired InfluxDB's until it is removed).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -6094,117 +6094,15 @@
       "id": 76,
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 170
       }
     },
     {
       "type": "timeseries",
-      "title": "Telegraf: InfluxDB writes",
-      "description": "Metrics each Telegraf wrote to its InfluxDB (bucket wlc); drops and errors only show when non-zero.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(internal_write_metrics_written{job=\"telegraf\", output=\"influxdb_v2\"}[$__rate_interval]))",
-          "legendFormat": "{{host}} written/s",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(internal_write_metrics_dropped{job=\"telegraf\", output=\"influxdb_v2\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} dropped/s",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(internal_write_errors{job=\"telegraf\", output=\"influxdb_v2\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} errors/s",
-          "range": true,
-          "instant": false,
-          "refId": "C"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 77,
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 170
-      }
-    },
-    {
-      "type": "timeseries",
       "title": "Telegraf: output buffer",
-      "description": "Metrics waiting to be written. It fills up while InfluxDB is unreachable; past the limit Telegraf drops the oldest.",
+      "description": "Metrics waiting to be written to the prometheus_client outputs (normally near 0); past the limit Telegraf drops the oldest.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -6284,436 +6182,24 @@
           "sort": "desc"
         }
       },
-      "id": 78,
+      "id": 77,
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
+        "w": 12,
+        "x": 12,
         "y": 170
-      }
-    },
-    {
-      "type": "row",
-      "title": "InfluxDB",
-      "collapsed": false,
-      "id": 79,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 178
-      },
-      "panels": []
-    },
-    {
-      "type": "stat",
-      "title": "InfluxDB",
-      "description": "InfluxDB answering its /metrics on each backend (alert TargetDown).",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max by (host) (up{job=\"influxdb\"})",
-          "legendFormat": "{{host}}",
-          "range": false,
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ff6188",
-                "value": null
-              },
-              {
-                "color": "#02E5A8",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "#ff6188",
-                  "index": 0
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "#02E5A8",
-                  "index": 1
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "value_and_name",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "text": {
-          "titleSize": 12,
-          "valueSize": 18
-        }
-      },
-      "id": 80,
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 0,
-        "y": 179
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "InfluxDB: points written",
-      "description": "Points stored per second (the WLC Telegraf; Proxmox writes here until 2026-11-13); errors, drops and timeouts only show when non-zero. Both backends should write about the same.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(storage_writer_ok_points_sum{job=\"influxdb\"}[$__rate_interval]))",
-          "legendFormat": "{{host}} ok/s",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(storage_writer_err_points_sum{job=\"influxdb\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} errors/s",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(storage_writer_dropped_points_sum{job=\"influxdb\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} dropped/s",
-          "range": true,
-          "instant": false,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(storage_writer_timeouts{job=\"influxdb\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} timeouts/s",
-          "range": true,
-          "instant": false,
-          "refId": "D"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 81,
-      "gridPos": {
-        "h": 8,
-        "w": 7,
-        "x": 4,
-        "y": 179
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "InfluxDB: queries",
-      "description": "Flux queries (Grafana's wireless dashboards) and their p95 duration.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (rate(qc_all_duration_seconds_count{job=\"influxdb\"}[$__rate_interval]))",
-          "legendFormat": "{{host}} queries/s",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (host, le) (rate(qc_all_duration_seconds_bucket{job=\"influxdb\"}[$__rate_interval])))",
-          "legendFormat": "{{host}} p95",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*p95"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 82,
-      "gridPos": {
-        "h": 8,
-        "w": 7,
-        "x": 11,
-        "y": 179
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "InfluxDB: disk",
-      "description": "TSM shard files and the write-ahead log, all buckets.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (storage_shard_disk_size{job=\"influxdb\"})",
-          "legendFormat": "{{host}} shards",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host) (storage_wal_size{job=\"influxdb\"})",
-          "legendFormat": "{{host}} WAL",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "unit": "bytes",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "max"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 83,
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 179
       }
     },
     {
       "type": "row",
       "title": "Resources",
       "collapsed": false,
-      "id": 84,
+      "id": 78,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 187
+        "y": 178
       },
       "panels": []
     },
@@ -6732,7 +6218,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "process_resident_memory_bytes{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir\"}",
+          "expr": "process_resident_memory_bytes{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|mimir\"}",
           "legendFormat": "{{job}} {{host}}",
           "range": true,
           "instant": false,
@@ -6788,12 +6274,12 @@
           "sort": "desc"
         }
       },
-      "id": 85,
+      "id": 79,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 188
+        "y": 179
       }
     },
     {
@@ -6811,7 +6297,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "rate(process_cpu_seconds_total{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir\"}[$__rate_interval])",
+          "expr": "rate(process_cpu_seconds_total{job=~\"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|mimir\"}[$__rate_interval])",
           "legendFormat": "{{job}} {{host}}",
           "range": true,
           "instant": false,
@@ -6867,12 +6353,12 @@
           "sort": "desc"
         }
       },
-      "id": 86,
+      "id": 80,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 188
+        "y": 179
       }
     }
   ]

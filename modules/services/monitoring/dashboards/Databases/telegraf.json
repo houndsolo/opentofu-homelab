@@ -2,7 +2,7 @@
   "id": null,
   "uid": "telegraf",
   "title": "Telegraf",
-  "description": "The Telegraf instances: WLC telemetry (gRPC dial-out on mon01/02 behind the monitoring VIP), the pvestatd listener and fw-wan's VyOS Telegraf. Health tiles from the alert rules, listeners, inputs, outputs (incl. the InfluxDB ones until they are retired), the series they export, process stats.",
+  "description": "The Telegraf instances: WLC telemetry (gRPC dial-out on mon01/02 behind the monitoring VIP), the pvestatd listener and fw-wan's VyOS Telegraf. Health tiles from the alert rules, listeners, inputs, outputs, the series they export, process stats.",
   "tags": [
     "databases",
     "lylat",
@@ -2669,7 +2669,7 @@
     {
       "type": "timeseries",
       "title": "Metrics written per output",
-      "description": "Per second. prometheus_client 'writes' into its own cache, which Prometheus scrapes (alias wlc = the :9275 wlc_* endpoint, no alias = Telegraf's internal_* / fw-wan's metrics); influxdb_v2 alias = the backend whose InfluxDB it writes to.",
+      "description": "Per second. prometheus_client 'writes' into its own cache, which Prometheus scrapes (alias wlc = the :9275 wlc_* endpoint, no alias = Telegraf's internal_* / fw-wan's metrics). Before 2026-11-14 the WLC Telegraf also had influxdb_v2 outputs (alias = the backend whose InfluxDB it wrote to).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2852,7 +2852,7 @@
     {
       "type": "timeseries",
       "title": "Buffer fill per output",
-      "description": "Metrics waiting in each output's buffer against metric_buffer_limit. A peer InfluxDB that is down makes the WLC Telegraf's buffer for it grow until it's back (200 000 metrics rides out a short outage).",
+      "description": "Metrics waiting in each output's buffer against metric_buffer_limit. The prometheus_client outputs only buffer between flushes, so anything above a few percent means Telegraf can't keep up.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2970,7 +2970,7 @@
     {
       "type": "timeseries",
       "title": "Write time per output",
-      "description": "How long the last flush of each output took (mean over the interval). InfluxDB writes over the backend VLAN take milliseconds; seconds mean the receiving InfluxDB is slow or unreachable.",
+      "description": "How long the last flush of each output took (mean over the interval). prometheus_client flushes into its own cache and takes milliseconds; seconds mean Telegraf is starved of CPU.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -3049,7 +3049,7 @@
     },
     {
       "type": "row",
-      "title": "InfluxDB outputs (until retired)",
+      "title": "What Prometheus scrapes",
       "collapsed": false,
       "id": 32,
       "gridPos": {
@@ -3057,312 +3057,6 @@
         "w": 24,
         "x": 0,
         "y": 77
-      },
-      "panels": []
-    },
-    {
-      "type": "timeseries",
-      "title": "Written to InfluxDB",
-      "description": "Metrics per second each Telegraf still writes to InfluxDB: the WLC Telegraf on the VIP holder writes the YANG originals to bucket wlc on both backends (alias = the target backend) until those outputs are removed; the idle one writes 0. fw-wan's own influxdb_v2 output (no alias) carries nothing since the influx-relay was retired. These panels go empty when the outputs are gone.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host, alias) (rate(internal_write_metrics_written{job=~\"telegraf|pvestatd|vyos-telegraf\", output=\"influxdb_v2\"}[$__rate_interval]))",
-          "legendFormat": "{{host}} → {{alias}}",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "min": 0,
-          "noValue": "No InfluxDB output any more (retired): nothing to show",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 33,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 78
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "InfluxDB write errors and drops",
-      "description": "Failed flushes (retried from the buffer) and drops for the influxdb_v2 outputs only.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host, alias) (increase(internal_write_errors{job=~\"telegraf|pvestatd|vyos-telegraf\", output=\"influxdb_v2\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} → {{alias}} errors",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum by (host, alias) (increase(internal_write_metrics_dropped{job=~\"telegraf|pvestatd|vyos-telegraf\", output=\"influxdb_v2\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{host}} → {{alias}} dropped",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "decimals": 0,
-          "noValue": "No InfluxDB write errors in range (or no InfluxDB output left)",
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 1,
-            "fillOpacity": 60,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 34,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 78
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "InfluxDB buffer and write time",
-      "description": "Metrics waiting for each InfluxDB, and the last flush duration.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max by (host, alias) (internal_write_buffer_size{job=~\"telegraf|pvestatd|vyos-telegraf\", output=\"influxdb_v2\"})",
-          "legendFormat": "{{host}} → {{alias}} buffered",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "max by (host, alias) (internal_write_write_time_ns{job=~\"telegraf|pvestatd|vyos-telegraf\", output=\"influxdb_v2\"}) / 1e9",
-          "legendFormat": "{{host}} → {{alias}} write time",
-          "range": true,
-          "instant": false,
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#02E5A8",
-                "value": null
-              }
-            ]
-          },
-          "mappings": [],
-          "min": 0,
-          "noValue": "No InfluxDB output any more (retired): nothing to show",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 0,
-            "showPoints": "never",
-            "spanNulls": false,
-            "lineInterpolation": "linear",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            },
-            "axisPlacement": "auto",
-            "gradientMode": "none"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*write time.*"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "s"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*buffered.*"
-            },
-            "properties": [
-              {
-                "id": "decimals",
-                "value": 0
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ],
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 35,
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 78
-      }
-    },
-    {
-      "type": "row",
-      "title": "What Prometheus scrapes",
-      "collapsed": false,
-      "id": 36,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 84
       },
       "panels": []
     },
@@ -3438,12 +3132,12 @@
           "sort": "desc"
         }
       },
-      "id": 37,
+      "id": 33,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 85
+        "y": 78
       }
     },
     {
@@ -3518,12 +3212,12 @@
           "sort": "desc"
         }
       },
-      "id": 38,
+      "id": 34,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 85
+        "y": 78
       }
     },
     {
@@ -3598,12 +3292,12 @@
           "sort": "desc"
         }
       },
-      "id": 39,
+      "id": 35,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 92
+        "y": 85
       }
     },
     {
@@ -3665,24 +3359,24 @@
         "minVizWidth": 8,
         "maxVizHeight": 300
       },
-      "id": 40,
+      "id": 36,
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 92
+        "y": 85
       }
     },
     {
       "type": "row",
       "title": "Process ($host)",
       "collapsed": false,
-      "id": 41,
+      "id": 37,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 99
+        "y": 92
       },
       "panels": []
     },
@@ -3758,12 +3452,12 @@
           "sort": "desc"
         }
       },
-      "id": 42,
+      "id": 38,
       "gridPos": {
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 100
+        "y": 93
       }
     },
     {
@@ -3838,12 +3532,12 @@
           "sort": "desc"
         }
       },
-      "id": 43,
+      "id": 39,
       "gridPos": {
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 100
+        "y": 93
       }
     },
     {
@@ -3918,12 +3612,12 @@
           "sort": "desc"
         }
       },
-      "id": 44,
+      "id": 40,
       "gridPos": {
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 100
+        "y": 93
       }
     },
     {
@@ -3998,24 +3692,24 @@
           "sort": "desc"
         }
       },
-      "id": 45,
+      "id": 41,
       "gridPos": {
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 100
+        "y": 93
       }
     },
     {
       "type": "row",
       "title": "Logs",
       "collapsed": true,
-      "id": 46,
+      "id": 42,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 107
+        "y": 100
       },
       "panels": [
         {
@@ -4088,12 +3782,12 @@
               "sort": "desc"
             }
           },
-          "id": 47,
+          "id": 43,
           "gridPos": {
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 108
+            "y": 101
           }
         },
         {
@@ -4129,12 +3823,12 @@
             "dedupStrategy": "none",
             "sortOrder": "Descending"
           },
-          "id": 48,
+          "id": 44,
           "gridPos": {
             "h": 8,
             "w": 16,
             "x": 8,
-            "y": 108
+            "y": 101
           }
         }
       ]

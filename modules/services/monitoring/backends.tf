@@ -1,10 +1,10 @@
-# Backend HA (var.backends): every backend runs the same Prometheus/exporters/InfluxDB
+# Backend HA (var.backends): every backend runs the same Prometheus/exporters/Telegraf
 # stack (main.tf). This file adds what ties them together:
 #   - the Alertmanager cluster (gossip on 9094 over the HA VLAN, ha_monitor);
 #   - keepalived (backend_vrrp): one VRRP instance, adverts unicast over the HA VLAN, VIPs
-#     on the monitoring network (InfluxDB) and the backend VLAN (Grafana's
-#     InfluxDB and Alertmanager datasources). The containers publish on the VIPs too,
-#     which needs net.ipv4.ip_nonlocal_bind (the VIP is only on one backend at a time);
+#     on the monitoring network (the C9800s' telemetry receiver, telemetry.tf) and the backend
+#     VLAN (Grafana's Alertmanager datasource, Prometheus's wlc scrape). The containers publish on
+#     the VIPs too, which needs net.ipv4.ip_nonlocal_bind (the VIP is only on one backend at a time);
 #   - the alert rules for all of that.
 # Postgres (Grafana's database) stays on the primary only: a known single point of failure.
 locals {
@@ -38,7 +38,7 @@ locals {
   backend_vrrp_enabled   = nonsensitive(var.backend_vrrp != null) && local.backend_ha_ready && alltrue([for b in values(var.backends) : b.interfaces != null])
   backend_vip_monitoring = local.backend_vrrp_enabled ? [split("/", nonsensitive(var.backend_vrrp.vips.monitoring))[0]] : []
   backend_vip_backend    = local.backend_vrrp_enabled ? [split("/", nonsensitive(var.backend_vrrp.vips.backend))[0]] : []
-  # Where Grafana reaches InfluxDB and Alertmanager: the backend VIP, else the primary.
+  # Where Grafana reaches Alertmanager: the backend VIP, else the primary.
   backend_service_host = local.backend_vrrp_enabled ? local.backend_vip_backend[0] : local.back
 
   backend_keepalived_conf = {
@@ -51,6 +51,8 @@ locals {
       ha_interface    = try(var.backends[name].interfaces.ha, "none")
       ha_address      = var.backends[name].ha_address
       peers           = [for peer in local.backend_names : var.backends[peer].ha_address if peer != name]
+      # The WLC Telegraf (telemetry.tf) receives on the monitoring VIP: keepalived checks it too.
+      check_telegraf = local.wlc_enabled && contains(local.wlc_backends, name)
       vips = [
         { cidr = try(var.backend_vrrp.vips.monitoring, ""), interface = try(var.backends[name].interfaces.monitoring, "none") },
         { cidr = try(var.backend_vrrp.vips.backend, ""), interface = try(var.backends[name].interfaces.backend, "none") },
@@ -65,7 +67,7 @@ locals {
   backend_ha_files = {
     for name in local.backend_names : name => local.backend_vrrp_enabled ? [
       # Restarting the containers that publish on the VIPs picks up the sysctl (post_install applies it first).
-      { path = "/etc/sysctl.d/90-monitoring-vip.conf", mode = "0644", owner = "root", content = local.backend_sysctl, restart = ["influxdb", "alertmanager"], reload = [] },
+      { path = "/etc/sysctl.d/90-monitoring-vip.conf", mode = "0644", owner = "root", content = local.backend_sysctl, restart = ["telegraf", "alertmanager"], reload = [] },
       { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.backend_keepalived_conf[name], restart = [], reload = ["keepalived"] },
     ] : []
   }
@@ -76,14 +78,19 @@ locals {
     "/usr/sbin/sysctl -q -p /etc/sysctl.d/90-monitoring-vip.conf",
     "systemctl enable --quiet keepalived.service",
   ] : []
-  # keepalived last: it only takes the VIPs once InfluxDB and Alertmanager answer.
+  # keepalived last: it only takes the VIPs once Alertmanager (and the WLC Telegraf) answer.
   backend_ha_services = local.backend_vrrp_enabled ? ["keepalived"] : []
 
-  # The InfluxDB relay (VyOS Telegraf -> every backend's InfluxDB) is retired. The deploy
-  # stops and removes its Quadlet (state file); this removes its config dir and env file,
-  # which no prune covers. Idempotent: drop it once both backends are clean.
-  backend_relay_cleanup = [
+  # Retired components. The deploy stops and removes their Quadlets (state file); this removes
+  # their config and env files (secrets: the InfluxDB operator token, the WLC Telegraf's write
+  # tokens), which no prune covers. Idempotent: drop a line once both backends are clean.
+  #   - the InfluxDB relay (VyOS Telegraf -> every backend's InfluxDB), retired 2026-11-13;
+  #   - InfluxDB itself and the WLC Telegraf's InfluxDB outputs, retired 2026-11-14. Its data
+  #     (${local.backend_data}/influxdb) is NOT removed here: delete it by hand once the history
+  #     is confirmed in Mimir (or after a final backup).
+  backend_retired_cleanup = [
     "if [ -e ${local.backend_conf}/influx-relay ] || [ -e ${local.backend_conf}/influx-relay.env ]; then rm -rf ${local.backend_conf}/influx-relay ${local.backend_conf}/influx-relay.env; echo \"removed the retired influx-relay config\"; fi",
+    "if [ -e ${local.backend_conf}/influxdb.env ] || [ -e ${local.backend_conf}/telegraf.env ]; then rm -f ${local.backend_conf}/influxdb.env ${local.backend_conf}/telegraf.env; echo \"removed the retired InfluxDB env files\"; fi",
   ]
 
   backend_rules = length(var.backends) > 1 ? [{

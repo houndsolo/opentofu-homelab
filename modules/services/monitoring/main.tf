@@ -97,11 +97,6 @@ locals {
         static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:9115"], labels = { host = name } }]
       },
       {
-        # InfluxDB 2's own /metrics (no auth): write/query rates, storage shards and compactions, tasks.
-        job_name       = "influxdb"
-        static_configs = [for name in local.backend_names : { targets = ["${var.backends[name].backend_address}:8086"], labels = { host = name } }]
-      },
-      {
         job_name = "node"
         static_configs = [for t in var.targets.node : {
           targets = ["${t.address}:9100"], labels = merge({ host = t.host }, t.labels)
@@ -136,7 +131,7 @@ locals {
       honor_labels   = true
       static_configs = [for t in var.targets.telegraf : { targets = ["${t.address}:9273"], labels = { host = t.host, role = "router" } }]
       # The syslog input carries each log message as a label (one new series per
-      # line); the dashboards read syslog from InfluxDB instead.
+      # line); the router logs are read from Loki instead.
       metric_relabel_configs = [{ source_labels = ["__name__"], regex = "syslog_.*", action = "drop" }]
     }],
     length(var.targets.ceph) == 0 ? [] : [{
@@ -353,6 +348,9 @@ locals {
 
   datasources_yml = yamlencode({
     apiVersion = 1
+    # Provisioning never deletes a datasource that drops out of the list: InfluxDB was retired on
+    # 2026-11-14 (history in Mimir). Deleting one that is already gone is a no-op.
+    deleteDatasources = [{ name = "InfluxDB", orgId = 1 }]
     datasources = concat([
       {
         # uid "prometheus" is what the dashboards use: Mimir when it's on (metrics.tf),
@@ -373,15 +371,6 @@ locals {
         access   = "proxy"
         url      = "http://${local.backend_service_host}:9093"
         jsonData = { implementation = "prometheus" }
-      },
-      {
-        name           = "InfluxDB"
-        uid            = "influxdb"
-        type           = "influxdb"
-        access         = "proxy"
-        url            = "http://${local.backend_service_host}:8086"
-        jsonData       = { version = "Flux", organization = var.settings.influxdb_org, defaultBucket = var.settings.influxdb_grafana_bucket }
-        secureJsonData = { token = "$INFLUXDB_TOKEN" } # Expanded by Grafana from grafana.env.
       },
       ],
       # Each replica's own Prometheus (debugging, comparing replicas). backends.tf
@@ -503,26 +492,6 @@ locals {
         caps   = ["CAP_NET_RAW"]
         reload = true
       }
-      influxdb = {
-        description = "InfluxDB 2 (Proxmox metric server target)"
-        image       = var.images.influxdb
-        # Also on both VIPs (backends.tf): influxdb-vip on the monitoring network and Grafana's datasource.
-        publish = concat(
-          ["${b.monitoring_address}:8086:8086", "${b.backend_address}:8086:8086"],
-          [for vip in concat(local.backend_vip_monitoring, local.backend_vip_backend) : "${vip}:8086:8086"],
-        )
-        volumes = ["${local.backend_data}/influxdb/data:/var/lib/influxdb2", "${local.backend_data}/influxdb/config:/etc/influxdb2"]
-        env = {
-          DOCKER_INFLUXDB_INIT_MODE      = "setup"
-          DOCKER_INFLUXDB_INIT_USERNAME  = "admin"
-          DOCKER_INFLUXDB_INIT_ORG       = var.settings.influxdb_org
-          DOCKER_INFLUXDB_INIT_BUCKET    = var.settings.influxdb_bucket
-          DOCKER_INFLUXDB_INIT_RETENTION = var.settings.influxdb_retention
-        }
-        env_files = ["${local.backend_conf}/influxdb.env"]
-        # influxd exits 2 on SIGTERM; without this every stop/restart leaves the unit "failed".
-        service = ["SuccessExitStatus=2"]
-      }
       postgres = {
         description = "PostgreSQL for the shared Grafana database"
         image       = var.images.postgres
@@ -551,7 +520,7 @@ locals {
   # Restart and health order on each backend.
   backend_order = {
     for host in local.backend_names : host => [
-      for name in ["postgres", "influxdb", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
+      for name in ["postgres", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
       if contains(keys(local.backend_containers[host]), name)
     ]
   }
@@ -604,16 +573,6 @@ locals {
       local.ceph_alerts_enabled ? [
         { path = "${local.backend_conf}/prometheus/rules/ceph.yml", mode = "0644", owner = "root", content = local.ceph_alerts_yml, restart = [], reload = ["prometheus"] },
       ] : [],
-      [
-        {
-          path    = "${local.backend_conf}/influxdb.env"
-          mode    = "0600"
-          owner   = "root"
-          content = "DOCKER_INFLUXDB_INIT_PASSWORD=${var.secrets.influxdb_admin_password}\nDOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${var.secrets.influxdb_admin_token}\n"
-          restart = ["influxdb"]
-          reload  = []
-        },
-      ],
       host == local.primary && local.legacy_postgres ? [{ # postgres.tf
         path    = "${local.backend_conf}/postgres.env"
         mode    = "0600"
@@ -667,14 +626,10 @@ locals {
         { path = local.backend_data, mode = "0755", owner = "root" },
         { path = "${local.backend_data}/prometheus", mode = "0750", owner = "runtime|${var.images.prometheus}" },
         { path = "${local.backend_data}/alertmanager", mode = "0750", owner = "runtime|${var.images.alertmanager}" },
-        # The InfluxDB and Postgres images start as root and drop to a service user.
-        # Their data dirs must stay owned by that user: their entrypoints chown
-        # only at container start, so forcing root here would lock out a server
-        # that this deployment doesn't restart.
-        { path = "${local.backend_data}/influxdb", mode = "0755", owner = "root" },
-        { path = "${local.backend_data}/influxdb/data", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
-        { path = "${local.backend_data}/influxdb/config", mode = "0700", owner = "user|${var.images.influxdb}|influxdb" },
       ],
+      # The Postgres image starts as root and drops to a service user. Its data dir must stay
+      # owned by that user: the entrypoint chowns only at container start, so forcing root here
+      # would lock out a server that this deployment doesn't restart.
       host == local.primary ? [{ path = "${local.backend_data}/postgres", mode = "0700", owner = "user|${var.images.postgres}|postgres" }] : [],
       local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
       [{ path = local.snmp_conf, mode = "0755", owner = "root" }],
@@ -705,7 +660,6 @@ locals {
       [
         "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9090/-/ready",
         "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9093/-/ready",
-        "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:8086/health",
       ],
       host == local.primary && local.legacy_postgres ? ["podman exec postgres pg_isready -q -U grafana -d grafana"] : [], # postgres.tf
       [local.alloy_health[host]],
@@ -729,7 +683,7 @@ locals {
       prune_dirs   = []
       files        = local.backend_files[host]
       validations  = local.backend_validations[host]
-      post_install = concat(local.backend_ha_post_install, local.backend_relay_cleanup) # backends.tf
+      post_install = concat(local.backend_ha_post_install, local.backend_retired_cleanup) # backends.tf
       services     = local.backend_services[host]
       health       = local.backend_health[host]
     })
@@ -844,7 +798,7 @@ locals {
             path    = "${local.grafana_conf}/grafana.env"
             mode    = "0600"
             owner   = "root"
-            content = "GF_SECURITY_ADMIN_PASSWORD=${var.secrets.grafana_admin_password}\nGF_SECURITY_SECRET_KEY=${var.secrets.grafana_secret_key}\nGF_DATABASE_PASSWORD=${var.secrets.grafana_db_password}\nINFLUXDB_TOKEN=${var.secrets.influxdb_admin_token}\n${join("", [for app in local.pg_grafana_apps : "PG_APP_${upper(app)}_GRAFANA_PASSWORD=${var.postgres_app_passwords["${app}_grafana"]}\n"])}"
+            content = "GF_SECURITY_ADMIN_PASSWORD=${var.secrets.grafana_admin_password}\nGF_SECURITY_SECRET_KEY=${var.secrets.grafana_secret_key}\nGF_DATABASE_PASSWORD=${var.secrets.grafana_db_password}\n${join("", [for app in local.pg_grafana_apps : "PG_APP_${upper(app)}_GRAFANA_PASSWORD=${var.postgres_app_passwords["${app}_grafana"]}\n"])}"
             restart = ["grafana"]
             reload  = []
           },

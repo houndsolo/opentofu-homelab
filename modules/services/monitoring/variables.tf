@@ -1,5 +1,5 @@
 variable "backends" {
-  description = "Monitoring backend VMs (Prometheus, Alertmanager, exporters, InfluxDB, Telegraf), keyed by VM name. Each runs the same scrape config (a Prometheus HA pair, deduplicated by Mimir's HA tracker) and the Alertmanagers form one cluster. primary_backend also runs Postgres (Grafana's database). ha_address/interfaces: the HA VLAN (keepalived adverts, Alertmanager gossip) and NIC names for backend_vrrp."
+  description = "Monitoring backend VMs (Prometheus, Alertmanager, exporters, Telegraf), keyed by VM name. Each runs the same scrape config (a Prometheus HA pair, deduplicated by Mimir's HA tracker) and the Alertmanagers form one cluster. primary_backend also runs Postgres (Grafana's database). ha_address/interfaces: the HA VLAN (keepalived adverts, Alertmanager gossip) and NIC names for backend_vrrp."
   type = map(object({
     monitoring_address = string           # Monitoring network (10.5/16): UIs, PVE metric pushes, node_exporter, WLC telemetry.
     backend_address    = string           # Isolated backend VLAN (10.13/16): Grafana -> datasources and Postgres.
@@ -27,7 +27,7 @@ variable "primary_backend" {
 }
 
 variable "backend_vrrp" {
-  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (InfluxDB) and the backend VLAN (Grafana's InfluxDB and Alertmanager datasources), VRRP router id, PASS password (8 characters at most). Needs ha_address/interfaces on every backend and at least two. null = no keepalived, datasources on the primary."
+  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (the C9800s' telemetry receiver) and the backend VLAN (Grafana's Alertmanager datasource, the wlc scrape), VRRP router id, PASS password (8 characters at most). Needs ha_address/interfaces on every backend and at least two. null = no keepalived, datasources on the primary."
   type = object({
     vips = object({
       monitoring = string
@@ -79,7 +79,6 @@ variable "images" {
     snmp_exporter     = string
     blackbox_exporter = string
     pve_exporter      = string
-    influxdb          = string
     postgres          = string
     grafana           = string
     loki              = string
@@ -121,14 +120,12 @@ variable "targets" {
 }
 
 variable "secrets" {
-  description = "Generated credentials. InfluxDB and Postgres read theirs only when their data directories are first initialised."
+  description = "Generated credentials. Postgres reads its password only when its data directory is first initialised."
   sensitive   = true
   type = object({
-    influxdb_admin_password = string
-    influxdb_admin_token    = string
-    grafana_db_password     = string
-    grafana_admin_password  = string
-    grafana_secret_key      = string
+    grafana_db_password    = string
+    grafana_admin_password = string
+    grafana_secret_key     = string
   })
 }
 
@@ -158,14 +155,10 @@ variable "snmp_auths" {
 }
 
 variable "settings" {
-  description = "Retention, external URLs, InfluxDB naming and Ceph labels."
+  description = "Retention, external URLs and Ceph labels."
   type = object({
     prometheus_retention_time = optional(string, "7d")
     prometheus_retention_size = optional(string, "20GB")
-    influxdb_org              = optional(string, "lylat")
-    influxdb_bucket           = optional(string, "proxmox")     # created by InfluxDB setup on first start only
-    influxdb_grafana_bucket   = optional(string, "pve_cluster") # default bucket of the Grafana InfluxDB datasource
-    influxdb_retention        = optional(string, "90d")
     grafana_root_url          = optional(string, "https://grafana.lylat.space/") # through the reverse proxy (services-config proxy.tf)
     dns_probe_zone            = optional(string, "lylat.space")
     ceph_cluster_name         = optional(string, "lylat") # cluster label on ceph metrics (ceph-mixin dashboards filter on it)
@@ -241,8 +234,8 @@ variable "pvestatd" {
   })
   default = null
   validation {
-    condition     = var.pvestatd == null || try(var.pvestatd.port >= 1024 && var.pvestatd.port <= 65535 && !contains([8086, 9273, 9274], var.pvestatd.port), false)
-    error_message = "pvestatd.port must be an unprivileged port (1024..65535) other than InfluxDB's 8086 and Telegraf's metrics ports 9273/9274."
+    condition     = var.pvestatd == null || try(var.pvestatd.port >= 1024 && var.pvestatd.port <= 65535 && !contains([9273, 9274, 9275], var.pvestatd.port), false)
+    error_message = "pvestatd.port must be an unprivileged port (1024..65535) other than Telegraf's metrics ports 9273/9274/9275."
   }
 }
 
@@ -254,10 +247,9 @@ variable "pvestatd_token" {
 }
 
 variable "wlc_telemetry" {
-  description = "Telegraf on the backends in `backends` receiving Cisco model-driven telemetry (gRPC dial-out, kvGPB) from the C9800 WLCs on their monitoring_address:port, each written to its local InfluxDB bucket `bucket` (which must exist there) with that backend's wlc_telemetry_tokens entry. null leaves Telegraf out."
+  description = "Telegraf on the backends in `backends` receiving Cisco model-driven telemetry (gRPC dial-out, kvGPB) from the C9800 WLCs on their monitoring_address:port (and the monitoring VIP), served to Prometheus as wlc_* (job wlc). null leaves Telegraf out."
   type = object({
     port     = optional(number, 57500)
-    bucket   = string
     backends = list(string)
   })
   default = null
@@ -265,13 +257,6 @@ variable "wlc_telemetry" {
     condition     = var.wlc_telemetry == null || try(var.wlc_telemetry.port >= 1024 && var.wlc_telemetry.port <= 65535 && var.wlc_telemetry.port != 9273, false)
     error_message = "wlc_telemetry.port must be an unprivileged port (1024..65535) other than 9273 (Telegraf's metrics)."
   }
-}
-
-variable "wlc_telemetry_tokens" {
-  description = "Backend name => write-only InfluxDB token for wlc_telemetry.bucket on that backend. Required for every wlc_telemetry.backends entry."
-  type        = map(string)
-  sensitive   = true
-  default     = {}
 }
 
 variable "metrics" {

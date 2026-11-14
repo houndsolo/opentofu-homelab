@@ -97,9 +97,9 @@
         "includeAll": true,
         "options": [],
         "sort": 1,
-        "regex": "/^(grafana|prometheus|alertmanager|mimir|loki|alloy|haproxy|blackbox-exporter|node-exporter|snmp-exporter|telegraf|influxdb|postgres|postgres-exporter)$/",
+        "regex": "/^(grafana|prometheus|alertmanager|mimir|loki|alloy|haproxy|blackbox-exporter|node-exporter|snmp-exporter|telegraf|postgres|postgres-exporter)$/",
         "hide": 0,
-        "allValue": "grafana|prometheus|alertmanager|mimir|loki|alloy|haproxy|blackbox-exporter|node-exporter|snmp-exporter|telegraf|influxdb|postgres|postgres-exporter",
+        "allValue": "grafana|prometheus|alertmanager|mimir|loki|alloy|haproxy|blackbox-exporter|node-exporter|snmp-exporter|telegraf|postgres|postgres-exporter",
         "current": {
           "selected": true,
           "text": [

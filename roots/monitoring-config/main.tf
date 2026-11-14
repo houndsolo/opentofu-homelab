@@ -47,13 +47,8 @@ locals {
     ]))[0], null)
   }
 
-  # Backends: the primary (Postgres, the default influxdb provider) and the replica(s).
-  backend_name  = contains(keys(local.monitoring_vms), var.monitoring_primary) ? var.monitoring_primary : null
-  replica_names = sort([for name in keys(local.monitoring_vms) : name if name != var.monitoring_primary])
-  replica_name  = try(local.replica_names[0], null) # the influxdb.replica provider (one replica)
-  # Buckets, tokens and metric servers on the replica's InfluxDB (influxdb-replica.tf):
-  # only once it's deployed (the provider needs a running InfluxDB to plan).
-  replica_influxdb = var.influxdb_replica_ready && local.replica_name != null
+  # Backends: the primary (Postgres, Grafana's fallback Prometheus) and the replica.
+  backend_name = contains(keys(local.monitoring_vms), var.monitoring_primary) ? var.monitoring_primary : null
 
   # Backends: HA VLAN NIC (keepalived adverts, Alertmanager gossip) and the NICs that hold
   # the VIPs. network_devices[i] is eth<i+1>.
@@ -182,16 +177,6 @@ locals {
   }
 }
 
-resource "random_password" "influxdb_admin" {
-  length  = 32
-  special = false
-}
-
-resource "random_password" "influxdb_token" {
-  length  = 48
-  special = false
-}
-
 resource "random_password" "grafana_db" {
   length  = 32
   special = false
@@ -262,11 +247,9 @@ module "monitoring" {
   targets  = local.targets
   settings = var.settings
   secrets = {
-    influxdb_admin_password = coalesce(var.influxdb_admin_password, random_password.influxdb_admin.result)
-    influxdb_admin_token    = random_password.influxdb_token.result
-    grafana_db_password     = random_password.grafana_db.result
-    grafana_admin_password  = coalesce(var.grafana_admin_password, random_password.grafana_admin.result)
-    grafana_secret_key      = random_password.grafana_secret_key.result
+    grafana_db_password    = random_password.grafana_db.result
+    grafana_admin_password = coalesce(var.grafana_admin_password, random_password.grafana_admin.result)
+    grafana_secret_key     = random_password.grafana_secret_key.result
   }
   pve_exporter_token = var.pve_exporter_token
   snmp_auths         = var.snmp_v3_auths
@@ -275,17 +258,12 @@ module "monitoring" {
   pvestatd       = var.pve_metrics.enabled ? { port = var.pve_metrics.pvestatd_port } : null
   pvestatd_token = random_password.pvestatd.result
 
-  # telegraf.tf: Telegraf for the C9800 telemetry, with the bucket's write-only token.
-  # Telegraf on the primary, and on the replica once its InfluxDB has the bucket (influxdb-replica.tf).
+  # Telegraf for the C9800 telemetry (wlc_* -> Prometheus) on every backend; the WLCs send to the
+  # monitoring VIP, so only its holder receives.
   wlc_telemetry = var.wlc_telemetry == null ? null : {
     port     = var.wlc_telemetry.port
-    bucket   = influxdb_bucket.wlc[0].name
-    backends = concat([var.monitoring_primary], local.replica_influxdb ? [local.replica_name] : [])
+    backends = sort(keys(local.monitoring_vms))
   }
-  wlc_telemetry_tokens = merge(
-    { (var.monitoring_primary) = one(influxdb_authorization.wlc[*].token) },
-    local.replica_influxdb && var.wlc_telemetry != null ? { (local.replica_name) = influxdb_authorization.replica["wlc"].token } : {},
-  )
 
   # Unaddressed networks become 0.0.0.0 here and fail terraform_data.logging's precondition.
   logging = {

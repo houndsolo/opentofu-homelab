@@ -6,8 +6,8 @@ The deep dive behind the Telegraf panels of Monitoring/monitoring-stack.json. Wh
 
 - job telegraf (modules/services/monitoring/telemetry.tf): a Telegraf on mon01 and mon02. The C9800 WLCs dial out
   (gRPC, cisco_telemetry_mdt) to the monitoring VIP 10.5.11.102 :57500, so only the VIP holder's Telegraf
-  receives. It writes the YANG originals to InfluxDB (bucket wlc on BOTH backends, until the InfluxDB outputs are
-  retired) and serves a renamed copy (wlc.star) on :9275; its own internal_* stats on :9273 (host = mon01/mon02).
+  receives. It serves a renamed copy of the YANG data (wlc.star) on :9275 (its InfluxDB outputs and InfluxDB itself
+  were retired on 2026-11-14); its own internal_* stats on :9273 (host = mon01/mon02).
 - job wlc: the :9275 wlc_* series, scraped through the backend VIP 10.13.11.102 (= the VIP holder's Telegraf);
   up/scrape_* carry host="wlc-telemetry", the series themselves host = the WLC.
 - job pvestatd (pvestatd.tf): a second Telegraf per mon (influxdb_v2_listener :8186, token-checked) that takes
@@ -31,10 +31,8 @@ ALL_JOBS = 'job=~"telegraf|wlc|pvestatd|vyos-telegraf"'
 H = f'{TG_JOBS}, host=~"$host"'
 MDT = 'job="telegraf", input="cisco_telemetry_mdt"'
 PVE_IN = 'job="pvestatd", input="influxdb_v2_listener"'
-INFLUX = 'output="influxdb_v2"'
 WLC_VIP = "10.5.11.102"   # the monitoring VIP the WLCs dial out to (var.backend_vrrp)
 VIP = f'job="node", role="monitoring", address="{WLC_VIP}"'
-NO_INFLUX = "No InfluxDB output any more (retired): nothing to show"
 
 DB_TAG_LINK = {"type": "dashboards", "tags": ["databases"], "asDropdown": True, "title": "Database dashboards",
                "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
@@ -257,8 +255,8 @@ def telegraf():
           "{{host}} {{output}} {{alias}}")],
         fill=0, min_=0, placement="right",
         desc="Per second. prometheus_client 'writes' into its own cache, which Prometheus scrapes (alias wlc = the "
-             ":9275 wlc_* endpoint, no alias = Telegraf's internal_* / fw-wan's metrics); influxdb_v2 alias = the "
-             "backend whose InfluxDB it writes to."), 12, 8)
+             ":9275 wlc_* endpoint, no alias = Telegraf's internal_* / fw-wan's metrics). Before 2026-11-14 the WLC "
+             "Telegraf also had influxdb_v2 outputs (alias = the backend whose InfluxDB it wrote to)."), 12, 8)
     b.add(timeseries("Dropped, rejected and failed writes", [
         q(f"sum by (host, output, alias) (increase(internal_write_metrics_dropped{{{H}}}[$__rate_interval])) > 0",
           "{{host}} {{output}} {{alias}} dropped"),
@@ -274,39 +272,14 @@ def telegraf():
           "{{host}} {{output}} {{alias}}"),
         q("vector(1)", "limit (oldest dropped)")],
         unit="percentunit", fill=0, min_=0, placement="right",
-        desc="Metrics waiting in each output's buffer against metric_buffer_limit. A peer InfluxDB that is down "
-             "makes the WLC Telegraf's buffer for it grow until it's back (200 000 metrics rides out a short outage).",
+        desc="Metrics waiting in each output's buffer against metric_buffer_limit. The prometheus_client outputs "
+             "only buffer between flushes, so anything above a few percent means Telegraf can't keep up.",
         overrides=[dashed("limit (oldest dropped)", "red")]), 12, 8)
     b.add(timeseries("Write time per output", [
         q(f"max by (host, output, alias) (internal_write_write_time_ns{{{H}}}) / 1e9", "{{host}} {{output}} {{alias}}")],
         unit="s", fill=0, min_=0, placement="right",
-        desc="How long the last flush of each output took (mean over the interval). InfluxDB writes over the backend "
-             "VLAN take milliseconds; seconds mean the receiving InfluxDB is slow or unreachable."), 12, 8)
-
-    # --- InfluxDB outputs (until retired) -------------------------------------------------------
-    b.row("InfluxDB outputs (until retired)")
-    b.add(timeseries("Written to InfluxDB", [
-        q(f"sum by (host, alias) (rate(internal_write_metrics_written{{{TG_JOBS}, {INFLUX}}}[$__rate_interval]))",
-          "{{host}} → {{alias}}")],
-        fill=0, min_=0, no_value=NO_INFLUX,
-        desc="Metrics per second each Telegraf still writes to InfluxDB: the WLC Telegraf on the VIP holder writes the "
-             "YANG originals to bucket wlc on both backends (alias = the target backend) until those outputs are "
-             "removed; the idle one writes 0. fw-wan's own influxdb_v2 output (no alias) carries nothing since the "
-             "influx-relay was retired. These panels go empty when the outputs are gone."), 8, 6)
-    b.add(timeseries("InfluxDB write errors and drops", [
-        q(f"sum by (host, alias) (increase(internal_write_errors{{{TG_JOBS}, {INFLUX}}}[$__rate_interval])) > 0",
-          "{{host}} → {{alias}} errors"),
-        q(f"sum by (host, alias) (increase(internal_write_metrics_dropped{{{TG_JOBS}, {INFLUX}}}[$__rate_interval])) > 0",
-          "{{host}} → {{alias}} dropped"),
-    ], decimals=0, draw="bars", fill=60, no_value="No InfluxDB write errors in range (or no InfluxDB output left)",
-        desc="Failed flushes (retried from the buffer) and drops for the influxdb_v2 outputs only."), 8, 6)
-    b.add(timeseries("InfluxDB buffer and write time", [
-        q(f"max by (host, alias) (internal_write_buffer_size{{{TG_JOBS}, {INFLUX}}})", "{{host}} → {{alias}} buffered"),
-        q(f"max by (host, alias) (internal_write_write_time_ns{{{TG_JOBS}, {INFLUX}}}) / 1e9", "{{host}} → {{alias}} write time"),
-    ], fill=0, min_=0, no_value=NO_INFLUX,
-        desc="Metrics waiting for each InfluxDB, and the last flush duration.",
-        overrides=[override(".*write time.*", {"unit": "s", "custom.axisPlacement": "right"}, regex=True),
-                   override(".*buffered.*", {"decimals": 0}, regex=True)]), 8, 6)
+        desc="How long the last flush of each output took (mean over the interval). prometheus_client flushes into "
+             "its own cache and takes milliseconds; seconds mean Telegraf is starved of CPU."), 12, 8)
 
     # --- Prometheus side ------------------------------------------------------------------------
     b.row("What Prometheus scrapes")
@@ -358,7 +331,7 @@ def telegraf():
     return dashboard("telegraf", "Telegraf",
                      "The Telegraf instances: WLC telemetry (gRPC dial-out on mon01/02 behind the monitoring VIP), the "
                      "pvestatd listener and fw-wan's VyOS Telegraf. Health tiles from the alert rules, listeners, inputs, "
-                     "outputs (incl. the InfluxDB ones until they are retired), the series they export, process stats.",
+                     "outputs, the series they export, process stats.",
                      b, tags=["databases", "telegraf"], variables=[host],
                      extra_links=[DB_TAG_LINK, url_link("Monitoring stack", "/d/monitoring-stack"),
                                   url_link("Telegraf logs", LOGS_URL), url_link("Explore", "/explore")])

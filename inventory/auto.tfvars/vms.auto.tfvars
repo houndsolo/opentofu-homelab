@@ -150,7 +150,7 @@ vms = {
       tags         = ["opentofu", "debian", "monitoring"]
       cpu_cores    = 4
       memory_mb    = 8192
-      disk_size_gb = 200 # Prometheus TSDB + InfluxDB + Grafana Postgres.
+      disk_size_gb = 200 # Prometheus TSDB + Grafana Postgres (+ the retired InfluxDB's data until it's removed).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
@@ -575,7 +575,7 @@ vms = {
     }
   }
   mon02 = {
-    # Prometheus/Alertmanager/InfluxDB replica of mon01 (Postgres stays on mon01 only).
+    # Prometheus/Alertmanager replica of mon01 (Postgres stays on mon01 only).
     owner              = "services-vms"
     role               = "monitoring"
     ha                 = { group = "monitoring" } # Proxmox HA; never on a node with another monitoring VM
@@ -620,7 +620,7 @@ vms = {
       tags         = ["opentofu", "debian", "monitoring"]
       cpu_cores    = 4
       memory_mb    = 8192
-      disk_size_gb = 200 # Prometheus TSDB + InfluxDB.
+      disk_size_gb = 200 # Prometheus TSDB (+ the retired InfluxDB's data until it's removed).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }

@@ -35,7 +35,7 @@ from theme import ACCENT, ACCENT2, ACCENT3, ERROR, INFO, OK, WARN_HIGH  # noqa: 
 DS = {"type": "prometheus", "uid": "prometheus"}
 
 NODE_JOBS = 'job=~"node|vyos-node"'
-STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|influxdb|mimir"'
+STACK_JOBS = 'job=~"prometheus|alertmanager|grafana|snmp-exporter|blackbox-exporter|telegraf|pvestatd|mimir"'
 NODE_DASH = "/d/node-exporter-full/node-exporter-full"
 FRR_DASH = "/d/frr-evpn-fabric/frr-evpn-fabric"
 PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
@@ -419,7 +419,6 @@ def overview():
         ("Mimir", 'avg(up{job="mimir"})', STACK_DASH),
         ("Loki", 'avg(up{job="loki"})', STACK_DASH),
         ("Alloy (logs)", 'avg(up{job="alloy"})', STACK_DASH),
-        ("InfluxDB", 'avg(up{job="influxdb"})', STACK_DASH),
         ("Postgres", 'avg(up{job="patroni"}) * (sum(patroni_primary{job="patroni"}) == bool 1)', PG_DASH),
         ("etcd", 'avg(up{job="etcd"})', PG_DASH),
         ("Valkey", 'avg(redis_up{job="valkey"}) * (count(redis_instance_info{job="valkey", role="master"}) == bool 1)',
@@ -905,7 +904,7 @@ def stack():
     b.add(stat("Backend disk free", [
         q('100 * node_filesystem_avail_bytes{role="monitoring", mountpoint="/"} / node_filesystem_size_bytes{role="monitoring", mountpoint="/"}', "{{host}}")],
         unit="percent", decimals=1, text_mode="value_and_name", color_mode="value", thresholds=steps(("red", None), ("orange", 10), ("green", 25)),
-        desc="Free space on each backend VM's root filesystem, where the Prometheus and InfluxDB data live."), 4, 5)
+        desc="Free space on each backend VM's root filesystem, where the Prometheus data lives (and the retired InfluxDB's until it is removed)."), 4, 5)
     b.add(stat("Rule evaluation failures", [
         q("sum(increase(prometheus_rule_evaluation_failures_total[$__range])) or vector(0)")],
         thresholds=RED_IF_ANY, decimals=0, desc="In the selected time range."), 4, 5)
@@ -1178,7 +1177,7 @@ def stack():
     b.add(timeseries("node / frr exporter scrape duration", [
         q('scrape_duration_seconds{job=~"node|vyos-node|vyos-frr"}', "{{job}} {{host}}")], unit="s", fill=0,
         calcs=("mean", "max")), 8, 8)
-    # Telegraf on each backend: job telegraf = the C9800s' model-driven telemetry -> its InfluxDB bucket wlc;
+    # Telegraf on each backend: job telegraf = the C9800s' model-driven telemetry -> wlc_* (job wlc);
     # job pvestatd = the PVE metric servers' writes -> Prometheus (scraped by container name, host "pvestatd").
     tg = 'job="telegraf"'
     b.add(timeseries("Telegraf: metrics received", [
@@ -1188,42 +1187,12 @@ def stack():
         unit="short", fill=0, calcs=("mean", "max", "lastNotNull"),
         desc="Metrics per second from each Telegraf input; cisco_telemetry_mdt is the C9800s' gRPC dial-out "
              "(one metric per YANG list entry per push), 0 for long fires WlcTelemetryStopped; pvestatd is every PVE "
-             "node's pvestatd (each Prometheus scrapes its own backend's Telegraf), 0 for long fires PveMetricsStopped."), 8, 8)
-    b.add(timeseries("Telegraf: InfluxDB writes", [
-        q(f'sum by (host) (rate(internal_write_metrics_written{{{tg}, output="influxdb_v2"}}[$__rate_interval]))', "{{host}} written/s"),
-        q(f'sum by (host) (rate(internal_write_metrics_dropped{{{tg}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} dropped/s"),
-        q(f'sum by (host) (rate(internal_write_errors{{{tg}, output="influxdb_v2"}}[$__rate_interval])) > 0', "{{host}} errors/s"),
-    ], fill=0, desc="Metrics each Telegraf wrote to its InfluxDB (bucket wlc); drops and errors only show when non-zero."), 8, 8)
+             "node's pvestatd (each Prometheus scrapes its own backend's Telegraf), 0 for long fires PveMetricsStopped."), 12, 8)
     b.add(timeseries("Telegraf: output buffer", [
         q(f'max by (host, output) (internal_write_buffer_size{{{tg}}})', "{{host}} {{output}}"),
         q(f'max by (output) (internal_write_buffer_limit{{{tg}}})', "{{output}} limit")],
-        fill=0, decimals=0, desc="Metrics waiting to be written. It fills up while InfluxDB is unreachable; "
-                                 "past the limit Telegraf drops the oldest."), 8, 8)
-    # InfluxDB 2 on each backend (job influxdb, its own /metrics): the WLC bucket (pve_* = history only).
-    ix = 'job="influxdb"'
-    b.row("InfluxDB")
-    b.add(stat("InfluxDB", [q(f"max by (host) (up{{{ix}}})", "{{host}}", instant=True)], text_mode="value_and_name",
-               mappings=UP_MAP, thresholds=UP_STEPS, text_size=(12, 18),
-               desc="InfluxDB answering its /metrics on each backend (alert TargetDown)."), 4, 8)
-    b.add(timeseries("InfluxDB: points written", [
-        q(f"sum by (host) (rate(storage_writer_ok_points_sum{{{ix}}}[$__rate_interval]))", "{{host}} ok/s"),
-        q(f"sum by (host) (rate(storage_writer_err_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} errors/s"),
-        q(f"sum by (host) (rate(storage_writer_dropped_points_sum{{{ix}}}[$__rate_interval])) > 0", "{{host}} dropped/s"),
-        q(f"sum by (host) (rate(storage_writer_timeouts{{{ix}}}[$__rate_interval])) > 0", "{{host}} timeouts/s"),
-    ], fill=0, desc="Points stored per second (the WLC Telegraf; Proxmox writes here until 2026-11-13); errors, drops "
-                    "and timeouts only show when non-zero. Both backends should write about the same."), 7, 8)
-    b.add(timeseries("InfluxDB: queries", [
-        q(f"sum by (host) (rate(qc_all_duration_seconds_count{{{ix}}}[$__rate_interval]))", "{{host}} queries/s"),
-        q(f"histogram_quantile(0.95, sum by (host, le) (rate(qc_all_duration_seconds_bucket{{{ix}}}[$__rate_interval])))",
-          "{{host}} p95"),
-    ], fill=0, desc="Flux queries (Grafana's wireless dashboards) and their p95 duration.",
-        overrides=[override(".*p95", {"unit": "s", "custom.axisPlacement": "right"}, regex=True)]), 7, 8)
-    b.add(timeseries("InfluxDB: disk", [
-        q(f"sum by (host) (storage_shard_disk_size{{{ix}}})", "{{host}} shards"),
-        q(f"sum by (host) (storage_wal_size{{{ix}}})", "{{host}} WAL"),
-    ], unit="bytes", fill=0, calcs=("lastNotNull", "max"),
-        desc="TSM shard files and the write-ahead log, all buckets."), 6, 8)
-
+        fill=0, decimals=0, desc="Metrics waiting to be written to the prometheus_client outputs (normally near 0); "
+                                 "past the limit Telegraf drops the oldest."), 12, 8)
     b.row("Resources")
     b.add(timeseries("Process memory", [
         q(f"process_resident_memory_bytes{{{STACK_JOBS}}}", "{{job}} {{host}}")], unit="bytes", fill=0), 12, 8)

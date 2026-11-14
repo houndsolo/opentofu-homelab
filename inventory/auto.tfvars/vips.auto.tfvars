@@ -22,17 +22,17 @@ vips = {
     role        = "logging"
     description = "Loki on the backend VLAN: Grafana's Loki datasource (loki01-03), monitoring-config logging_settings.vips.backend"
   }
-  influxdb-vip = {
+  wlc-telemetry-vip = {
     address     = "10.5.11.102/16"
     vrid        = 102
     role        = "monitoring"
-    description = "InfluxDB on the monitoring network (mon01/02: Proxmox metric server, Grafana), monitoring-config backend_vrrp.vips.monitoring"
+    description = "C9800 telemetry receiver on the monitoring network (the WLC Telegraf on mon01/02; the WLCs dial 10.5.11.102:57500), monitoring-config backend_vrrp.vips.monitoring"
   }
   monitoring-vip = {
     address     = "10.13.11.102/16"
     vrid        = 102
     role        = "monitoring"
-    description = "Grafana's InfluxDB/Alertmanager datasources on the backend VLAN (mon01/02), monitoring-config backend_vrrp.vips.backend"
+    description = "Grafana's Alertmanager datasource and the wlc scrape (:9275) on the backend VLAN (mon01/02), monitoring-config backend_vrrp.vips.backend"
   }
   mimir-vip = {
     address     = "10.13.11.103/16"

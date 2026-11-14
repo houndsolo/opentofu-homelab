@@ -40,7 +40,7 @@ variable "grafana_vrrp" {
 }
 
 variable "monitoring_primary" {
-  description = "The role = \"monitoring\" VM that runs Postgres (Grafana's database) and that the default influxdb provider talks to. The other one (at most one more) is the replica."
+  description = "The role = \"monitoring\" VM that runs Postgres (Grafana's database) and whose Prometheus Grafana falls back to without Mimir. The other one (at most one more) is the replica."
   type        = string
   default     = "mon01"
 }
@@ -52,7 +52,7 @@ variable "monitoring_ha_vlan_id" {
 }
 
 variable "backend_vrrp" {
-  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (InfluxDB) and the backend VLAN (Grafana's InfluxDB/Alertmanager datasources), VRRP router id. The PASS password is generated. null = no keepalived; datasources stay on the primary."
+  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (wlc-telemetry-vip: the C9800s' telemetry receiver) and the backend VLAN (monitoring-vip: Grafana's Alertmanager datasource, the wlc scrape), VRRP router id. The PASS password is generated. null = no keepalived; datasources stay on the primary."
   type = object({
     vips = optional(object({
       monitoring = optional(string, "10.5.11.102/16")
@@ -61,12 +61,6 @@ variable "backend_vrrp" {
     router_id = optional(number, 102)
   })
   default = {}
-}
-
-variable "influxdb_replica_ready" {
-  description = "true once the replica backend (mon02) is deployed and its InfluxDB answers: creates its buckets and write tokens (provider influxdb.replica), its Proxmox metric servers, and turns on its WLC Telegraf. The provider can't plan against an InfluxDB that isn't running yet."
-  type        = bool
-  default     = false
 }
 
 variable "monitoring_bridge" {
@@ -90,7 +84,6 @@ variable "images" {
     snmp_exporter     = optional(string, "docker.io/prom/snmp-exporter:v0.30.1")
     blackbox_exporter = optional(string, "docker.io/prom/blackbox-exporter:v0.29.1")
     pve_exporter      = optional(string, "docker.io/prompve/prometheus-pve-exporter:3.10.2")
-    influxdb          = optional(string, "docker.io/library/influxdb:2.8")
     postgres          = optional(string, "docker.io/library/postgres:17")
     grafana           = optional(string, "docker.io/grafana/grafana:13.2.5")
     loki              = optional(string, "docker.io/grafana/loki:3.7.9")
@@ -103,14 +96,10 @@ variable "images" {
 }
 
 variable "settings" {
-  description = "Retention, Grafana root URL, InfluxDB org/bucket and the DNS probe zone. See modules/services/monitoring."
+  description = "Retention, Grafana root URL, the DNS probe zone and Ceph labels. See modules/services/monitoring."
   type = object({
     prometheus_retention_time = optional(string, "7d")
     prometheus_retention_size = optional(string, "20GB")
-    influxdb_org              = optional(string, "lylat")
-    influxdb_bucket           = optional(string, "proxmox")     # created by InfluxDB setup on first start only
-    influxdb_grafana_bucket   = optional(string, "pve_cluster") # default bucket of the Grafana InfluxDB datasource
-    influxdb_retention        = optional(string, "90d")
     grafana_root_url          = optional(string, "https://grafana.lylat.space/") # through the reverse proxy (services-config proxy.tf)
     dns_probe_zone            = optional(string, "lylat.space")
     ceph_cluster_name         = optional(string, "lylat") # cluster label on ceph metrics (ceph-mixin dashboards filter on it)
@@ -142,7 +131,7 @@ variable "ceph_mgr_nodes" {
 }
 
 variable "vyos_telegraf_targets" {
-  description = "VyOS routers running telegraf's prometheus-client output (service monitoring telegraf prometheus-client): host => address (port 9273). It carries the per-rule firewall counters VyOS only collects with the influxdb output configured."
+  description = "VyOS routers running telegraf's prometheus-client output (service monitoring telegraf prometheus-client): host => address (port 9273). VyOS only collects its per-rule firewall counters with an influxdb output configured, so those come from roots/monitoring-config/vyos/*.py (node_exporter textfile) instead."
   type        = map(string)
   default     = { "fw-wan" = "10.5.0.255" }
 }
@@ -245,17 +234,6 @@ variable "grafana_admin_password" {
   default     = null
 }
 
-variable "influxdb_admin_password" {
-  description = "InfluxDB 'admin' password (at least 8 characters). null generates one. Only applied when InfluxDB first initialises."
-  type        = string
-  sensitive   = true
-  default     = null
-  validation {
-    condition     = var.influxdb_admin_password == null || length(coalesce(var.influxdb_admin_password, "xxxxxxxx")) >= 8
-    error_message = "InfluxDB requires a password of at least 8 characters."
-  }
-}
-
 variable "snmp_v3_auths" {
   description = "SNMPv3 auths for snmp_exporter: name => { username, password, priv_password, ... } (see modules/services/monitoring). Reference the name as an snmp_targets auth. Put it in a git-ignored *.secret.auto.tfvars."
   type = map(object({
@@ -289,22 +267,18 @@ variable "pve_api_node" {
 }
 
 variable "pve_metrics" {
-  description = "Proxmox external metric servers (pvestatd, every ~10 s): one per monitoring backend on the cluster and on each standalone host, writing to that backend's pvestatd Telegraf on pvestatd_port (-> Prometheus). The InfluxDB buckets (\"<cluster_bucket>\", \"<standalone_bucket_prefix><host>\", retention_days) only hold the history from before 2026-11-13."
+  description = "Proxmox external metric servers (pvestatd, every ~10 s): one per monitoring backend on the cluster and on each standalone host, writing to that backend's pvestatd Telegraf on pvestatd_port (-> Prometheus)."
   type = object({
-    enabled                  = optional(bool, true) # false keeps the config but stops pvestatd sending (pvestatd Telegrafs off too)
-    cluster_bucket           = optional(string, "pve_cluster")
-    standalone_bucket_prefix = optional(string, "pve_")
-    retention_days           = optional(number, 90)
-    pvestatd_port            = optional(number, 8186) # the pvestatd Telegraf's listener on each backend (pve-metrics.tf)
+    enabled       = optional(bool, true)   # false keeps the config but stops pvestatd sending (pvestatd Telegrafs off too)
+    pvestatd_port = optional(number, 8186) # the pvestatd Telegraf's listener on each backend (pve-metrics.tf)
   })
   default = {}
 }
 
 variable "wlc_telemetry" {
-  description = "C9800 model-driven telemetry: the WLCs dial out over gRPC to Telegraf on mon01 (monitoring-network address, port), which writes to InfluxDB bucket `bucket` with its own write-only token (same retention as pve_metrics). null leaves Telegraf, the bucket and the token out. The WLC side is configured by hand (see the README)."
+  description = "C9800 model-driven telemetry: the WLCs dial out over gRPC to Telegraf on the monitoring backends (the monitoring VIP, port), which serves it to Prometheus as wlc_* (job wlc). null leaves Telegraf out. The WLC side is configured by hand (see the README)."
   type = object({
-    port   = optional(number, 57500)
-    bucket = optional(string, "wlc")
+    port = optional(number, 57500)
   })
   default = {}
 }

@@ -3,7 +3,7 @@
 #   <vm>         every service/workload VM's service address (the NIC with the default gateway)
 #   <vm>.mgmt    every VM's management address (also <node>.mgmt, leaf-<id>.mgmt, spine-<id>.mgmt)
 #   <vip>        every keepalived VIP in vips.auto.tfvars, all named <service>-vip (grafana-vip, logs-vip,
-#                loki-vip, influxdb-vip, monitoring-vip, mimir-vip, postgres-vip, dark-triage-vip,
+#                loki-vip, wlc-telemetry-vip, monitoring-vip, mimir-vip, postgres-vip, dark-triage-vip,
 #                netbox-vip, proxy-vip, dns-vip)
 #   <web UI>     CNAME to proxy-vip.lylat.space for every reverse proxy host and alias (services-config
 #                var.proxy.hosts: grafana, netbox, dark-triage, triage)
@@ -36,14 +36,11 @@ dns_hosts = {
   "wlc02.mgmt" = { A = "10.20.1.2" }
 
   # Backend UIs on the monitoring network (vmbr100): Prometheus :9090,
-  # Alertmanager :9093, InfluxDB :8086. The unsuffixed names stay on mon01
-  # (influxdb is the monitoring VIP, see vips.auto.tfvars).
+  # Alertmanager :9093. The unsuffixed names stay on mon01.
   prometheus         = { A = "10.5.11.30" }
   alertmanager       = { A = "10.5.11.30" }
   prometheus-mon02   = { A = "10.5.11.31" }
   alertmanager-mon02 = { A = "10.5.11.31" }
-  influxdb-mon01     = { A = "10.5.11.30" }
-  influxdb-mon02     = { A = "10.5.11.31" }
 }
 
 # Use this list for multiple records with the same owner/type or custom TTLs.

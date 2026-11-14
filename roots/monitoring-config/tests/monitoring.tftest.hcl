@@ -20,24 +20,11 @@ override_resource {
   values = { result = "monvrrp1" }
 }
 
-mock_provider "influxdb" {
-  mock_data "influxdb_organization" {
-    defaults = { id = "0123456789abcdef" }
-  }
-  mock_resource "influxdb_bucket" {
-    defaults = { id = "fedcba9876543210" }
-  }
-}
+# influxdb.tf: the retired InfluxDBs' providers, only there to drop their objects from the state.
+mock_provider "influxdb" {}
 
-# The replica backend's InfluxDB (influxdb-replica.tf).
 mock_provider "influxdb" {
   alias = "replica"
-  mock_data "influxdb_organization" {
-    defaults = { id = "1123456789abcdef" }
-  }
-  mock_resource "influxdb_bucket" {
-    defaults = { id = "1edcba9876543210" }
-  }
 }
 
 mock_provider "proxmox" {}
@@ -54,8 +41,6 @@ variables {
   loki_s3              = { bucket = "loki", access_key = "MOCKACCESSKEY", secret_key = "mocksecretkeymocksecretkey" }
   mimir_s3             = { bucket = "mimir", access_key = "MOCKMIMIRKEY", secret_key = "mockmimirsecretmockmimirsecret" } # metrics.tftest.hcl
   postgres_s3          = { bucket = "postgres", access_key = "MOCKPGKEY", secret_key = "mockpgsecretmockpgsecret" }       # postgres.tftest.hcl
-  # Stage B (mon-ha.auto.tfvars) has its own run, backend_replica_ready.
-  influxdb_replica_ready = false
 }
 
 run "inventory_targets" {
@@ -89,10 +74,9 @@ run "inventory_targets" {
   assert {
     condition = (
       strcontains(module.monitoring.datasources_config, "http://10.13.11.30:9090") &&
-      strcontains(module.monitoring.datasources_config, "$INFLUXDB_TOKEN") &&
       !contains(module.monitoring.backend_services, "pve-exporter")
     )
-    error_message = "Grafana datasources use the backend VLAN; the InfluxDB token stays an env reference."
+    error_message = "Grafana datasources use the backend VLAN."
   }
 
   assert {
@@ -103,10 +87,9 @@ run "inventory_targets" {
       strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.21.11.32:9094,10.21.11.33:9094") &&
       strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.55.11.33:9100") &&
       strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus") &&
-      # Data dirs of images that drop from root to a service user stay owned by that user,
-      # so a redeploy that doesn't restart Postgres/InfluxDB can't lock them out.
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "ensure_dir '/var/lib/monitoring/postgres' '0700' 'user|docker.io/library/postgres:17|postgres'") &&
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "ensure_dir '/var/lib/monitoring/influxdb/data' '0700' 'user|docker.io/library/influxdb:2.8|influxdb'")
+      # The data dir of an image that drops from root to a service user stays owned by that user,
+      # so a redeploy that doesn't restart Postgres can't lock it out.
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "ensure_dir '/var/lib/monitoring/postgres' '0700' 'user|docker.io/library/postgres:17|postgres'")
     )
     error_message = "Validate before install, bind Postgres to the backend VLAN only, and peer Grafana over it."
   }
@@ -303,7 +286,7 @@ run "inventory_targets" {
 }
 
 # node_exporter collectors, the exporters' self-scrapes and the ceph-mixin alerts (main.tf),
-# the retired InfluxDB relay's cleanup (backends.tf).
+# the retired InfluxDB relay's and InfluxDB's cleanup (backends.tf).
 run "exporters_and_ceph_alerts" {
   command = plan
 
@@ -368,6 +351,29 @@ run "exporters_and_ceph_alerts" {
       )])
     )
     error_message = "No influx-relay unit, scrape job or alerts; the backend deploy removes its config dir and env file."
+  }
+
+  assert {
+    # InfluxDB is retired (2026-11-14): no unit, image, scrape job, datasource, keepalived check or token; Grafana
+    # deletes the old datasource; the backend deploy removes the env files with its tokens but keeps the data.
+    condition = (
+      !contains([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j.job_name], "influxdb") &&
+      !strcontains(module.monitoring.prometheus_config, ":8086") &&
+      !contains([for d in yamldecode(module.monitoring.datasources_config).datasources : d.uid], "influxdb") &&
+      yamldecode(module.monitoring.datasources_config).deleteDatasources == [{ name = "InfluxDB", orgId = 1 }] &&
+      alltrue([for name in ["mon01", "mon02"] : (
+        !contains(keys(module.monitoring.units[name]), "influxdb") &&
+        !contains(module.monitoring.backend_services_by_host[name], "influxdb") &&
+        !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "docker.io/library/influxdb") &&
+        !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), ":8086") &&
+        !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "ensure_dir '/var/lib/monitoring/influxdb") &&
+        !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "rm -rf /var/lib/monitoring/influxdb") &&
+        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "rm -f /etc/monitoring/influxdb.env /etc/monitoring/telegraf.env;") &&
+        !strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "8086") &&
+        !strcontains(module.monitoring.units[name].telegraf, "EnvironmentFile=")
+      )])
+    )
+    error_message = "InfluxDB is gone from the backends, Prometheus, Grafana and keepalived; the deploy removes its env files and keeps its data."
   }
 
   assert {
@@ -538,71 +544,71 @@ run "pve_metric_servers" {
 
   assert {
     condition = (
-      output.pve_metric_buckets == { cluster = "pve_cluster", greatfox = "pve_greatfox" } &&
-      influxdb_bucket.pve["cluster"].retention_period == 90 * 86400 &&
       # pvestatd writes only to the pvestatd Telegrafs: one metric server per backend, on the cluster and on greatfox.
       toset(keys(proxmox_metrics_server.pvestatd)) == toset(["mon01", "mon02"]) &&
       toset(keys(proxmox_metrics_server.pvestatd_standalone)) == toset(["greatfox/mon01", "greatfox/mon02"]) &&
-      alltrue([for s in values(proxmox_metrics_server.pvestatd) : s.port == 8186 && s.influx_db_proto == "http" && !s.disable])
+      alltrue([for s in values(proxmox_metrics_server.pvestatd) : s.port == 8186 && s.influx_db_proto == "http" && !s.disable && s.influx_organization == "lylat"])
     )
-    error_message = "The cluster and greatfox each push over HTTP to every backend's pvestatd Telegraf; the pve buckets stay for their history."
+    error_message = "The cluster and greatfox each push over HTTP to every backend's pvestatd Telegraf."
   }
 }
 
 run "wlc_telemetry" {
   command = plan
 
-  override_resource {
-    target = influxdb_authorization.wlc
-    values = { token = "mockwlctoken" }
-  }
-
   assert {
     condition = (
-      output.wlc_telemetry_receiver == { address = "10.5.11.30", receivers = { mon01 = "10.5.11.30" }, port = 57500, bucket = "wlc" } && # VIP once influxdb_replica_ready
-      influxdb_bucket.wlc[0].retention_period == 90 * 86400 &&
-      length(influxdb_authorization.wlc[0].permissions) == 1 && influxdb_authorization.wlc[0].permissions[0].action == "write" &&
-      module.monitoring.backend_services == ["monitoring-network", "postgres", "influxdb", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
+      output.wlc_telemetry_receiver == { address = "10.5.11.102", receivers = { mon01 = "10.5.11.30", mon02 = "10.5.11.31" }, port = 57500 } &&
+      module.monitoring.backend_services == ["monitoring-network", "postgres", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
     )
-    error_message = "C9800 telemetry gets its own bucket and write-only token, and Telegraf starts right after InfluxDB."
+    error_message = "The WLCs send to the monitoring VIP; Telegraf runs on both backends and starts first after Postgres."
+  }
+
+  assert {
+    condition = alltrue([for name, addr in { mon01 = "30", mon02 = "31" } : (
+      strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.5.11.${addr}:57500:57500\n") &&
+      strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.5.11.102:57500:57500\n") &&
+      strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.13.11.${addr}:9273:9273\n") && # its own metrics, for both replicas
+      !strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.13.11.${addr}:57500") &&
+      strcontains(module.monitoring.units[name].telegraf, "Network=monitoring.network\n") &&
+      strcontains(module.monitoring.units[name].telegraf, "User=telegraf\n") &&
+      strcontains(module.monitoring.units[name].telegraf, "ExecReload=/usr/bin/podman kill --signal HUP telegraf\n") &&
+      # Prometheus only: no InfluxDB output, token or env file.
+      !strcontains(module.monitoring.wlc_telegraf_configs[name], "influxdb") &&
+      !strcontains(module.monitoring.wlc_telegraf_configs[name], "token") &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "put '/etc/monitoring/telegraf.env'") &&
+      length(regexall("\\[\\[outputs\\.", module.monitoring.wlc_telegraf_configs[name])) == 2
+    )])
+    error_message = "Telegraf publishes the MDT port on each monitoring address and the VIP (metrics on the backend VLAN), runs as its own user and writes only to its two prometheus_client outputs."
   }
 
   assert {
     condition = (
-      strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.5.11.30:57500:57500\n") &&
-      strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.13.11.30:9273:9273\n") && # its own metrics, for both replicas
-      !strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.13.11.30:57500") &&
-      !strcontains(module.monitoring.units.mon01.telegraf, "PublishPort=10.5.11.102:57500") && # one Telegraf: no fan-out
-      length(regexall("outputs.influxdb_v2", module.monitoring.wlc_telegraf_configs.mon01)) == 1 &&
-      strcontains(module.monitoring.units.mon01.telegraf, "Network=monitoring.network\n") &&
-      strcontains(module.monitoring.units.mon01.telegraf, "User=telegraf\n") &&
-      strcontains(module.monitoring.units.mon01.telegraf, "EnvironmentFile=/etc/monitoring/telegraf.env\n") &&
-      strcontains(module.monitoring.units.mon01.telegraf, "ExecReload=/usr/bin/podman kill --signal HUP telegraf\n") &&
-      !strcontains(module.monitoring.units.mon01.telegraf, "mockwlctoken")
-    )
-    error_message = "Telegraf publishes the MDT port on the monitoring address only (metrics on the backend VLAN), runs as its own user and reads the token from an env file."
-  }
-
-  assert {
-    condition = (
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "put '/etc/monitoring/telegraf.env' '0600' 'root' 'telegraf' ''") &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "put '/etc/monitoring/telegraf/telegraf.conf' '0644' 'root' '' 'telegraf'") &&
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), base64encode("INFLUX_TOKEN=mockwlctoken\n")) &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "config check --config /etc/telegraf/telegraf.conf") &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "--http2-prior-knowledge http://10.5.11.30:57500/")
     )
-    error_message = "deploy.sh checks the Telegraf config before install, keeps the token in a 0600 env file and health-checks the gRPC port."
+    error_message = "deploy.sh checks the Telegraf config before install and health-checks the gRPC port."
+  }
+
+  assert {
+    # keepalived holds the monitoring VIP (the WLCs' receiver) only where the WLC Telegraf answers.
+    condition = alltrue([for name, addr in { mon01 = "30", mon02 = "31" } : (
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "vrrp_script chk_telegraf {\n  script \"/usr/bin/curl -fsS -m 2 -o /dev/null http://10.13.11.${addr}:9273/metrics\"") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "track_script {\n    chk_telegraf\n    chk_alertmanager\n  }") &&
+      !strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "influx")
+    )])
+    error_message = "keepalived tracks the WLC Telegraf and Alertmanager on each backend."
   }
 
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"telegraf\"") &&
       strcontains(module.monitoring.prometheus_config, "10.13.11.30:9273") &&
-      !strcontains(module.monitoring.prometheus_config, "10.13.11.31:9273") && # not before influxdb_replica_ready
-      strcontains(module.monitoring.prometheus_rules, "WlcTelemetryStopped") &&
-      !contains(keys(module.monitoring.units.mon02), "telegraf")
+      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9273") &&
+      strcontains(module.monitoring.prometheus_rules, "WlcTelemetryStopped")
     )
-    error_message = "Prometheus scrapes Telegraf's own metrics and alerts when the WLCs stop sending."
+    error_message = "Prometheus scrapes both Telegrafs' own metrics and alerts when the WLCs stop sending."
   }
 }
 
@@ -616,13 +622,14 @@ run "wlc_telemetry_disabled" {
   assert {
     condition = (
       output.wlc_telemetry_receiver == null &&
-      length(influxdb_bucket.wlc) == 0 && length(influxdb_authorization.wlc) == 0 &&
       !contains(module.monitoring.backend_services, "telegraf") &&
       !contains(keys(module.monitoring.units.mon01), "telegraf") &&
       !strcontains(module.monitoring.prometheus_config, "\"job_name\": \"telegraf\"") &&
-      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "/etc/monitoring/telegraf")
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "/etc/monitoring/telegraf/") &&
+      # Without it keepalived tracks Alertmanager only.
+      !strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "chk_telegraf")
     )
-    error_message = "wlc_telemetry = null leaves Telegraf, its bucket, token and scrape job out."
+    error_message = "wlc_telemetry = null leaves Telegraf, its scrape job and its keepalived check out."
   }
 }
 
@@ -879,7 +886,7 @@ run "backend_ha" {
       !contains(keys(module.monitoring.units.mon02), "postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "/var/lib/monitoring/postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "pg_isready") &&
-      module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "influxdb", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
+      module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.13.11.30:5432")
     )
     error_message = "Postgres stays on mon01 (Grafana's database); mon02 gets the rest, keepalived last."
@@ -892,11 +899,10 @@ run "backend_ha" {
       strcontains(module.monitoring.units[name].alertmanager, "--cluster.peer=10.21.13.${i.peer}:9094") &&
       strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.21.13.${i.me}:9094:9094/udp") &&
       strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.13.11.102:9093:9093\n") &&
-      strcontains(module.monitoring.units[name].influxdb, "PublishPort=10.5.11.102:8086:8086\n") &&
-      strcontains(module.monitoring.units[name].influxdb, "PublishPort=10.13.11.102:8086:8086\n") &&
+      strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.5.11.102:57500:57500\n") &&
       strcontains(module.monitoring.units[name]["node-exporter"], "--collector.netdev.address-info")
     )])
-    error_message = "Alertmanager gossips over 10.21.13.30/.31:9094; InfluxDB and Alertmanager also publish on the VIPs."
+    error_message = "Alertmanager gossips over 10.21.13.30/.31:9094; the WLC Telegraf and Alertmanager also publish on the VIPs."
   }
 
   assert {
@@ -918,96 +924,36 @@ run "backend_ha" {
   }
 
   assert {
-    # Grafana: Influx and Alertmanager on the backend VIP, per-replica Prometheus datasources.
+    # Grafana: Alertmanager on the backend VIP, per-replica Prometheus datasources.
     condition = (
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "influxdb"]) == "http://10.13.11.102:8086" &&
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.102:9093" &&
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon01"]) == "http://10.13.11.30:9090" &&
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon02"]) == "http://10.13.11.31:9090"
     )
-    error_message = "Grafana reaches InfluxDB and Alertmanager on the backend VIP, and each Prometheus replica directly."
-  }
-
-  assert {
-    # Before influxdb_replica_ready: nothing on mon02's InfluxDB.
-    condition     = length(influxdb_bucket.replica) == 0 && length(influxdb_authorization.replica) == 0
-    error_message = "The replica's InfluxDB objects wait for influxdb_replica_ready."
+    error_message = "Grafana reaches Alertmanager on the backend VIP, and each Prometheus replica directly."
   }
 }
 
-run "backend_replica_ready" {
+# The telemetry for Prometheus: a renamed clone (wlc_*, starlark) served on :9275 on all local addresses,
+# scraped through the backend VIP by both replicas (job wlc). IOS XE keeps one receiver per subscription
+# active, so the WLCs send to the monitoring VIP and only the holder's Telegraf receives.
+run "wlc_prometheus" {
   command = plan
 
-  variables {
-    influxdb_replica_ready = true
-  }
-
-  override_resource {
-    target = influxdb_authorization.replica
-    values = { token = "mockreplicatoken" }
-  }
-
-  override_resource {
-    target = influxdb_authorization.wlc
-    values = { token = "mockwlctoken" }
-  }
-
   assert {
-    condition = (
-      toset(keys(influxdb_bucket.replica)) == toset(["pve-cluster", "pve-greatfox", "wlc"]) &&
-      # Only the WLC Telegraf writes to InfluxDB: the pve buckets (history) have no token.
-      toset(keys(influxdb_authorization.replica)) == toset(["wlc"]) &&
-      alltrue([for a in values(influxdb_authorization.replica) : length(a.permissions) == 1 && a.permissions[0].action == "write"])
-    )
-    error_message = "mon02's InfluxDB gets the same buckets; only the wlc bucket has a write-only token."
-  }
-
-  assert {
-    condition = (
-      contains(keys(module.monitoring.units.mon02), "telegraf") &&
-      strcontains(module.monitoring.units.mon02.telegraf, "PublishPort=10.5.11.31:57500:57500\n") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9273") &&
-      output.wlc_telemetry_receiver.receivers == { mon01 = "10.5.11.30", mon02 = "10.5.11.31" }
-    )
-    error_message = "With influxdb_replica_ready, mon02 runs the WLC Telegraf with its own token."
-  }
-
-  assert {
-    # The telemetry for Prometheus: a renamed clone (wlc_*, starlark) served on :9275 on all local addresses,
-    # scraped through the backend VIP by both replicas (job wlc); InfluxDB still gets only the originals.
     condition = (
       alltrue([for name in ["mon01", "mon02"] : (
         strcontains(module.monitoring.units[name].telegraf, "PublishPort=9275:9275\n") &&
         strcontains(module.monitoring.wlc_telegraf_configs[name], "name_prefix = \"wlc_\"") &&
         strcontains(module.monitoring.wlc_telegraf_configs[name], "script = \"/etc/telegraf/wlc.star\"") &&
         strcontains(module.monitoring.wlc_telegraf_configs[name], "listen = \":9275\"") &&
-        length(regexall("namedrop = \\[\"internal_\\*\", \"wlc_\\*\"\\]", module.monitoring.wlc_telegraf_configs[name])) == 2 &&
         strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "put '/etc/monitoring/telegraf/wlc.star'")
       )]) &&
       one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "wlc"]).static_configs[0].targets == ["10.13.11.102:9275"] &&
-      strcontains(module.monitoring.prometheus_rules, "WlcTelemetryNotInPrometheus")
+      strcontains(module.monitoring.prometheus_rules, "WlcTelemetryNotInPrometheus") &&
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr if g.name == "wlc-telemetry"]), "sum(rate(internal_gather_metrics_gathered{job=\"telegraf\", input=\"cisco_telemetry_mdt\"}[10m])) == 0")
     )
-    error_message = "The WLC Telegraf serves wlc_* clones on :9275 (all addresses), scraped via the backend VIP; InfluxDB outputs drop them."
-  }
-
-  # IOS XE keeps one receiver per subscription active, so the WLCs send to the monitoring VIP
-  # and the holder's Telegraf writes the wlc bucket on both backends.
-  assert {
-    condition = (
-      output.wlc_telemetry_receiver.address == "10.5.11.102" &&
-      alltrue([for h in ["mon01", "mon02"] : strcontains(module.monitoring.units[h].telegraf, "PublishPort=10.5.11.102:57500:57500\n")]) &&
-      strcontains(module.monitoring.units.mon02.telegraf, "PublishPort=10.5.11.31:57500:57500\n") && # own address stays
-      strcontains(module.monitoring.wlc_telegraf_configs.mon01, "alias = \"mon01\"\n  urls = [\"http://influxdb:8086\"]\n  token = \"$${INFLUX_TOKEN}\"") &&
-      strcontains(module.monitoring.wlc_telegraf_configs.mon01, "alias = \"mon02\"\n  urls = [\"http://10.13.11.31:8086\"]\n  token = \"$${INFLUX_TOKEN_MON02}\"") &&
-      strcontains(module.monitoring.wlc_telegraf_configs.mon02, "alias = \"mon02\"\n  urls = [\"http://influxdb:8086\"]\n  token = \"$${INFLUX_TOKEN}\"") &&
-      strcontains(module.monitoring.wlc_telegraf_configs.mon02, "alias = \"mon01\"\n  urls = [\"http://10.13.11.30:8086\"]\n  token = \"$${INFLUX_TOKEN_MON01}\"") &&
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), base64encode("INFLUX_TOKEN=mockwlctoken\nINFLUX_TOKEN_MON02=mockreplicatoken\n")) &&
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), base64encode("INFLUX_TOKEN_MON01=mockwlctoken\nINFLUX_TOKEN=mockreplicatoken\n")) &&
-      !strcontains(module.monitoring.wlc_telegraf_configs.mon01, "mockwlctoken") &&
-      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr if g.name == "wlc-telemetry"]), "sum(rate(internal_gather_metrics_gathered{job=\"telegraf\", input=\"cisco_telemetry_mdt\"}[10m])) == 0") &&
-      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].alert if g.name == "wlc-telemetry"]), "WlcTelemetryWriteDropping")
-    )
-    error_message = "Both WLC Telegrafs listen on the monitoring VIP and write the wlc bucket on both InfluxDBs (local + peer token); WlcTelemetryStopped sums over both."
+    error_message = "The WLC Telegraf serves wlc_* clones on :9275 (all addresses), scraped via the backend VIP; WlcTelemetryStopped sums over both Telegrafs."
   }
 }
 
@@ -1020,8 +966,8 @@ run "backend_vrrp_disabled" {
       nonsensitive(module.monitoring.backend_keepalived_configs.mon01) == null &&
       output.monitoring_vips == null &&
       !contains(module.monitoring.backend_services, "keepalived") &&
-      !strcontains(module.monitoring.units.mon01.influxdb, "10.5.11.102") &&
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "influxdb"]) == "http://10.13.11.30:8086"
+      !strcontains(module.monitoring.units.mon01.telegraf, "10.5.11.102") &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.30:9093"
     )
     error_message = "backend_vrrp = null: no keepalived or VIP publishing; Grafana uses the primary."
   }
@@ -1063,15 +1009,14 @@ run "backend_single" {
       !contains(module.monitoring.backend_services, "keepalived") &&
       strcontains(module.monitoring.units.mon01.alertmanager, "--cluster.listen-address=\n") &&
       !strcontains(module.monitoring.units.mon01.alertmanager, "--cluster.peer") &&
-      !strcontains(module.monitoring.units.mon01.influxdb, "10.5.11.102") &&
+      !strcontains(module.monitoring.units.mon01.telegraf, "10.5.11.102") &&
       yamldecode(module.monitoring.prometheus_config).global.external_labels.__replica__ == "mon01" &&
       yamldecode(module.monitoring.prometheus_config).alerting.alertmanagers[0].static_configs[0].targets == ["10.13.11.30:9093"] &&
       !strcontains(module.monitoring.prometheus_config, "10.13.11.31") &&
       !strcontains(module.monitoring.prometheus_rules, "AlertmanagerClusterDegraded") &&
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "influxdb"]) == "http://10.13.11.30:8086" &&
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.30:9093" &&
       !contains([for d in yamldecode(module.monitoring.datasources_config).datasources : d.uid], "prometheus-mon02") &&
-      length(influxdb_bucket.replica) == 0
+      output.wlc_telemetry_receiver.address == "10.5.11.30" # no VIP: the primary's own address
     )
     error_message = "Without mon02, mon01 runs alone: no Alertmanager peers, no keepalived/VIPs, Grafana on mon01."
   }

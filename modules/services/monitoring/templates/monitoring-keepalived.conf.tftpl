@@ -11,15 +11,19 @@ global_defs {
 
 # No weight: a failing check puts the node in FAULT, which releases the VIPs. (With
 # nopreempt a lowered priority would never move them.)
-vrrp_script chk_influxdb {
-  script "/usr/bin/curl -fsS -m 2 -o /dev/null http://${backend_address}:8086/health"
+%{ if check_telegraf ~}
+# The WLC Telegraf (C9800 telemetry on the monitoring VIP): its own metrics endpoint. No init_fail:
+# added by a reload, an init_fail script would start FAILED on both backends at once and drop the
+# VIPs until it rises; a fresh keepalived still only takes the VIPs after chk_alertmanager rises.
+vrrp_script chk_telegraf {
+  script "/usr/bin/curl -fsS -m 2 -o /dev/null http://${backend_address}:9273/metrics"
   interval 5
   timeout 3
   fall 3
   rise 2
-  init_fail
 }
 
+%{ endif ~}
 vrrp_script chk_alertmanager {
   script "/usr/bin/curl -fsS -m 2 -o /dev/null http://${backend_address}:9093/-/ready"
   interval 5
@@ -63,7 +67,9 @@ vrrp_instance monitoring {
 %{ endfor ~}
   }
   track_script {
-    chk_influxdb
+%{ if check_telegraf ~}
+    chk_telegraf
+%{ endif ~}
     chk_alertmanager
   }
 }

@@ -31,7 +31,7 @@ output "prometheus_ceph_rules" {
 }
 
 output "datasources_config" {
-  description = "Rendered Grafana datasource provisioning (the InfluxDB token stays an env reference)."
+  description = "Rendered Grafana datasource provisioning (passwords stay env references)."
   value       = local.datasources_yml
 }
 
@@ -72,12 +72,12 @@ output "pvestatd_telegraf_config" {
 }
 
 output "wlc_telegraf_configs" {
-  description = "Backend VM name => the WLC telemetry Telegraf's telegraf.conf (tokens stay environment references), \"\" when off."
+  description = "Backend VM name => the WLC telemetry Telegraf's telegraf.conf, \"\" when off."
   value       = local.telegraf_conf
 }
 
 output "wlc_receiver" {
-  description = "Where the C9800s' telemetry receiver points: the monitoring VIP when the Telegrafs fan out to every backend (two or more with keepalived), else null (each backend's own monitoring address)."
+  description = "Where the C9800s' telemetry receiver points: the monitoring VIP when two or more backends run the WLC Telegraf with keepalived, else null (each backend's own monitoring address)."
   value       = local.wlc_vip ? local.backend_vip_monitoring[0] : null
 }
 

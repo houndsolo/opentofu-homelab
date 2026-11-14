@@ -2,29 +2,14 @@
 #
 # Since 2026-11-13 pvestatd writes only to the pvestatd Telegraf on each monitoring backend, which
 # serves the data to Prometheus (below and modules/services/monitoring/pvestatd.tf). The InfluxDB
-# metric servers ("influxdb" -> mon01, "influxdb-mon02") and their write-only tokens are retired.
-# The buckets below (one for the cluster, one per standalone host; mon02's copies in
-# influxdb-replica.tf) keep the history from 2026-11-09 until it is backfilled into Mimir; then
-# they can go too.
+# metric servers, their write-only tokens and InfluxDB itself are retired (2026-11-13/14); the
+# history from 2026-11-09 is backfilled into Mimir. influxdb.tf forgets the old buckets without
+# deleting them.
 
 locals {
-  pve_metric_buckets = merge(
-    { cluster = var.pve_metrics.cluster_bucket },
-    { for name in local.standalone_pve : name => "${var.pve_metrics.standalone_bucket_prefix}${name}" },
-  )
-}
-
-data "influxdb_organization" "monitoring" {
-  name = var.settings.influxdb_org
-}
-
-resource "influxdb_bucket" "pve" {
-  for_each = local.pve_metric_buckets
-
-  name             = each.value
-  org_id           = data.influxdb_organization.monitoring.id
-  description      = "Proxmox metric server: ${each.key == "cluster" ? "cluster" : each.key}"
-  retention_period = var.pve_metrics.retention_days * 86400
+  # PVE requires an organization and bucket on an "influxdb" metric server; the pvestatd Telegraf
+  # ignores both.
+  pvestatd_organization = "lylat"
 }
 
 # pvestatd -> Telegraf -> Prometheus (modules/services/monitoring/pvestatd.tf): one metric server
@@ -53,7 +38,7 @@ resource "proxmox_metrics_server" "pvestatd" {
   port                = var.pve_metrics.pvestatd_port
   type                = "influxdb"
   influx_db_proto     = "http"
-  influx_organization = var.settings.influxdb_org
+  influx_organization = local.pvestatd_organization
   influx_bucket       = "pvestatd"
   influx_token        = random_password.pvestatd.result
   disable             = !var.pve_metrics.enabled
@@ -70,7 +55,7 @@ resource "proxmox_metrics_server" "pvestatd_standalone" {
   port                = var.pve_metrics.pvestatd_port
   type                = "influxdb"
   influx_db_proto     = "http"
-  influx_organization = var.settings.influxdb_org
+  influx_organization = local.pvestatd_organization
   influx_bucket       = "pvestatd"
   influx_token        = random_password.pvestatd.result
   disable             = !var.pve_metrics.enabled
