@@ -60,15 +60,27 @@ resource "proxmox_virtual_environment_vm" "this" {
         }
       }
 
+      # One ip_config per addressed NIC, in NIC order (Proxmox maps ipconfigN to netN by position, so a NIC
+      # without any address must not sit before addressed ones).
       dynamic "ip_config" {
         for_each = var.configure_data_ips ? [
           for device in var.vm.network_devices :
-          device if device.ipv4_address != null
+          device if device.ipv4_address != null || device.ipv6_address != null
         ] : []
         content {
-          ipv4 {
-            address = ip_config.value.ipv4_address
-            gateway = ip_config.value.ipv4_gateway
+          dynamic "ipv4" {
+            for_each = ip_config.value.ipv4_address != null ? [true] : []
+            content {
+              address = ip_config.value.ipv4_address
+              gateway = ip_config.value.ipv4_gateway
+            }
+          }
+          dynamic "ipv6" {
+            for_each = ip_config.value.ipv6_address != null ? [true] : []
+            content {
+              address = ip_config.value.ipv6_address
+              gateway = ip_config.value.ipv6_gateway
+            }
           }
         }
       }

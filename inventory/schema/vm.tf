@@ -80,6 +80,9 @@ variable "vm" {
       disconnected = optional(bool)
       ipv4_address = optional(string)
       ipv4_gateway = optional(string)
+      # Static IPv6 (cloud-init ip_config ipv6), e.g. fd69:5501::12:45/64. No SLAAC/DHCPv6 on these NICs.
+      ipv6_address = optional(string)
+      ipv6_gateway = optional(string)
     })), [])
   })
 }

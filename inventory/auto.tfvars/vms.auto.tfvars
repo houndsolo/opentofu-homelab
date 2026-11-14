@@ -27,6 +27,14 @@ vms = {
         vlan_id      = 13
         ipv4_address = "10.13.53.1/16"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.53.51/16"
+        ipv6_address = "fd69:5501::53:51/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "dns"]
@@ -63,6 +71,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.53.2/16"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.53.52/16"
+        ipv6_address = "fd69:5501::53:52/64"
       },
     ]
     config = {
@@ -133,6 +149,14 @@ vms = {
         vlan_id      = 215
         ipv4_address = "10.21.13.30/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.16.30/16"
+        ipv6_address = "fd69:5501::16:30/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "monitoring"]
@@ -174,6 +198,14 @@ vms = {
         vlan_id      = 218
         ipv4_address = "10.21.16.43/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.13.43/16"
+        ipv6_address = "fd69:5501::13:43/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "ticketing"]
@@ -214,6 +246,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 218
         ipv4_address = "10.21.16.44/24"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.13.44/16"
+        ipv6_address = "fd69:5501::13:44/64"
       },
     ]
     config = {
@@ -262,6 +302,14 @@ vms = {
         vlan_id      = 219
         ipv4_address = "10.21.17.45/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.12.45/16"
+        ipv6_address = "fd69:5501::12:45/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "netbox"]
@@ -309,6 +357,14 @@ vms = {
         vlan_id      = 219
         ipv4_address = "10.21.17.46/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.12.46/16"
+        ipv6_address = "fd69:5501::12:46/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "netbox"]
@@ -343,6 +399,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.11.47/16"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.15.47/16"
+        ipv6_address = "fd69:5501::15:47/64"
       },
     ]
     config = {
@@ -379,6 +443,14 @@ vms = {
         vlan_id      = 13
         ipv4_address = "10.13.11.48/16"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.15.48/16"
+        ipv6_address = "fd69:5501::15:48/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "valkey"]
@@ -413,6 +485,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.11.49/16"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.15.49/16"
+        ipv6_address = "fd69:5501::15:49/64"
       },
     ]
     config = {
@@ -453,6 +533,14 @@ vms = {
         vlan_id      = 13
         ipv4_address = "10.13.11.50/16"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.10.50/16"
+        ipv6_address = "fd69:5501::10:50/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "proxy"]
@@ -491,6 +579,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 13
         ipv4_address = "10.13.11.51/16"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.10.51/16"
+        ipv6_address = "fd69:5501::10:51/64"
       },
     ]
     config = {
@@ -535,6 +631,14 @@ vms = {
         vlan_id      = 215
         ipv4_address = "10.21.13.31/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.16.31/16"
+        ipv6_address = "fd69:5501::16:31/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "monitoring"]
@@ -573,6 +677,14 @@ vms = {
         vlan_id      = 213
         ipv4_address = "10.21.11.32/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.11.32/16"
+        ipv6_address = "fd69:5501::11:32/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "monitoring"]
@@ -609,6 +721,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 213
         ipv4_address = "10.21.11.33/24"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.11.33/16"
+        ipv6_address = "fd69:5501::11:33/64"
       },
     ]
     config = {
@@ -656,6 +776,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 214
         ipv4_address = "10.21.12.34/24"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.18.34/16"
+        ipv6_address = "fd69:5501::18:34/64"
       },
     ]
     config = {
@@ -705,6 +833,14 @@ vms = {
         vlan_id      = 214
         ipv4_address = "10.21.12.35/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.18.35/16"
+        ipv6_address = "fd69:5501::18:35/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "logging"]
@@ -753,6 +889,14 @@ vms = {
         vlan_id      = 214
         ipv4_address = "10.21.12.36/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.18.36/16"
+        ipv6_address = "fd69:5501::18:36/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "logging"]
@@ -797,6 +941,14 @@ vms = {
         vlan_id      = 216
         ipv4_address = "10.21.14.37/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.17.37/16"
+        ipv6_address = "fd69:5501::17:37/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "metrics"]
@@ -840,6 +992,14 @@ vms = {
         vlan_id      = 216
         ipv4_address = "10.21.14.38/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.17.38/16"
+        ipv6_address = "fd69:5501::17:38/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "metrics"]
@@ -882,6 +1042,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 216
         ipv4_address = "10.21.14.39/24"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.17.39/16"
+        ipv6_address = "fd69:5501::17:39/64"
       },
     ]
     config = {
@@ -928,6 +1096,14 @@ vms = {
         vlan_id      = 217
         ipv4_address = "10.21.15.40/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.14.40/16"
+        ipv6_address = "fd69:5501::14:40/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "postgres"]
@@ -972,6 +1148,14 @@ vms = {
         vlan_id      = 217
         ipv4_address = "10.21.15.41/24"
       },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.14.41/16"
+        ipv6_address = "fd69:5501::14:41/64"
+      },
     ]
     config = {
       tags         = ["opentofu", "debian", "postgres"]
@@ -1015,6 +1199,14 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 217
         ipv4_address = "10.21.15.42/24"
+      },
+      {
+        # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
+        # route here, none needed: everything in the zone is on-link). Zone design: Obsidian zone-design.md.
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.14.42/16"
+        ipv6_address = "fd69:5501::14:42/64"
       },
     ]
     config = {
