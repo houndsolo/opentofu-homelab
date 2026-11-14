@@ -1,6 +1,6 @@
-# Grafana HA on its own L2VNI (l2vnis.ha_grafana, VLAN 213): unified alerting's gossip
-# (9094) and keepalived's unicast adverts. The VIP (grafana_vrrp.vip, 10.2.11.100) sits on
-# the UI NIC (VLAN 2); Grafana publishes :3000 on every address, so it answers there.
+# Grafana HA on its own L2VNI (l2vnis.ha_grafana, VLAN 1011): unified alerting's gossip
+# (9094) and keepalived's unicast adverts. The VIP (grafana_vrrp.vip, 10.52.11.100) sits on
+# the UI NIC (lylat-app, the one with the gateway); Grafana publishes :3000 on every address, so it answers there.
 locals {
   grafana_names = sort(keys(var.grafana))
 

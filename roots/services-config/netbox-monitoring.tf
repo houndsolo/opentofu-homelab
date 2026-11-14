@@ -1,8 +1,8 @@
 # Host monitoring for the NetBox VMs (netbox.tf), like the DNS and Valkey VMs: node_exporter
-# (dns-node-exporter.tf's Quadlet) on the management address :9100, where monitoring-config's
+# (dns-node-exporter.tf's Quadlet) on the telemetry address :9100, where monitoring-config's
 # node job scrapes it, and Grafana Alloy (alloy.tf: the journal, NetBox's container logs
-# included, to Loki's backend VIP). NetBox's own /metrics is scraped on each
-# node's VLAN 2 address (monitoring-config job netbox). Separate from terraform_data.netbox, so
+# included, to Loki's telemetry VIP). NetBox's own /metrics is scraped on each
+# node's lylat-app address (monitoring-config job netbox). Separate from terraform_data.netbox, so
 # changing it never restarts NetBox.
 variable "netbox_monitoring" {
   description = "node_exporter and Alloy (journal to Loki, alloy.tf) on the role = \"netbox\" VMs. null = don't install them."

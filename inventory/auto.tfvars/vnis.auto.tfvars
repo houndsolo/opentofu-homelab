@@ -318,7 +318,7 @@ vnis = [
   },
 
   # lylat-telemetry (zone design, Obsidian homelab-docs/evpn-fabric/zone-design.md): scrapes and log
-  # pushes from every service VM, one flat /16 segment, gateway .0.1. Isolated like lylat_monitor: no
+  # pushes from every service VM, one flat /16 segment, gateway .0.1. Isolated: no
   # ipv4 VPN leaking, EVPN RTs only its own, no DHCP. Numbering: L3VNI/table Z00, L3 VLAN Z00-4000,
   # segment L2VNI Z01, VLAN = VNI - 4000, 10.Z.0.0/16 (Z = 55).
   {

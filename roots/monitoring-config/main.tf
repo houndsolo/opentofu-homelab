@@ -35,7 +35,7 @@ locals {
   }
   mgmt = { for name, vm in local.service_vms : name => try(split("/", vm.management_address)[0], null) }
 
-  # Address on the isolated backend VLAN, and the backend VM's monitoring-network address.
+  # Address on the backend NIC (the zone segment, backend_vlan_ids), and the backend VM's monitoring-network address.
   backend_address = {
     for name in keys(local.deploy_vms) : name => try(split("/", one([
       for nic in local.nics[name] : nic.ipv4_address if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
@@ -69,7 +69,7 @@ locals {
   monitoring_ha_ready = alltrue([for n in values(local.monitoring_nic) : n.ha != null && n.backend != null && n.monitoring != null])
 
   # Grafana VMs: HA VLAN NIC (alerting gossip, VRRP) and the UI NIC (the one with the
-  # default gateway, VLAN 2) that holds the VIP. network_devices[i] is eth<i+1>.
+  # default gateway, lylat-app) that holds the VIP. network_devices[i] is eth<i+1>.
   grafana_nic = {
     for name in keys(local.grafana_vms) : name => {
       ha = try(one([
@@ -431,7 +431,7 @@ resource "terraform_data" "grafana" {
 resource "terraform_data" "logging" {
   for_each = local.logging_vms
 
-  # Alertmanager (ruler) and the backend VLAN must be up; Alloy on mon01/graf pushes to the VIP.
+  # Alertmanager (ruler) and the backend VLAN must be up; the Alloys push to the telemetry VIP.
   depends_on = [terraform_data.backend]
 
   triggers_replace = [

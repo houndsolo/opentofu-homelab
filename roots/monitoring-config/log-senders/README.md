@@ -1,11 +1,12 @@
 # Log senders
 
-Everything that ships logs to Loki does it as syslog to Alloy on loki01–loki03, through the
-keepalived VIPs. Nothing uses Loki's push API directly. Alloy listens on:
+Devices, routers and the PVE nodes ship their logs as syslog to Alloy on loki01–loki03. (The Linux
+service VMs push their journal with Alloy to Loki's telemetry VIP instead; see the
+[monitoring-config README](../README.md#alloy).) Alloy listens on:
 
 | Listener | Format | Who sends there |
 |---|---|---|
-| TCP 514 | RFC 5424, octet-counted | VyOS (leaves, dhcp01/02, fw-wan), rsyslog (PVE nodes, dns01/02) |
+| TCP 514 | RFC 5424, octet-counted | VyOS (leaves, dhcp01/02, fw-wan), rsyslog (PVE nodes) |
 | UDP 514 | RFC 3164 | MikroTik (spines, CRS317) |
 | UDP 1514 | raw (no parsing; host from the source IP) | Cisco C9800 WLCs, FS S3910 (switch-2), FS S3700 (switch-1) |
 
@@ -17,17 +18,16 @@ the S3700's trailing `\x00`). The `host` label comes from the source-IP map in
 monitoring-config (`snmp_targets` addresses plus `logging_settings.syslog_host_overrides`),
 which also fixes generic hostnames (`Switch`, `FS`).
 
-VIPs: `10.5.11.101` (`logs-vip.lylat.space`, monitoring network / VLAN 5) and `10.20.11.101`
-(management network).
+Targets: the keepalived VIP `10.5.11.101` (`logs-vip.lylat.space`, monitoring network / VLAN 5), or on the
+management network each log VM's own address, `10.20.11.34`–`.36` (no VIP there; senders send to all three).
 
 ## Managed by OpenTofu (plan only here; see each root)
 
 | Source | Where | What |
 |---|---|---|
-| VyOS leaves | fabric-leaves, `fabric.settings.leaf_syslog` | `system syslog remote 10.20.11.101`, TCP, `vrf mgmt` |
+| VyOS leaves | fabric-leaves, `fabric.settings.leaf_syslog` | `system syslog remote` 10.20.11.34, .35 and .36, TCP, `vrf mgmt` |
 | m326-1/2 (spines) | fabric-spines, `fabric.settings.spine_syslog` | `remote` logging action → 10.5.11.101 UDP 514, topics info/warning/error/critical |
 | dhcp01/02 | services-config, `dhcp_syslog` | same as the leaves |
-| dns01/02 | services-config, `dns_syslog` | rsyslog forwarder for the journal (BIND included) → 10.20.11.101 TCP |
 
 ## Configured by hand
 
@@ -36,7 +36,7 @@ per host):
 
 | Source | Method | Status |
 |---|---|---|
-| fw-wan | VyOS syslog, TCP 514 → 10.5.11.101 from `lylat_service`, saved | verified (`host="fw-wan"`, strongSwan, kernel, FRR…) |
+| fw-wan | VyOS syslog, TCP 514 → 10.5.11.101 from `lylat_external`, saved | verified (`host="fw-wan"`, strongSwan, kernel, FRR…) |
 | m317-1/2 | RouterOS `remote` action, UDP 514 (applied live; RouterOS saves immediately) | verified |
 | switch-1 | `logging 10.5.11.101 port 1514`, `write` | verified (raw) |
 | switch-2 | `logging server 10.5.11.101 udp-port 1514`, `write` | verified (raw) |
@@ -76,7 +76,7 @@ done
 ### fw-wan
 
 See the fw-wan section of the [monitoring-config README](../README.md). It sends from
-`lylat_service` (10.5.0.255) to `10.5.11.101`, TCP, RFC 5424. Firewall `log` rules
+`lylat_external` (10.5.0.255) to `10.5.11.101`, TCP, RFC 5424. Firewall `log` rules
 (kernel) and strongSwan/IPsec logs are included at `info` and up.
 
 ```
@@ -85,7 +85,7 @@ set system syslog remote 10.5.11.101 port '514'
 set system syslog remote 10.5.11.101 protocol 'tcp'
 set system syslog remote 10.5.11.101 format include-timezone
 set system syslog remote 10.5.11.101 format octet-counted
-set system syslog remote 10.5.11.101 vrf 'lylat_service'
+set system syslog remote 10.5.11.101 vrf 'lylat_external'
 set system syslog remote 10.5.11.101 source-address '10.5.0.255'
 ```
 
@@ -151,12 +151,12 @@ write memory
 
 ## Checking
 
-From mon01 (VLAN 13):
+From mon01 (lylat-obs; Loki's backend VIP `10.54.18.101`):
 
 ```sh
-curl -sG http://10.13.11.101:3100/loki/api/v1/label/host/values | jq
-curl -sG http://10.13.11.101:3100/loki/api/v1/query_range --data-urlencode 'query={host="m326-1"}' --data-urlencode limit=5 | jq '.data.result[].values'
-curl -sG http://10.13.11.101:3100/loki/api/v1/query --data-urlencode 'query=sum by (host) (count_over_time({source="syslog"}[30m]))' | jq -r '.data.result[] | "\(.metric.host) \(.value[1])"'
+curl -sG http://10.54.18.101:3100/loki/api/v1/label/host/values | jq
+curl -sG http://10.54.18.101:3100/loki/api/v1/query_range --data-urlencode 'query={host="m326-1"}' --data-urlencode limit=5 | jq '.data.result[].values'
+curl -sG http://10.54.18.101:3100/loki/api/v1/query --data-urlencode 'query=sum by (host) (count_over_time({source="syslog"}[30m]))' | jq -r '.data.result[] | "\(.metric.host) \(.value[1])"'
 ```
 
 To test a sender by hand: `logger -n 10.5.11.101 -P 514 -T --rfc5424 -t test hello` from a

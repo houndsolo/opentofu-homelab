@@ -1,6 +1,6 @@
 # Monitoring for the reverse proxy pair (proxy.tf), the same way as the Valkey VMs: node_exporter
 # (dns-node-exporter.tf's Quadlet) and nginx-prometheus-exporter (reads nginx's stub_status on
-# http://127.0.0.1/nginx_status, which only answers localhost), both on the management address where
+# http://127.0.0.1/nginx_status, which only answers localhost), both on the telemetry address where
 # monitoring-config scrapes them (jobs node and nginx; keep the ports in step with
 # modules/services/monitoring/nginx.tf). Grafana Alloy (alloy.tf) ships the journal to Loki, nginx's
 # access and error log included (app="nginx", the nginx dashboard reads it there).

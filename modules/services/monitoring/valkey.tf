@@ -1,6 +1,6 @@
 # Valkey + Sentinel (NetBox's cache and task queue, valkey01-03; deployed by services-config
 # valkey.tf). redis_exporter runs on each VM (services-config valkey-monitoring.tf): :9121 for
-# Valkey, :9355 for Sentinel, on the management address. node_exporter is in the node job.
+# Valkey, :9355 for Sentinel, on the telemetry address. node_exporter is in the node job.
 locals {
   valkey_scrape_configs = length(var.targets.valkey) == 0 ? [] : [
     {

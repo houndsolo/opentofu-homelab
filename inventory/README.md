@@ -58,7 +58,7 @@ root will silently stop seeing your changes.
 | `vm-config.auto.tfvars` | `vm_config`, `vm_images` | Shared VM defaults and named images | fabric-vms, services-vms, workloads |
 | `vms.auto.tfvars` | `vms` | Every individual VM: owner, role, placement, NICs, overrides | proxmox-download-files, fabric-vms, services-vms, services-config, workloads |
 | `vnis.auto.tfvars` | `vnis` | VRFs (L3VNIs), VLANs (L2VNIs), route-targets, DHCP scopes | fabric-leaves, services-vms, services-config |
-| `l2vnis.auto.tfvars` | `l2vnis` | Standalone L2VNIs for HA peer traffic (no VRF, no gateway, no DHCP): DHCP 9211, DNS 9212, Grafana 9213, logging 9214, all in `10.21.0.0/16` | fabric-leaves, services-vms, services-config |
+| `l2vnis.auto.tfvars` | `l2vnis` | Standalone L2VNIs for HA peer traffic (no VRF, no gateway, no DHCP), one per HA service `ha_<svc>`: VLAN 10aa / VNI 50aa / `10.50.aa.0/24` (e.g. DHCP 1009/5009, DNS 1053/5053) | fabric-leaves, services-vms, services-config |
 | `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Your own DNS records in `lylat.space` (only what the inventory doesn't generate) | services-config |
 | `vips.auto.tfvars` | `vips` | Every keepalived VIP: DNS name, address, VRID, role | services-config (DNS), monitoring-config (checks) |
 
@@ -125,7 +125,7 @@ fabric = {
     ntp_servers              = ["10.20.10.255"]    # NTP for spines AND leaves (fw-wan, on the management network)
     leaf_ntp_vrf             = "mgmt"              # the VRF the leaves' NTP client runs in (leave out = default VRF)
     leaf_prometheus_exporters = { vrf = "mgmt" }   # node/frr exporters on each leaf's mgmt address (leave out = unmanaged)
-    leaf_syslog = { host = "10.20.11.101", vrf = "mgmt" } # remote syslog to the Loki VIP (leave out = unmanaged)
+    leaf_syslog = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" } # remote syslog to loki01-03 (leave out = unmanaged)
     spine_syslog = { host = "10.5.11.101" }        # spines' remote syslog, UDP 514 (leave out = unmanaged)
     # vxlan_mtu = 9119                             # default; tenant side: vxlan0, br0 and its VLANs, the access port
     # outer_mtu = 9189                             # default; underlay side: the spine links and the loopback
@@ -193,9 +193,9 @@ listening on its management address inside that VRF. frr-exporter also gets the
 scrapes them (jobs `vyos-node`, `vyos-frr`). Leaving the setting out (null)
 means "don't manage the exporters"; it doesn't remove existing configuration.
 
-`fabric.settings.leaf_syslog = { host = "10.20.11.101", vrf = "mgmt" }` sends every
-leaf's syslog (facility `all`, level `info` and up) to the Loki/Alloy VIP on the
-management network ([monitoring-config](../roots/monitoring-config/README.md),
+`fabric.settings.leaf_syslog = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }` sends every
+leaf's syslog (facility `all`, level `info` and up) to each Loki/Alloy VM's own address on the
+management network (no VIP there; [monitoring-config](../roots/monitoring-config/README.md),
 loki01–loki03), from the management VRF. It uses TCP 514 with RFC 5424 messages
 (`format include-timezone`) and octet-counted framing. Optional fields: `port`
 (514), `protocol` (`tcp` or `udp`; UDP drops the framing), `facility` (`all`),
@@ -359,9 +359,9 @@ Rules that are checked for you when you run `plan`:
 
 - `owner` is required and must be `fabric-vms`, `services-vms` or `workloads`.
   `role` is only allowed with `services-vms`, and must be `dns`, `dhcp`,
-  `monitoring`, `grafana`, `logging`, `metrics` or `postgres`.
+  `monitoring`, `grafana`, `logging`, `metrics`, `postgres`, `ticketing`, `netbox`, `valkey` or `proxy`.
 - Every VM except a `fabric-vms` override needs a `node` and a `vm_id`.
-- A `dns` VM needs exactly one NIC with an `ipv4_address`.
+- A `dns` VM needs exactly one NIC with an `ipv4_address` and an `ipv4_gateway`.
 - There must be either no `dhcp` VMs or exactly two, with different VM IDs.
 - Every name in `config.ssh_pubkeys` must exist in `ssh_pubkeys.tf`.
 - `config.ssh_pubkeys` can't be combined with a custom `user_data_file_id`
@@ -382,25 +382,27 @@ three.
 ### vnis.auto.tfvars: VRFs, VLANs and DHCP scopes
 
 `vnis` is a list of VRFs (L3VNIs). Each VRF contains a map of VLANs (L2VNIs).
-Here is the real `lylat_service` VRF, trimmed to one VLAN:
+Here is the real `lylat-dns` VRF, trimmed to one VLAN:
 
 ```hcl
 vnis = [
   {
     # ---- The VRF (L3VNI) ----
-    vrf       = "lylat_service" # VRF name on the leaves (unique)
-    vrf_table = 1000            # Linux routing table number for the VRF (unique)
-    vni       = 6600            # the L3VNI, used for routed traffic between leaves
-    vlan_id   = 66              # internal VLAN that carries the L3VNI on each leaf's br0 (unique)
-    roles     = ["proxmox"]     # leaf roles that get this VRF
+    vrf       = "lylat-dns" # VRF name on the leaves (unique)
+    vrf_table = 5300        # Linux routing table number for the VRF (unique)
+    vni       = 5300        # the L3VNI, used for routed traffic between leaves
+    vlan_id   = 1300        # internal VLAN that carries the L3VNI on each leaf's br0 (unique)
+    roles     = ["proxmox"] # leaf roles that get this VRF
 
     # Local VRF route leaking inside each leaf (BGP IPv4 VPN). Space-separated strings.
-    ipv4_rt_imports = "700:6200 700:6900"
-    ipv4_rt_exports = "700:6600"
+    ipv4_rt_imports = "700:5100 700:5200 700:5400 700:5600 700:6900 700:6700 700:6666"
+    ipv4_rt_exports = "700:5300"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
 
     # EVPN route-targets between leaves. Import another VRF's RT to reach it (see DVNI).
-    evpn_rt_imports = ["700:6600", "700:6200", "700:6900", "700:6666"]
-    evpn_rt_exports = ["700:6600"]
+    evpn_rt_imports = ["700:5300", "700:5100", "700:5200", "700:5400", "700:5600", "700:6900", "700:6700", "700:6666"]
+    evpn_rt_exports = ["700:5300"]
 
     # ---- The VLANs (L2VNIs) inside this VRF ----
     l2 = {
@@ -410,6 +412,7 @@ vnis = [
         anycast_gw_ip   = "10.8.0.5"         # gateway IP, the same on every leaf
         anycast_gw_cidr = 16                 # prefix length (a number) -> subnet 10.8.0.0/16
         anycast_mac     = "02:00:00:00:08:01" # gateway MAC, the same on every leaf
+        anycast_gw_ipv6 = "fd69:9008::1/64"  # optional IPv6 anycast gateway
         dhcp = {                             # present -> the DHCP VMs get a NIC on this VLAN
           scope = {                          # present -> the DHCP VMs serve a pool here
             ranges = { 0 = { start = "10.8.5.1", stop = "10.8.5.99" } }
@@ -423,10 +426,15 @@ vnis = [
 
 The live inventory follows a few conventions, which you can see in the example:
 
-- L2VNI = 9000 + VLAN.
-- Each gateway is `.0.5` in its subnet.
-- Each gateway MAC is `02:00:00:00:<VLAN>:01`, with the VLAN written as decimal
-  digits.
+- Legacy VLANs (2, 8-12): L2VNI = 9000 + VLAN, gateway `.0.5`, gateway MAC
+  `02:00:00:00:<VLAN>:01` (the VLAN written as decimal digits).
+- Zone VRFs (DT-090: lylat-edge/-app/-dns/-obs/-telemetry/-data = 51..56): L3VNI and table `Z00`, L3
+  VLAN `Z00 - 4000`, one flat segment L2VNI `Z01` / VLAN `Z01 - 4000` / `10.Z.0.0/16` with gateway
+  `10.Z.0.1` and `fd69:Z01::1/64` (`router_advert = true`: RAs without SLAAC, router lifetime 0, route
+  `fd69::/16`). Example: lylat-app = 5200 / VLAN 1200, segment 5201 / VLAN 1201 / 10.52.0.0/16. lylat-edge has
+  no such segment (it holds the legacy VLAN 2; 10.51.0.0/16 is reserved), and lylat-dns also holds VLAN 8.
+- Only the external VRF (`lylat_external`) sends 0.0.0.0/0 into EVPN; every other VRF denies it
+  (`PL-DEFAULT-ROUTE` in the leaf route-maps).
 
 Checked automatically: every VRF has at least one valid role (`proxmox`,
 `external_l2` or `external_l3`). VNIs are 1–16777215 and unique across both L2
@@ -441,7 +449,7 @@ route leaking for a VRF (`import vpn` / `route-target vpn import`, and
 `export vpn` / `rd vpn export` / `route-map vpn export` / `route-target vpn
 export`). Set both to `false`, and list only the VRF's own RT in
 `evpn_rt_imports`/`evpn_rt_exports`, for an isolated VRF such as
-`lylat_monitor`, which shares routes with no other VRF.
+`lylat-telemetry`, which shares routes with no other VRF.
 
 Not checked automatically, but required:
 
@@ -450,7 +458,7 @@ Not checked automatically, but required:
 - **DHCP-enabled subnets must contain `10.<VLAN>.67.1` and `.2`.** Those are the
   DHCP VMs' addresses, so follow the `10.<VLAN>.0.0/16` convention.
 - **The DHCP HA link is not on a DHCP VLAN.** The pair talks over the standalone
-  L2VNI `l2vnis.ha_dhcp` (9211 / VLAN 211, `10.21.67.0/24`, hosts `.1`/`.2`); see
+  L2VNI `l2vnis.ha_dhcp` (VNI 5009 / VLAN 1009, `10.50.9.0/24`, hosts `.1`/`.2`); see
   [`l2vnis.auto.tfvars`](auto.tfvars/l2vnis.auto.tfvars).
 
 The DHCP options and their defaults:
@@ -459,7 +467,7 @@ The DHCP options and their defaults:
 | --- | --- | --- |
 | `dhcp = {}` (no `scope`) | The DHCP VMs get a NIC, an address and a listen interface on the VLAN, but serve no pool | |
 | `scope.ranges` | Address pools; the map keys become VyOS range IDs | required in a scope |
-| `scope.name_servers` | DNS servers handed to clients | the DNS VMs (`10.8.53.1`, `10.8.53.2`) |
+| `scope.name_servers` | DNS servers handed to clients | the DNS VIP `10.8.53.53` (the DNS VMs `10.8.53.1`, `.2` when services-config `dns_vrrp` is null) |
 | `scope.domain_name` | Domain name option | `lylat.space` |
 | `scope.domain_search` | Search list; `[]` sends none | `[domain_name]` |
 | `scope.lease_seconds` | Lease time | `86400` (1 day) |
@@ -487,7 +495,7 @@ name, but redefining a generated type fails the plan. The format rules are in
 
 ```hcl
 vips = {
-  netbox = { address = "10.2.11.106/16", vrid = 106, role = "netbox" }   # key = DNS name
+  netbox-vip = { address = "10.52.12.106/16", vrid = 106, role = "netbox" }   # key = DNS name
 }
 ```
 
@@ -706,7 +714,7 @@ new names.
 | `owner` defaulting to `"services-vms"` | `owner` is required |
 | `gf_api_token` | `greatfox_api_token` (**rename it in your secrets file**) |
 | hard-coded RouterOS `admin` / `admin` | `routeros_username` (default `admin`), `routeros_password` |
-| hard-coded DHCP HA subnet `10.6.67.0/24` | `l2vnis.ha_dhcp.prefix` (`10.21.67.0/24`, its own L2VNI 9211) |
+| hard-coded DHCP HA subnet `10.6.67.0/24` | `l2vnis.ha_dhcp.prefix` (`10.50.9.0/24`, its own L2VNI 5009) |
 | DHCP module `dhcp_ha_subnet` → `ha_subnet`, `fabric_macs` | `ha_prefix`, `interface_macs` |
 | DHCP MAC module input `dhcp_vlans`, output `fabric_macs` | input `vnis` (it picks the DHCP VLANs itself), output `interface_macs` |
 | one `passwords.secret.auto.tfvars` linked into roots | per-provider files in `inventory/auto.tfvars.secret/` (the single file still works with `with-secrets`) |

@@ -1,5 +1,5 @@
 # BIND on dns01/02 (deployed by services-config main.tf, behind keepalived's dns-vip 10.8.53.53).
-# bind_exporter runs on each VM (services-config dns-bind-exporter.tf) on the management address,
+# bind_exporter runs on each VM (services-config dns-bind-exporter.tf) on the telemetry address,
 # :9119, reading BIND's statistics channel. node_exporter is in the node job, the SOA probes in
 # blackbox-dns_soa.
 locals {

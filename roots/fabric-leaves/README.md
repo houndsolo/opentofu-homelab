@@ -33,12 +33,14 @@ all the VLANs (L2VNIs) inside those VRFs. With today's
 
 | Role | Leaves | VRFs (L3VNI) | VLANs |
 | --- | --- | --- | --- |
-| `proxmox` | `vtep-*` on every host | `lylat_service` (6600), `lylat_lan` (6900), `lylat_infra` (6200), `lylat_ai` (6700) | 2, 6, 8, 9, 10, 11, 12 |
+| `proxmox` | `vtep-*` on every host | `lylat-edge` (5100), `lylat-app` (5200), `lylat-dns` (5300), `lylat-obs` (5400), `lylat-telemetry` (5500), `lylat-data` (5600), `lylat_lan` (6900), `lylat_ai` (6700) | 2, 8, 9, 10, 11, 12, 1201, 1301, 1401, 1501, 1601 |
 | `external_l2` | `external_l2_01` | `lylat_lan` (6900), `lylat_ai` (6700) | 9, 10, 11, 12 |
 | `external_l3` | `external_l3_01`, `external_l3_02` | `lylat_external` (6666) | none (routed only) |
 
 A leaf whose role matches no VRF gets only its interface MAC bindings and the
-system settings.
+system settings. The `proxmox` leaves (not greatfox's, unless `on_standalone`) also get the
+standalone HA L2VNIs from [`l2vnis.auto.tfvars`](../../inventory/auto.tfvars/l2vnis.auto.tfvars)
+(VLAN 10aa / VNI 50aa): bridged only, no VRF and no gateway.
 
 ## What gets configured
 
@@ -118,13 +120,13 @@ set interfaces bridge br0 enable-vlan
 set interfaces bridge br0 mtu '9119'                   # br0 and its VLANs use the tenant MTU too
 set interfaces bridge br0 member interface vxlan0 disable-learning
 
-# L3VNI of lylat_service: VLAN 66 <-> VNI 6600, placed in the VRF
-set interfaces vxlan vxlan0 vlan-to-vni 66 vni '6600'
-set interfaces bridge br0 vif 66 vrf 'lylat_service'
+# L3VNI of lylat-dns: VLAN 1300 <-> VNI 5300, placed in the VRF
+set interfaces vxlan vxlan0 vlan-to-vni 1300 vni '5300'
+set interfaces bridge br0 vif 1300 vrf 'lylat-dns'
 
 # L2VNI: VLAN 8 <-> VNI 9008, and allow VLAN 8 on the access trunk
 set interfaces vxlan vxlan0 vlan-to-vni 8 vni '9008'
-set interfaces bridge br0 vif 8 vrf 'lylat_service'
+set interfaces bridge br0 vif 8 vrf 'lylat-dns'
 set interfaces bridge br0 member interface eth3 allowed-vlan '8'
 ```
 
@@ -134,29 +136,33 @@ set interfaces bridge br0 member interface eth3 allowed-vlan '8'
 # The same IP and MAC on every leaf, so a VM's gateway is always its local leaf.
 set interfaces pseudo-ethernet peth9008 source-interface 'br0.8'
 set interfaces pseudo-ethernet peth9008 address '10.8.0.5/16'
+set interfaces pseudo-ethernet peth9008 address 'fd69:9008::1/64'   # anycast_gw_ipv6 (DAD off)
 set interfaces pseudo-ethernet peth9008 mac '02:00:00:00:08:01'
 set interfaces pseudo-ethernet peth9008 anycast-gateway
-set interfaces pseudo-ethernet peth9008 vrf 'lylat_service'
+set interfaces pseudo-ethernet peth9008 vrf 'lylat-dns'
 ```
+
+An L2VNI with `router_advert = true` (the zone segments) also gets router advertisements on its
+`peth`: no SLAAC (`no-autonomous-flag`), router lifetime 0, and an RFC 4191 route for `fd69::/16`.
 
 ### 5. VRFs and route-targets
 
 ```text
-set vrf name lylat_service table 1000
-set vrf name lylat_service vni 6600
-set vrf name lylat_service protocols bgp address-family l2vpn-evpn rd '10.255.240.17:6600'
+set vrf name lylat-dns table 5300
+set vrf name lylat-dns vni 5300
+set vrf name lylat-dns protocols bgp address-family l2vpn-evpn rd '10.255.240.17:5300'
 
 # EVPN route-targets: what this VRF exports, and which VRFs' routes it accepts.
-set vrf name lylat_service protocols bgp address-family l2vpn-evpn route-target export '700:6600'
-set vrf name lylat_service protocols bgp address-family l2vpn-evpn route-target import '700:6200'
+set vrf name lylat-dns protocols bgp address-family l2vpn-evpn route-target export '700:5300'
+set vrf name lylat-dns protocols bgp address-family l2vpn-evpn route-target import '700:5200'
 
-# Local route leaking between VRFs on this leaf (BGP IPv4 VPN).
-set vrf name lylat_service protocols bgp address-family ipv4-unicast route-target vpn export '700:6600'
-set vrf name lylat_service protocols bgp address-family ipv4-unicast route-target vpn import '700:6200 700:6900'
+# Local route leaking between VRFs on this leaf (BGP IPv4 VPN; the same for ipv6-unicast).
+set vrf name lylat-dns protocols bgp address-family ipv4-unicast route-target vpn export '700:5300'
+set vrf name lylat-dns protocols bgp address-family ipv4-unicast route-target vpn import '700:5100 700:5200 700:5400 700:5600 700:6900 700:6700 700:6666'
 
 # Put connected subnets into BGP, and advertise the VRF's IPv4 routes as EVPN type-5.
-set vrf name lylat_service protocols bgp address-family ipv4-unicast redistribute connected route-map 'RM-LYLAT_SERVICE-CONNECTED-TO-BGP'
-set vrf name lylat_service protocols bgp address-family l2vpn-evpn advertise ipv4 unicast route-map 'RM-LYLAT_SERVICE-BGP-TO-EVPN'
+set vrf name lylat-dns protocols bgp address-family ipv4-unicast redistribute connected route-map 'RM-LYLAT-DNS-CONNECTED-TO-BGP'
+set vrf name lylat-dns protocols bgp address-family l2vpn-evpn advertise ipv4 unicast route-map 'RM-LYLAT-DNS-BGP-TO-EVPN'
 ```
 
 Importing another VRF's route-target is also what turns on **downstream VNI**
@@ -168,10 +174,10 @@ README.
 | Policy | Applied to | What it does |
 | --- | --- | --- |
 | `local_as_rm` (+ as-path list `local_as_export`, regex `^$`) | Underlay export | Advertise only routes with an empty AS path, which are routes this leaf originated (its VTEP). A leaf never becomes transit between the spines. |
-| `PL-<VRF>-L2VNI-SUBNETS` | (prefix list) | The VRF's VLAN subnets, such as `10.6.0.0/16` and `10.8.0.0/16` |
-| `RM-<VRF>-CONNECTED-TO-BGP` | Redistributing connected routes | Only the VLAN subnets are let in. In a VRF without VLANs, every connected route is. |
-| `RM-<VRF>-BGP-TO-LOCAL-VPN` | VPN export (local leaking) | Same filter: the VLAN subnets, or everything in a VRF without VLANs |
-| `RM-<VRF>-BGP-TO-EVPN` | EVPN type-5 advertisement | Permits everything |
+| `PL-<VRF>-L2VNI-SUBNETS` (and `PL6-…` for IPv6 gateways) | (prefix list) | The VRF's VLAN subnets, such as `10.53.0.0/16` and `10.8.0.0/16` in lylat-dns |
+| `RM-<VRF>-CONNECTED-TO-BGP` | Redistributing connected routes | Only the VLAN subnets are let in. In a VRF without VLANs: everything in the external VRF, nothing in any other. |
+| `RM-<VRF>-BGP-TO-LOCAL-VPN` | VPN export (local leaking) | Same filter: the VLAN subnets; a VRF without VLANs permits everything only if it's the external VRF, otherwise denies |
+| `RM-<VRF>-BGP-TO-EVPN` | EVPN type-5 advertisement | Denies `0.0.0.0/0` and `::/0` (`PL-DEFAULT-ROUTE`, `PL6-DEFAULT-ROUTE`) in every VRF but the external one, so only `lylat_external` originates the default; permits everything else |
 | `RM-EVPN-SPINE-EXPORT` | EVPN export to the spines | **Denies type-5 routes for each VRF's own VLAN subnets**, and permits everything else |
 | `block_local_as_rm` | (nothing) | Defined, but not applied anywhere |
 
@@ -204,7 +210,7 @@ delete service ntp server 'time1.vyos.net'
 - **`ipv4_rt_imports` / `ipv4_rt_exports` must be set when `import_ipv4_vpn` /
   `export_vpn_ipv4` is true** on a VRF that a leaf receives; the `vnis`
   validation checks this. With both flags false the VRF gets no ipv4 VPN
-  import/export lines at all (an isolated VRF, e.g. `lylat_monitor`).
+  import/export lines at all (an isolated VRF, e.g. `lylat-telemetry`).
 - **VRF names are at most 15 characters.** VyOS rejects longer names, and the
   whole batch fails with HTTP 400; the `vnis` validation now catches it at plan.
 
@@ -214,11 +220,9 @@ tooling/walk-roots.sh fabric-leaves
 
 ## Things to know
 
-- **The config isn't saved to the boot config.** The leaf resource sets
-  `save = false`, while the DHCP VMs use `save = true`. In VyOS, `save` writes
-  the running config to `/config/config.boot`. If a leaf needs this config to
-  survive a reboot, run `save` on it, or change the flag in
-  `modules/fabric/leaf/main.tf`.
+- **The config is saved to the boot config.** The leaf resource sets `save = true`
+  (`modules/fabric/leaf/main.tf`), like the DHCP VMs: after the commit, VyOS writes the running
+  config to `/config/config.boot`, so a leaf reboot keeps the OpenTofu-managed config.
 - **Check for stale config when you remove or renumber things.** The provider
   sends `set` commands. After removing a VLAN or VRF from the inventory, check on
   the device (`show configuration commands | match <thing>`) that the old config
@@ -237,5 +241,5 @@ show bgp l2vpn evpn route vni 9008        # EVPN routes for one VNI
 show evpn mac vni 9008                    # MACs in a VNI: local, or remote with the VTEP behind them
 show vrf vni                              # which L3VNI each VRF uses
 show bfd peers                            # BFD status of every session
-show ip route vrf lylat_service           # a VRF's routing table
+show ip route vrf lylat-dns               # a VRF's routing table
 ```

@@ -1,4 +1,4 @@
-# Reverse proxy for the VLAN 2 web UIs: nginx (Podman Quadlet container, pinned official image, host
+# Reverse proxy for the lab's web UIs: nginx (Podman Quadlet container, pinned official image, host
 # network; config in /etc/nginx-proxy) on every role "proxy" VM terminates
 # TLS for https://<name>.lylat.space with the Let's Encrypt wildcard *.lylat.space that roots/certs
 # installs in var.proxy.cert_dir, and forwards over plain HTTP to the service's own VIP (its address
