@@ -1,5 +1,5 @@
 # BIND metrics for dns01/02: BIND's statistics channel (named.conf, 127.0.0.1:8053) read by
-# prometheus-community/bind_exporter (Podman Quadlet, host network), listening on the management address
+# prometheus-community/bind_exporter (Podman Quadlet, host network), listening on the telemetry address
 # :9119 where monitoring-config's `bind` job scrapes it (the port is hard-coded there too:
 # modules/services/monitoring/bind.tf). Separate from terraform_data.bind9, so changing it never
 # restarts BIND. The DNS VMs run no nftables ruleset.

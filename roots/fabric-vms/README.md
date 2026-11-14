@@ -23,7 +23,7 @@ can't be chosen per instance. Here's the VM on venom (ID 17):
 | `eth2` | `vmbr4002` (link to spine 2), MAC `02:00:00:17:00:02` | `underlay_bridges[1]` |
 | `eth3` | `vmbr4000` (trunk to the host's VMs), MAC `02:00:00:17:00:03` | `underlay_bridges[2]` |
 | Started | yes | a `config` default set by this root |
-| Tags | `opentofu, debian, vyos, vxlan` | a `config` default set by this root |
+| Tags | `opentofu, vyos, vtep` | a `config` default set by this root (`locals.tf`) |
 | CPU, memory, disk, ... | 4 cores, 4096 MB, 10 GB with today's inventory | `vm_config` and the schema defaults |
 
 The data NICs use `vm_config.underlay_mtu`, which defaults to `1`. That's

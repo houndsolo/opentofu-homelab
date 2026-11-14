@@ -5,8 +5,8 @@ module "leaves" {
 }
 
 # Generated records (2026-11-12): names come from the inventory instead of dns-records.auto.tfvars.
-#   <vm>            the VM's service address: the NIC with the default gateway (VLAN 2 for most
-#                   service VMs), or its management address if it has none (dhcp01/02)
+#   <vm>            the VM's service address: the NIC with the default gateway (the zone segment for
+#                   most service VMs), or its management address if it has none (dhcp01/02)
 #   <vm>.mgmt       the VM's management address (10.20.x.x)
 #   <vip>           every keepalived VIP in inventory/auto.tfvars/vips.auto.tfvars
 #   <node>, <node>.mgmt, leaf-<id>(.mgmt), spine-<id>(.mgmt)   Proxmox hosts and the fabric

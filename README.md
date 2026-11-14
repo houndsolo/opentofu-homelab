@@ -133,14 +133,21 @@ The VRFs in the inventory today (the source of truth is
 
 | VRF | L3VNI | Leaf roles | L2VNIs (VLAN: subnet, gateway) |
 | --- | --- | --- | --- |
-| `lylat_service` | 6600 | proxmox | 8: 10.8.0.0/16 (gateway .0.5) |
+| `lylat-edge` | 5100 | proxmox | 2: 10.2.0.0/16 (gateway .0.5; the proxy VIP 10.2.11.107) |
+| `lylat-app` | 5200 | proxmox | 1201: 10.52.0.0/16 (gateway .0.1; Grafana, NetBox, dark-triage) |
+| `lylat-dns` | 5300 | proxmox | 1301: 10.53.0.0/16 (gateway .0.1); 8: 10.8.0.0/16 (gateway .0.5; DNS 10.8.53.53/.1/.2) |
+| `lylat-obs` | 5400 | proxmox | 1401: 10.54.0.0/16 (gateway .0.1; Prometheus, Loki, Mimir) |
+| `lylat-telemetry` | 5500 | proxmox | 1501: 10.55.0.0/16 (gateway .0.1; scrapes and log pushes, isolated) |
+| `lylat-data` | 5600 | proxmox | 1601: 10.56.0.0/16 (gateway .0.1; Postgres, Valkey) |
 | `lylat_lan` | 6900 | proxmox, external_l2 | 9, 10, 11: 10.9/10.10/10.11.0.0/16 |
-| `lylat_infra` | 6200 | proxmox | 2: 10.2.0.0/16 |
 | `lylat_ai` | 6700 | proxmox, external_l2 | 12: 10.12.0.0/16 |
-| `lylat_external` | 6666 | external_l3 | none (routed only) |
+| `lylat_external` | 6666 | external_l3 | none (routed only; the only VRF that sends 0.0.0.0/0 into EVPN) |
 
-The L2VNI number is 9000 + the VLAN ID by convention (VLAN 8 is L2VNI 9008).
-Every anycast gateway is `.0.5` in its subnet (for example `10.8.0.5`).
+The zone VRFs (lylat-edge ... lylat-data, DT-090) number everything from the zone id Z (51-56): L3VNI
+Z00, one flat segment L2VNI Z01 on VLAN Z01 - 4000, `10.Z.0.0/16` with the anycast gateway `.0.1`
+(plus `fd69:Z01::1/64`). The older VLANs keep L2VNI = 9000 + the VLAN ID (VLAN 8 is L2VNI 9008) and
+the gateway `.0.5` (for example `10.8.0.5`). HA peer traffic uses standalone L2VNIs without a VRF
+(VLAN 10aa / VNI 50aa / `10.50.aa.0/24`, [`l2vnis.auto.tfvars`](inventory/auto.tfvars/l2vnis.auto.tfvars)).
 
 ### MTU
 
@@ -163,8 +170,8 @@ A's L3VNI. See
 
 You don't need a special `dvni` variable. Add the other VRF's route-target to
 `evpn_rt_imports`, and EVPN supplies the destination VNI. The live inventory
-already does this: for example, `lylat_service` (6600) imports `700:6200`,
-`700:6900` and `700:6666`. FRR needs a single VXLAN device for this data plane,
+already does this: for example, `lylat-dns` (5300) imports `700:5100`, `700:5200`,
+`700:6900`, `700:6666` and the other zones. FRR needs a single VXLAN device for this data plane,
 which is why the leaf module uses one external-mode `vxlan0` with VLAN-to-VNI
 mappings.
 

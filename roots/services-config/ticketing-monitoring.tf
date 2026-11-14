@@ -1,7 +1,7 @@
 # Host monitoring for the dark-triage VMs (ticketing.tf), like the NetBox VMs: node_exporter
-# (dns-node-exporter.tf's Quadlet; address-info shows which VM holds the VIP 10.2.11.105) on the
-# management address :9100, where monitoring-config's node job scrapes it (role "ticketing"), and
-# Grafana Alloy (alloy.tf: the journal, the app's container logs included, to Loki's backend VIP).
+# (dns-node-exporter.tf's Quadlet; address-info shows which VM holds the VIP 10.52.13.105) on the
+# telemetry address :9100 (telemetry.tf scrape_ip), where monitoring-config's node job scrapes it (role "ticketing"), and
+# Grafana Alloy (alloy.tf: the journal, the app's container logs included, to Loki's telemetry VIP).
 # Separate from terraform_data.ticketing, so changing it never restarts the app.
 variable "ticketing_monitoring" {
   description = "node_exporter and Alloy (journal to Loki, alloy.tf) on the role = \"ticketing\" VMs. null = don't install them."

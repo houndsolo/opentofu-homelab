@@ -10,9 +10,9 @@
 # at /var/lib/netbox on both VMs over their Ceph public network NIC, so an upload on one node is
 # there on the other. Without the key they are local directories.
 #
-# HA: keepalived holds var.netbox.vip on the VLAN 2 NIC of a node whose NetBox answers /login/;
+# HA: keepalived holds var.netbox.vip on the lylat-app NIC of a node whose NetBox answers /login/;
 # adverts go unicast over the HA L2VNI (l2vnis.ha_netbox). NetBox is published on the node's own
-# VLAN 2 address and the VIP, ports 80 and 8000. Deploys are canary-first like dark-triage.
+# lylat-app address and the VIP, ports 80 and 8000. Deploys are canary-first like dark-triage.
 variable "netbox" {
   description = "NetBox image, database, superuser and VIP. null = don't deploy."
   type = object({
@@ -37,7 +37,7 @@ variable "netbox" {
       path     = optional(string, "/netbox")
       client   = optional(string, "netbox")
     }), {})
-    # keepalived VIP on VLAN 2 (netbox-vip.lylat.space; users reach https://netbox.lylat.space through
+    # keepalived VIP in lylat-app (netbox-vip.lylat.space; users reach https://netbox.lylat.space through
     # the reverse proxy, proxy.tf). null = no keepalived.
     vip       = optional(string, "10.52.12.106/16")
     router_id = optional(number, 106) # = the VIP's last octet (Grafana 100 ... dark-triage 105)
@@ -84,7 +84,7 @@ locals {
   netbox_cephfs  = local.netbox_enabled && nonsensitive(var.netbox_cephfs_key != null)
   netbox_ha      = local.netbox_enabled && local.netbox_vip != null
 
-  # network_devices[i] is eth<i+1>: NetBox listens on the VLAN 2 NIC (the one with the gateway);
+  # network_devices[i] is eth<i+1>: NetBox listens on the lylat-app NIC (the one with the gateway);
   # keepalived adverts use the NIC on the HA L2VNI.
   netbox_nics = !local.netbox_enabled ? {} : {
     for name, vm in local.netbox_vms : name => {

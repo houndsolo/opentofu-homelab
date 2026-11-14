@@ -4,7 +4,7 @@ vm_config = {
   started = true
 }
 
-# services-vms downloads the Debian image; other images and snippets must exist.
+# proxmox-download-files downloads the Debian image (to cephfs:import/); other images and snippets must exist.
 vm_images = {
   debian13 = {
     import_image = "cephfs:import/debian-13-genericcloud-amd64.qcow2"

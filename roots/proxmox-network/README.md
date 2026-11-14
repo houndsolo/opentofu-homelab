@@ -28,7 +28,7 @@ interfaces, with its own ID in the addresses.
 | `vmbr4001` | `eth4001` (VLAN-aware) | | 9189 | Leaf ↔ spine 1 |
 | `vmbr4002` | `eth4002` (VLAN-aware) | | 9189 | Leaf ↔ spine 2 |
 | `vmbr4010`–`4012` | no ports | | 9119 / 9189 | TEST copies of 4000–4002 |
-| `vmbr4000.2` | VLAN 2 on `vmbr4000` | `10.2.0.17/16`, **default gateway `10.2.0.5`** | 1500 | Puts the host itself on VLAN 2 (`lylat_infra`), so the web UI can be reached through the fabric (its comment is `vxlan-webui`) |
+| `vmbr4000.2` | VLAN 2 on `vmbr4000` | `10.2.0.17/16`, **default gateway `10.2.0.5`** | 1500 | Puts the host itself on VLAN 2 (VRF `lylat-edge`), so the web UI can be reached through the fabric (its comment is `vxlan-webui`) |
 
 The NICs `eth0`, `eth1`, `eth7`, `eth10`, `eth22`, `eth27`, `eth4001` and
 `eth4002` get their MTU and a comment. Those NIC names must already exist on the
@@ -45,6 +45,13 @@ So a host only reaches off-subnet networks, such as the internet, while its leaf
 VM is running and the fabric is up. The management network on `vmbr0`
 (`10.20.0.0/16`) is directly connected and doesn't depend on it. Keep that in
 mind when you rebuild a leaf VM or apply leaf changes.
+
+**Web UI on 443 (not managed by OpenTofu).** [`host-files/`](host-files/) holds an nftables table
+(`ip pve_https`: TCP 443 to one of the node's own addresses -> pveproxy on 8006) and the
+`pve-https-redirect.service` unit that loads it, so `https://<node>.lylat.space` works without `:8006`.
+Install it by hand on each node (cluster nodes and greatfox) with `pve-https-install.sh`; the usage is at
+the top of that script. The proxies also publish the UIs as `https://pve.lylat.space` and
+`https://pve-<node>.lylat.space` (services-config `proxy.tf`).
 
 ## How the addresses are calculated
 

@@ -23,7 +23,7 @@ vms = {
         ipv6_address = "fd69:5301::53:51/64"
       },
       {
-        # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
+        # HA L2VNI 5053 (l2vnis.ha_dns): keepalived adverts for the DNS VIPs 10.8.53.53 and 10.53.53.53.
         bridge       = "vmbr4000"
         vlan_id      = 1053
         ipv4_address = "10.50.53.51/24"
@@ -70,7 +70,7 @@ vms = {
         ipv6_address = "fd69:5301::53:52/64"
       },
       {
-        # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
+        # HA L2VNI 5053 (l2vnis.ha_dns): keepalived adverts for the DNS VIPs 10.8.53.53 and 10.53.53.53.
         bridge       = "vmbr4000"
         vlan_id      = 1053
         ipv4_address = "10.50.53.52/24"
@@ -145,7 +145,7 @@ vms = {
         ipv4_address = "10.5.11.30/16"
       },
       {
-        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.54.16.102) and Alertmanager gossip.
+        # HA L2VNI 5016 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.54.16.102) and Alertmanager gossip.
         bridge       = "vmbr4000"
         vlan_id      = 1016
         ipv4_address = "10.50.16.30/24"
@@ -164,7 +164,7 @@ vms = {
       tags         = ["opentofu", "debian", "monitoring"]
       cpu_cores    = 4
       memory_mb    = 8192
-      disk_size_gb = 200 # Prometheus TSDB + Grafana Postgres (+ the retired InfluxDB's data until it's removed).
+      disk_size_gb = 200 # Prometheus TSDB (+ the retired Postgres and InfluxDB data dirs until they're removed).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
     }
@@ -483,7 +483,7 @@ vms = {
     }
   }
   proxy01 = {
-    # nginx reverse proxy, HA pair with proxy02: HTTPS front end for the VLAN 2 web UIs (https://<name>.lylat.space,
+    # nginx reverse proxy, HA pair with proxy02: HTTPS front end for the web UIs (https://<name>.lylat.space,
     # Let's Encrypt wildcard from roots/certs via Cloudflare DNS-01), keepalived VIP 10.2.11.107.
     # Same last octet everywhere (.50), like the other service VMs.
     owner              = "services-vms"
@@ -532,7 +532,7 @@ vms = {
     }
   }
   proxy02 = {
-    # nginx reverse proxy, HA pair with proxy01: HTTPS front end for the VLAN 2 web UIs (https://<name>.lylat.space,
+    # nginx reverse proxy, HA pair with proxy01: HTTPS front end for the web UIs (https://<name>.lylat.space,
     # Let's Encrypt wildcard from roots/certs via Cloudflare DNS-01), keepalived VIP 10.2.11.107.
     # Same last octet everywhere (.51), like the other service VMs.
     owner              = "services-vms"
@@ -581,7 +581,7 @@ vms = {
     }
   }
   mon02 = {
-    # Prometheus/Alertmanager replica of mon01 (Postgres stays on mon01 only).
+    # Prometheus/Alertmanager replica of mon01.
     owner              = "services-vms"
     role               = "monitoring"
     ha                 = { group = "monitoring" } # Proxmox HA; never on a node with another monitoring VM
@@ -605,7 +605,7 @@ vms = {
         ipv4_address = "10.5.11.31/16"
       },
       {
-        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.54.16.102) and Alertmanager gossip.
+        # HA L2VNI 5016 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.54.16.102) and Alertmanager gossip.
         bridge       = "vmbr4000"
         vlan_id      = 1016
         ipv4_address = "10.50.16.31/24"
@@ -649,7 +649,7 @@ vms = {
         ipv6_address = "fd69:5201::11:32/64"
       },
       {
-        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.52.11.100) and alerting HA (9094).
+        # HA L2VNI 5011 (l2vnis.ha_grafana): keepalived (VIP 10.52.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
         vlan_id      = 1011
         ipv4_address = "10.50.11.32/24"
@@ -692,7 +692,7 @@ vms = {
         ipv6_address = "fd69:5201::11:33/64"
       },
       {
-        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.52.11.100) and alerting HA (9094).
+        # HA L2VNI 5011 (l2vnis.ha_grafana): keepalived (VIP 10.52.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
         vlan_id      = 1011
         ipv4_address = "10.50.11.33/24"
@@ -744,7 +744,7 @@ vms = {
         ipv4_address = "10.27.11.34/16"
       },
       {
-        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        # HA L2VNI 5018 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1018
         ipv4_address = "10.50.18.34/24"
@@ -797,7 +797,7 @@ vms = {
         ipv4_address = "10.27.11.35/16"
       },
       {
-        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        # HA L2VNI 5018 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1018
         ipv4_address = "10.50.18.35/24"
@@ -850,7 +850,7 @@ vms = {
         ipv4_address = "10.27.11.36/16"
       },
       {
-        # HA L2VNI 9214 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
+        # HA L2VNI 5018 (l2vnis.ha_logging): Loki memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1018
         ipv4_address = "10.50.18.36/24"
@@ -899,7 +899,7 @@ vms = {
         ipv4_address = "10.27.11.37/16"
       },
       {
-        # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
+        # HA L2VNI 5017 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1017
         ipv4_address = "10.50.17.37/24"
@@ -947,7 +947,7 @@ vms = {
         ipv4_address = "10.27.11.38/16"
       },
       {
-        # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
+        # HA L2VNI 5017 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1017
         ipv4_address = "10.50.17.38/24"
@@ -995,7 +995,7 @@ vms = {
         ipv4_address = "10.27.11.39/16"
       },
       {
-        # HA L2VNI 9216 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
+        # HA L2VNI 5017 (l2vnis.ha_mimir): Mimir memberlist/gRPC and keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1017
         ipv4_address = "10.50.17.39/24"
@@ -1021,7 +1021,7 @@ vms = {
   }
 
   pg01 = {
-    # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
+    # Patroni member (Postgres 18 + etcd + pgBackRest): the HA database of Grafana, NetBox and dark-triage.
     owner              = "services-vms"
     role               = "postgres"
     ha                 = { group = "postgres" } # Proxmox HA; never on a node with another postgres VM
@@ -1045,7 +1045,7 @@ vms = {
         ipv4_address = "10.27.11.40/16"
       },
       {
-        # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
+        # HA L2VNI 5014 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1014
         ipv4_address = "10.50.14.40/24"
@@ -1070,7 +1070,7 @@ vms = {
     }
   }
   pg02 = {
-    # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
+    # Patroni member (Postgres 18 + etcd + pgBackRest): the HA database of Grafana, NetBox and dark-triage.
     owner              = "services-vms"
     role               = "postgres"
     ha                 = { group = "postgres" } # Proxmox HA; never on a node with another postgres VM
@@ -1094,7 +1094,7 @@ vms = {
         ipv4_address = "10.27.11.41/16"
       },
       {
-        # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
+        # HA L2VNI 5014 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1014
         ipv4_address = "10.50.14.41/24"
@@ -1119,7 +1119,7 @@ vms = {
     }
   }
   pg03 = {
-    # Patroni member (Postgres 17 + etcd + pgBackRest): Grafana's HA database.
+    # Patroni member (Postgres 18 + etcd + pgBackRest): the HA database of Grafana, NetBox and dark-triage.
     owner              = "services-vms"
     role               = "postgres"
     ha                 = { group = "postgres" } # Proxmox HA; never on a node with another postgres VM
@@ -1143,7 +1143,7 @@ vms = {
         ipv4_address = "10.27.11.42/16"
       },
       {
-        # HA L2VNI 9217 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
+        # HA L2VNI 5014 (l2vnis.ha_postgres): streaming replication, etcd, Patroni REST, keepalived adverts.
         bridge       = "vmbr4000"
         vlan_id      = 1014
         ipv4_address = "10.50.14.42/24"
