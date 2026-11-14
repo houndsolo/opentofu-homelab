@@ -933,7 +933,7 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
   `random_password` resources, wipe the data directory too.
 - **Alertmanager routes everything to a `null` receiver.** Alerts are visible in
   Alertmanager and Grafana but not sent anywhere until you add a receiver.
-- **Postgres (the Patroni VIP 10.56.14.104) is in lylat-data**, which only lylat-app, lylat-dns and lylat_external import (pg_hba and `postgres_guard` limit the clients further).
+- **Postgres (the Patroni VIP 10.56.14.104) is in lylat-data**, which only lylat-app, lylat-dns and lylat-external import (pg_hba and `postgres_guard` limit the clients further).
 - **The Proxmox metric servers are managed here** ([`pve-metrics.tf`](pve-metrics.tf)).
   The cluster and the standalone greatfox each have one PVE metric server per monitoring
   backend, `pvestatd-mon01` and `pvestatd-mon02` (`/etc/pve/status.cfg`, type `influxdb`),

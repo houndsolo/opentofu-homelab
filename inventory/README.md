@@ -433,7 +433,7 @@ The live inventory follows a few conventions, which you can see in the example:
   `10.Z.0.1` and `fd69:Z01::1/64` (`router_advert = true`: RAs without SLAAC, router lifetime 0, route
   `fd69::/16`). Example: lylat-app = 5200 / VLAN 1200, segment 5201 / VLAN 1201 / 10.52.0.0/16. lylat-edge has
   no such segment (it holds the legacy VLAN 2; 10.51.0.0/16 is reserved), and lylat-dns also holds VLAN 8.
-- Only the external VRF (`lylat_external`) sends 0.0.0.0/0 into EVPN; every other VRF denies it
+- Only the external VRF (`lylat-external`) sends 0.0.0.0/0 into EVPN; every other VRF denies it
   (`PL-DEFAULT-ROUTE` in the leaf route-maps).
 
 Checked automatically: every VRF has at least one valid role (`proxmox`,

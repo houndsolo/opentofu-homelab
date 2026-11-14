@@ -34,8 +34,8 @@ all the VLANs (L2VNIs) inside those VRFs. With today's
 | Role | Leaves | VRFs (L3VNI) | VLANs |
 | --- | --- | --- | --- |
 | `proxmox` | `vtep-*` on every host | `lylat-edge` (5100), `lylat-app` (5200), `lylat-dns` (5300), `lylat-obs` (5400), `lylat-telemetry` (5500), `lylat-data` (5600), `lylat_lan` (6900), `lylat_ai` (6700) | 2, 8, 9, 10, 11, 12, 1201, 1301, 1401, 1501, 1601 |
-| `external_l2` | `external_l2_01` | `lylat_lan` (6900), `lylat_ai` (6700) | 9, 10, 11, 12 |
-| `external_l3` | `external_l3_01`, `external_l3_02` | `lylat_external` (6666) | none (routed only) |
+| `external_l2` | `external_l2_01` | `lylat-lan` (6900), `lylat-ai` (6700) | 9, 10, 11, 12 |
+| `external_l3` | `external_l3_01`, `external_l3_02` | `lylat-external` (6666) | none (routed only) |
 
 A leaf whose role matches no VRF gets only its interface MAC bindings and the
 system settings. The `proxmox` leaves (not greatfox's, unless `on_standalone`) also get the
@@ -177,7 +177,7 @@ README.
 | `PL-<VRF>-L2VNI-SUBNETS` (and `PL6-…` for IPv6 gateways) | (prefix list) | The VRF's VLAN subnets, such as `10.53.0.0/16` and `10.8.0.0/16` in lylat-dns |
 | `RM-<VRF>-CONNECTED-TO-BGP` | Redistributing connected routes | Only the VLAN subnets are let in. In a VRF without VLANs: everything in the external VRF, nothing in any other. |
 | `RM-<VRF>-BGP-TO-LOCAL-VPN` | VPN export (local leaking) | Same filter: the VLAN subnets; a VRF without VLANs permits everything only if it's the external VRF, otherwise denies |
-| `RM-<VRF>-BGP-TO-EVPN` | EVPN type-5 advertisement | Denies `0.0.0.0/0` and `::/0` (`PL-DEFAULT-ROUTE`, `PL6-DEFAULT-ROUTE`) in every VRF but the external one, so only `lylat_external` originates the default; permits everything else |
+| `RM-<VRF>-BGP-TO-EVPN` | EVPN type-5 advertisement | Denies `0.0.0.0/0` and `::/0` (`PL-DEFAULT-ROUTE`, `PL6-DEFAULT-ROUTE`) in every VRF but the external one, so only `lylat-external` originates the default; permits everything else |
 | `RM-EVPN-SPINE-EXPORT` | EVPN export to the spines | **Denies type-5 routes for each VRF's own VLAN subnets**, and permits everything else |
 | `block_local_as_rm` | (nothing) | Defined, but not applied anywhere |
 

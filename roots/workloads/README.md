@@ -26,7 +26,7 @@ vms = {
     # Management NIC (eth0 on vmbr0). Leave this line out to use DHCP instead.
     management_address = "10.20.80.2/16"
 
-    # Optional: a NIC on a fabric VLAN. VLAN 9 is in VRF lylat_lan (10.9.0.0/16).
+    # Optional: a NIC on a fabric VLAN. VLAN 9 is in VRF lylat-lan (10.9.0.0/16).
     # Because the fabric stretches the VLAN, this works on any Proxmox host.
     network_devices = [{
       bridge       = "vmbr4000"     # the host's VLAN-aware fabric bridge
