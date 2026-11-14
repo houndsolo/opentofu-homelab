@@ -133,9 +133,9 @@ The VRFs in the inventory today (the source of truth is
 
 | VRF | L3VNI | Leaf roles | L2VNIs (VLAN: subnet, gateway) |
 | --- | --- | --- | --- |
-| `lylat-edge` | 5100 | proxmox | 2: 10.2.0.0/16 (gateway .0.5; the proxy VIP 10.2.11.107) |
+| `lylat-edge` | 5100 | proxmox | 2: 10.2.0.0/16 (gateway .0.1; the proxy VIP 10.2.11.107) |
 | `lylat-app` | 5200 | proxmox | 1201: 10.52.0.0/16 (gateway .0.1; Grafana, NetBox, dark-triage) |
-| `lylat-dns` | 5300 | proxmox | 1301: 10.53.0.0/16 (gateway .0.1); 8: 10.8.0.0/16 (gateway .0.5; DNS 10.8.53.53/.1/.2) |
+| `lylat-dns` | 5300 | proxmox | 1301: 10.53.0.0/16 (gateway .0.1); 8: 10.8.0.0/16 (gateway .0.1; DNS 10.8.53.53/.1/.2) |
 | `lylat-obs` | 5400 | proxmox | 1401: 10.54.0.0/16 (gateway .0.1; Prometheus, Loki, Mimir) |
 | `lylat-telemetry` | 5500 | proxmox | 1501: 10.55.0.0/16 (gateway .0.1; scrapes and log pushes, isolated) |
 | `lylat-data` | 5600 | proxmox | 1601: 10.56.0.0/16 (gateway .0.1; Postgres, Valkey) |
@@ -146,7 +146,7 @@ The VRFs in the inventory today (the source of truth is
 The zone VRFs (lylat-edge ... lylat-data, DT-090) number everything from the zone id Z (51-56): L3VNI
 Z00, one flat segment L2VNI Z01 on VLAN Z01 - 4000, `10.Z.0.0/16` with the anycast gateway `.0.1`
 (plus `fd69:Z01::1/64`). The older VLANs keep L2VNI = 9000 + the VLAN ID (VLAN 8 is L2VNI 9008) and
-the gateway `.0.5` (for example `10.8.0.5`). HA peer traffic uses standalone L2VNIs without a VRF
+the gateway `.0.1` (for example `10.8.0.1`). HA peer traffic uses standalone L2VNIs without a VRF
 (VLAN 10aa / VNI 50aa / `10.50.aa.0/24`, [`l2vnis.auto.tfvars`](inventory/auto.tfvars/l2vnis.auto.tfvars)).
 
 ### MTU

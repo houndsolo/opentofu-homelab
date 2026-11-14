@@ -13,7 +13,7 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 8
         ipv4_address = "10.8.53.1/16"
-        ipv4_gateway = "10.8.0.5"
+        ipv4_gateway = "10.8.0.1"
       },
       {
         # lylat-dns (VNI 5301): BIND + the VIP 10.53.53.53; VLAN 8 above stays the default route (same VRF).
@@ -60,7 +60,7 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 8
         ipv4_address = "10.8.53.2/16"
-        ipv4_gateway = "10.8.0.5"
+        ipv4_gateway = "10.8.0.1"
       },
       {
         # lylat-dns (VNI 5301): BIND + the VIP 10.53.53.53; VLAN 8 above stays the default route (same VRF).
@@ -498,7 +498,7 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 2
         ipv4_address = "10.2.11.50/16"
-        ipv4_gateway = "10.2.0.5"
+        ipv4_gateway = "10.2.0.1"
       },
       {
         # lylat-app (VNI 5201): upstream leg to the Grafana/NetBox/dark-triage VIPs in 10.52.0.0/16, on-link.
@@ -547,7 +547,7 @@ vms = {
         bridge       = "vmbr4000"
         vlan_id      = 2
         ipv4_address = "10.2.11.51/16"
-        ipv4_gateway = "10.2.0.5"
+        ipv4_gateway = "10.2.0.1"
       },
       {
         # lylat-app (VNI 5201): upstream leg to the Grafana/NetBox/dark-triage VIPs in 10.52.0.0/16, on-link.

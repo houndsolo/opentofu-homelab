@@ -28,7 +28,7 @@ interfaces, with its own ID in the addresses.
 | `vmbr4001` | `eth4001` (VLAN-aware) | | 9189 | Leaf ↔ spine 1 |
 | `vmbr4002` | `eth4002` (VLAN-aware) | | 9189 | Leaf ↔ spine 2 |
 | `vmbr4010`–`4012` | no ports | | 9119 / 9189 | TEST copies of 4000–4002 |
-| `vmbr4000.2` | VLAN 2 on `vmbr4000` | `10.2.0.17/16`, **default gateway `10.2.0.5`** | 1500 | Puts the host itself on VLAN 2 (VRF `lylat-edge`), so the web UI can be reached through the fabric (its comment is `vxlan-webui`) |
+| `vmbr4000.2` | VLAN 2 on `vmbr4000` | `10.2.0.17/16`, **default gateway `10.2.0.1`** | 1500 | Puts the host itself on VLAN 2 (VRF `lylat-edge`), so the web UI can be reached through the fabric (its comment is `vxlan-webui`) |
 
 The NICs `eth0`, `eth1`, `eth7`, `eth10`, `eth22`, `eth27`, `eth4001` and
 `eth4002` get their MTU and a comment. Those NIC names must already exist on the
@@ -39,7 +39,7 @@ VLAN-aware switch inside the host. A VM's NIC joins it with a VLAN tag (for
 example, VLAN 8 for the DNS VMs). The host's leaf VM joins it on `eth3` as a
 trunk, and routes and bridges those VLANs into the fabric.
 
-**The hosts' default route goes through the fabric.** `10.2.0.5` is the anycast
+**The hosts' default route goes through the fabric.** `10.2.0.1` is the anycast
 gateway of VLAN 2, which is answered by the host's own leaf VM (`vtep-<host>`).
 So a host only reaches off-subnet networks, such as the internet, while its leaf
 VM is running and the fabric is up. The management network on `vmbr0`

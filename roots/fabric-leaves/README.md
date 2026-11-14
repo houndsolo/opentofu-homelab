@@ -135,7 +135,7 @@ set interfaces bridge br0 member interface eth3 allowed-vlan '8'
 ```text
 # The same IP and MAC on every leaf, so a VM's gateway is always its local leaf.
 set interfaces pseudo-ethernet peth9008 source-interface 'br0.8'
-set interfaces pseudo-ethernet peth9008 address '10.8.0.5/16'
+set interfaces pseudo-ethernet peth9008 address '10.8.0.1/16'
 set interfaces pseudo-ethernet peth9008 address 'fd69:9008::1/64'   # anycast_gw_ipv6 (DAD off)
 set interfaces pseudo-ethernet peth9008 mac '02:00:00:00:08:01'
 set interfaces pseudo-ethernet peth9008 anycast-gateway

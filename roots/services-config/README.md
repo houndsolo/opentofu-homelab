@@ -345,7 +345,7 @@ set service dhcp-server high-availability remote '10.50.9.2'
 set service dhcp-server high-availability status 'primary'
 set service dhcp-server listen-interface 'eth2'
 set service dhcp-server shared-network-name l2vni9008 authoritative
-set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option default-router '10.8.0.5'
+set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option default-router '10.8.0.1'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.53'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 range 0 start '10.8.5.1'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 range 0 stop '10.8.5.99'

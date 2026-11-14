@@ -18,7 +18,7 @@ is named; the zone VLANs 1201/1301/1401/1601 are lylat-app/-dns/-obs/-data, 1501
 
 | VM | Role | Node | VM ID | Image | Management (eth0) | Data NICs |
 | --- | --- | --- | --- | --- | --- | --- |
-| `dns01` | `dns` | venom | 5301 | `debian13` | `10.20.53.1/16` | eth1: VLAN 8 `10.8.53.1/16`, gateway `10.8.0.5`; eth2: VLAN 1301 `10.53.53.51/16`; eth3: VLAN 1053 `10.50.53.51/24`; eth4: VLAN 1501 `10.55.53.51/16` |
+| `dns01` | `dns` | venom | 5301 | `debian13` | `10.20.53.1/16` | eth1: VLAN 8 `10.8.53.1/16`, gateway `10.8.0.1`; eth2: VLAN 1301 `10.53.53.51/16`; eth3: VLAN 1053 `10.50.53.51/24`; eth4: VLAN 1501 `10.55.53.51/16` |
 | `dns02` | `dns` | eldarad | 5302 | `debian13` | `10.20.53.2/16` | same as `dns01` with `10.8.53.2` and `.52` |
 | `dhcp01` | `dhcp` | venom | 6701 | `vyos` | `10.20.67.1/16` | generated (see below) |
 | `dhcp02` | `dhcp` | eldarad | 6702 | `vyos` | `10.20.67.2/16` | generated |
@@ -31,7 +31,7 @@ is named; the zone VLANs 1201/1301/1401/1601 are lylat-app/-dns/-obs/-data, 1501
 | `triage01`, `triage02` | `ticketing` | fichina, titania | 1143, 1144 | `debian13` | `10.20.11.43`, `.44/16` | eth1: VLAN 1201 `10.52.13.43`/`.44/16`, gateway `10.52.0.1`; eth2: VLAN 1013 `10.50.13.43`/`.44/24`; eth3: VLAN 1501 `10.55.13.43`/`.44/16` |
 | `netbox01`, `netbox02` | `netbox` | macbeth, venom | 1145, 1146 | `debian13` | `10.20.11.45`, `.46/16` | eth1: VLAN 1201 `10.52.12.45`/`.46/16`, gateway `10.52.0.1`; eth2: `vmbr27` `10.27.11.45`/`.46/16` (CephFS); eth3: VLAN 1012 `10.50.12.45`/`.46/24`; eth4: VLAN 1501 `10.55.12.45`/`.46/16` |
 | `valkey01`–`valkey03` | `valkey` | fichina, titania, fortuna | 1147–1149 | `debian13` | `10.20.11.47`–`.49/16` | eth1: VLAN 1601 `10.56.15.47`–`.49/16`, gateway `10.56.0.1`; eth2: VLAN 1501 `10.55.15.47`–`.49/16` |
-| `proxy01`, `proxy02` | `proxy` | macbeth, fichina | 1150, 1151 | `debian13` | `10.20.11.50`, `.51/16` | eth1: VLAN 2 `10.2.11.50`/`.51/16`, gateway `10.2.0.5`; eth2: VLAN 1201 `10.52.10.50`/`.51/16`; eth3: VLAN 1010 `10.50.10.50`/`.51/24`; eth4: VLAN 1501 `10.55.10.50`/`.51/16` |
+| `proxy01`, `proxy02` | `proxy` | macbeth, fichina | 1150, 1151 | `debian13` | `10.20.11.50`, `.51/16` | eth1: VLAN 2 `10.2.11.50`/`.51/16`, gateway `10.2.0.1`; eth2: VLAN 1201 `10.52.10.50`/`.51/16`; eth3: VLAN 1010 `10.50.10.50`/`.51/24`; eth4: VLAN 1501 `10.55.10.50`/`.51/16` |
 
 The zone and telemetry NICs also get a static IPv6 address `fd69:<VNI>::<aa>:<host>/64` (e.g. graf01
 `fd69:5201::11:32`), the HA NICs `fd69:50aa::<host>/64` (keepalived's VRRPv3 adverts use them).
@@ -49,7 +49,7 @@ split across hosts (see [Proxmox HA](#proxmox-ha)), so losing one host doesn't t
 - **Cloud-init** sets both addresses at first boot. It also creates
   `config.ssh_username` with the keys selected in `config.ssh_pubkeys`.
 - **Routing.** There's no management gateway, so the data NIC's gateway
-  (`10.8.0.5`, the anycast gateway on the local leaf) is the VM's only default
+  (`10.8.0.1`, the anycast gateway on the local leaf) is the VM's only default
   route.
 
 Before `services-config` can set them up, the DNS VMs also need:

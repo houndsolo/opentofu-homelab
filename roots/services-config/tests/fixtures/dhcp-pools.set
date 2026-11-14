@@ -5,7 +5,7 @@ set service dhcp-server listen-interface 'eth4'
 set service dhcp-server listen-interface 'eth5'
 set service dhcp-server shared-network-name l2vni9002 authoritative
 set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 lease '86400'
-set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 option default-router '10.2.0.5'
+set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 option default-router '10.2.0.1'
 set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 option domain-name 'lylat.space'
 set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 option domain-search 'lylat.space'
 set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 option name-server '10.8.53.53'
@@ -14,7 +14,7 @@ set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 range 0
 set service dhcp-server shared-network-name l2vni9002 subnet 10.2.0.0/16 subnet-id '9002'
 set service dhcp-server shared-network-name l2vni9008 authoritative
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 lease '86400'
-set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option default-router '10.8.0.5'
+set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option default-router '10.8.0.1'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option domain-name 'lylat.space'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option domain-search 'lylat.space'
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 option name-server '10.8.53.53'
@@ -23,7 +23,7 @@ set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 range 0
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 subnet-id '9008'
 set service dhcp-server shared-network-name l2vni9009 authoritative
 set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 lease '86400'
-set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 option default-router '10.9.0.5'
+set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 option default-router '10.9.0.1'
 set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 option domain-name 'lylat.space'
 set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 option domain-search 'lylat.space'
 set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 option name-server '10.8.53.53'
@@ -32,7 +32,7 @@ set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 range 0
 set service dhcp-server shared-network-name l2vni9009 subnet 10.9.0.0/16 subnet-id '9009'
 set service dhcp-server shared-network-name l2vni9010 authoritative
 set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 lease '86400'
-set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 option default-router '10.10.0.5'
+set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 option default-router '10.10.0.1'
 set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 option domain-name 'lylat.space'
 set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 option domain-search 'lylat.space'
 set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 option name-server '10.8.53.53'
@@ -41,7 +41,7 @@ set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 range 
 set service dhcp-server shared-network-name l2vni9010 subnet 10.10.0.0/16 subnet-id '9010'
 set service dhcp-server shared-network-name l2vni9012 authoritative
 set service dhcp-server shared-network-name l2vni9012 subnet 10.12.0.0/16 lease '86400'
-set service dhcp-server shared-network-name l2vni9012 subnet 10.12.0.0/16 option default-router '10.12.0.5'
+set service dhcp-server shared-network-name l2vni9012 subnet 10.12.0.0/16 option default-router '10.12.0.1'
 set service dhcp-server shared-network-name l2vni9012 subnet 10.12.0.0/16 option domain-name 'lylat.space'
 set service dhcp-server shared-network-name l2vni9012 subnet 10.12.0.0/16 option domain-search 'lylat.space'
 set service dhcp-server shared-network-name l2vni9012 subnet 10.12.0.0/16 option name-server '10.8.53.53'

@@ -31,8 +31,8 @@ vms = {
     network_devices = [{
       bridge       = "vmbr4000"     # the host's VLAN-aware fabric bridge
       vlan_id      = 9              # Proxmox tags it; the guest sees an untagged eth1
-      ipv4_address = "10.9.20.1/16" # outside the DHCP pool, the .67.x DHCP servers and the .0.5 gateway
-      ipv4_gateway = "10.9.0.5"     # the anycast gateway on the local leaf
+      ipv4_address = "10.9.20.1/16" # outside the DHCP pool, the .67.x DHCP servers and the .0.1 gateway
+      ipv4_gateway = "10.9.0.1"     # the anycast gateway on the local leaf
     }]
 
     # Hardware and other per-VM settings: any vm_config key can be overridden here.
