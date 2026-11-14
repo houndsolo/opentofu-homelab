@@ -612,6 +612,21 @@ locals {
         labels      = { severity = "warning" }
         annotations = { summary = "Only {{ $value }} of ${length(var.postgres)} etcd members are up" }
       },
+      # etcd sits on Ceph RBD (DT-017): WAL fsync p99 above 100 ms for half an hour means heartbeats are late
+      # and elections likely (etcd wants < 10 ms). A member restart also counts as a leader change seen.
+      {
+        alert       = "EtcdWALFsyncSlow"
+        expr        = "histogram_quantile(0.99, sum by (host, le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{job=\"etcd\"}[10m]))) > 0.1"
+        for         = "30m"
+        labels      = { severity = "warning" }
+        annotations = { summary = "etcd on {{ $labels.host }}: WAL fsync p99 is {{ $value | humanizeDuration }} (over 100 ms for 30m; Patroni's DCS risks elections)" }
+      },
+      {
+        alert       = "EtcdLeaderChanged"
+        expr        = "increase(etcd_server_leader_changes_seen_total{job=\"etcd\"}[1h]) > 0"
+        labels      = { severity = "warning" }
+        annotations = { summary = "etcd on {{ $labels.host }} saw {{ $value | humanize }} leader change(s) in the last hour (slow disk/network, or a member restart)" }
+      },
       {
         alert       = "PostgresRGWBackendDown"
         expr        = "haproxy_backend_active_servers{job=\"haproxy-postgres\", proxy=\"rgw\"} == 0"

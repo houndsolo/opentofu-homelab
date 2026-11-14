@@ -231,7 +231,7 @@ locals {
           annotations = { summary = "{{ $labels.instance }} {{ $labels.mountpoint }} has under 10% free" }
         },
       ]
-    }], local.storage_health_rules, local.logging_rules, local.wlc_rules, local.pvestatd_rules, local.mimir_rules, local.backend_rules, local.postgres_rules, local.rgw_rules, local.valkey_rules, local.nginx_rules, local.bind_rules) # logging.tf, telemetry.tf, pvestatd.tf, metrics.tf, backends.tf, postgres.tf, rgw.tf, valkey.tf, nginx.tf, bind.tf
+    }], local.storage_health_rules, local.infra_rules, local.logging_rules, local.wlc_rules, local.pvestatd_rules, local.mimir_rules, local.backend_rules, local.postgres_rules, local.rgw_rules, local.valkey_rules, local.nginx_rules, local.bind_rules) # infra-alerts.tf, logging.tf, telemetry.tf, pvestatd.tf, metrics.tf, backends.tf, postgres.tf, rgw.tf, valkey.tf, nginx.tf, bind.tf
   })
 
   # Per-OSD BlueStore stalls (the mixin only has the cluster-wide BLUESTORE_SLOW_OP_ALERT health
