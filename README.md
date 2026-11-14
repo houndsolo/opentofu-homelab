@@ -281,7 +281,7 @@ needs the real infrastructure from the layers before it to be up and reachable.
 7. [services-config](roots/services-config/README.md): BIND, DNS records, and
    DHCP high availability and pools.
 8. [monitoring-config](roots/monitoring-config/README.md): Prometheus,
-   exporters, InfluxDB and Grafana on the monitoring VMs.
+   exporters, Telegraf and Grafana on the monitoring VMs.
 9. [workloads](roots/workloads/README.md): ordinary VMs.
 
 [roots/README.md](roots/README.md) has the prerequisites for each step.

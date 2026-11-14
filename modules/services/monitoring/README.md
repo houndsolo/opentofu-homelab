@@ -33,12 +33,13 @@ root runs the scripts over SSH and documents the behaviour.
   VIPs) and the `monitoring-ha` alert group. `main.tf` renders every backend's units and
   `deploy.sh` (Postgres on the primary only) and one `prometheus.yml` per backend (`__replica__`).
 - `templates/monitoring-keepalived.conf.tftpl`: the backends' VRRP instance.
-- `telemetry.tf`: Telegraf on the backend (`var.wlc_telemetry`; null leaves it out): the
-  C9800 WLCs' model-driven telemetry (gRPC dial-out) into an InfluxDB bucket, its unit,
-  `telegraf.conf`, env file (write token), config check, health checks, the `telegraf`
-  scrape job and the `wlc-telemetry` alert group, which `main.tf` merges in. With two or more
-  Telegraf backends and keepalived it fans out: every Telegraf also listens on the monitoring
-  VIP (the WLCs' one receiver) and writes the bucket on every backend's InfluxDB.
+- `telemetry.tf`: Telegraf on the backends (`var.wlc_telemetry`; null leaves it out): the
+  C9800 WLCs' model-driven telemetry (gRPC dial-out) reshaped into `wlc_*` series for Prometheus
+  (`telegraf/wlc.star`, served on :9275, job `wlc`), its unit, `telegraf.conf`, config check,
+  health checks, the `telegraf` and `wlc` scrape jobs and the `wlc-telemetry` alert group, which
+  `main.tf` merges in. With two or more Telegraf backends and keepalived every Telegraf also
+  listens on the monitoring VIP (the WLCs' one receiver) and keepalived tracks it. Nothing goes
+  to InfluxDB any more (retired 2026-11-14).
 - `templates/container.tftpl`: a generic Quadlet `.container` unit.
 - `templates/config.alloy.tftpl`, `keepalived.conf.tftpl`, `haproxy.cfg.tftpl`,
   `logging-guard.nft.tftpl`, `logging-guard.service`: the logging configs (`haproxy.cfg.tftpl` is

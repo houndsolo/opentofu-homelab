@@ -312,7 +312,7 @@ root creates it. Service VMs also take a `role`:
 | --- | --- | --- | --- | --- |
 | `services-vms` | `dns` | services-vms | services-config (BIND) | Exactly one NIC with an `ipv4_address`: the DNS service address |
 | `services-vms` | `dhcp` | services-vms | services-config (VyOS DHCP) | Define exactly two, or none. VM IDs must be 6701–6799. Data NICs are generated. |
-| `services-vms` | `monitoring` | services-vms | (nothing yet) | `mon01`: meant for Prometheus, InfluxDB and Grafana's Postgres |
+| `services-vms` | `monitoring` | services-vms | (nothing yet) | `mon01`: meant for Prometheus and Grafana's Postgres |
 | `services-vms` | `grafana` | services-vms | (nothing yet) | `graf01`, `graf02` |
 | `services-vms` | `postgres` | services-vms | monitoring-config (Patroni) | `pg01`-`pg03`: Grafana's HA Postgres (Patroni + etcd + pgBackRest); odd count, at least 3 |
 | `services-vms` | (none) | services-vms | (nothing) | Any other service VM |

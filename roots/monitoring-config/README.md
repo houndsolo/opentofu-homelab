@@ -17,10 +17,10 @@ generates the secrets and does the SSH deployment.
 
 | VM | Services (systemd units) | Listens on |
 | --- | --- | --- |
-| backends (mon01 primary, mon02 replica; [Backend HA](#backend-ha-mon01--mon02)) | `prometheus`, `alertmanager`, `influxdb` | monitoring network (`10.5.11.30`/`.31`) and backend VLAN (`10.13.11.30`/`.31`): 9090, 9093, 8086; InfluxDB also on both VIPs (`10.5.11.102`, `10.13.11.102`), Alertmanager on `10.13.11.102`; Alertmanager gossip 9094 on the ha_monitor VLAN 215 (`10.21.13.30`/`.31`) |
+| backends (mon01 primary, mon02 replica; [Backend HA](#backend-ha-mon01--mon02)) | `prometheus`, `alertmanager` | monitoring network (`10.5.11.30`/`.31`) and backend VLAN (`10.13.11.30`/`.31`): 9090, 9093; Alertmanager also on the backend VIP `10.13.11.102`; Alertmanager gossip 9094 on the ha_monitor VLAN 215 (`10.21.13.30`/`.31`) |
 | | `postgres` (shared Grafana database), **mon01 only** | backend VLAN only: `10.13.11.30:5432` |
 | | `snmp-exporter`, `blackbox-exporter`, `pve-exporter` | not published; Prometheus reaches them by name on the `monitoring` Podman network |
-| | `telegraf` ([C9800 telemetry](#c9800-telemetry-model-driven-dial-out), `wlc_telemetry`) | gRPC MDT receiver on the monitoring network only: `10.5.11.30:57500` (mon02: `.31`, once `influxdb_replica_ready`; then also the VIP `10.5.11.102:57500`, where the WLCs send); its own metrics on the backend VLAN, 9273 |
+| | `telegraf` ([C9800 telemetry](#c9800-telemetry-model-driven-dial-out), `wlc_telemetry`) | gRPC MDT receiver on the monitoring network only: `10.5.11.30:57500` (mon02: `.31`) and the monitoring VIP `10.5.11.102:57500` (`wlc-telemetry-vip`, where the WLCs send); its own metrics on the backend VLAN, 9273; the `wlc_*` series on 9275 (all addresses) |
 | | `keepalived` (Debian package) | VRRP (router id 102) unicast over VLAN 215; VIPs `10.5.11.102/16` (vmbr100 NIC) and `10.13.11.102/16` (VLAN 13 NIC) |
 | | `node-exporter` | monitoring address, 9100 |
 | | `monitoring-network` | the Podman bridge network itself |
@@ -41,8 +41,8 @@ generates the secrets and does the SSH deployment.
 The **backend VLAN** (VLAN 13, 10.13.0.0/16, VRF `lylat_monitor`) is isolated:
 it routes to no other VRF. Grafana uses it for its datasources, its Postgres
 database and alerting HA. The **monitoring network** (vmbr100, 10.5.0.0/16) is
-where you open the Prometheus/Alertmanager/InfluxDB UIs and where the Proxmox
-nodes push metrics.
+where you open the Prometheus/Alertmanager UIs and where the Proxmox
+nodes and the C9800 WLCs push metrics.
 
 Both Grafana VMs share one Postgres database, so users, sessions, dashboards
 and alert state are the same on either. Datasources and [dashboards](#dashboards)
@@ -68,10 +68,10 @@ backends. Each uploads `deploy.sh` to a private `/tmp` directory, runs it with
    `--config.check` and `telegraf config check`. A broken config never gets installed.
 4. Creates the directories. Data directories are owned by the user each image
    runs as (looked up from the image), so non-root containers can write them.
-   Postgres and InfluxDB start as root and drop to their `postgres`/`influxdb`
-   user, so their data directories are owned by that user, looked up in the image
-   (their entrypoints only fix ownership when the container starts, so any other
-   owner would lock out a server this deployment doesn't restart).
+   Postgres starts as root and drops to its `postgres` user, so its data directory
+   is owned by that user, looked up in the image (the entrypoint only fixes
+   ownership when the container starts, so any other owner would lock out a server
+   this deployment doesn't restart).
 5. Installs only files that changed (content, mode or owner), and records which
    services those files belong to. Under the dashboards directory, files that are
    no longer in the module are deleted.
@@ -83,7 +83,7 @@ backends. Each uploads `deploy.sh` to a private `/tmp` directory, runs it with
    reloadable config changed. Prometheus, Alertmanager and blackbox reload, so
    editing scrape targets doesn't restart Prometheus.
 8. Waits up to two minutes for every service to be active and for its health
-   checks (`/-/ready`, `/health`, `pg_isready`, Grafana `/api/health`) to pass.
+   checks (`/-/ready`, `pg_isready`, Grafana `/api/health`, Telegraf's ports) to pass.
    If not, it prints the failing units' journal and exits non-zero.
 
 `deploy.sh check` runs steps 1–3 and lists the files that would change or be
@@ -103,9 +103,9 @@ part of the rendered files, but they're generated once and kept in state.
 | `/etc/monitoring/alertmanager/alertmanager.yml` | Alertmanager config |
 | `/etc/monitoring/blackbox/config.yml` | Blackbox modules: `icmp`, `http_2xx`, `dns_soa` |
 | `/etc/monitoring/pve-exporter/pve.yml` | PVE API token (mode 0640, only with a token) |
-| `/etc/monitoring/influxdb.env`, `postgres.env` | Initial credentials (mode 0600) |
-| `/etc/monitoring/telegraf/telegraf.conf`, `/etc/monitoring/telegraf.env` | Telegraf (C9800 telemetry) config, and its InfluxDB write token (mode 0600) |
-| `/var/lib/monitoring/{prometheus,alertmanager,influxdb,postgres}` | Data |
+| `/etc/monitoring/postgres.env` | Initial credentials (mode 0600) |
+| `/etc/monitoring/telegraf/telegraf.conf`, `wlc.star` | Telegraf (C9800 telemetry) config and its starlark reshaping |
+| `/var/lib/monitoring/{prometheus,alertmanager,postgres}` | Data. `/var/lib/monitoring/influxdb` is the retired InfluxDB's data, left in place until it is removed by hand ([Retired: InfluxDB](#retired-influxdb)) |
 | `/etc/grafana-container/provisioning/datasources/datasources.yml` | Grafana datasources (graf VMs) |
 | `/etc/grafana-container/provisioning/dashboards/dashboards.yml` | Grafana dashboard provider (graf VMs) |
 | `/etc/grafana-container/provisioning/dashboards/files/<Folder>/*.json` | Provisioned dashboards (graf VMs) |
@@ -181,7 +181,7 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 
 | Folder | Dashboard (uid) | Source | Shows |
 | --- | --- | --- | --- |
-| Overview | lylat.space overview (`lylat-overview`) | custom (Prometheus + Loki) | **Status:** targets up/down, firing alerts, failing probes, BGP and BFD across the fabric. **Services:** an HA services tile (Grafana, Prometheus, Alertmanager, Mimir, Loki, Alloy, InfluxDB, Postgres, etcd, Valkey, NetBox, dark-triage, DNS, nginx proxy: OK / DEGRADED / DOWN by the share of members answering, Postgres and Valkey also need exactly one leader/primary; click a tile for its dashboard), the keepalived VIPs and which VM holds each (node_exporter address-info), the published HTTPS sites and the certificate's remaining lifetime. **Databases:** Postgres leader, replicas streaming and lag, commits/s, Valkey primary and memory, NetBox's queued RQ jobs. Then Ceph (health, raw used, client IOPS/throughput, OSDs down / PGs not clean), Proxmox (nodes, guests, lylat CPU/memory, fullest storage), Edge (fw-wan up, WAN, VPN tunnels, firewall drops, conntrack), targets per job / per target and the firing alerts, probe status, BGP/BFD over time and EVPN totals, the host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full or its logs), the top 10 interfaces from node_exporter and SNMP, and log volume by source plus the noisiest hosts |
+| Overview | lylat.space overview (`lylat-overview`) | custom (Prometheus + Loki) | **Status:** targets up/down, firing alerts, failing probes, BGP and BFD across the fabric. **Services:** an HA services tile (Grafana, Prometheus, Alertmanager, Mimir, Loki, Alloy, Postgres, etcd, Valkey, NetBox, dark-triage, DNS, nginx proxy: OK / DEGRADED / DOWN by the share of members answering, Postgres and Valkey also need exactly one leader/primary; click a tile for its dashboard), the keepalived VIPs and which VM holds each (node_exporter address-info), the published HTTPS sites and the certificate's remaining lifetime. **Databases:** Postgres leader, replicas streaming and lag, commits/s, Valkey primary and memory, NetBox's queued RQ jobs. Then Ceph (health, raw used, client IOPS/throughput, OSDs down / PGs not clean), Proxmox (nodes, guests, lylat CPU/memory, fullest storage), Edge (fw-wan up, WAN, VPN tunnels, firewall drops, conntrack), targets per job / per target and the firing alerts, probe status, BGP/BFD over time and EVPN totals, the host/router table (state, CPU, memory, disk, load, conntrack, uptime; click a host for Node Exporter Full or its logs), the top 10 interfaces from node_exporter and SNMP, and log volume by source plus the noisiest hosts |
 | Hosts | Node Exporter Full (`node-exporter-full`) | [grafana.com 1860](https://grafana.com/grafana/dashboards/1860) rev 46 | Everything node_exporter collects, for one host. Pick the job (`node` for the VMs, `vyos-node` for the VyOS routers), then the host |
 | Network | FRR / EVPN fabric (`frr-evpn-fabric`) | custom | BGP peer table (router, VRF, AFI/SAFI, peer, hostname, ASNs, state, uptime, prefixes rx/tx, message rates), session state timeline, established sessions per router, flaps in the time range, BFD peers, EVPN remote VTEPs/MACs/ARP-ND per router and per L2 VNI, routes per VRF, RIB vs FIB, BGP RIB, frr_exporter health. Router and VRF pickers |
 | Network | SNMP Device Summary (`snmp-device-summary`) | [grafana.com 12489](https://grafana.com/grafana/dashboards/12489) rev 5 | Per device: interfaces up/down, top talkers, traffic on all interfaces, interface table (uptime for jobs with the `system` module) |
@@ -194,7 +194,7 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Network | Wireless client (C9800) (`wireless-client`) | custom (Prometheus: `wlc_*`, job `wlc`) | One client (MAC picker, most recently seen first): its row of the clients table, RSSI/SNR, PHY rate and spatial streams, throughput and packets (download up, upload down), retries/drops/decrypt and MIC errors, and a timeline of its AP, SSID (a row each) and channel (roams) |
 | Network | Mikrotik monitoring (`mikrotik-snmp`) | [grafana.com 14420](https://grafana.com/grafana/dashboards/14420) rev 9 | MikroTik `mikrotik_lite` module: board/firmware, CPU temperature, per-interface traffic and Ethernet error counters, interface table, neighbors (MNDP/LLDP) |
 | Probes | Blackbox probes (`blackbox-probes`) | custom | ICMP/HTTP/DNS SOA probes: status, availability over the time range, duration, ICMP RTT and hop limit, HTTP status/phases (no TLS)/size, DNS query time, SOA serial and drift between the DNS servers |
-| Monitoring | Monitoring stack (`monitoring-stack`) | custom | Component status and versions, config reloads; Prometheus targets per job, scrape duration, samples, head series, TSDB size, ingestion, rule evaluation, query latency; Alertmanager alerts, silences, notifications; Grafana requests, latency, datasource queries, DB connections, alerting; **Loki and Alloy**: up, ACTIVE ring members per ring, unhealthy/memberlist members, RGWs UP per haproxy, flush failures, Alloy drops and syslog parse errors, lines/bytes received, Alloy sent/received, chunks flushed to S3, S3 requests and p95 latency, in-memory streams and flush queue; SNMP/FRR/node exporter scrape times; **Telegraf** (C9800 telemetry): metrics received per input, InfluxDB writes/drops/errors, output buffer; process memory and CPU |
+| Monitoring | Monitoring stack (`monitoring-stack`) | custom | Component status and versions, config reloads; Prometheus targets per job, scrape duration, samples, head series, TSDB size, ingestion, rule evaluation, query latency; Alertmanager alerts, silences, notifications; Grafana requests, latency, datasource queries, DB connections, alerting; **Loki and Alloy**: up, ACTIVE ring members per ring, unhealthy/memberlist members, RGWs UP per haproxy, flush failures, Alloy drops and syslog parse errors, lines/bytes received, Alloy sent/received, chunks flushed to S3, S3 requests and p95 latency, in-memory streams and flush queue; SNMP/FRR/node exporter scrape times; **Telegraf** (C9800 telemetry, pvestatd): metrics received per input, output buffer; process memory and CPU |
 | Storage | Ceph cluster (`ceph-cluster`) | custom | The PVE Ceph cluster at a glance. **Status:** health, active health checks and their history, raw used gauge, OSDs up/in/down/out, mons in quorum, active/standby mgr and MDS, PGs not clean, sparkline stats for client read/write IOPS, throughput and latency, recovery and objects at risk. **Capacity:** raw total/used/available, pool usage bars, data per pool (donut), fullest OSD and when it reaches nearfull, raw used forecast in 30 days, pool table (PGs, objects, stored, raw, % used, max available, 30-day forecast, IOPS), raw capacity with nearfull line and forecast. **Client I/O:** IOPS/throughput (reads up, writes down), OSD op latency, per pool. **PGs and recovery:** non-zero PG states, PGs not clean by state, scrubbing, recovery/backfill rate, degraded/misplaced/unfound objects, OSD flags. **OSDs:** colour status grid (host · OSD), OSD hosts table, OSD table (host, disk, model, state, reweight, PGs, size, used, apply/commit/read/write latency, IOPS, slow ops; click for Ceph OSD), state history, per-OSD commit/read/write latency, utilization, PGs, IOPS, throughput. **Slow ops and BlueStore:** BLUESTORE_SLOW_OP_ALERT, daemons with slow ops, slow ops per daemon, BlueStore slow ops per OSD (24 h, the alert's window), kv commit latency, BlueStore latency breakdown, fragmentation, onode cache hits, RocksDB size. Collapsed rows: **Monitors and managers** (quorum, sessions, elections, mgr roles and modules, daemon versions, paxos latency, mgr scrape targets), **CephFS** (active/standby MDS, clients, caps, files, requests, reply latency by op, cache, journal, pools), **OSD hosts** (node_exporter: CPU, memory, load, OSD disk busy % and await). **RBD images:** per-image IOPS/throughput/latency over the time range with the VM id parsed from the image name, top 10 images by IOPS, throughput and latency |
 | Storage | Ceph OSD (`ceph-osd`) | custom | One OSD (picker): state, host, disk and model, class, used, size/PGs/reweight, apply/commit/read/write latency, slow ops; IOPS, throughput, op latency (total vs processing), ops in flight, recovery; BlueStore latency breakdown, slow-op counters, space, onode cache, fragmentation; scrubs; the disk from node_exporter |
 | Storage | Ceph cluster advanced (mixin) (`ceph-cluster-advanced`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | The official cluster dashboard: health, capacity, throughput and IOPS, OSD/mgr/mon counts, firing alerts, per-pool usage, objects and quotas, PG states and stuck PGs, recovery, OSD apply/commit/read/write latency distributions (heatmaps), versions |
@@ -251,8 +251,8 @@ in snapshot" turns orange when fw-wan has rules the snapshot doesn't know.
 
 The wireless dashboards (`wireless` tag, folder Network) share a "Wireless dashboards" dropdown and
 read the C9800 telemetry's `wlc_*` series (job `wlc`) from the Prometheus datasource (PromQL, uid
-`prometheus`; see [C9800 telemetry](#c9800-telemetry-model-driven-dial-out)); the InfluxDB history
-from 2026-11-09 on is backfilled into Mimir under the same names. String leaves (AP/client names,
+`prometheus`; see [C9800 telemetry](#c9800-telemetry-model-driven-dial-out)); the history from the
+retired InfluxDB (bucket `wlc`, from 2026-11-09 on) is backfilled into Mimir under the same names. String leaves (AP/client names,
 SSIDs, states, IPs) are labels of `wlc_<short>_info` series, joined in with `group_left`; timestamps
 are `<field>_seconds` (Unix time, 0 = unset), shown as `time() - (x > 0)` (AP uptime and joined for,
 client connected for).
@@ -274,8 +274,8 @@ with priority err, so the dashboards rewrite `level` from the line itself (`leve
 match case-insensitively (Loki has `LEAF-11`, Prometheus `leaf-11`), so the Overview host table and
 Node Exporter Full link to a host's logs, the Proxmox node dashboard to its node's logs, and the FRR
 dashboard to the network device logs. The fw-wan logs dashboard is in the "fw-wan dashboards" dropdown,
-the Proxmox & Ceph one in the "Ceph dashboards" dropdown. The fw-wan dashboards keep reading the firewall
-and strongSwan log from InfluxDB, which has the history from before Loki.
+the Proxmox & Ceph one in the "Ceph dashboards" dropdown. The fw-wan dashboards read the firewall and
+strongSwan log from Loki too (the old Telegraf copy in InfluxDB bucket `vyos` was retired on 2026-11-13).
 
 The Ceph dashboards read the mgr prometheus module (job `ceph`) plus node_exporter on the
 PVE nodes. Neither is managed by OpenTofu; this was done by hand on the cluster (2026-11-08):
@@ -352,9 +352,9 @@ Panels that stay empty, and why:
   line, not the level.
 - Hosts without an exporter yet (DNS VMs, the standalone greatfox) show as DOWN in
   the target tables and are left out of everything else.
-- **Proxmox dashboards:** the `pvestatd_*` series start on 2026-11-13 10:10Z; the InfluxDB
-  history (`pve_cluster`/`pve_greatfox`, since 2026-11-09) shows up once it's backfilled into
-  Mimir under the same names. Trends, growth and "Full in" need a few days of history to mean much. PVE reports no disk usage
+- **Proxmox dashboards:** the `pvestatd_*` series start on 2026-11-13 10:10Z; the history from the
+  retired InfluxDB (`pve_cluster`/`pve_greatfox`, since 2026-11-09) is backfilled into Mimir under the
+  same names. Trends, growth and "Full in" need a few days of history to mean much. PVE reports no disk usage
   inside VMs (`disk` is 0 without a guest agent query), so "Root disk (CT)" and "Root disk
   used (CT)" are containers only, and the per-disk IOPS/latency, per-NIC, balloon and
   "I/O errors" panels are VMs only (container NICs are veths on the node). Latency and the
@@ -374,8 +374,7 @@ Panels that stay empty, and why:
   and run `python3 -I modules/services/monitoring/dashboards/update.py`. The script
   downloads the pinned revision (grafana.com revision, or the ceph-mixin commit
   `CEPH_MIXIN_COMMIT` on the tentacle branch) and points every query at the provisioned
-  Prometheus datasource (uid `prometheus`; InfluxDB ones at uid `influxdb`, with the
-  bucket picker limited to the PVE buckets). It also drops the import-time
+  Prometheus datasource (uid `prometheus`). It also drops the import-time
   datasource inputs and variables, and sets the host picker, uid, tags and links.
 - **Custom dashboards:** edit
   [`dashboards/custom.py`](../../modules/services/monitoring/dashboards/custom.py)
@@ -477,20 +476,20 @@ periodically (yang-push, every 30 s, kvGPB encoding), so nothing polls the WLCs 
 credentials for them are stored here. The receiver is **Telegraf** on mon01
 (`wlc_telemetry`, [`modules/services/monitoring/telemetry.tf`](../../modules/services/monitoring/telemetry.tf)):
 
-- `inputs.cisco_telemetry_mdt` listens on gRPC `:57500`, published on mon01's monitoring
-  address only (`10.5.11.30:57500`, `tofu output wlc_telemetry_receiver`). The WLCs send
+- `inputs.cisco_telemetry_mdt` listens on gRPC `:57500`, published on each backend's monitoring
+  address and the monitoring VIP `10.5.11.102` (`tofu output wlc_telemetry_receiver`). The WLCs send
   from their Vlan5 address (`10.5.1.1`, `10.5.1.2`) on the same 10.5/16, so no router or
-  firewall is in the path, and mon01 has no host firewall.
+  firewall is in the path, and the backends have no host firewall.
 - Two nested RRM lists (per-channel noise and foreign interference) get their `chan` key as a
   tag through `embedded_tags`, and the per-process CPU list is dropped (`fieldexclude`): it
   flattens into colliding fields.
-- Every message becomes one InfluxDB measurement named after its YANG path (no aliases),
-  e.g. `Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats`, with the list keys
-  as tags and the WLC as `source`. Telegraf writes them to the bucket `wlc` (90-day
-  retention) with its own write-only token ([`telegraf.tf`](telegraf.tf)), reaching
-  InfluxDB by container name on the `monitoring` Podman network.
+- Every message arrives as one metric named after its YANG path (no aliases), e.g.
+  `Cisco-IOS-XE-wireless-client-oper:client-oper-data/traffic-stats`, with the list keys as tags
+  and the WLC as `source`. Telegraf clones it into `wlc_<short>` (below) and serves only the clones;
+  the originals match no output. Until 2026-11-14 they went to the InfluxDB bucket `wlc`, whose
+  history is backfilled into Mimir ([Retired: InfluxDB](#retired-influxdb)).
 - Telegraf's own `internal_*` metrics go to Prometheus (job `telegraf`): the Monitoring
-  stack dashboard shows metrics received per input, InfluxDB writes and the output buffer,
+  stack dashboard shows metrics received per input and the output buffer,
   and `WlcTelemetryStopped` fires when no telemetry has arrived for 20 minutes.
 
 The WLC side isn't managed by this repo. Both WLCs have the same 22 `telemetry ietf subscription`s
@@ -506,20 +505,19 @@ real capture) are in `~/network_automation/wlc-telemetry/fields.md`. The dashboa
 message through [`telegraf/wlc.star`](../../modules/services/monitoring/telegraf/wlc.star) into
 `wlc_<short>_<field>` series (string leaves as labels of `wlc_<short>_info`, the WLC as `host`),
 served on `:9275` and scraped by both replicas as job `wlc`; `wireless.py`'s docstring has the names.
-To check that data arrives: `journalctl -u telegraf` on mon01, or in Grafana's Explore
-(InfluxDB): `import "influxdata/influxdb/schema" schema.measurements(bucket: "wlc")`.
+To check that data arrives: `journalctl -u telegraf` on the VIP holder, or in Grafana's Explore:
+`count by (host) (wlc_client_live_run_state_clients)`.
 
 ## Backend HA (mon01 + mon02)
 
 Every `role = "monitoring"` VM is a backend (at most two: `monitoring_primary`, default mon01, plus one
 replica). They run the same stack from the same rendered files, except Postgres (primary only) and the
-per-replica bits below. The rendering is in the module's `backends.tf`; the replica's InfluxDB objects in
-[influxdb-replica.tf](influxdb-replica.tf).
+per-replica bits below. The rendering is in the module's `backends.tf`.
 
 - **Prometheus HA pair.** Both scrape every target with the same config; `external_labels` are
   `{site = "lylat", ha_cluster = "lylat", __replica__ = "<vm>"}`. With Mimir on ([Metrics: Mimir HA](#metrics-mimir-ha)) both
   remote_write to it and Mimir's HA tracker keeps one replica's samples, then drops `ha_cluster` and `site`. The
-  `prometheus`, `alertmanager`, `telegraf` and `influxdb` (InfluxDB's own `/metrics` on 8086) jobs
+  `prometheus`, `alertmanager` and `telegraf` jobs
   target every backend by backend-VLAN address
   (label `host`), so each replica scrapes both and the deduplicated data still has every instance. Grafana has
   `Prometheus mon01`/`Prometheus mon02` datasources (uids `prometheus-mon01/-mon02`) to look at one replica directly.
@@ -528,20 +526,14 @@ per-replica bits below. The rendering is in the module's `backends.tf`; the repl
   both Alertmanagers; `alert_relabel_configs` drops `__replica__`, so the two replicas' alerts are identical and the
   cluster notifies once. Without an address on VLAN 215 on every backend, gossip falls back to the backend VLAN.
 - **keepalived** (`backend_vrrp`, router id 102): one instance, unicast adverts over VLAN 215, VIPs `10.5.11.102/16`
-  (monitoring network: InfluxDB, `influxdb-vip.lylat.space`) and `10.13.11.102/16` (backend VLAN: Grafana's
-  InfluxDB and Alertmanager datasources). BACKUP + `nopreempt` (mon01 wins the first election), FAULT when InfluxDB
-  `/health` or Alertmanager `/-/ready` fails locally. Containers publish on the VIPs too, so the backends set
+  (monitoring network: the C9800s' telemetry receiver, `wlc-telemetry-vip.lylat.space`) and `10.13.11.102/16`
+  (backend VLAN, `monitoring-vip`: Grafana's Alertmanager datasource, the `wlc` scrape). BACKUP + `nopreempt` (mon01
+  wins the first election), FAULT when the WLC Telegraf's `:9273/metrics` or Alertmanager `/-/ready` fails locally
+  (the Telegraf check has no `init_fail`, so adding it by a reload doesn't drop the VIPs). Containers publish on the VIPs too, so the backends set
   `net.ipv4.ip_nonlocal_bind = 1` (`/etc/sysctl.d/90-monitoring-vip.conf`). Alert `MonitoringVIPNotHeldOnce`.
-- **InfluxDB on both.** Both are initialised with the same operator token (Grafana, the providers). Every writer
-  writes to both: the C9800s send to the WLC Telegraf on the monitoring VIP `10.5.11.102:57500`, and each Telegraf writes bucket `wlc` on
-  both InfluxDBs (local by container name, the peer over the backend VLAN with that InfluxDB's token; alerts
-  `WlcTelemetryStopped` over both, `WlcTelemetryWriteDropping`). A second named receiver per subscription
-  doesn't work: IOS XE keeps only one receiver of a subscription active, the rest are standbys. The pve buckets
-  on both only hold pvestatd's history up to 2026-11-13 (no writer, no token).
-- **Two stages.** The `influxdb.replica` provider has to reach a running InfluxDB to plan, so mon02's buckets,
-  tokens and WLC Telegraf wait for `influxdb_replica_ready = true` (deploy mon02 first; until then the
-  provider points at the primary and manages nothing). mon02's InfluxDB history can be copied from mon01 with Flux
-  `to()` (runbook).
+- **WLC Telegraf on both.** The C9800s send to the WLC Telegraf on the monitoring VIP `10.5.11.102:57500`, so only
+  the VIP holder's Telegraf receives (alert `WlcTelemetryStopped` sums over both). A second named receiver per
+  subscription doesn't work: IOS XE keeps only one receiver of a subscription active, the rest are standbys.
 - **Grafana's database** is the Patroni cluster on pg01-03 (VIP 10.13.11.104) since 2026-11-10; mon01's
   Postgres container is gone (`postgres.auto.tfvars`). See [Postgres HA: Patroni](#postgres-ha-patroni).
 
@@ -874,20 +866,19 @@ graf01/02 --sslmode=require--> VIP 10.13.11.104:5432 (keepalived on the Patroni 
 | `metrics_settings` | see `variables.tf` | [Mimir](#metrics-mimir-ha): VIP (`10.13.11.103/16`), VRRP router id (103), RGW endpoints, RF (3), retention (396d), HA tracker labels, `drop_labels`, limits, sources allowed to Mimir's HTTP port |
 | `mimir_s3` | `null` (Mimir off) | Mimir's S3 bucket and RGW keys, in the git-ignored `metrics.secret.auto.tfvars` |
 | `monitoring_bridge` | `vmbr100` | Bridge of the backends' monitoring-network NIC |
-| `monitoring_primary` | `"mon01"` | [Backend HA](#backend-ha-mon01--mon02): the backend with Postgres and the default `influxdb` provider; the other `role = "monitoring"` VM (at most one) is the replica |
+| `monitoring_primary` | `"mon01"` | [Backend HA](#backend-ha-mon01--mon02): the backend with Postgres (Grafana's fallback Prometheus without Mimir); the other `role = "monitoring"` VM (at most one) is the replica |
 | `monitoring_ha_vlan_id` | `215` | HA VLAN of the backends (L2VNI `ha_monitor`): keepalived adverts, Alertmanager gossip; each backend needs one addressed NIC on it |
 | `backend_vrrp` | VIPs `10.5.11.102/16`, `10.13.11.102/16`, router id 102 | keepalived on the backends (password generated); `null` = no VIPs, Grafana uses the primary |
-| `influxdb_replica_ready` | `false` | Stage 2: make mon02's buckets/tokens (provider `influxdb.replica`) and WLC Telegraf. Set once mon02's InfluxDB runs |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
 | `images` | pinned tags | Container images; override one key at a time |
-| `settings` | see `variables.tf` | Prometheus local retention (7d / 20GB; Mimir keeps the long-term copy), InfluxDB org/initial bucket/retention, the Grafana InfluxDB datasource's default bucket (`pve_cluster`), Grafana root URL, DNS probe zone |
+| `settings` | see `variables.tf` | Prometheus local retention (7d / 20GB; Mimir keeps the long-term copy), Grafana root URL, DNS probe zone, Ceph cluster label |
 | `pve_api_token`, `greatfox_api_token` | required | Proxmox API tokens for the metric servers, from the linked `proxmox.secret.auto.tfvars` |
 | `pve_api_node` | `null` (`nodes.cluster_api_node`) | Cluster node whose API manages the cluster's metric server; set another node if that one is unreachable |
-| `pve_metrics` | see `variables.tf` | Proxmox metric servers: `enabled`, `pvestatd_port` (8186), the history buckets' names (`pve_cluster`, `pve_<standalone host>`) and `retention_days` (90) |
+| `pve_metrics` | see `variables.tf` | Proxmox metric servers: `enabled`, `pvestatd_port` (8186) |
 | `pve_exporter_token` | `null` | PVE API token; `null` leaves pve-exporter out |
-| `grafana_admin_password`, `influxdb_admin_password` | `null` (generated) | Fixed UI passwords; set them in a git-ignored `*.secret.auto.tfvars`. Only used when Grafana/InfluxDB first initialise. InfluxDB needs 8+ characters |
+| `grafana_admin_password` | `null` (generated) | Fixed UI password; set it in a git-ignored `*.secret.auto.tfvars` |
 | `snmp_v3_auths` | `{}` | SNMPv3 credentials for snmp_exporter (git-ignored `*.secret.auto.tfvars`); written to `/etc/monitoring/snmp-exporter/auths.yml` and loaded as a second exporter config file. The WLCs' `lylat_v3` lives here |
-| `wlc_telemetry` | `{ port = 57500, bucket = "wlc" }` | [C9800 telemetry](#c9800-telemetry-model-driven-dial-out): Telegraf's gRPC port on mon01 and its InfluxDB bucket (made here, with a write-only token; `pve_metrics.retention_days`). `null` leaves Telegraf, the bucket and the token out |
+| `wlc_telemetry` | `{ port = 57500 }` | [C9800 telemetry](#c9800-telemetry-model-driven-dial-out): the WLC Telegraf's gRPC port on the backends and the monitoring VIP. `null` leaves Telegraf out |
 | `vyos_extra_targets`, `node_extra_targets`, `snmp_targets`, `blackbox_icmp_targets`, `blackbox_http_targets` | see `variables.tf` | Targets outside the inventory |
 
 ## Running it
@@ -927,11 +918,9 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
 
 ## Things to know
 
-- **InfluxDB and Postgres read their credentials only on first start**, when
-  their data directories are empty. The generated values never change, but if
-  you replace the `random_password` resources, wipe the data directories too.
-- **Grafana uses the InfluxDB operator token for now** (`influxdb_admin_token`
-  output). Replace it with a read-only token later.
+- **Postgres reads its credentials only on first start**, when its data
+  directory is empty. The generated values never change, but if you replace the
+  `random_password` resources, wipe the data directory too.
 - **Alertmanager routes everything to a `null` receiver.** Alerts are visible in
   Alertmanager and Grafana but not sent anywhere until you add a receiver.
 - **Postgres is reachable only on the backend VLAN**, which no other VRF routes to.
@@ -941,29 +930,35 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
   that `pvestatd` uses to push node, guest (VM/LXC) and storage stats every ~10 s over HTTP
   to that backend's pvestatd Telegraf (`:8186`, token-checked), which Prometheus scrapes as
   job `pvestatd` (10 s; module `pvestatd.tf`). Until 2026-11-13 they wrote to InfluxDB
-  (metric servers `influxdb` and `influxdb-mon02`, buckets `pve_cluster`, `pve_greatfox`;
-  90-day retention): those buckets stay as history (no writer, no token) until it's
-  backfilled into Mimir. Buckets are created through
-  the InfluxDB API by the `komminarlabs/influxdb` provider, so mon01 must be
-  deployed before they can be planned; the metric servers go through the bpg
-  provider (cluster API and the `proxmox.greatfox` alias), which needs
+  (metric servers `influxdb` and `influxdb-mon02`, buckets `pve_cluster`, `pve_greatfox`), whose
+  history is backfilled into Mimir ([Retired: InfluxDB](#retired-influxdb)). The metric servers go
+  through the bpg provider (cluster API and the `proxmox.greatfox` alias), which needs
   `proxmox.secret.auto.tfvars` linked into this root:
   `ln -s ../../inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars roots/monitoring-config/`.
-  The InfluxDB setup's initial bucket (`proxmox`) is unused.
 - **greatfox unreachable = untargeted plans fail.** greatfox is a standalone PVE host (not in the
   cluster), reached on its own API. When it's down, any untargeted `plan`/`apply` of this root
   fails while refreshing `proxmox_metrics_server.pvestatd_standalone["greatfox/mon01"]` and
   `["greatfox/mon02"]` (`dial tcp 10.20.7.20:8006`). Until it's back, exclude them:
   `tofu -chdir=roots/monitoring-config plan -exclude='proxmox_metrics_server.pvestatd_standalone'`
   (same for `apply`). Nothing else here depends on them, so the rest of the root plans normally.
-- **Grafana.com dashboard 12468** ("Cisco Catalyst 9800 - Client Stats") isn't provisioned: it is
-  InfluxQL, which would need a DBRP mapping for `wlc` (the `komminarlabs/influxdb` provider has no
-  resource for it) and a second, InfluxQL datasource. The measurements keep their YANG names, so it
-  could still be added that way; the Wireless dashboards cover the same client stats.
-- **The C9800 telemetry bucket and token come from the same API** ([`telegraf.tf`](telegraf.tf)),
-  and the token is part of mon01's `deploy.sh`, so the backend deploy waits for them. On a
-  freshly built mon01 (no InfluxDB yet), apply once with `wlc_telemetry = null`, then again
-  without it.
+
+### Retired: InfluxDB
+
+InfluxDB 2 ran on mon01 and mon02 from 2026-11-09 to 2026-11-14 (Proxmox metric servers until
+2026-11-13, the C9800 telemetry, fw-wan's Telegraf through the influx-relay until 2026-11-13). Every
+source now goes to Prometheus/Mimir, and the history of the buckets `pve_cluster`, `pve_greatfox` and
+`wlc` is backfilled into Mimir under the live names (`~/network_automation/mon-ha/mimir-runbook.md`).
+The retirement removed the container, its scrape job, the Grafana datasource (provisioning deletes
+it), the WLC Telegraf's InfluxDB outputs and tokens, the `influxdb-vip`/`influxdb-mon0x` DNS names and
+the keepalived health check. The monitoring VIP `10.5.11.102` stays: it is the WLCs' telemetry
+receiver, now `wlc-telemetry-vip`, and keepalived checks the WLC Telegraf instead.
+
+- [`influxdb.tf`](influxdb.tf) only drops the old buckets and write tokens from the state
+  (`removed` blocks, `destroy = false`): its providers need the old InfluxDB to answer during that
+  apply. Delete it, the provider requirement and `random_password.influxdb_token` after one apply.
+- The data stays in `/var/lib/monitoring/influxdb` on both backends (~340 MB each) until it is
+  removed by hand, after a final backup if wanted; the deploy only removes the env files with the
+  old tokens (`/etc/monitoring/influxdb.env`, `telegraf.env`).
 
 ## Next steps
 
@@ -985,7 +980,7 @@ datasource switch, keepalived, deploy.sh, and that nothing Mimir-related renders
 `random` provider. It checks the derived targets and URLs, that pve-exporter
 appears only with a token (and the token stays out of `prometheus.yml`), the
 unit contents (Postgres bound to the backend VLAN, Grafana HA peers), the
-Postgres/InfluxDB data-directory owners, the dashboard provider and files (the
+Postgres data-directory owner, the dashboard provider and files (the
 expected files and uids per folder, every query uses the provisioned Prometheus
 datasource, no import-time placeholders, every dashboard in the `lylat` links
 dropdown, the Ceph dashboards' `ceph` tag and dropdown with no `$datasource` left, the Proxmox
@@ -998,18 +993,20 @@ local haproxy, ruler to both Alertmanagers, no S3 keys in `loki.yaml`; the exact
 listeners, `raw` with the experimental flag, sender-address host names from `snmp_targets`, journal-only
 Alloy on mon01/graf pushing to the VIP; haproxy's RGW backends; the Loki/Alloy/haproxy/node scrape
 jobs and logging alerts; the Loki datasource; the validations in each logging `deploy.sh`; and that a
-missing `loki_s3` or VLAN 214 NIC fails the plan. For the C9800 telemetry (`wlc_telemetry`): the
-bucket and its write-only token, Telegraf started right after InfluxDB, its unit (MDT port published
-on the monitoring address only, `User=telegraf`, token from a 0600 env file, SIGHUP reload), the
-config check and gRPC health check in `deploy.sh`, the `telegraf` scrape job and alert, and that
-`wlc_telemetry = null` leaves all of it out. The two wireless dashboards carry the `wireless` tag and
+missing `loki_s3` or VLAN 214 NIC fails the plan. For the C9800 telemetry (`wlc_telemetry`):
+Telegraf on both backends, its unit (MDT port published on each monitoring address and the VIP,
+`User=telegraf`, SIGHUP reload, no InfluxDB output, token or env file), keepalived tracking it, the
+config check and gRPC health check in `deploy.sh`, the `telegraf` and `wlc` scrape jobs and alerts,
+and that `wlc_telemetry = null` leaves all of it out. The retired InfluxDB (`exporters_and_ceph_alerts`):
+no unit, image, scrape job, datasource or keepalived check left, the old datasource deleted, the env
+files removed and the data kept. The two wireless dashboards carry the `wireless` tag and
 dropdown, read `wlc_*` from the Prometheus datasource (no InfluxDB or Flux left), and pick WLCs by the
-`host` label. Backend HA (`backend_ha`, `backend_replica_ready`, `backend_vrrp_disabled`,
+`host` label. Backend HA (`backend_ha`, `wlc_prometheus`, `backend_vrrp_disabled`,
 `backend_ha_nic_required`): identical scrapes with per-replica `__replica__`, alerts without it to both
 Alertmanagers, Postgres on mon01 only, Alertmanager gossip on VLAN 215, the keepalived config (VIPs on
 eth2/eth3, adverts over eth4, vrid 102, mon01 first) and the VIP publishes, Grafana's VIP and per-replica
-datasources, the replica's buckets/tokens/metric servers and WLC Telegraf only with `influxdb_replica_ready`,
-and that a missing VLAN 215 NIC fails the plan.
+datasources, the `wlc_*` clones scraped through the backend VIP, and that a missing VLAN 215 NIC fails
+the plan.
 
 ```sh
 nix-shell --run 'tofu -chdir=roots/monitoring-config test'

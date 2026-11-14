@@ -93,7 +93,7 @@ after the other.
 
 ## Monitoring, Grafana, Loki and Mimir VMs
 
-`mon01`/`mon02` (`role = "monitoring"`, sized for Prometheus and InfluxDB; Grafana's
+`mon01`/`mon02` (`role = "monitoring"`, sized for Prometheus; Grafana's
 Postgres runs on `mon01` only), `graf01`/`graf02` (`role = "grafana"`),
 `loki01`–`loki03` (`role = "logging"`), `mim01`–`mim03` (`role = "metrics"`) and
 `pg01`–`pg03` (`role = "postgres"`: Patroni, Grafana's HA database replacing mon01's) are
@@ -104,7 +104,7 @@ cloud-init. Their software is deployed by
 these roles, apart from their DNS names: like every VM they get `<vm>` (VLAN 2)
 and `<vm>.mgmt` records, generated from the inventory. All of them have a NIC on
 VLAN 13 (`10.13.0.0/16`, the isolated `lylat_monitor` VRF): Grafana reaches the
-datasources (Prometheus, InfluxDB, Loki, Mimir) and Postgres over it. Each HA
+datasources (Prometheus, Alertmanager, Loki, Mimir) and Postgres over it. Each HA
 group has its own HA L2VNI for keepalived and gossip/memberlist: `ha_grafana`
 (213), `ha_logging` (214), `ha_monitor` (215), `ha_mimir` (216), `ha_postgres` (217:
 also Postgres replication and etcd). Each VM has the same last octet on every network, grouped by
