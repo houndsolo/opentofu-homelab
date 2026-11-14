@@ -688,9 +688,17 @@ run "logging" {
       strcontains(module.monitoring.alloy_configs.loki01, "forward_to    = [loki.process.syslog.receiver]") &&
       strcontains(module.monitoring.alloy_configs.loki01, "selector            = \"{host=~\\\"LEAF-[0-9]+|fw-wan|dhcp0[0-9]\\\", app!=\\\"kernel\\\"} |~ \\\"^ [^ ]\\\"\"") &&
       strcontains(module.monitoring.alloy_configs.loki01, "action              = \"drop\"") &&
-      !strcontains(module.monitoring.alloy_configs.mon01, "loki.process")
+      !strcontains(module.monitoring.alloy_configs.mon01, "loki.process \"syslog\"") &&
+      # Kea's ha-heartbeat lines are dropped too (DT-037).
+      strcontains(module.monitoring.alloy_configs.loki01, "drop_counter_reason = \"kea_ha_heartbeat\"") &&
+      # Every VM's journal goes through loki.process "journal": Mimir's evaluation stats dropped, level from the line (DT-011/DT-022).
+      alltrue([for name in ["mon01", "graf01", "loki01", "mim01"] : (
+        strcontains(module.monitoring.alloy_configs[name], "forward_to    = [loki.process.journal.receiver]") &&
+        strcontains(module.monitoring.alloy_configs[name], "drop_counter_reason = \"mimir_evaluation_stats\"") &&
+        strcontains(module.monitoring.alloy_configs[name], "values = { level = \"line_level\" }")
+      )])
     )
-    error_message = "Alloy: the VyOS imuxsock copies (one leading space, not kernel) are dropped before Loki on the logging VMs."
+    error_message = "Alloy: the VyOS imuxsock copies (one leading space, not kernel) and Kea heartbeats are dropped on the logging VMs; the journal goes through loki.process.journal everywhere."
   }
 
   assert {

@@ -33,7 +33,48 @@ loki.source.journal "host" {
   max_age       = "12h"
   relabel_rules = loki.relabel.journal.rules
   labels        = { host = "${host}", source = "journal" }
-  forward_to    = [loki.write.loki.receiver]
+  forward_to    = [loki.process.journal.receiver]
+}
+
+// Journal lines, before Loki (DT-011, DT-022):
+// - Mimir logs one msg="evaluation stats" line per rule-group evaluation (~265k/day, 17 % of all Loki lines):
+//   dropped, counted in loki_process_dropped_lines_total{reason="mimir_evaluation_stats"}.
+// - level: Podman's journald driver gives every stderr line priority err, so a container's info lines landed
+//   as level="error". Lines that carry their own level (logfmt level=..., Telegraf's "I!/W!/E!/D!") get the
+//   label from the line, in the journal's words (warning, error, critical). Other lines keep the journal priority.
+loki.process "journal" {
+  stage.match {
+    selector            = "{source=\"journal\", unit=\"mimir.service\"} |= \"msg=\\\"evaluation stats\\\"\""
+    action              = "drop"
+    drop_counter_reason = "mimir_evaluation_stats"
+  }
+  stage.match {
+    selector = "{source=\"journal\"} |~ \"(^|\\\\s)level=\\\"?[A-Za-z]+\""
+    stage.regex {
+      expression = `(?:^|\s)level="?(?P<line_level>[A-Za-z]+)`
+    }
+    stage.template {
+      source   = "line_level"
+      template = `{{ $l := ToLower .Value }}{{ if eq $l "warn" }}warning{{ else if or (eq $l "err") (eq $l "eror") }}error{{ else if or (eq $l "crit") (eq $l "fatal") (eq $l "panic") }}critical{{ else if or (eq $l "dbug") (eq $l "trace") }}debug{{ else }}{{ $l }}{{ end }}`
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
+  stage.match {
+    selector = "{source=\"journal\"} |~ \"^\\\\S+ [DIWE]! \""
+    stage.regex {
+      expression = `^\S+ (?P<line_level>[DIWE])! `
+    }
+    stage.template {
+      source   = "line_level"
+      template = `{{ if eq .Value "D" }}debug{{ else if eq .Value "I" }}info{{ else if eq .Value "W" }}warning{{ else }}error{{ end }}`
+    }
+    stage.labels {
+      values = { level = "line_level" }
+    }
+  }
+  forward_to = [loki.write.loki.receiver]
 }
 %{ if syslog ~}
 
@@ -88,6 +129,13 @@ loki.process "syslog" {
     selector            = "{host=~\"${replace(dedup_hosts, "\\", "\\\\\\\\")}\", app!=\"kernel\"} |~ \"^ [^ ]\""
     action              = "drop"
     drop_counter_reason = "vyos_imuxsock_duplicate"
+  }
+  // Kea's HA partners send each other an ha-heartbeat every few seconds and kea-dhcp4 logs each one (~98 % of
+  // its lines, DT-037). Real HA trouble still shows: HA_HEARTBEAT_COMMUNICATIONS_FAILED, HA_STATE_TRANSITION.
+  stage.match {
+    selector            = "{app=\"kea-dhcp4\"} |= \"Received command 'ha-heartbeat'\""
+    action              = "drop"
+    drop_counter_reason = "kea_ha_heartbeat"
   }
   forward_to = [loki.write.loki.receiver]
 }
