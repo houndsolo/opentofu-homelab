@@ -556,6 +556,11 @@ Keep the directory `chmod 700` and the files `chmod 600`.
 | `vyos.secret.auto.tfvars` | `vyos_api_key` | fabric-leaves, services-config |
 | `routeros.secret.auto.tfvars` | `routeros_password` (and `routeros_username`, if it isn't `admin`) | fabric-spines |
 | `ssh_keys.secret.auto.tfvars` | `ssh_keys` | nothing: no tracked root reads it. Link it only into a custom root that needs it. |
+| `monitoring.secret.auto.tfvars` | `grafana_admin_password` (optional; else generated) | monitoring-config |
+| `logging.secret.auto.tfvars` | `loki_s3` (RGW user for Loki) | monitoring-config |
+| `metrics.secret.auto.tfvars` | `mimir_s3` (RGW user for Mimir) | monitoring-config |
+| `postgres.secret.auto.tfvars` | `postgres_s3` (RGW user for Patroni backups) | monitoring-config |
+| `netbox.secret.auto.tfvars` | NetBox's secrets (see services-config `netbox.tf`) | services-config |
 
 ```hcl
 # inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars  (never committed)
@@ -591,6 +596,10 @@ for root in fabric-leaves services-config; do
   ln -s ../../inventory/auto.tfvars.secret/vyos.secret.auto.tfvars roots/$root/
 done
 ln -s ../../inventory/auto.tfvars.secret/routeros.secret.auto.tfvars roots/fabric-spines/
+for f in monitoring logging metrics postgres; do
+  ln -s ../../inventory/auto.tfvars.secret/$f.secret.auto.tfvars roots/monitoring-config/
+done
+ln -s ../../inventory/auto.tfvars.secret/netbox.secret.auto.tfvars roots/services-config/
 
 # Plain tofu now loads the right credentials by itself.
 tofu -chdir=roots/services-config plan
