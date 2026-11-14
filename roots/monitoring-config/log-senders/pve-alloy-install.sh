@@ -71,6 +71,10 @@ EOF
 #    not group ceph (that group may write there). ceph-common's postinst chmods the dir on upgrades;
 #    chmod keeps named ACL entries, and re-running this script re-asserts it anyway.
 if [ -d /var/log/ceph ]; then
+  # setfacl comes from the acl package, which PVE doesn't install by default.
+  if ! command -v setfacl >/dev/null 2>&1; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends acl
+  fi
   setfacl -m u:alloy:rx /var/log/ceph
   for f in /var/log/ceph/ceph-osd.*.log /var/log/ceph/ceph-mon.*.log /var/log/ceph/ceph-mgr.*.log \
            /var/log/ceph/ceph-mds.*.log /var/log/ceph/ceph-client.rgw.*.log; do
