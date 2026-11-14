@@ -560,7 +560,7 @@ Keep the directory `chmod 700` and the files `chmod 600`.
 | `logging.secret.auto.tfvars` | `loki_s3` (RGW user for Loki) | monitoring-config |
 | `metrics.secret.auto.tfvars` | `mimir_s3` (RGW user for Mimir) | monitoring-config |
 | `postgres.secret.auto.tfvars` | `postgres_s3` (RGW user for Patroni backups) | monitoring-config |
-| `netbox.secret.auto.tfvars` | NetBox's secrets (see services-config `netbox.tf`) | services-config |
+| `netbox.secret.auto.tfvars` | `netbox_cephfs_key` (CephFS client key for the media mount) | services-config |
 
 ```hcl
 # inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars  (never committed)
