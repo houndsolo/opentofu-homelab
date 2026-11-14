@@ -114,16 +114,26 @@ locals {
   }
 
   # Ruler rules, tenant "fake" (auth_enabled: false).
+  # RouterOS boxes (every SNMP job walking mikrotik_lite) and the PVE nodes (node targets with role=proxmox,
+  # greatfox included), by their Loki host label.
+  routeros_hosts = sort(distinct(flatten([for j in values(var.targets.snmp) : keys(j.targets) if contains(j.modules, "mikrotik_lite")])))
+  pve_log_hosts  = sort([for t in var.targets.node : t.host if lookup(t.labels, "role", "") == "proxmox"])
+  pve_kernel_sel = length(local.pve_log_hosts) == 0 ? "{app=\"kernel\"}" : "{app=\"kernel\", host=~\"${join("|", local.pve_log_hosts)}\"}"
   loki_rules_yml = yamlencode({
     groups = [{
       name = "logging"
-      rules = [
+      rules = concat(length(local.routeros_hosts) == 0 ? [] : [
         {
-          alert       = "BGPSessionDownLogged"
-          expr        = "sum by (host) (count_over_time({source=\"syslog\"} |= \"ADJCHANGE\" |~ \"(?i)down\" [5m])) > 0"
+          # The spines' side of a leaf session (DT-007). FRR on VyOS never sends %ADJCHANGE (it logs session
+          # changes at informational, VyOS forces "log syslog notifications"), so the old ADJCHANGE rule could
+          # never fire; the leaves' own view is BGPSessionDown/BFDPeerDown (infra-alerts.tf). leaf-20 is skipped:
+          # greatfox is often powered off on purpose and each shutdown logs this for its two sessions.
+          alert       = "RouterOSBGPNoBFD"
+          expr        = "sum by (host, session) (count_over_time({host=~\"${join("|", local.routeros_hosts)}\"} |= \"Cannot make BGP session\" != \"leaf-20-\" | regexp `(?P<session>\\S+) Cannot make BGP session` [5m])) > 0"
           labels      = { severity = "warning" }
-          annotations = { summary = "{{ $labels.host }} logged a BGP session going down" }
+          annotations = { summary = "{{ $labels.host }}: BGP session {{ $labels.session }} can't come up, its BFD session isn't established (peer down or link loss)" }
         },
+        ], [
         {
           # libata link resets / failed NCQ commands (log review 2026-11-10 #3: the Seagate OSDs'
           # SATA links reset under link power management and stalled BlueStore for up to 30 s).
@@ -132,7 +142,23 @@ locals {
           labels      = { severity = "warning" }
           annotations = { summary = "{{ $labels.host }}: SATA link reset / failed NCQ command in the kernel log ({{ $value }} lines in 15m)" }
         },
-      ]
+        {
+          # Block-layer read/write failures on the PVE nodes (DT-007; e.g. fortuna 2026-11-09: "I/O error, dev sdb,
+          # sector 760696264 op 0x0:(READ)" with "Sense Key : Medium Error"). CD-ROM and loop devices are noise.
+          alert       = "KernelDiskIOError"
+          expr        = "sum by (host) (count_over_time(${local.pve_kernel_sel} |~ `I/O error, dev |Buffer I/O error on dev|blk_update_request: .*error|Sense Key : Medium Error` !~ `dev (sr|loop)[0-9]` [10m])) > 0"
+          labels      = { severity = "warning" }
+          annotations = { summary = "{{ $labels.host }}: {{ $value }} disk I/O error lines in the kernel log in 10m (check SMART and the disk's OSD/pool)" }
+        },
+        {
+          # Machine checks (DT-007; titania 2026-11-09 deferred UECC, fichina MC "System Fatal error" after
+          # reboots). The kernel logs one "Machine check events logged" line per event, the details next to it.
+          alert       = "KernelHardwareError"
+          expr        = "sum by (host) (count_over_time(${local.pve_kernel_sel} |= `mce: [Hardware Error]: Machine check events logged` [10m])) > 0"
+          labels      = { severity = "warning" }
+          annotations = { summary = "{{ $labels.host }}: machine check (CPU/memory hardware error) in the kernel log; read the [Hardware Error] lines around it" }
+        },
+      ])
     }]
   })
 

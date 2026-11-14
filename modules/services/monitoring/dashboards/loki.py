@@ -512,8 +512,8 @@ def loki():
           "{{host}} failures / h"),
         q(f"sum by (host) (increase(loki_prometheus_rule_group_iterations_missed_total{{{LH}}}[1h])) > 0",
           "{{host}} missed / h"),
-    ], fill=0, desc="The 'logging' group (BGPSessionDownLogged, SataLinkReset) runs on the ruler that owns it in the "
-                    "ruler ring. Duration of its last evaluation; failed rules and skipped iterations (evaluation "
+    ], fill=0, desc="The 'logging' group (RouterOSBGPNoBFD, SataLinkReset, KernelDiskIOError, KernelHardwareError) runs on "
+                    "the ruler that owns it in the ruler ring. Duration of its last evaluation; failed rules and skipped iterations (evaluation "
                     "slower than the interval) per hour, right axis.",
         overrides=[override(".*duration.*", {"unit": "s"}, regex=True),
                    override(".*(failures|missed).*", {"color": {"mode": "fixed", "fixedColor": "red"},

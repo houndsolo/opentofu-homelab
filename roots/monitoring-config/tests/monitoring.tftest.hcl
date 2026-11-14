@@ -492,17 +492,18 @@ run "snmp_mikrotik_lite" {
   }
 }
 
-# The MikroTik SNMP jobs get a longer timeout (their walks take 8-10 s); the others keep the global one.
+# The MikroTik SNMP jobs and the FS switches (DT-093) get a longer timeout (their walks take 6-10 s); the others
+# keep the global one.
 run "snmp_scrape_timeouts" {
   command = plan
 
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"snmp-spines\"\n  \"metrics_path\": \"/snmp\"") &&
-      length(regexall("\"scrape_timeout\": \"20s\"", module.monitoring.prometheus_config)) == 2 &&
-      length(regexall("\"scrape_interval\": \"30s\"\n  \"scrape_timeout\": \"20s\"", module.monitoring.prometheus_config)) == 2
+      length(regexall("\"scrape_timeout\": \"20s\"", module.monitoring.prometheus_config)) == 3 &&
+      length(regexall("\"scrape_interval\": \"30s\"\n  \"scrape_timeout\": \"20s\"", module.monitoring.prometheus_config)) == 3
     )
-    error_message = "snmp-mikrotik-access and snmp-spines scrape every 30s with a 20s timeout."
+    error_message = "snmp-fs-switches, snmp-mikrotik-access and snmp-spines scrape every 30s with a 20s timeout."
   }
 
   # HOST-RESOURCES-MIB is its own fast job, so the slow walks timing out don't take it along.
@@ -513,6 +514,73 @@ run "snmp_scrape_timeouts" {
       length(regexall("\"targets\":\n    - \"10\\.5\\.0\\.[3-6]\"", module.monitoring.prometheus_config)) == 8
     )
     error_message = "snmp-mikrotik-hr walks hrDevice/hrStorage/hrSystem on the 4 MikroTiks (global interval and timeout); the slow jobs walk if_mib/mikrotik_lite/system."
+  }
+}
+
+# Network, host and hardware alerts (DT-007) and the etcd ones (DT-017).
+run "infra_alerts" {
+  command = plan
+
+  assert {
+    condition = alltrue([for g, names in {
+      fabric   = ["BGPSessionDown", "BGPSessionReset", "BFDPeerDown", "BGPPeerCountDropped", "FRRCollectorFailing"]
+      vpn      = ["IPsecTunnelDown", "IPsecChildSADown", "VPNMetricsFailing"]
+      hosts    = ["NodeRebooted", "SystemdUnitFailed"]
+      hardware = ["SmartReallocatedSectorsGrowing", "SmartUncorrectableErrorsGrowing", "SmartPendingSectorsGrowing", "SmartDiskUnhealthy", "MikroTikPSUFailed", "MikroTikBackupPSULost"]
+    } : one([for x in yamldecode(module.monitoring.prometheus_rules).groups : x.rules[*].alert if x.name == g]) == names])
+    error_message = "The fabric, vpn, hosts and hardware groups hold exactly the DT-007 rules."
+  }
+
+  assert {
+    # Every rule has a severity and a summary; none uses absent() (greatfox/leaf-20 power off on purpose: their
+    # series vanish, and only TargetDown should notice).
+    condition = alltrue(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : [for r in g.rules : (
+      contains(["critical", "warning", "info"], r.labels.severity) && r.annotations.summary != "" && !strcontains(r.expr, "absent(")
+    )] if contains(["fabric", "vpn", "hosts", "hardware"], g.name)]))
+    error_message = "DT-007 rules carry severity + summary and never use absent()."
+  }
+
+  assert {
+    # On the decoded exprs: yamlencode folds long strings.
+    condition = (
+      # The session state comes from frr_exporter; a bgpd crash only shows as an uptime reset.
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr]), "sum by (host) (resets(frr_bgp_peer_uptime_seconds{job=\"vyos-frr\"}[5m])) > 0") &&
+      # SMART: growth only, so the disks' old flat counts don't fire forever.
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr]), "increase(smartmon_reallocated_sector_ct_raw_value{job=\"node\"}[1d]) > 0") &&
+      anytrue([for e in flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr]) : startswith(e, "delta(smartmon_current_pending_sector_raw_value{job=\"node\"}[1d]) > 0")]) &&
+      # Podman healthcheck transient units are not "failed services".
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr]), "node_systemd_unit_state{job=\"node\", state=\"failed\", name!~\"[0-9a-f]{64}-[0-9a-f]+[.]service\"} == 1") &&
+      # etcd (DT-017): WAL fsync p99 over 100 ms for 30m, and leader changes.
+      length([for r in one([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules if g.name == "postgres"]) : r if(
+        r.alert == "EtcdWALFsyncSlow" && r["for"] == "30m" &&
+        r.expr == "histogram_quantile(0.99, sum by (host, le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{job=\"etcd\"}[10m]))) > 0.1"
+      )]) == 1 &&
+      contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr]), "increase(etcd_server_leader_changes_seen_total{job=\"etcd\"}[1h]) > 0")
+    )
+    error_message = "BGP resets, SMART growth, systemd (minus healthchecks) and etcd rules have the agreed expressions."
+  }
+
+  assert {
+    # mikrotik_lite walks the PSU state scalars again (dropped when the switches moved to it, eb22abd).
+    condition = (
+      strcontains(file("${path.module}/../../modules/services/monitoring/snmp/mikrotik_lite.yml"), "name: mtxrHlPowerSupplyState\n") &&
+      strcontains(file("${path.module}/../../modules/services/monitoring/snmp/mikrotik_lite.yml"), "name: mtxrHlBackupPowerSupplyState\n") &&
+      strcontains(file("${path.module}/../../modules/services/monitoring/snmp/mikrotik_lite.yml"), "- 1.3.6.1.4.1.14988.1.1.3.15.0\n") &&
+      !strcontains(file("${path.module}/../../modules/services/monitoring/snmp/mikrotik_lite.yml"), "name: mtxrHlPower\n")
+    )
+    error_message = "mikrotik_lite GETs mtxrHlPowerSupplyState/mtxrHlBackupPowerSupplyState (and not mtxrHlPower, a substring match)."
+  }
+
+  assert {
+    # Loki ruler: the dead ADJCHANGE rule is gone; RouterOS BGP lines (leaf-20 skipped) and kernel disk/MCE lines
+    # on the PVE nodes (greatfox included) instead.
+    condition = (
+      yamldecode(base64decode(regex("unpack '/etc/logging/loki/rules/fake/logging.yaml' '([^']+)'", nonsensitive(module.monitoring.logging_deployments.loki01))[0])).groups[0].rules[*].alert == ["RouterOSBGPNoBFD", "SataLinkReset", "KernelDiskIOError", "KernelHardwareError"] &&
+      !anytrue([for r in yamldecode(base64decode(regex("unpack '/etc/logging/loki/rules/fake/logging.yaml' '([^']+)'", nonsensitive(module.monitoring.logging_deployments.loki01))[0])).groups[0].rules : strcontains(r.expr, "ADJCHANGE")]) &&
+      startswith(yamldecode(base64decode(regex("unpack '/etc/logging/loki/rules/fake/logging.yaml' '([^']+)'", nonsensitive(module.monitoring.logging_deployments.loki01))[0])).groups[0].rules[0].expr, "sum by (host, session) (count_over_time({host=~\"m317-1|m317-2|m326-1|m326-2\"} |= \"Cannot make BGP session\" != \"leaf-20-\" |") &&
+      alltrue([for r in slice(yamldecode(base64decode(regex("unpack '/etc/logging/loki/rules/fake/logging.yaml' '([^']+)'", nonsensitive(module.monitoring.logging_deployments.loki01))[0])).groups[0].rules, 2, 4) : startswith(r.expr, "sum by (host) (count_over_time({app=\"kernel\", host=~\"eldarad|fichina|fortuna|greatfox|macbeth|titania|venom|zoness\"} |")])
+    )
+    error_message = "Loki ruler group logging: RouterOSBGPNoBFD (MikroTiks, not leaf-20), SataLinkReset, KernelDiskIOError, KernelHardwareError (PVE nodes); no ADJCHANGE."
   }
 }
 
@@ -699,6 +767,23 @@ run "logging" {
       )])
     )
     error_message = "Alloy: the VyOS imuxsock copies (one leading space, not kernel) and Kea heartbeats are dropped on the logging VMs; the journal goes through loki.process.journal everywhere."
+  }
+
+  assert {
+    # Remaining level fixes (DT-011): Kea's own severity on the syslog path (logging VMs only); dark-triage's
+    # Werkzeug access lines by HTTP status and BIND's "<category>: <severity>:" prefix on every VM's journal.
+    # Selectors keep double-quoted LogQL strings: backtick ones fail at load time and alloy validate misses it.
+    condition = (
+      strcontains(module.monitoring.alloy_configs.loki01, "selector = \"{app=~\\\"kea.*\\\"} |~ \\\"^([0-9-]+ [0-9:.]+ )?(FATAL|ERROR|WARN|DEBUG) \\\"\"") &&
+      strcontains(module.monitoring.alloy_configs.loki01, "values = { level = \"kea_level\" }") &&
+      !strcontains(module.monitoring.alloy_configs.mon01, "kea_level") &&
+      alltrue([for name in ["mon01", "graf01", "loki01", "mim01"] : (
+        strcontains(module.monitoring.alloy_configs[name], "selector = \"{source=\\\"journal\\\", unit=\\\"dark-triage.service\\\"} |~ \\\"HTTP/[0-9.]+\\\\\\\" [1-5][0-9][0-9] \\\"\"") &&
+        strcontains(module.monitoring.alloy_configs[name], "template = `{{ if eq .Value \"5\" }}error{{ else if eq .Value \"4\" }}warning{{ else }}info{{ end }}`") &&
+        strcontains(module.monitoring.alloy_configs[name], "selector = \"{source=\\\"journal\\\", container=\\\"bind9\\\"} |~ \\\"^[a-z0-9-]+: (critical|error|warning|notice|info|debug)( [0-9]+)?: \\\"\"")
+      )])
+    )
+    error_message = "Alloy sets level from Kea's severity (syslog, logging VMs), dark-triage's HTTP status and BIND's severity (journal, every VM)."
   }
 
   assert {

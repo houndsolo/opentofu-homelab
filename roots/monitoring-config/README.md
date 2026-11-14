@@ -581,9 +581,12 @@ Grafana --> VIP 10.54.18.101:3100 ;  Loki ruler --> both Alertmanagers (10.54.16
   runs a compactor, but they elect one through the ring (a single token), so only one compacts and
   deletes. Delete requests are stored in S3.
 - **Ruler**: rules from `/etc/logging/loki/rules/fake/` (the same on all three), sharded over the ruler
-  ring so each group is evaluated once, alerts to both Alertmanagers (the cluster dedups). One rule for now:
-  `BGPSessionDownLogged` (an FRR `ADJCHANGE ... Down` in the syslog; VyOS doesn't send those at its FRR log
-  level, so it doesn't fire for the VyOS routers).
+  ring so each group is evaluated once, alerts to both Alertmanagers (the cluster dedups). Group `logging`
+  (`loki_rules_yml` in modules/services/monitoring/logging.tf): `RouterOSBGPNoBFD` (a spine logs "Cannot make
+  BGP session. BFD session was not established", leaf-20 excluded), `SataLinkReset`, `KernelDiskIOError` and
+  `KernelHardwareError` (kernel lines on the PVE nodes). The old `BGPSessionDownLogged` (FRR `ADJCHANGE`) could
+  never fire: VyOS doesn't send those at its FRR log level; the leaves' sessions are alerted from frr_exporter
+  metrics instead (`fabric` group, modules/services/monitoring/infra-alerts.tf).
 - **Ports**: Loki runs with host networking and listens on every address, because the backend VIP
   moves between the VMs. `logging-guard` (an nftables table `inet logging_guard`, loaded by its own
   systemd unit) drops 3100 except from loopback and `logging_settings.loki_allowed_sources`

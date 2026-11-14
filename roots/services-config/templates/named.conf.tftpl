@@ -29,6 +29,19 @@ options {
 
 controls {};
 
+# The container has no syslog: named runs with -f and logs here, to stderr (the journal, through
+# Podman). "<category>: <severity>: " lets Alloy set the level label (DT-011); the journal adds the time.
+logging {
+    channel stderr_sev {
+        stderr;
+        severity info;
+        print-time no;
+        print-category yes;
+        print-severity yes;
+    };
+    category default { stderr_sev; };
+};
+
 # Statistics for bind_exporter (dns-bind-exporter.tf), loopback only: the exporter runs on the host
 # network and publishes the metrics on the management address.
 statistics-channels {

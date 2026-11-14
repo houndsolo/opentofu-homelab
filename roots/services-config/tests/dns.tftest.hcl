@@ -285,6 +285,33 @@ run "alloy_journal_to_loki" {
     )
     error_message = "One loki.write endpoint per URL; the journal labelled like monitoring-config's VMs (host, source = journal)."
   }
+  assert {
+    # Level fixes (DT-011), in step with monitoring-config's journal stage: dark-triage's Werkzeug access lines by
+    # HTTP status, its own "INFO/WARNING ..." lines, and BIND's "<category>: <severity>:" prefix.
+    condition = (
+      strcontains(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", { host = "triage01", max_age = "12h", loki_urls = ["http://a:1"] }), "selector = \"{source=\\\"journal\\\", unit=\\\"dark-triage.service\\\"} |~ \\\"HTTP/[0-9.]+\\\\\\\" [1-5][0-9][0-9] \\\"\"") &&
+      strcontains(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", { host = "triage01", max_age = "12h", loki_urls = ["http://a:1"] }), "expression = `^(?P<line_level>DEBUG|INFO|WARNING|ERROR|CRITICAL) `") &&
+      strcontains(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", { host = "dns01", max_age = "12h", loki_urls = ["http://a:1"] }), "selector = \"{source=\\\"journal\\\", container=\\\"bind9\\\"} |~ \\\"^[a-z0-9-]+: (critical|error|warning|notice|info|debug)( [0-9]+)?: \\\"\"")
+    )
+    error_message = "The journal stage sets dark-triage's level from the HTTP status / its level word and BIND's from its severity prefix."
+  }
+}
+
+# BIND logs through named.conf's stderr channel with severity and category (DT-011): -f, because -g ignores the
+# logging statement. Changing the Quadlet Exec makes the deploy restart bind9 (not a SIGHUP reload).
+run "bind_logging" {
+  command = plan
+  assert {
+    condition = (
+      strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x" }), "\nExec=-f -c /etc/bind/named.conf\n") &&
+      !strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x" }), "Exec=-g") &&
+      strcontains(templatefile("${path.module}/templates/named.conf.tftpl", {
+        address         = "10.8.53.1", vip = null, extra_listen = [], allowed_clients = ["10.0.0.0/8"], primary = true,
+        primary_address = "10.8.53.1", secondary_addresses = ["10.8.53.2"], stats_port = 8053
+      }), "logging {\n    channel stderr_sev {\n        stderr;\n        severity info;\n        print-time no;\n        print-category yes;\n        print-severity yes;\n    };\n    category default { stderr_sev; };\n};\n")
+    )
+    error_message = "bind9 runs named -f with a stderr channel that prints category and severity."
+  }
 }
 
 run "alloy_disabled" {

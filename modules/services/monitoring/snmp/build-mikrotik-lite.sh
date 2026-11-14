@@ -20,6 +20,7 @@ KEEP='
 mtxrBoardName mtxrSerialNumber mtxrFirmwareVersion mtxrNote mtxrUSBPowerReset
 mtxrLicLevel mtxrLicSoftwareId mtxrLicUpgradableTo mtxrLicVersion
 mtxrHlTemperature mtxrHlProcessorTemperature mtxrHlActiveFan mtxrHlVoltage mtxrHlProcessorFrequency
+mtxrHlPowerSupplyState mtxrHlBackupPowerSupplyState
 mtxrNeighborIdentity mtxrNeighborMacAddress mtxrNeighborIpAddress mtxrNeighborPlatform
 mtxrNeighborSoftwareID mtxrNeighborVersion
 mtxrInterfaceStatsLinkDowns
@@ -44,7 +45,7 @@ keep_json=$(printf '"%s",' $KEEP | sed 's/,$//; s/^/[/; s/$/]/')
 KEEP_JSON="$keep_json" SRC="$src" yq -n --prettyPrint '
   (load(env(SRC)).modules.mikrotik.metrics) as $all |
   env(KEEP_JSON) as $keep |
-  ($all | map(select(.name as $n | $keep | contains([$n])))) as $m |
+  ($all | map(select(.name as $n | $keep | any_c(. == $n)))) as $m |
   {"modules": {"mikrotik_lite": {
     "max_repetitions": 50,
     "get":  ($m | map(select(has("indexes") | not) | .oid + ".0") | unique),
