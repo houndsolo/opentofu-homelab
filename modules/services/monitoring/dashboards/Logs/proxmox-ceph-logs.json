@@ -103,8 +103,8 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({source=\"syslog\", host=~\"fichina|macbeth|titania|zoness|fortuna|eldarad|venom|greatfox\"}, host)",
-        "query": "label_values({source=\"syslog\", host=~\"fichina|macbeth|titania|zoness|fortuna|eldarad|venom|greatfox\"}, host)",
+        "definition": "label_values({source=~\"journal|syslog\", host=~\"fichina|macbeth|titania|zoness|fortuna|eldarad|venom|greatfox\"}, host)",
+        "query": "label_values({source=~\"journal|syslog\", host=~\"fichina|macbeth|titania|zoness|fortuna|eldarad|venom|greatfox\"}, host)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
@@ -191,7 +191,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"error\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Errors",
           "refId": "A"
@@ -260,7 +260,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=\"warning\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Warnings",
           "refId": "A"
@@ -329,7 +329,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \"end task UPID\" !~ `: OK\\s*$` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` |= \"end task UPID\" !~ `: OK\\s*$` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Failed tasks",
           "refId": "A"
@@ -398,7 +398,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \"starting task UPID\" [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` |= \"starting task UPID\" [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Tasks started",
           "refId": "A"
@@ -463,7 +463,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search` |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search` |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Corosync events",
           "refId": "A"
@@ -532,7 +532,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\", app=~\"pve-ha-.*\"} |~ `(?i)$search` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\", app=~\"pve-ha-.*\"} |~ `(?i)$search` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "HA events",
           "refId": "A"
@@ -597,7 +597,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |~ `(?i)authentication failure|auth fail|failed password|invalid user` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` |~ `(?i)authentication failure|auth fail|failed password|invalid user` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Auth failures",
           "refId": "A"
@@ -666,7 +666,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` [$__range])) or vector(0)",
+          "expr": "sum(count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` [$__range])) or vector(0)",
           "queryType": "instant",
           "legendFormat": "Lines",
           "refId": "A"
@@ -744,7 +744,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` [$__auto]))",
+          "expr": "sum by (host) (count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -822,7 +822,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "topk(10, sum by (app) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` [$__auto])))",
+          "expr": "topk(10, sum by (app) (count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` [$__auto])))",
           "queryType": "range",
           "legendFormat": "{{app}}",
           "refId": "A"
@@ -902,7 +902,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host, level) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~`error|warning` [$__auto]))",
+          "expr": "sum by (host, level) (count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` | regexp `(?:\\blevel=\"?|\\blvl=|^\\[|\\] |^\\d{4}-\\d\\d-\\d\\dT\\S+Z\\s+)(?P<lvl_>[A-Za-z]+)` | label_format level=`{{ $l := lower (or (and .container .lvl_) .level) }}{{ if eq $l \"error\" \"err\" \"eror\" \"e\" \"crit\" \"critical\" \"alert\" \"emerg\" \"emergency\" \"fatal\" \"panic\" }}error{{ else if eq $l \"warning\" \"warn\" \"w\" }}warning{{ else if eq $l \"notice\" }}notice{{ else if eq $l \"debug\" \"trace\" \"d\" }}debug{{ else }}info{{ end }}` | drop lvl_ | level=~`error|warning` [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}} {{level}}",
           "refId": "A"
@@ -993,7 +993,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum by (host) (count_over_time({source=\"syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search` |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__auto]))",
+          "expr": "sum by (host) (count_over_time({source=~\"journal|syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search` |~ `(?i:host: \\d+ link: \\d+ is (up|down)|new membership|members\\[|quorum|token has not been received|retransmit list|failed to receive)` [$__auto]))",
           "queryType": "range",
           "legendFormat": "{{host}}",
           "refId": "A"
@@ -1071,7 +1071,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search`",
+          "expr": "{source=~\"journal|syslog\", host=~\"$node\", app=~\"corosync|pmxcfs\"} |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1112,7 +1112,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"pve-ha-.*\"} |~ `(?i)$search`",
+          "expr": "{source=~\"journal|syslog\", host=~\"$node\", app=~\"pve-ha-.*\"} |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1166,7 +1166,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sort_desc(topk(15, sum by (task) (count_over_time({source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<vmid>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)` | what=`starting` [$__range]))))",
+          "expr": "sort_desc(topk(15, sum by (task) (count_over_time({source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<vmid>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)` | what=`starting` [$__range]))))",
           "queryType": "instant",
           "legendFormat": "{{task}}",
           "refId": "A"
@@ -1233,7 +1233,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"$node\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<vmid>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)`",
+          "expr": "{source=~\"journal|syslog\", host=~\"$node\"} |~ `(?i)$search` |= \" task UPID:\" | regexp `<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):(?P<vmid>[^:]*):[^:]+:\\s*(?P<status>[^\\n]*)`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 300,
@@ -1485,7 +1485,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"qmeventd|qm|pct|lxc.*|pvescheduler\"} |~ `(?i)$search`",
+          "expr": "{source=~\"journal|syslog\", host=~\"$node\", app=~\"qmeventd|qm|pct|lxc.*|pvescheduler\"} |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1526,7 +1526,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall\"} |~ `(?i)$search` !~ `status update time`",
+          "expr": "{source=~\"journal|syslog\", host=~\"$node\", app=~\"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall\"} |~ `(?i)$search` !~ `status update time`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -1567,7 +1567,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"$node\", app=\"kernel\"} |~ `(?i)$search` | level=~\"emergency|alert|critical|error|warning\"",
+          "expr": "{source=~\"journal|syslog\", host=~\"$node\", app=\"kernel\"} |~ `(?i)$search` | level=~\"emerg(ency)?|alert|crit(ical)?|err(or)?|warning\"",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,
@@ -2431,7 +2431,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{source=\"syslog\", host=~\"$node\", app=~\"ceph-(osd|mon|mgr|mds|crash|volume).*|kernel\"} |~ `(?i)ceph|osd|libceph|rbd` |~ `(?i)$search`",
+          "expr": "{source=~\"journal|syslog|ceph\", host=~\"$node\", app=~\"ceph-(osd|mon|mgr|mds|rgw|crash|volume).*|kernel\"} |~ `(?i)ceph|osd|libceph|rbd` |~ `(?i)$search`",
           "queryType": "range",
           "legendFormat": "",
           "maxLines": 500,

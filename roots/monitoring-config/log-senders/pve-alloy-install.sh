@@ -57,6 +57,10 @@ cat >/etc/systemd/system/alloy.service.d/pve.conf <<'EOF'
 [Service]
 # Read after the package's EnvironmentFile=/etc/default/alloy, so CONFIG_FILE/CUSTOM_ARGS here win.
 EnvironmentFile=/etc/alloy/pve.env
+# Read any file without a per-file ACL: /var/log/ceph/ceph.log is ceph:ceph 0600 and recreated on rotation.
+# Read/traverse only (no write, no ownership), and ProtectSystem below keeps the rest of the FS read-only.
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 # Hypervisor guard rails: Alloy only reads logs and writes positions/WAL under /var/lib/alloy.
 NoNewPrivileges=yes
 ProtectSystem=strict
@@ -83,7 +87,25 @@ if [ -d /var/log/ceph ]; then
   done
 fi
 
-# 4. (Re)start and check.
+# 4. rsyslog stops forwarding (Alloy ships the journal and ceph.log now) but still writes nothing to
+#    /var/log/* (the journal stays the local log store, as with the old 30-loki.conf's final `stop`).
+cat >/etc/rsyslog.d/30-journal-only.conf <<'EOF'
+# Managed by roots/monitoring-config/log-senders/pve-alloy-install.sh. Alloy ships the journal to Loki;
+# rsyslog writes nothing (the journal is the local log store). Packages' rules (45-frr.conf, ...) never run.
+stop
+EOF
+rm -f /etc/rsyslog.d/30-loki.conf /etc/rsyslog.d/40-ceph-cluster-log.conf
+rsyslogd -N1 >/dev/null 2>&1 || { echo "rsyslog config check failed" >&2; rsyslogd -N1; exit 1; }
+
+# 5. (Re)start and check. First start with the journal (no journal position yet): max_age 1m, so the
+#    journal isn't backfilled 12 h (those lines are already in Loki from rsyslog); then the real config.
+first=0
+[ -d /var/lib/alloy/data/loki.source.journal.host ] || first=1
+if [ "$first" = 1 ]; then
+  sed 's/max_age       = "12h"/max_age       = "1m"/' /etc/alloy/pve.alloy >/etc/alloy/pve.alloy.first
+  install -m 0640 -o root -g alloy /etc/alloy/pve.alloy.first /etc/alloy/pve.alloy
+  rm -f /etc/alloy/pve.alloy.first
+fi
 systemctl daemon-reload
 systemctl enable --quiet alloy.service
 since=$(date '+%Y-%m-%d %H:%M:%S')
@@ -97,6 +119,14 @@ curl -fsS -m 2 -o /dev/null "http://${listen}:${HTTP_PORT}/-/ready"
 if journalctl -u alloy.service --since "$since" --no-pager -o cat | grep -E "invalid stage|failed to evaluate config|Failed to build|permission denied"; then
   echo "alloy started with errors (above)" >&2
   exit 1
+fi
+systemctl restart rsyslog.service
+if [ "$first" = 1 ]; then
+  sleep 15   # the journal source stores its first cursor
+  install -m 0640 -o root -g alloy pve-alloy.config.alloy /etc/alloy/pve.alloy
+  systemctl restart alloy.service
+  for _ in $(seq 1 30); do curl -fs -m 2 -o /dev/null "http://${listen}:${HTTP_PORT}/-/ready" && break; sleep 1; done
+  systemctl is-active --quiet alloy.service
 fi
 echo "alloy ${ALLOY_VERSION} running on $(hostname -s), http://${listen}:${HTTP_PORT}"
 rm -f pve-alloy.config.alloy "$ALLOY_DEB" pve-alloy-install.sh

@@ -1,17 +1,19 @@
-// Grafana Alloy on the Proxmox/Ceph nodes (DT-021): Ceph daemon log files -> Loki.
-// Installed by pve-alloy-install.sh as /etc/alloy/pve.alloy (same file on every node).
-// The journal stays with rsyslog (pve-30-loki.conf) and the Ceph cluster log with
-// pve-40-ceph-cluster-log.conf; this file only adds what neither of them carries:
-//   /var/log/ceph/ceph-{osd,mon,mgr,mds}.*.log and ceph-client.rgw.*.log
-// ceph.log / ceph.audit.log are NOT read (cluster log already shipped; both are 0600 anyway).
+// Grafana Alloy on the Proxmox/Ceph nodes: every log the node ships to Loki (DT-021, journal takeover 2026-11-14).
+// Installed by pve-alloy-install.sh as /etc/alloy/pve.alloy (same file on every node). rsyslog no longer
+// forwards anything (pve-30-journal-only.conf keeps it from writing /var/log/*; the journal is the local store).
+//   1. the journal (everything journald has, kernel included; debug dropped)  source="journal"
+//   2. the Ceph cluster log /var/log/ceph/ceph.log on the mon nodes ([DBG] dropped)  source="ceph", app="ceph-cluster"
+//   3. the Ceph daemon logs /var/log/ceph/ceph-{osd,mon,mgr,mds}.*.log, ceph-client.rgw.*.log  source="ceph"
+// ceph.audit.log is NOT read. ceph.log is ceph:ceph 0600 and recreated on every rotation, so the unit gets
+// CAP_DAC_READ_SEARCH (read-only bypass; pve-alloy-install.sh's drop-in) instead of a per-file ACL.
 //
-// Labels: host (node short name), source="ceph", app=ceph-osd|ceph-mon|ceph-mgr|ceph-mds|ceph-rgw,
-// daemon=osd.8|mon.venom|mgr.titania|mds.zoness|rgw.venom, level (journal words, see below).
-// Drops are counted in loki_process_dropped_lines_total{reason="ceph_..."} (Alloy :12345/metrics).
-//
-// Later journal takeover: add a loki.source.journal "host" (labels host/source="journal", same
-// relabel rules as the VMs' config.alloy) forwarding to loki.write.loki, then remove
-// /etc/rsyslog.d/30-loki.conf. The alloy user is already in systemd-journal (package postinst).
+// Labels: host (node short name), source, app, level (journal words: emerg|alert|crit|err|warning|notice|info).
+//   journal: unit, container (if any), app = SYSLOG_IDENTIFIER (same as the VMs' config.alloy and what
+//            rsyslog's APP-NAME was, so app="corosync"/"pve-ha-lrm"/"kernel" keep working)
+//   ceph:    app=ceph-osd|ceph-mon|ceph-mgr|ceph-mds|ceph-rgw|ceph-cluster, daemon=osd.8|mon.venom|...
+//            level for the daemon logs in the journal's long words (error|warning|...), see loki.process.ceph.
+// Every mon writes the same cluster log: each line arrives once per mon, with that mon's host label.
+// Drops are counted in loki_process_dropped_lines_total{reason="..."} (Alloy :12345/metrics).
 
 logging {
   level  = "info"
@@ -186,5 +188,80 @@ loki.process "ceph" {
     values = ["filename"]
   }
 
+  forward_to = [loki.write.loki.receiver]
+}
+
+// --- 1. journal ---------------------------------------------------------------------------------
+loki.relabel "journal" {
+  forward_to = []
+
+  // rsyslog forwarded *.info and up; keep that (debug is pvestatd/systemd chatter).
+  rule {
+    source_labels = ["__journal_priority"]
+    regex         = "7"
+    action        = "drop"
+  }
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_container_name"]
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+}
+
+loki.source.journal "host" {
+  max_age       = "12h"
+  relabel_rules = loki.relabel.journal.rules
+  labels        = { host = constants.hostname, source = "journal" }
+  forward_to    = [loki.write.loki.receiver]
+}
+
+// --- 2. Ceph cluster log (mon nodes) ------------------------------------------------------------
+// "2026-11-14T00:31:22.214170-0500 mgr.titania (mgr.128850443) 218352 : cluster [WRN] Health check failed: ..."
+local.file_match "ceph_cluster" {
+  path_targets = [{ "__path__" = "/var/log/ceph/ceph.log", "app" = "ceph-cluster", "source" = "ceph", "host" = constants.hostname }]
+  sync_period  = "10s"
+}
+
+loki.source.file "ceph_cluster" {
+  targets                 = local.file_match.ceph_cluster.targets
+  forward_to              = [loki.process.ceph_cluster.receiver]
+  tail_from_end           = true
+  on_positions_file_error = "restart_from_end"
+}
+
+loki.process "ceph_cluster" {
+  // the mgr's pgmap every 2 s and other debug entries (pve-40 dropped them too)
+  stage.drop {
+    expression          = ` \[DBG\] `
+    drop_counter_reason = "ceph_cluster_debug"
+  }
+  stage.regex {
+    expression = `^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}) .* \[(?P<sev>[A-Z]+)\] `
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ if eq .sev "ERR" }}err{{ else if eq .sev "WRN" }}warning{{ else if eq .sev "SEC" }}crit{{ else }}info{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+  stage.timestamp {
+    source = "ts"
+    format = "2006-01-02T15:04:05.000000-0700"
+  }
+  stage.label_drop {
+    values = ["filename"]
+  }
   forward_to = [loki.write.loki.receiver]
 }
