@@ -7,19 +7,17 @@ vnis = [
     vrf_table = 6666
     ext_l3    = true
     ext_l3_peer = {
-      remote_as   = 420 # fw-wan (VXLAN_Border_Spine in its lylat_service VRF)
+      remote_as   = 420 # fw-wan (VXLAN_Border_Spine in its lylat_external VRF)
       description = "lylat_external L3 external connectivity"
     }
-    ipv4_rt_imports = "700:6900 700:6600 700:6200 700:6700 700:5100 700:5200 700:5300 700:5400 700:5600"
+    ipv4_rt_imports = "700:6900 700:6700 700:5100 700:5200 700:5300 700:5400 700:5600"
     ipv4_rt_exports = "700:6666"
     import_ipv4_vpn = true
     export_vpn_ipv4 = true
     evpn_rt_imports = [
       "700:6666",
       "700:6900",
-      "700:6600",
       "700:6700",
-      "700:6200",
       "700:5100",
       "700:5200",
       "700:5300",
@@ -31,37 +29,12 @@ vnis = [
     ]
   },
   {
-    vlan_id         = 66
-    vni             = 6600
-    roles           = ["proxmox"]
-    vrf             = "lylat_service"
-    vrf_table       = 1000
-    ipv4_rt_imports = "700:6200 700:6900"
-    ipv4_rt_exports = "700:6600"
-    import_ipv4_vpn = true
-    export_vpn_ipv4 = true
-    evpn_rt_imports = [
-      "700:6600",
-      "700:6200",
-      "700:6900",
-      "700:6666",
-    ]
-    evpn_rt_exports = [
-      "700:6600",
-    ]
-    #redistribute_ipv4 = {
-    #  connected = {}
-    #}
-
-    # Empty since the zone cutover (DT-090 steps 3-5): VLAN 8 moved into lylat-dns. Retired in step 6.
-  },
-  {
     vlan_id         = 69
     vni             = 6900
     roles           = ["proxmox", "external_l2"]
     vrf             = "lylat_lan"
     vrf_table       = 1337
-    ipv4_rt_imports = "700:6600 700:6200 700:6700 700:5100 700:5300"
+    ipv4_rt_imports = "700:6700 700:5100 700:5300"
     ipv4_rt_exports = "700:6900"
     import_ipv4_vpn = true
     export_vpn_ipv4 = true
@@ -70,8 +43,6 @@ vnis = [
     #}
     evpn_rt_imports = [
       "700:6900",
-      "700:6600",
-      "700:6200",
       "700:6700",
       "700:6666",
       "700:5100",
@@ -125,60 +96,6 @@ vnis = [
         advertise_default_gw = false
         advertise_svi_ip     = false
         export_ipv4_unicast  = true
-      }
-    }
-  },
-
-  {
-    vlan_id         = 62
-    vni             = 6200
-    roles           = ["proxmox"]
-    vrf             = "lylat_infra"
-    vrf_table       = 700
-    ipv4_rt_imports = "700:6600 700:6900"
-    ipv4_rt_exports = "700:6200"
-    import_ipv4_vpn = true
-    export_vpn_ipv4 = true
-    evpn_rt_imports = [
-      "700:6200",
-      "700:6900",
-      "700:6600",
-      "700:6666",
-    ]
-    evpn_rt_exports = [
-      "700:6200",
-    ]
-    #redistribute_ipv4 = {
-    #  connected = {}
-    #}
-
-  },
-
-  # Isolated monitoring backend (mon01 <-> graf01/02, Grafana HA). No ipv4 VPN
-  # leaking and EVPN RTs only its own, so no other VRF (including
-  # lylat_external) sees it. No DHCP.
-  {
-    vlan_id         = 63
-    vni             = 6300
-    roles           = ["proxmox"]
-    vrf             = "lylat_monitor"
-    vrf_table       = 6300
-    import_ipv4_vpn = false
-    export_vpn_ipv4 = false
-    evpn_rt_imports = [
-      "700:6300",
-    ]
-    evpn_rt_exports = [
-      "700:6300",
-    ]
-
-    l2 = {
-      13 = {
-        vni             = 9013
-        vlan_id         = 13
-        anycast_gw_ip   = "10.13.0.5"
-        anycast_gw_cidr = 16
-        anycast_mac     = "02:00:00:00:13:01"
       }
     }
   },
@@ -426,14 +343,13 @@ vnis = [
     roles           = ["proxmox", "external_l2"]
     vrf             = "lylat_ai"
     vrf_table       = 6700
-    ipv4_rt_imports = "700:6600 700:6900 700:5100 700:5300"
+    ipv4_rt_imports = "700:6900 700:5100 700:5300"
     ipv4_rt_exports = "700:6700"
     import_ipv4_vpn = true
     export_vpn_ipv4 = true
     evpn_rt_imports = [
       "700:6700",
       "700:6900",
-      "700:6600",
       "700:6666",
       "700:5100",
       "700:5300",
