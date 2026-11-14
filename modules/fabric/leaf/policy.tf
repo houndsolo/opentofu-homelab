@@ -12,6 +12,8 @@ locals {
     "set policy route-map local_as_rm rule 10 action 'permit'",
     "set policy route-map local_as_rm rule 10 match as-path 'local_as_export'",
     "set policy route-map local_as_rm rule 100 action 'deny'",
+    "set policy prefix-list PL-DEFAULT-ROUTE rule 10 action 'permit'",
+    "set policy prefix-list PL-DEFAULT-ROUTE rule 10 prefix '0.0.0.0/0'",
   ]
   policy_vrf_commands = flatten([
     #l2vni PLs
@@ -22,12 +24,25 @@ locals {
       ]
     ],
     [
+      # A VRF without L2VNIs has an empty subnet prefix-list, so rule 10 below gets no match line. Only the
+      # external VRF (ext_l3) may then permit everything (it leaks fw-wan's default into the local VRFs); any
+      # other empty VRF denies, or it would re-export the default it imported (DT-090: lylat_infra and
+      # lylat_service re-originated 0.0.0.0/0 with RT 6200/6600 after their VLANs moved out).
       for vrf in local.role_vrfs : [
         "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-EVPN rule 10 action 'permit'",
-        "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-LOCAL-VPN rule 10 action 'permit'",
-        "set policy route-map RM-${upper(vrf.vrf)}-CONNECTED-TO-BGP rule 10 action 'permit'",
+        "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-LOCAL-VPN rule 10 action '${length(vrf.l2) > 0 || try(vrf.ext_l3, false) == true ? "permit" : "deny"}'",
+        "set policy route-map RM-${upper(vrf.vrf)}-CONNECTED-TO-BGP rule 10 action '${length(vrf.l2) > 0 || try(vrf.ext_l3, false) == true ? "permit" : "deny"}'",
         "set policy route-map RM-${upper(vrf.vrf)}-CONNECTED-TO-BGP rule 100 action 'deny'",
       ]
+    ],
+    [
+      # Only the external VRF originates 0.0.0.0/0 into EVPN. FRR re-advertises routes another VRF's RT
+      # brought in, so a default in a VRF that imports other VRFs' RTs loops between leaves and VRFs and
+      # sustains itself (DT-090, 2026-11-14: defaults with labels 6200/6600/6700/6900 on every leaf).
+      for vrf in local.role_vrfs : [
+        "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-EVPN rule 5 action 'deny'",
+        "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-EVPN rule 5 match ip address prefix-list 'PL-DEFAULT-ROUTE'",
+      ] if try(vrf.ext_l3, false) != true
     ],
     [
       for vrf in local.role_vrfs : [
