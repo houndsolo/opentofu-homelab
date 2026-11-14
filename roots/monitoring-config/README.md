@@ -406,7 +406,7 @@ Review the diff, then apply. File and folder names must not contain spaces.
 fw-wan isn't managed by this repo, so its monitoring was set up by hand (2026-11-09).
 Prometheus scrapes it through `vyos_extra_targets` (node :9100 and FRR :9342 on the
 mgmt VRF, 10.20.10.255) and `vyos_telegraf_targets` (job `vyos-telegraf`, :9273 on
-`lylat_external` (formerly `lylat_service`), 10.5.0.255). Telegraf has no InfluxDB output (since 2026-11-13; it used to
+`lylat-external` (formerly `lylat_service`, then `lylat_external` until 2026-11-14), 10.5.0.255). Telegraf has no InfluxDB output (since 2026-11-13; it used to
 write bucket `vyos` through the InfluxDB relay): VyOS only runs its exec inputs (nftables
 counters, interface and service state) while that output is set, and everything they gave
 now comes from three scripts the task scheduler runs every minute, which write
@@ -427,7 +427,7 @@ set service monitoring prometheus frr-exporter collector bgp-l2-vpn
 set service monitoring prometheus frr-exporter collector bgp peer-hostname
 set service monitoring prometheus frr-exporter collector bgp peer-description 'plain-text'
 set service monitoring prometheus frr-exporter collector bgp peer-type
-set service monitoring telegraf vrf 'lylat_external'
+set service monitoring telegraf vrf 'lylat-external'
 set service monitoring telegraf prometheus-client listen-address '10.5.0.255'
 set service monitoring telegraf prometheus-client port '9273'
 set service monitoring telegraf prometheus-client allow-from '10.5.11.30/32'
@@ -451,13 +451,13 @@ set system syslog remote 10.5.11.101 port '514'
 set system syslog remote 10.5.11.101 protocol 'tcp'
 set system syslog remote 10.5.11.101 format include-timezone
 set system syslog remote 10.5.11.101 format octet-counted
-set system syslog remote 10.5.11.101 vrf 'lylat_external'
+set system syslog remote 10.5.11.101 vrf 'lylat-external'
 set system syslog remote 10.5.11.101 source-address '10.5.0.255'
 ```
 
 The `system syslog remote` lines send fw-wan's log (firewall `log` rules, strongSwan, FRR,
 `info` and up) to Loki through the Alloy VIP `10.5.11.101` (TCP 514, RFC 5424, octet-counted)
-from `lylat_external`. The other hand-configured log senders (PVE nodes, CRS317s, FS
+from `lylat-external`. The other hand-configured log senders (PVE nodes, CRS317s, FS
 switches, WLCs) are in [log-senders](log-senders/README.md).
 
 Install the scripts with `sudo install -m 0755 vpn-metrics.py nft-metrics.py status-metrics.py

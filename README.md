@@ -141,7 +141,7 @@ The VRFs in the inventory today (the source of truth is
 | `lylat-data` | 5600 | proxmox | 1601: 10.56.0.0/16 (gateway .0.1; Postgres, Valkey) |
 | `lylat-lan` | 6900 | proxmox, external_l2 | 9, 10, 11: 10.9/10.10/10.11.0.0/16 |
 | `lylat-ai` | 6700 | proxmox, external_l2 | 12: 10.12.0.0/16 |
-| `lylat-external` | 6666 | external_l3 | none (routed only; the only VRF that sends 0.0.0.0/0 into EVPN; fw-wan's own VRF on the other side keeps the name `lylat_external`) |
+| `lylat-external` | 6666 | external_l3 | none (routed only; the only VRF that sends 0.0.0.0/0 into EVPN; fw-wan's VRF on the other side has the same name) |
 
 The zone VRFs (lylat-edge ... lylat-data, DT-090) number everything from the zone id Z (51-56): L3VNI
 Z00, one flat segment L2VNI Z01 on VLAN Z01 - 4000, `10.Z.0.0/16` with the anycast gateway `.0.1`

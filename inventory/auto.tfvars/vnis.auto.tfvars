@@ -7,7 +7,7 @@ vnis = [
     vrf_table = 6666
     ext_l3    = true
     ext_l3_peer = {
-      remote_as   = 420 # fw-wan (VXLAN_Border_Spine in its lylat_external VRF)
+      remote_as   = 420 # fw-wan (VXLAN_Border_Spine in its lylat-external VRF)
       description = "lylat-external L3 external connectivity"
     }
     ipv4_rt_imports = "700:6900 700:6700 700:5100 700:5200 700:5300 700:5400 700:5600"

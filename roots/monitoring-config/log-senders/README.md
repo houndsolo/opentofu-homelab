@@ -38,7 +38,7 @@ per host):
 
 | Source | Method | Status |
 |---|---|---|
-| fw-wan | VyOS syslog, TCP 514 → 10.5.11.101 from `lylat_external`, saved | verified (`host="fw-wan"`, strongSwan, kernel, FRR…) |
+| fw-wan | VyOS syslog, TCP 514 → 10.5.11.101 from `lylat-external`, saved | verified (`host="fw-wan"`, strongSwan, kernel, FRR…) |
 | m317-1/2 | RouterOS `remote` action, UDP 514 (applied live; RouterOS saves immediately) | verified |
 | switch-1 | `logging 10.5.11.101 port 1514`, `write` | verified (raw) |
 | switch-2 | `logging server 10.5.11.101 udp-port 1514`, `write` | verified (raw) |
@@ -136,7 +136,7 @@ To scrape Alloy later, add the nodes as `targets.alloy` (`10.5.1.<id>:12345`) in
 ### fw-wan
 
 See the fw-wan section of the [monitoring-config README](../README.md). It sends from
-`lylat_external` (10.5.0.255) to `10.5.11.101`, TCP, RFC 5424. Firewall `log` rules
+`lylat-external` (10.5.0.255) to `10.5.11.101`, TCP, RFC 5424. Firewall `log` rules
 (kernel) and strongSwan/IPsec logs are included at `info` and up.
 
 ```
@@ -145,7 +145,7 @@ set system syslog remote 10.5.11.101 port '514'
 set system syslog remote 10.5.11.101 protocol 'tcp'
 set system syslog remote 10.5.11.101 format include-timezone
 set system syslog remote 10.5.11.101 format octet-counted
-set system syslog remote 10.5.11.101 vrf 'lylat_external'
+set system syslog remote 10.5.11.101 vrf 'lylat-external'
 set system syslog remote 10.5.11.101 source-address '10.5.0.255'
 ```
 
