@@ -43,7 +43,7 @@ per host):
 | switch-1 | `logging 10.5.11.101 port 1514`, `write` | verified (raw) |
 | switch-2 | `logging server 10.5.11.101 udp-port 1514`, `write` | verified (raw) |
 | c9800-wlc-1/2 | `logging host … transport udp port 1514`, `write memory` | verified (raw) |
-| PVE nodes (7 cluster nodes) | Grafana Alloy → Loki API (journal, Ceph cluster log, Ceph daemon logs), 2026-11-14 | verified; greatfox was off, still on rsyslog until the installer is run there |
+| PVE nodes (7 cluster nodes + greatfox) | Grafana Alloy → Loki API (journal, Ceph cluster log, Ceph daemon logs; greatfox has no Ceph, journal only), 2026-11-14 | verified (greatfox installed 2026-11-14 17:17Z) |
 
 ### PVE nodes: Grafana Alloy (journal, Ceph cluster log, Ceph daemon logs)
 
