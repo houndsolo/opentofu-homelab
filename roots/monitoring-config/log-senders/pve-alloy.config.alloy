@@ -1,0 +1,190 @@
+// Grafana Alloy on the Proxmox/Ceph nodes (DT-021): Ceph daemon log files -> Loki.
+// Installed by pve-alloy-install.sh as /etc/alloy/pve.alloy (same file on every node).
+// The journal stays with rsyslog (pve-30-loki.conf) and the Ceph cluster log with
+// pve-40-ceph-cluster-log.conf; this file only adds what neither of them carries:
+//   /var/log/ceph/ceph-{osd,mon,mgr,mds}.*.log and ceph-client.rgw.*.log
+// ceph.log / ceph.audit.log are NOT read (cluster log already shipped; both are 0600 anyway).
+//
+// Labels: host (node short name), source="ceph", app=ceph-osd|ceph-mon|ceph-mgr|ceph-mds|ceph-rgw,
+// daemon=osd.8|mon.venom|mgr.titania|mds.zoness|rgw.venom, level (journal words, see below).
+// Drops are counted in loki_process_dropped_lines_total{reason="ceph_..."} (Alloy :12345/metrics).
+//
+// Later journal takeover: add a loki.source.journal "host" (labels host/source="journal", same
+// relabel rules as the VMs' config.alloy) forwarding to loki.write.loki, then remove
+// /etc/rsyslog.d/30-loki.conf. The alloy user is already in systemd-journal (package postinst).
+
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+loki.write "loki" {
+  endpoint {
+    // Loki on the monitoring network (VLAN 5) VIP, the same VIP rsyslog uses for 514. The PVE
+    // nodes reach it on their own 10.5.1.x address, directly connected (no routing); logging-guard
+    // on loki01-03 lets the PVE nodes' 10.5 addresses in on 3100 (monitoring-config).
+    url = "http://10.5.11.101:3100/loki/api/v1/push"
+  }
+}
+
+// One target per daemon log; app comes from the pattern, daemon from the file name.
+// Only *.log: logrotate renames to *.log.1 and gzips it, those never match.
+local.file_match "ceph" {
+  path_targets = [
+    { "__path__" = "/var/log/ceph/ceph-osd.*.log", "app" = "ceph-osd" },
+    { "__path__" = "/var/log/ceph/ceph-mon.*.log", "app" = "ceph-mon" },
+    { "__path__" = "/var/log/ceph/ceph-mgr.*.log", "app" = "ceph-mgr" },
+    { "__path__" = "/var/log/ceph/ceph-mds.*.log", "app" = "ceph-mds" },
+    { "__path__" = "/var/log/ceph/ceph-client.rgw.*.log", "app" = "ceph-rgw" },
+  ]
+  sync_period = "10s"
+}
+
+discovery.relabel "ceph" {
+  targets = local.file_match.ceph.targets
+
+  // ceph-osd.8.log -> osd.8, ceph-mon.venom.log -> mon.venom, ceph-client.rgw.venom.log -> rgw.venom
+  rule {
+    source_labels = ["__path__"]
+    regex         = "/var/log/ceph/ceph-(?:client\\.)?(.+)\\.log"
+    target_label  = "daemon"
+  }
+  rule {
+    target_label = "host"
+    replacement  = constants.hostname
+  }
+  rule {
+    target_label = "source"
+    replacement  = "ceph"
+  }
+}
+
+loki.source.file "ceph" {
+  targets    = discovery.relabel.ceph.output
+  forward_to = [loki.process.ceph.receiver]
+  // First start (no stored position): begin at the end of each file, no backfill of the day's log.
+  // Afterwards the positions file (/var/lib/alloy/data) resumes where Alloy stopped. Ceph's logrotate
+  // renames (no copytruncate) and SIGHUPs the daemons, which reopen a new file; the tailer follows
+  // the name, finishes the old file and starts the new one from 0 (stored position > size).
+  tail_from_end           = true
+  on_positions_file_error = "restart_from_end"
+}
+
+// Ceph line: "2026-11-14T02:20:01.123-0500 7e4c87a556c0 -1 osd.8 1234 heartbeat_check: ..."
+//   <timestamp> <thread id> <priority> <message>
+// Priority (Ceph's dout level): -1 = derr/lderr (errors), 0 = always logged (state changes, warnings),
+// 1..5 = the levels the default "debug_<subsys> = 1/5 .. 4/5" settings write to file (RocksDB logs at 4),
+// > 5 only appears when someone raises a debug_<subsys> level.
+loki.process "ceph" {
+  // One entry per record: continuation lines (RocksDB "DUMPING STATS" tables, up to ~370 lines on
+  // the OSDs; crash backtraces and "dump of recent events") belong to the timestamped line before.
+  stage.multiline {
+    firstline     = `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`
+    max_wait_time = "3s"
+    max_lines     = 512
+  }
+
+  stage.regex {
+    expression = `(?s)^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{4}) +(?P<thread>[0-9a-f]+) +(?P<prio>-?\d+) (?P<msg>.*)$`
+  }
+
+  // --- drops (noise; reason = drop_counter_reason) ---
+  // RGW: one beast access line per S3 request (Loki/Mimir/Postgres backups, haproxy "HEAD /" health
+  // checks) plus the "starting new request" / "req done" pair: ~99.9 % of the RGW log. Kept: requests
+  // answered 5xx (beast line and req done), and everything else RGW logs.
+  stage.match {
+    selector = "{app=\"ceph-rgw\"}"
+    stage.drop {
+      source              = "msg"
+      expression          = `^(beast: 0x[0-9a-f]+: .* HTTP/[0-9.]+" [1-4]\d\d |====== starting new request |====== req done .* http_status=[1-4]\d\d )`
+      drop_counter_reason = "ceph_rgw_request"
+    }
+  }
+  // mgr prometheus module on a non-cephadm cluster: one ERROR per scrape, nothing to configure.
+  stage.match {
+    selector = "{app=\"ceph-mgr\"}"
+    stage.drop {
+      source              = "msg"
+      expression          = `No orchestrator configured`
+      drop_counter_reason = "ceph_mgr_no_orchestrator"
+    }
+    // Active mgr's python modules, every minute or faster (~65k/day): any module's DEBUG, the idle
+    // connection sweep, pg_autoscaler's per-pool report, rbd_support schedule reloads, balancer runs
+    // that change nothing. Kept: WARNING and up, balancer plans with changes, everything else.
+    stage.drop {
+      source              = "msg"
+      expression          = `^\[(\S+ DEBUG \S+\] |mgr INFO mgr\] (scanning for idle connections|cleaning up connections: \[\])|pg_autoscaler INFO pg_autoscaler\] (effective_target_ratio |Pool '[^']*' root_id |_maybe_adjust)|rbd_support INFO rbd_support\] (\S+: )?load_schedules|balancer INFO balancer\] (Optimize plan |Mode upmap|do_upmap|prepared 0/))`
+      drop_counter_reason = "ceph_mgr_periodic"
+    }
+  }
+  // Debug copies of cluster/audit log entries: the mgr's pgmap every 2 s, the mons' audit "dispatch"
+  // of read-only commands. The cluster log itself goes to Loki through pve-40 (INF and up).
+  stage.drop {
+    source              = "msg"
+    expression          = `^log_channel\((cluster|audit)\) log \[DBG\] `
+    drop_counter_reason = "ceph_clog_debug"
+  }
+  // pvestatd's "ceph df" every few seconds (~42k/day per mon) and the mgr's "osd blocklist ls".
+  stage.match {
+    selector = "{app=\"ceph-mon\"}"
+    stage.drop {
+      source              = "msg"
+      expression          = `handle_command mon_command\(\{("prefix": ?"(df|osd blocklist ls)", ?"format": ?"json"|"format": ?"json", ?"prefix": ?"(df|osd blocklist ls)")\} `
+      drop_counter_reason = "ceph_mon_poll"
+    }
+    // Mon cache autotuner, every 5 s.
+    stage.drop {
+      source              = "msg"
+      expression          = `^mon\.\S+ e\d+ _set_new_cache_sizes cache_size:`
+      drop_counter_reason = "ceph_mon_cache_autotune"
+    }
+  }
+  // RocksDB (OSD BlueFS and mon store) housekeeping at level 4: flushes, compactions, file deletions,
+  // the 10-minute stats dump. Kept: write stalls/stops and errors.
+  stage.match {
+    selector            = "{source=\"ceph\"} |= \" rocksdb: \" !~ \"Stalling writes|Stopping writes|[Ee]rror|Corruption|[Ff]ail\""
+    action              = "drop"
+    drop_counter_reason = "ceph_rocksdb"
+  }
+  // logrotate's nightly SIGHUP, logged at -1 by every daemon.
+  stage.drop {
+    source              = "msg"
+    expression          = `^received  signal: Hangup from |\*\*\* Got Signal Hangup \*\*\*`
+    drop_counter_reason = "ceph_logrotate_hup"
+  }
+
+  // --- level, in the journal's words (critical|error|warning|notice|info|debug) ---
+  // mgr python modules carry their own: "[prometheus ERROR prometheus] ...", "[mgr INFO mgr] ...".
+  stage.regex {
+    source     = "msg"
+    expression = `^\[\S+ (?P<pylevel>DEBUG|INFO|WARNING|ERROR|CRITICAL) \S+\] `
+  }
+  // Cluster/audit log copies: "log_channel(cluster) log [WRN] : ...".
+  stage.regex {
+    source     = "msg"
+    expression = `^log_channel\(\w+\) log \[(?P<clog>DBG|INF|WRN|ERR|SEC)\] `
+  }
+  // Trouble Ceph logs below -1: thread heartbeat timeouts (level 1), BlueStore slow ops (0), slow requests,
+  // RGW requests answered 5xx (the only access lines kept).
+  stage.regex {
+    source     = "msg"
+    expression = `(?P<warnhint>heartbeat_map is_healthy .* had timed out after|slow operation observed|slow request|heartbeat_check: no reply|HTTP/[0-9.]+" 5\d\d |http_status=5\d\d )`
+  }
+  stage.template {
+    source   = "level"
+    template = `{{ if .pylevel }}{{ ToLower .pylevel }}{{ else if .clog }}{{ if eq .clog "ERR" }}error{{ else if eq .clog "WRN" }}warning{{ else if eq .clog "SEC" }}critical{{ else if eq .clog "DBG" }}debug{{ else }}info{{ end }}{{ else if eq .prio "-1" }}error{{ else if .warnhint }}warning{{ else if eq .prio "0" }}notice{{ else if eq .prio "1" "2" "3" "4" "5" }}info{{ else if .prio }}debug{{ else }}info{{ end }}`
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+  stage.timestamp {
+    source = "ts"
+    format = "2006-01-02T15:04:05.000-0700"
+  }
+  // loki.source.file adds filename; daemon already says the same.
+  stage.label_drop {
+    values = ["filename"]
+  }
+
+  forward_to = [loki.write.loki.receiver]
+}

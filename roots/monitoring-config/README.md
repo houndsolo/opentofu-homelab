@@ -591,7 +591,8 @@ Grafana --> VIP 10.54.18.101:3100 ;  Loki ruler --> both Alertmanagers (10.54.16
   moves between the VMs. `logging-guard` (an nftables table `inet logging_guard`, loaded by its own
   systemd unit) drops 3100 except from loopback and `logging_settings.loki_allowed_sources`
   (`10.52.0.0/16` for Grafana, `10.54.0.0/16` for lylat-obs, `10.55.0.0/16` for Alloy pushes from every VM over lylat-telemetry to the
-  telemetry VIP `10.55.18.101`, since 2026-11-14),
+  telemetry VIP `10.55.18.101`, since 2026-11-14; plus each Proxmox node's 10.5.1.x address, added in
+  `main.tf`, for Alloy pushing the Ceph daemon logs to the VLAN 5 VIP, see `log-senders/README.md`),
   and 7946/9095 except from the three HA addresses. Nothing else is filtered.
 - S3 keys live in `/etc/logging/loki.env` (0600) and are expanded by Loki (`-config.expand-env`);
   `loki.yaml` itself (output `loki_configs`) has no secrets.
