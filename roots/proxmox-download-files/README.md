@@ -54,8 +54,8 @@ download: it is the 20261017-2634 build customized in place on 2026-10-19
 (1259536384 bytes, sha512 `b96e0d83…`). The untouched download (sha512
 `ec584cca…`, the published checksum of 20261017-2634) is kept beside it as
 `debian-13-genericcloud-amd64.qcow2.bak`. Because no upstream URL or checksum
-matches the customized file, the resource is adopted with an `import` block, sets
-no `checksum`, and ignores `url` and `node_name`. Both force replacement in the
+matches the customized file, it was adopted by import (2026-11-14), the resource
+sets no `checksum`, and it ignores `url` and `node_name`. Both force replacement in the
 provider: `url` is empty in imported state, and `node_name` is just the first node
 with a Debian VM, which changes when VMs move. A plan therefore never offers to
 delete and re-download the image VMs import from. To really move to a newer

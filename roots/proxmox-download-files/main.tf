@@ -27,8 +27,3 @@ resource "proxmox_virtual_environment_download_file" "debian13" {
     ignore_changes = [url, node_name]
   }
 }
-
-import {
-  to = proxmox_virtual_environment_download_file.debian13[0]
-  id = "eldarad/cephfs:import/debian-13-genericcloud-amd64.qcow2"
-}
