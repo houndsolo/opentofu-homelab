@@ -38,6 +38,16 @@ variable "proxy" {
       name  = optional(string, "proxy")
       title = optional(string, "lylat.space services")
     }), {})
+    # Proxmox web UIs (:8006, the nodes' self-signed HTTPS) from var.nodes: https://<cluster_name>.<domain>
+    # load-balances over every cluster node (ip_hash keeps a browser on one node: noVNC/xterm.js consoles),
+    # https://<node_prefix><node>.<domain> reaches one node, the standalone host (greatfox) included. Plain
+    # <node>.<domain> is already the node's own A record. null = none.
+    pve = optional(object({
+      cluster_name = optional(string, "pve")
+      node_prefix  = optional(string, "pve-")
+      port         = optional(number, 8006)
+      max_body     = optional(string, "0") # ISO/template uploads: no limit (streamed, not buffered)
+    }), {})
     # keepalived VIP on VLAN 2 (proxy-vip.lylat.space). null = no keepalived.
     vip       = optional(string, "10.2.11.107/16")
     router_id = optional(number, 107) # = the VIP's last octet, like Grafana 100 ... NetBox 106
@@ -52,9 +62,10 @@ variable "proxy" {
       alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && contains(keys(var.vips), h.vip) && h.port >= 1 && h.port <= 65535]) &&
       length(distinct(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]))) == length(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)])) &&
       alltrue([for c in var.proxy.clients : can(cidrhost(c, 0))]) &&
-      (var.proxy.landing == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.landing.name)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.landing.name))), false
+      (var.proxy.landing == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.landing.name)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.landing.name))) &&
+      (var.proxy.pve == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.pve.cluster_name)) && can(regex("^[a-z0-9][a-z0-9-]*$", var.proxy.pve.node_prefix)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.pve.cluster_name))), false
     )
-    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host's vip is a key in vips.auto.tfvars and port is 1..65535; clients are CIDRs; landing.name is a DNS label not used by a host."
+    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host's vip is a key in vips.auto.tfvars and port is 1..65535; clients are CIDRs; landing.name is a DNS label not used by a host; pve.cluster_name is a DNS label not used by a host and pve.node_prefix starts a DNS label."
   }
 }
 
@@ -76,13 +87,45 @@ locals {
     }
   }
 
-  # Each published host: all its names (key + aliases, fully qualified) and the upstream URL.
-  proxy_hosts = var.proxy == null ? {} : {
-    for name, h in var.proxy.hosts : name => merge(h, {
-      names    = [for n in concat([name], h.aliases) : "${n}.${var.proxy.domain}"]
-      upstream = "http://${split("/", var.vips[h.vip].address)[0]}:${h.port}"
-    })
-  }
+  # Proxmox web UIs (var.proxy.pve): host key => nginx upstream servers (node management addresses).
+  proxy_pve = try(var.proxy.pve, null)
+  proxy_pve_upstreams = local.proxy_pve == null ? {} : merge(
+    { (local.proxy_pve.cluster_name) = {
+      sticky  = true
+      servers = [for name in sort(keys(var.nodes.proxmox)) : "${cidrhost(var.nodes.management_prefix, var.nodes.proxmox[name].id)}:${local.proxy_pve.port}" if !var.nodes.proxmox[name].standalone]
+    } },
+    { for name, n in var.nodes.proxmox : "${local.proxy_pve.node_prefix}${name}" => {
+      sticky  = false
+      servers = ["${cidrhost(var.nodes.management_prefix, n.id)}:${local.proxy_pve.port}"]
+    } },
+  )
+
+  # Each published host: all its names (key + aliases, fully qualified) and the upstream URL. VIP hosts
+  # forward over HTTP to their service VIP; Proxmox hosts over HTTPS to an nginx upstream block of nodes.
+  proxy_hosts = var.proxy == null ? {} : merge(
+    { for name, h in var.proxy.hosts : name => {
+      names      = [for n in concat([name], h.aliases) : "${n}.${var.proxy.domain}"]
+      upstream   = "http://${split("/", var.vips[h.vip].address)[0]}:${h.port}"
+      backend    = "${h.vip}:${h.port}"
+      vip        = h.vip
+      websockets = h.websockets
+      max_body   = h.max_body
+      servers    = []
+      sticky     = false
+      tls        = false
+    } },
+    { for name, u in local.proxy_pve_upstreams : name => {
+      names      = ["${name}.${var.proxy.domain}"]
+      upstream   = "https://${replace(name, "-", "_")}"
+      backend    = "Proxmox ${join(", ", u.servers)}"
+      vip        = null
+      websockets = true
+      max_body   = local.proxy_pve.max_body
+      servers    = u.servers
+      sticky     = u.sticky
+      tls        = true
+    } },
+  )
 
   # Landing page: its names and the generated index of the published hosts.
   proxy_landing_names = try(["${var.proxy.landing.name}.${var.proxy.domain}"], [])
@@ -92,13 +135,13 @@ locals {
       url     = "https://${local.proxy_hosts[name].names[0]}/"
       name    = local.proxy_hosts[name].names[0]
       aliases = slice(local.proxy_hosts[name].names, 1, length(local.proxy_hosts[name].names))
-      backend = "${var.proxy.hosts[name].vip}:${var.proxy.hosts[name].port}"
+      backend = local.proxy_hosts[name].backend
     }]
   })
 
   # NetBox's CSRF_TRUSTED_ORIGINS (netbox.tf): the proxied names that forward to NetBox's VIP.
   netbox_proxy_origins = var.netbox == null ? [] : sort(flatten([
-    for h in values(local.proxy_hosts) : [for n in h.names : "https://${n}"] if var.vips[h.vip].address == var.netbox.vip
+    for h in values(local.proxy_hosts) : [for n in h.names : "https://${n}"] if h.vip != null && try(var.vips[h.vip].address, null) == var.netbox.vip
   ]))
 
   proxy_conf_dir = "/etc/nginx-proxy" # mounted read-only into the container at the same path

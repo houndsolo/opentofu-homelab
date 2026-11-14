@@ -62,7 +62,8 @@ locals {
   # are separate records (<name>-vip above).
   proxy_vip_name = try(one([for name, vip in var.vips : name if vip.role == "proxy"]), null)
   proxy_dns_hosts = var.proxy == null || local.proxy_vip_name == null ? {} : merge(concat([
-    for name, h in var.proxy.hosts : { for n in concat([name], h.aliases) : n => { CNAME = "${local.proxy_vip_name}.lylat.space." } }
+    # VIP hosts and their aliases, and the Proxmox UIs (pve, pve-<node>).
+    for name, h in local.proxy_hosts : { for n in h.names : trimsuffix(n, ".${var.proxy.domain}") => { CNAME = "${local.proxy_vip_name}.lylat.space." } }
     ], [
     # The proxy's landing page (proxy.tf var.proxy.landing).
     try({ (var.proxy.landing.name) = { CNAME = "${local.proxy_vip_name}.lylat.space." } }, {}),

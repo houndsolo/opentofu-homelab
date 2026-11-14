@@ -1,7 +1,7 @@
 # Managed by OpenTofu (services-config, proxy.tf). Local edits are overwritten.
 # Complete nginx.conf for the nginx container (Quadlet nginx.container, host network): TLS reverse
 # proxy for <name>.${domain}, one server block per published host (its name plus aliases), upstreams
-# are the services' own VIPs over HTTP. IPv4 only (the proxies have no global IPv6 address).
+# are the services' own VIPs over HTTP, or the Proxmox nodes' :8006 over HTTPS (pve, pve-<node>). IPv4 only (the proxies have no global IPv6 address).
 # Logs: the image links /var/log/nginx/*.log to stdout/stderr, so they land in the journal (and Loki).
 
 user  nginx;
@@ -40,6 +40,20 @@ http {
   ssl_session_timeout 1d;
   ssl_session_tickets off;
 
+%{ for name, h in hosts ~}
+%{ if length(h.servers) > 0 ~}
+  # ${h.names[0]}: Proxmox web UI on the nodes' management addresses.
+  upstream ${replace(name, "-", "_")} {
+%{ if h.sticky ~}
+    ip_hash; # one browser stays on one node (noVNC/xterm.js consoles); a failed node moves it to the next
+%{ endif ~}
+%{ for s in h.servers ~}
+    server ${s} max_fails=1 fail_timeout=30s;
+%{ endfor ~}
+  }
+
+%{ endif ~}
+%{ endfor ~}
   # Port 80: health check for keepalived/monitoring, everything else to HTTPS. /healthz also reports
   # the config id, so a deploy can tell when a reload has reached every worker.
   server {
@@ -109,7 +123,17 @@ http {
 %{ else ~}
       proxy_set_header Connection        "";
 %{ endif ~}
+%{ if h.tls ~}
+      # Proxmox: self-signed pve-ssl certificates; a powered-off node (greatfox) fails within 3 s (502, or
+      # the next cluster node); uploads stream to the node; consoles stay open for an hour of idle.
+      proxy_ssl_verify        off;
+      proxy_connect_timeout   3s;
+      proxy_request_buffering off;
+      proxy_buffering         off;
+      proxy_read_timeout 3600s;
+%{ else ~}
       proxy_read_timeout 300s;
+%{ endif ~}
     }
   }
 %{ endfor ~}
