@@ -7,6 +7,7 @@ global_defs {
   script_user nobody nogroup
   enable_script_security
   vrrp_garp_master_refresh 60
+  vrrp_version 3 # adverts over IPv6 on the HA segment (VRRPv3: no PASS auth)
 }
 
 # No weight: a failing check puts the node in FAULT, which releases the VIP. (With
@@ -31,19 +32,20 @@ vrrp_instance proxy {
   virtual_router_id ${router_id}
   priority ${priority}
   advert_int 1
-  unicast_src_ip ${ha_address}
+  unicast_src_ip ${format("fd69:50%02d::%s", tonumber(split(".", ha_address)[2]), split(".", ha_address)[3])}
   unicast_peer {
 %{ for peer in peers ~}
-    ${peer}
+    ${format("fd69:50%02d::%s", tonumber(split(".", peer)[2]), split(".", peer)[3])}
 %{ endfor ~}
-  }
-  authentication {
-    auth_type PASS
-    auth_pass ${auth_pass}
   }
   # use_vmac: fixed VRRP MAC 00:00:5e:00:01:<VRID> on a macvlan, so failover only moves the MAC's
   # EVPN location and cached ARP entries stay right (ARP suppression, DT-045).
+  # IPv6 instance (VRRPv3): the advertised address is fd69:50aa::<VRID> on the HA segment (VRID = the VIP's
+  # host octet), no client uses it; the real VIPs below move with the state but aren't in the adverts.
   virtual_ipaddress {
+    ${format("fd69:50%02d::%d/64", tonumber(split(".", ha_address)[2]), router_id)} dev ${ha_interface}
+  }
+  virtual_ipaddress_excluded {
     ${vip} dev ${interface} use_vmac
   }
   track_interface {

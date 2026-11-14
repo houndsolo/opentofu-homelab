@@ -824,8 +824,8 @@ run "grafana_ha" {
     condition = (
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.52.11.100/16 dev eth1") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "interface eth2") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip 10.50.11.32") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    10.50.11.33\n") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip fd69:5011::32") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    fd69:5011::33\n") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "priority 150") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "priority 100") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "virtual_router_id 100")
@@ -904,8 +904,8 @@ run "backend_ha" {
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.5.11.102/16 dev eth2") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.54.16.102/16 dev eth1") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "interface eth3") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "unicast_src_ip 10.50.16.30") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "    10.50.16.31\n") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "unicast_src_ip fd69:5016::30") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "    fd69:5016::31\n") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "priority 150") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "priority 100") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "virtual_router_id 102") &&

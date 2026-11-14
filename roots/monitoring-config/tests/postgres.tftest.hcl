@@ -120,10 +120,11 @@ run "postgres_cluster" {
     condition = alltrue([for name, i in { pg01 = 40, pg02 = 41, pg03 = 42 } : (
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "10.56.14.104/16 dev eth1") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "interface eth3") &&
-      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "unicast_src_ip 10.50.14.${i}") &&
+      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "unicast_src_ip fd69:5014::${i}") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "virtual_router_id 104") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "http://127.0.0.1:8008/primary") &&
-      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "auth_pass pgvrrp01")
+      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "fd69:5014::104/64 dev eth3") &&
+      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "vrrp_version 3")
     )])
     error_message = "keepalived holds 10.56.14.104 on the Patroni leader only (router id 104, adverts over VLAN 217)."
   }
