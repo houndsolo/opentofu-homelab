@@ -953,9 +953,8 @@ it), the WLC Telegraf's InfluxDB outputs and tokens, the `influxdb-vip`/`influxd
 the keepalived health check. The monitoring VIP `10.5.11.102` stays: it is the WLCs' telemetry
 receiver, now `wlc-telemetry-vip`, and keepalived checks the WLC Telegraf instead.
 
-- [`influxdb.tf`](influxdb.tf) only drops the old buckets and write tokens from the state
-  (`removed` blocks, `destroy = false`): its providers need the old InfluxDB to answer during that
-  apply. Delete it, the provider requirement and `random_password.influxdb_token` after one apply.
+- The buckets and write tokens were dropped from the state without being destroyed (2026-11-14, a one-off
+  `removed` block file, deleted after that apply along with the influxdb provider).
 - The data stays in `/var/lib/monitoring/influxdb` on both backends (~340 MB each) until it is
   removed by hand, after a final backup if wanted; the deploy only removes the env files with the
   old tokens (`/etc/monitoring/influxdb.env`, `telegraf.env`).

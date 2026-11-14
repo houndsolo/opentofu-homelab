@@ -27,13 +27,6 @@ override_resource {
   values = { result = "mimirvrp" }
 }
 
-# influxdb.tf: the retired InfluxDBs' providers, only there to drop their objects from the state.
-mock_provider "influxdb" {}
-
-mock_provider "influxdb" {
-  alias = "replica"
-}
-
 mock_provider "proxmox" {}
 
 mock_provider "proxmox" {

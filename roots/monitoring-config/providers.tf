@@ -5,11 +5,6 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.7"
     }
-    # Only for influxdb.tf (dropping the retired InfluxDB buckets from the state); remove with it.
-    influxdb = {
-      source  = "komminarlabs/influxdb"
-      version = "~> 1.0"
-    }
     proxmox = {
       source  = "local/mechanic/proxmox"
       version = "0.111.0"
