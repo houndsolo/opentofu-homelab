@@ -18,7 +18,8 @@ variable "valkey" {
     down_after_ms       = optional(number, 5000)     # no reply for this long = subjectively down
     failover_timeout_ms = optional(number, 60000)
     maxmemory           = optional(string, "512mb")
-    backend_vlan_id     = optional(number, 13)
+    backend_vlan_id     = optional(number, 1601) # lylat-data: Valkey + Sentinel listen here
+    client_vlan_id      = optional(number, 1201) # lylat-app: the NetBox VMs' NIC (routed to lylat-data)
   })
   default = {}
 }
@@ -43,11 +44,11 @@ locals {
   } : {}
   valkey_sentinels = [for name in local.valkey_names : "${local.valkey_backend[name]}:26379"]
 
-  # Who may reach Valkey/Sentinel: the trio itself and the NetBox VMs (backend addresses).
+  # Who may reach Valkey/Sentinel: the trio itself and the NetBox VMs (their lylat-app addresses).
   valkey_clients = local.valkey_enabled ? sort(concat(values(local.valkey_backend), flatten([
     for name, vm in var.vms : [
       for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
-      if nic.vlan_id == var.valkey.backend_vlan_id && nic.ipv4_address != null
+      if nic.vlan_id == var.valkey.client_vlan_id && nic.ipv4_address != null
     ] if vm.owner == "services-vms" && vm.role == "netbox"
   ]))) : []
 

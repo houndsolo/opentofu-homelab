@@ -29,7 +29,8 @@ locals {
       image_b64 = base64encode(var.bind9_image)
       config_b64 = base64encode(templatefile("${path.module}/templates/named.conf.tftpl", {
         address             = local.dns_addresses[name]
-        vip                 = local.dns_vip # keepalived VIP; BIND binds it when it appears
+        vip                 = local.dns_vip                                                                                                                     # keepalived VIP; BIND binds it when it appears
+        extra_listen        = compact([try(local.dns_nics[name].zone.address, null), try(local.dns_nics[name].zone == null ? null : local.dns_zone_vip, null)]) # lylat-dns NIC + 10.53.53.53
         allowed_clients     = var.dns_allowed_clients
         primary             = name == var.dns_primary
         primary_address     = local.dns_addresses[var.dns_primary]

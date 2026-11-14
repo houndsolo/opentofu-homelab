@@ -10,10 +10,10 @@ variable "deploy_revision" {
   default     = "1"
 }
 
-variable "backend_vlan_id" {
-  description = "VLAN of the isolated monitoring backend (lylat_monitor VRF). The monitoring and grafana VMs each need one addressed NIC on it."
-  type        = number
-  default     = 13
+variable "backend_vlan_ids" {
+  description = "Zone segments whose NIC is a VM's backend NIC (zone design, DT-090): lylat-app 1201 (Grafana), lylat-obs 1401 (mon, Mimir, Loki), lylat-data 1601 (Postgres). Each monitoring, grafana, metrics, logging and postgres VM needs exactly one addressed NIC on one of them."
+  type        = list(number)
+  default     = [1201, 1401, 1601]
 }
 
 variable "ha_vlan_id" {
@@ -35,7 +35,7 @@ variable "grafana_vrrp" {
     router_id = optional(number, 100)
   })
   default = {
-    vip = "10.2.11.100/16"
+    vip = "10.52.11.100/16"
   }
 }
 
@@ -56,7 +56,7 @@ variable "backend_vrrp" {
   type = object({
     vips = optional(object({
       monitoring = optional(string, "10.5.11.102/16")
-      backend    = optional(string, "10.13.11.102/16")
+      backend    = optional(string, "10.54.16.102/16")
     }), {})
     router_id = optional(number, 102)
   })
@@ -197,7 +197,7 @@ variable "blackbox_icmp_targets" {
   type        = map(string)
   default = {
     "fw-wan" = "10.20.10.255"
-    netbox   = "10.2.11.106" # NetBox VIP
+    netbox   = "10.52.12.106" # NetBox VIP
     v100     = "10.12.0.10"
   }
 }
@@ -217,13 +217,13 @@ variable "blackbox_http_targets" {
   description = "host => URL for HTTP 2xx probes."
   type        = map(string)
   default = {
-    netbox       = "http://10.2.11.106/login/" # NetBox VIP (netbox01/02)
+    netbox       = "http://10.52.12.106/login/" # NetBox VIP (netbox01/02)
     "llama-v100" = "http://10.12.0.10:8080/health"
-    dark-triage  = "http://10.2.11.105/api/health" # the VIP; 200 only when the app reaches its database
-    triage01     = "http://10.2.11.43/api/health"
-    triage02     = "http://10.2.11.44/api/health"
-    netbox01     = "http://10.2.11.45/login/" # NetBox HA pair (services-config netbox.tf)
-    netbox02     = "http://10.2.11.46/login/"
+    dark-triage  = "http://10.52.13.105/api/health" # the VIP; 200 only when the app reaches its database
+    triage01     = "http://10.52.13.43/api/health"
+    triage02     = "http://10.52.13.44/api/health"
+    netbox01     = "http://10.52.12.45/login/" # NetBox HA pair (services-config netbox.tf)
+    netbox02     = "http://10.52.12.46/login/"
   }
 }
 
@@ -287,7 +287,7 @@ variable "logging_settings" {
   description = "Logging (role = \"logging\" VMs): VIPs, VRRP router id, Ceph RGW endpoints behind each VM's haproxy, Loki retention/replication, schema start date, sources allowed to reach Loki. See modules/services/monitoring."
   type = object({
     vips = optional(object({
-      backend    = optional(string, "10.13.11.101/16")
+      backend    = optional(string, "10.54.18.101/16")
       monitoring = optional(string, "10.5.11.101/16")
       telemetry  = optional(string, "10.55.18.101/16") # Alloy pushes from every VM (lylat-telemetry)
       # No mgmt VIP: syslog senders on the management network use each logging VM's own address.
@@ -297,9 +297,9 @@ variable "logging_settings" {
     retention_period      = optional(string, "90d")
     replication_factor    = optional(number, 3)
     schema_start          = optional(string, "2026-11-01")
-    loki_allowed_sources  = optional(list(string), ["10.13.0.0/16", "10.55.0.0/16"]) # backend VLAN (Grafana), lylat-telemetry (pushes)
-    syslog_host_overrides = optional(map(string), {})                                # sender IP => host label, on top of the snmp_targets addresses
-    syslog_dedup_hosts    = optional(string, "LEAF-[0-9]+|fw-wan|dhcp0[0-9]")        # VyOS senders: drop the imuxsock copy of each line
+    loki_allowed_sources  = optional(list(string), ["10.52.0.0/16", "10.54.0.0/16", "10.55.0.0/16"]) # lylat-app (Grafana), lylat-obs, lylat-telemetry (pushes)
+    syslog_host_overrides = optional(map(string), {})                                                # sender IP => host label, on top of the snmp_targets addresses
+    syslog_dedup_hosts    = optional(string, "LEAF-[0-9]+|fw-wan|dhcp0[0-9]")                        # VyOS senders: drop the imuxsock copy of each line
   })
   default = {}
 }
@@ -324,7 +324,7 @@ variable "metrics_ha_vlan_id" {
 variable "metrics_settings" {
   description = "Mimir (role = \"metrics\" VMs): VIP, VRRP router id, RGW endpoints, replication, retention, HA tracker labels, limits. See modules/services/monitoring (variable metrics_settings)."
   type = object({
-    vip                = optional(string, "10.13.11.103/16")
+    vip                = optional(string, "10.54.17.103/16")
     vrrp_router_id     = optional(number, 103)
     rgw_endpoints      = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"]) # macbeth, titania, venom
     replication_factor = optional(number, 3)
@@ -339,7 +339,7 @@ variable "metrics_settings" {
     max_label_names_per_series = optional(number, 40)
     out_of_order_time_window   = optional(string, "10m")
     block_upload_enabled       = optional(bool, true)
-    allowed_sources            = optional(list(string), ["10.13.0.0/16"])
+    allowed_sources            = optional(list(string), ["10.54.0.0/16", "10.52.0.0/16"]) # lylat-obs (remote_write), lylat-app (Grafana)
   })
   default = {}
 }
@@ -364,7 +364,7 @@ variable "postgres_ha_vlan_id" {
 variable "postgres_settings" {
   description = "Patroni cluster (role = \"postgres\" VMs): VIP, VRRP router id, cluster name, PostgreSQL major (pg_major, PGDG), RGW endpoints, backup schedule/retention, Postgres parameters, Grafana cutover switches (grafana_on_cluster, legacy_on_primary), accepted Debian package series. See modules/services/monitoring (variable postgres_settings)."
   type = object({
-    vip                        = optional(string, "10.13.11.104/16")
+    vip                        = optional(string, "10.56.14.104/16")
     vrrp_router_id             = optional(number, 104)
     cluster_name               = optional(string, "lylat-pg")                                                      # etcd; Patroni scope/stanza = cluster_name + pg_major
     pg_major                   = optional(number, 18)                                                              # PGDG; a new major is a rebuild + dump/restore (new scope/stanza/data dir)

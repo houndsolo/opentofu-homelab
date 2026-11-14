@@ -71,9 +71,9 @@ run "inventory_records" {
   command = plan
   assert {
     condition = (
-      dns_a_record_set.records["netbox01|A"].addresses == toset(["10.2.11.45"]) &&
+      dns_a_record_set.records["netbox01|A"].addresses == toset(["10.52.12.45"]) &&
       dns_a_record_set.records["netbox01.mgmt|A"].addresses == toset(["10.20.11.45"]) &&
-      dns_a_record_set.records["netbox-vip|A"].addresses == toset(["10.2.11.106"]) &&
+      dns_a_record_set.records["netbox-vip|A"].addresses == toset(["10.52.12.106"]) &&
       dns_a_record_set.records["fichina.mgmt|A"].addresses == toset(["10.20.7.11"]) &&
       dns_a_record_set.records["leaf-11.mgmt|A"].addresses == toset(["10.20.10.11"])
     )
@@ -90,8 +90,8 @@ run "inventory_records" {
   assert {
     condition = (
       dns_ptr_record.reverse["10.20.11.45"].ptr == "netbox01.mgmt.lylat.space." &&
-      dns_ptr_record.reverse["10.2.11.45"].ptr == "netbox01.lylat.space." &&
-      dns_ptr_record.reverse["10.2.11.106"].ptr == "netbox-vip.lylat.space." &&
+      dns_ptr_record.reverse["10.52.12.45"].ptr == "netbox01.lylat.space." &&
+      dns_ptr_record.reverse["10.52.12.106"].ptr == "netbox-vip.lylat.space." &&
       dns_ptr_record.reverse["10.20.7.11"].ptr == "fichina.lylat.space."
     )
     error_message = "PTRs: management addresses -> <vm>.mgmt (hosts keep the short name), service NICs -> <vm>, VIPs -> <vip>."
@@ -234,7 +234,7 @@ run "dns_vrrp" {
     condition = (
       output.dns_vip == "10.8.53.53" &&
       length(terraform_data.dns_keepalived) == 2 &&
-      local.dns_nics.dns01 == { service = "eth1", ha = { interface = "eth2", address = "10.50.53.51" } } &&
+      local.dns_nics.dns01 == { service = "eth1", zone = { interface = "eth2", address = "10.53.53.51" }, ha = { interface = "eth3", address = "10.50.53.51" } } &&
       strcontains(local.dns_keepalived_scripts.dns01, base64encode(templatefile("${path.module}/templates/dns-keepalived-check.sh.tftpl", { address = "10.8.53.1" })))
     )
     error_message = "keepalived on both DNS VMs: VIP on the service NIC, adverts on the ha_dns NIC, health check on the own address."

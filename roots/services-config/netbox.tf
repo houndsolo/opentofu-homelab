@@ -18,7 +18,7 @@ variable "netbox" {
   type = object({
     image = optional(string, "docker.io/netboxcommunity/netbox:v4.7-5.1.1")
     database = optional(object({
-      host = optional(string, "10.13.11.104") # Patroni VIP (backend VLAN 13)
+      host = optional(string, "10.56.14.104") # Patroni VIP (lylat-data)
       port = optional(number, 5432)
       name = optional(string, "netbox")
       user = optional(string, "netbox")
@@ -39,7 +39,7 @@ variable "netbox" {
     }), {})
     # keepalived VIP on VLAN 2 (netbox-vip.lylat.space; users reach https://netbox.lylat.space through
     # the reverse proxy, proxy.tf). null = no keepalived.
-    vip       = optional(string, "10.2.11.106/16")
+    vip       = optional(string, "10.52.12.106/16")
     router_id = optional(number, 106) # = the VIP's last octet (Grafana 100 ... dark-triage 105)
     ha_l2vni  = optional(string, "ha_netbox")
   })
@@ -50,7 +50,7 @@ variable "netbox" {
       (var.netbox.vip == null || (can(cidrhost(var.netbox.vip, 0)) && strcontains(var.netbox.vip, "/"))) &&
       var.netbox.router_id >= 1 && var.netbox.router_id <= 255, false
     )
-    error_message = "netbox.vip must be an IPv4 address with prefix length (e.g. 10.2.11.106/16), router_id 1..255."
+    error_message = "netbox.vip must be an IPv4 address with prefix length (e.g. 10.52.12.106/16), router_id 1..255."
   }
 }
 

@@ -22,7 +22,7 @@ variable "ticketing" {
     # a "triage" entry and postgres = true; otherwise the app keeps SQLite in /var/lib/dark-triage.
     postgres = optional(bool, true)
     database = optional(object({
-      host = optional(string, "10.13.11.104") # Patroni VIP (backend VLAN 13)
+      host = optional(string, "10.56.14.104") # Patroni VIP (lylat-data)
       port = optional(number, 5432)
       name = optional(string, "triage")
       user = optional(string, "triage")
@@ -30,7 +30,7 @@ variable "ticketing" {
     ports = optional(list(number), [80, 3000])
     # keepalived VIP on VLAN 2 (dark-triage-vip.lylat.space; users reach https://dark-triage.lylat.space
     # through the reverse proxy, proxy.tf). null = no keepalived.
-    vip       = optional(string, "10.2.11.105/16")
+    vip       = optional(string, "10.52.13.105/16")
     router_id = optional(number, 105) # = the VIP's last octet, like Grafana 100, Loki 101, monitoring 102, Mimir 103, Postgres 104
     ha_l2vni  = optional(string, "ha_triage")
   })
@@ -41,7 +41,7 @@ variable "ticketing" {
       (var.ticketing.vip == null || (can(cidrhost(var.ticketing.vip, 0)) && strcontains(var.ticketing.vip, "/"))) &&
       var.ticketing.router_id >= 1 && var.ticketing.router_id <= 255, false
     )
-    error_message = "ticketing.vip must be an IPv4 address with prefix length (e.g. 10.2.11.105/16), router_id 1..255."
+    error_message = "ticketing.vip must be an IPv4 address with prefix length (e.g. 10.52.13.105/16), router_id 1..255."
   }
 }
 

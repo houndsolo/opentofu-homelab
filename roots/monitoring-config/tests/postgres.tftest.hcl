@@ -49,10 +49,10 @@ run "postgres_cluster" {
   assert {
     condition = (
       length(terraform_data.postgres) == 3 &&
-      output.postgres_vip == "10.13.11.104:5432" &&
-      output.patroni_urls == { pg01 = "http://10.13.11.40:8008", pg02 = "http://10.13.11.41:8008", pg03 = "http://10.13.11.42:8008" }
+      output.postgres_vip == "10.56.14.104:5432" &&
+      output.patroni_urls == { pg01 = "http://10.56.14.40:8008", pg02 = "http://10.56.14.41:8008", pg03 = "http://10.56.14.42:8008" }
     )
-    error_message = "Deploy Patroni on pg01-03 (.40-.42), the leader reached through the VIP 10.13.11.104:5432."
+    error_message = "Deploy Patroni on pg01-03 (.40-.42), the leader reached through the VIP 10.56.14.104:5432."
   }
 
   assert {
@@ -70,7 +70,7 @@ run "postgres_cluster" {
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.parameters.archive_command == "pgbackrest --stanza=lylat-pg18 archive-push %p" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.parameters.password_encryption == "scram-sha-256" &&
       yamldecode(module.monitoring.etcd_configs[name]).listen-peer-urls == "http://10.50.14.${i}:2380" &&
-      yamldecode(module.monitoring.etcd_configs[name]).listen-metrics-urls == "http://10.13.11.${i}:2381" &&
+      yamldecode(module.monitoring.etcd_configs[name]).listen-metrics-urls == "http://10.56.14.${i}:2381" &&
       yamldecode(module.monitoring.etcd_configs[name]).initial-cluster == "pg01=http://10.50.14.40:2380,pg02=http://10.50.14.41:2380,pg03=http://10.50.14.42:2380" &&
       yamldecode(module.monitoring.etcd_configs[name]).initial-cluster-state == "new" &&
       # etcd keeps cluster_name across Postgres majors: a new data dir/token would be a new etcd cluster.
@@ -116,16 +116,16 @@ run "postgres_cluster" {
   }
 
   assert {
-    # VIP on eth2 (VLAN 13), adverts unicast on eth4 (VLAN 217), router id 104, check = Patroni /primary.
+    # VIP on eth1 (VLAN 1601, lylat-data), adverts unicast on eth3 (VLAN 217), router id 104, check = Patroni /primary.
     condition = alltrue([for name, i in { pg01 = 40, pg02 = 41, pg03 = 42 } : (
-      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "10.13.11.104/16 dev eth2") &&
-      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "interface eth4") &&
+      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "10.56.14.104/16 dev eth1") &&
+      strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "interface eth3") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "unicast_src_ip 10.50.14.${i}") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "virtual_router_id 104") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "http://127.0.0.1:8008/primary") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "auth_pass pgvrrp01")
     )])
-    error_message = "keepalived holds 10.13.11.104 on the Patroni leader only (router id 104, adverts over VLAN 217)."
+    error_message = "keepalived holds 10.56.14.104 on the Patroni leader only (router id 104, adverts over VLAN 217)."
   }
 
   assert {
@@ -190,14 +190,14 @@ run "postgres_cluster" {
   assert {
     condition = (
       length([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if contains(["patroni", "etcd", "postgres", "haproxy-postgres"], j.job_name)]) == 4 &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.40:8008") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.42:2381") &&
+      strcontains(module.monitoring.prometheus_config, "10.56.14.40:8008") &&
+      strcontains(module.monitoring.prometheus_config, "10.56.14.42:2381") &&
       strcontains(module.monitoring.prometheus_config, "10.55.14.41:9187") && # postgres_exporter over lylat-telemetry
       length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "postgres"]) == 1 &&
       strcontains(module.monitoring.prometheus_rules, "PatroniNoLeader") &&
       strcontains(module.monitoring.prometheus_rules, "PostgresWALArchiveFailing") &&
       strcontains(module.monitoring.prometheus_rules, "EtcdQuorumLost") &&
-      strcontains(module.monitoring.prometheus_rules, "address=\\\"10.13.11.104\\\"") &&
+      strcontains(module.monitoring.prometheus_rules, "address=\\\"10.56.14.104\\\"") &&
       length([for t in local.targets.node : t if t.labels == { role = "postgres" }]) == 3
     )
     error_message = "Both Prometheus replicas scrape Patroni, etcd, postgres_exporter and haproxy on pg01-03, with the postgres alert group."
@@ -224,8 +224,8 @@ run "postgres_grafana_cutover" {
 
   assert {
     condition = (
-      output.grafana_db_host == "10.13.11.104:5432" &&
-      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.13.11.104:5432") &&
+      output.grafana_db_host == "10.56.14.104:5432" &&
+      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.56.14.104:5432") &&
       strcontains(module.monitoring.units.graf02.grafana, "GF_DATABASE_SSL_MODE=require") &&
       contains(keys(module.monitoring.units.mon01), "postgres") # rollback stays possible
     )

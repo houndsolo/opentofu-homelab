@@ -21,19 +21,19 @@ l2vnis = {
     vni         = 5011
     vlan_id     = 1011
     prefix      = "10.50.11.0/24"
-    description = "Grafana keepalived + alerting HA (graf01 .32, graf02 .33; VIP 10.2.11.100 on VLAN 2)"
+    description = "Grafana keepalived + alerting HA (graf01 .32, graf02 .33; VIP 10.52.11.100 in lylat-app)"
   }
   ha_netbox = {
     vni         = 5012
     vlan_id     = 1012
     prefix      = "10.50.12.0/24"
-    description = "NetBox keepalived adverts (netbox01-02 .45-.46; VIP 10.2.11.106 on VLAN 2)"
+    description = "NetBox keepalived adverts (netbox01-02 .45-.46; VIP 10.52.12.106 in lylat-app)"
   }
   ha_triage = {
     vni         = 5013
     vlan_id     = 1013
     prefix      = "10.50.13.0/24"
-    description = "dark-triage keepalived adverts (triage01-02 .43-.44; VIP 10.2.11.105 on VLAN 2)"
+    description = "dark-triage keepalived adverts (triage01-02 .43-.44; VIP 10.52.13.105 in lylat-app)"
   }
   ha_postgres = {
     vni         = 5014
@@ -63,6 +63,6 @@ l2vnis = {
     vni         = 5053
     vlan_id     = 1053
     prefix      = "10.50.53.0/24"
-    description = "DNS keepalived (dns01 .51, dns02 .52; VIP 10.8.53.53 on VLAN 8)"
+    description = "DNS keepalived (dns01 .51, dns02 .52; VIPs 10.8.53.53 on VLAN 8, 10.53.53.53 in lylat-dns)"
   }
 }

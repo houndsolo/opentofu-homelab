@@ -42,7 +42,7 @@ run "inventory_targets" {
   assert {
     condition = (
       output.prometheus_url == "http://10.5.11.30:9090" &&
-      output.grafana_urls == { graf01 = "http://10.2.11.32:3000", graf02 = "http://10.2.11.33:3000" } &&
+      output.grafana_urls == { graf01 = "http://10.52.11.32:3000", graf02 = "http://10.52.11.33:3000" } &&
       length(terraform_data.backend) == 2 && length(terraform_data.grafana) == 2
     )
     error_message = "Deploy both backends (mon01, mon02) and both Grafana VMs, with UIs on the expected addresses."
@@ -66,7 +66,7 @@ run "inventory_targets" {
 
   assert {
     condition = (
-      strcontains(module.monitoring.datasources_config, "http://10.13.11.30:9090") &&
+      strcontains(module.monitoring.datasources_config, "http://10.54.16.30:9090") &&
       !contains(module.monitoring.backend_services, "pve-exporter")
     )
     error_message = "Grafana datasources use the backend VLAN."
@@ -75,7 +75,7 @@ run "inventory_targets" {
   assert {
     condition = (
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "promtool") &&
-      strcontains(module.monitoring.units.mon01.postgres, "PublishPort=10.13.11.30:5432:5432\n") &&
+      strcontains(module.monitoring.units.mon01.postgres, "PublishPort=10.54.16.30:5432:5432\n") &&
       !strcontains(module.monitoring.units.mon01.postgres, "10.5.11.30") &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.50.11.32:9094,10.50.11.33:9094") &&
       strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.55.11.33:9100") &&
@@ -296,11 +296,11 @@ run "exporters_and_ceph_alerts" {
     # Each replica scrapes both backends' exporters, so Mimir (one replica's samples) sees both.
     condition = alltrue([for job, port in { snmp-exporter = 9116, blackbox-exporter = 9115 } : (
       one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j.static_configs if j.job_name == job]) == [
-        { targets = ["10.13.11.30:${port}"], labels = { host = "mon01" } },
-        { targets = ["10.13.11.31:${port}"], labels = { host = "mon02" } },
+        { targets = ["10.54.16.30:${port}"], labels = { host = "mon01" } },
+        { targets = ["10.54.16.31:${port}"], labels = { host = "mon02" } },
       ] &&
-      strcontains(module.monitoring.units.mon01[job], "PublishPort=10.13.11.30:${port}:${port}\n") &&
-      strcontains(module.monitoring.units.mon02[job], "PublishPort=10.13.11.31:${port}:${port}\n")
+      strcontains(module.monitoring.units.mon01[job], "PublishPort=10.54.16.30:${port}:${port}\n") &&
+      strcontains(module.monitoring.units.mon02[job], "PublishPort=10.54.16.31:${port}:${port}\n")
     )])
     error_message = "The snmp/blackbox exporters are published on the backend VLAN and scraped there from both replicas, with host = backend."
   }
@@ -561,8 +561,8 @@ run "wlc_telemetry" {
     condition = alltrue([for name, addr in { mon01 = "30", mon02 = "31" } : (
       strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.5.11.${addr}:57500:57500\n") &&
       strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.5.11.102:57500:57500\n") &&
-      strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.13.11.${addr}:9273:9273\n") && # its own metrics, for both replicas
-      !strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.13.11.${addr}:57500") &&
+      strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.54.16.${addr}:9273:9273\n") && # its own metrics, for both replicas
+      !strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.54.16.${addr}:57500") &&
       strcontains(module.monitoring.units[name].telegraf, "Network=monitoring.network\n") &&
       strcontains(module.monitoring.units[name].telegraf, "User=telegraf\n") &&
       strcontains(module.monitoring.units[name].telegraf, "ExecReload=/usr/bin/podman kill --signal HUP telegraf\n") &&
@@ -587,7 +587,7 @@ run "wlc_telemetry" {
   assert {
     # keepalived holds the monitoring VIP (the WLCs' receiver) only where the WLC Telegraf answers.
     condition = alltrue([for name, addr in { mon01 = "30", mon02 = "31" } : (
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "vrrp_script chk_telegraf {\n  script \"/usr/bin/curl -fsS -m 2 -o /dev/null http://10.13.11.${addr}:9273/metrics\"") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "vrrp_script chk_telegraf {\n  script \"/usr/bin/curl -fsS -m 2 -o /dev/null http://10.54.16.${addr}:9273/metrics\"") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "track_script {\n    chk_telegraf\n    chk_alertmanager\n  }") &&
       !strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "influx")
     )])
@@ -597,8 +597,8 @@ run "wlc_telemetry" {
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"telegraf\"") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.30:9273") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9273") &&
+      strcontains(module.monitoring.prometheus_config, "10.54.16.30:9273") &&
+      strcontains(module.monitoring.prometheus_config, "10.54.16.31:9273") &&
       strcontains(module.monitoring.prometheus_rules, "WlcTelemetryStopped")
     )
     error_message = "Prometheus scrapes both Telegrafs' own metrics and alerts when the WLCs stop sending."
@@ -632,8 +632,8 @@ run "logging" {
   assert {
     condition = (
       length(terraform_data.logging) == 3 &&
-      output.loki_url == "http://10.13.11.101:3100" &&
-      output.loki_urls == { loki01 = "http://10.13.11.34:3100", loki02 = "http://10.13.11.35:3100", loki03 = "http://10.13.11.36:3100" }
+      output.loki_url == "http://10.54.18.101:3100" &&
+      output.loki_urls == { loki01 = "http://10.54.18.34:3100", loki02 = "http://10.54.18.35:3100", loki03 = "http://10.54.18.36:3100" }
     )
     error_message = "Deploy Loki on loki01-03, reached through the backend VIP."
   }
@@ -647,7 +647,7 @@ run "logging" {
       yamldecode(module.monitoring.loki_configs[name]).common.replication_factor == 3 &&
       yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.endpoint == "127.0.0.1:7480" &&
       yamldecode(module.monitoring.loki_configs[name]).common.storage.s3.bucketnames == "loki" &&
-      yamldecode(module.monitoring.loki_configs[name]).ruler.alertmanager_url == "http://10.13.11.30:9093,http://10.13.11.31:9093" &&
+      yamldecode(module.monitoring.loki_configs[name]).ruler.alertmanager_url == "http://10.54.16.30:9093,http://10.54.16.31:9093" &&
       yamldecode(module.monitoring.loki_configs[name]).limits_config.retention_period == "90d" &&
       yamldecode(module.monitoring.loki_configs[name]).compactor.retention_enabled &&
       yamldecode(module.monitoring.loki_configs[name]).schema_config.configs[0].schema == "v13" &&
@@ -658,7 +658,7 @@ run "logging" {
   }
 
   assert {
-    # One VRRP instance: adverts over the HA NIC (eth5), the VIPs on the client NICs, nopreempt.
+    # One VRRP instance: adverts over the HA NIC (eth4), the VIPs on the client NICs, nopreempt.
     condition = alltrue([for name, p in { loki01 = { i = 34, prio = 150 }, loki02 = { i = 35, prio = 100 }, loki03 = { i = 36, prio = 50 } } : (
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/keepalived/keepalived.conf' '0600' 'root' '' 'keepalived'") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), base64encode(templatefile("../../modules/services/monitoring/templates/keepalived.conf.tftpl", {
@@ -667,17 +667,17 @@ run "logging" {
         priority      = p.prio
         auth_pass     = "mockmockmockmockmockmockmockmock" # mocked random_password
         alloy_address = "10.55.18.${p.i}"
-        ha_interface  = "eth5"
+        ha_interface  = "eth4"
         ha_address    = "10.50.18.${p.i}"
         peers         = [for j in [34, 35, 36] : "10.50.18.${j}" if j != p.i]
         vips = [
-          { cidr = "10.13.11.101/16", interface = "eth2" },
-          { cidr = "10.5.11.101/16", interface = "eth3" },
-          { cidr = "10.55.18.101/16", interface = "eth6" },
+          { cidr = "10.54.18.101/16", interface = "eth1" },
+          { cidr = "10.5.11.101/16", interface = "eth2" },
+          { cidr = "10.55.18.101/16", interface = "eth5" },
         ]
       })))
     )])
-    error_message = "keepalived: vrid 101 over eth5 (HA VLAN), VIPs on eth2/eth3/eth6 (backend, monitoring, telemetry; none on mgmt), priorities 150/100/50."
+    error_message = "keepalived: vrid 101 over eth4 (HA VLAN), VIPs on eth1/eth2/eth5 (backend, monitoring, telemetry; none on mgmt), priorities 150/100/50."
   }
 
   assert {
@@ -723,8 +723,8 @@ run "logging" {
   assert {
     condition = (
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"loki\"") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.34:3100") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.36:8405") &&
+      strcontains(module.monitoring.prometheus_config, "10.54.18.34:3100") &&
+      strcontains(module.monitoring.prometheus_config, "10.54.18.36:8405") &&
       strcontains(module.monitoring.prometheus_config, "10.55.16.30:12345") &&
       strcontains(module.monitoring.prometheus_config, "10.55.18.35:9100") &&
       strcontains(module.monitoring.units.loki02["node-exporter"], "--collector.netdev.address-info") &&
@@ -739,7 +739,7 @@ run "logging" {
   assert {
     condition = (
       strcontains(module.monitoring.datasources_config, "\"uid\": \"loki\"") &&
-      strcontains(module.monitoring.datasources_config, "\"url\": \"http://10.13.11.101:3100\"") &&
+      strcontains(module.monitoring.datasources_config, "\"url\": \"http://10.54.18.101:3100\"") &&
       # $$ escapes Grafana's environment expansion of provisioning files.
       # (?i): Loki has the VyOS hosts in upper case, Prometheus in lower case.
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.jsonData.derivedFields[0].url if d.uid == "loki"]) == "up{host=~\"(?i)$$${__value.raw}\"}"
@@ -784,7 +784,7 @@ run "logging_ha_nic_required" {
           vm_id              = 1130
           management_address = "10.20.11.30/16"
           network_devices = [
-            { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.30/16" },
+            { bridge = "vmbr4000", vlan_id = 1401, ipv4_address = "10.54.16.30/16" },
             { bridge = "vmbr100", ipv4_address = "10.5.11.30/16" },
           ]
         }
@@ -796,7 +796,7 @@ run "logging_ha_nic_required" {
         vm_id                   = 1100 + i
         management_address      = "10.20.11.${i}/16"
         network_devices = [
-          { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.${i}/16" },
+          { bridge = "vmbr4000", vlan_id = 1401, ipv4_address = "10.54.18.${i}/16" },
           { bridge = "vmbr100", ipv4_address = "10.5.11.${i}/16" },
         ]
       } },
@@ -814,23 +814,23 @@ run "grafana_ha" {
     condition = alltrue([for name, i in { graf01 = 32, graf02 = 33 } : (
       strcontains(module.monitoring.units[name].grafana, "GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS=10.50.11.${i}:9094") &&
       strcontains(module.monitoring.units[name].grafana, "PublishPort=10.50.11.${i}:9094:9094/udp") &&
-      !strcontains(module.monitoring.units[name].grafana, "10.13.11.${i}:9094")
+      !strcontains(module.monitoring.units[name].grafana, "10.52.11.${i}:9094")
     )])
     error_message = "Grafana alerting HA gossips over 10.50.11.32/.33:9094."
   }
 
   assert {
-    # VIP on the UI NIC (eth1, VLAN 2), adverts unicast on the HA NIC (eth3), router id 100.
+    # VIP on the UI NIC (eth1, VLAN 1201 lylat-app), adverts unicast on the HA NIC (eth2), router id 100.
     condition = (
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.2.11.100/16 dev eth1") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "interface eth3") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.52.11.100/16 dev eth1") &&
+      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "interface eth2") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip 10.50.11.32") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    10.50.11.33\n") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "priority 150") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "priority 100") &&
       strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "virtual_router_id 100")
     )
-    error_message = "keepalived on graf01/02: VIP 10.2.11.100 on eth1, unicast adverts over eth3, vrid 100, name-ordered priority."
+    error_message = "keepalived on graf01/02: VIP 10.52.11.100 on eth1, unicast adverts over eth2, vrid 100, name-ordered priority."
   }
 }
 
@@ -845,7 +845,7 @@ run "grafana_vrrp_disabled" {
 }
 
 # Backend HA (backends.tf): mon01 (primary, Postgres) + mon02, Alertmanager cluster and
-# keepalived over the ha_monitor VLAN 215, VIPs 10.5.11.102 / 10.13.11.102.
+# keepalived over the ha_monitor VLAN 215, VIPs 10.5.11.102 / 10.54.16.102.
 run "backend_ha" {
   command = plan
 
@@ -854,7 +854,7 @@ run "backend_ha" {
     condition = alltrue([for name in ["mon01", "mon02"] : (
       yamldecode(module.monitoring.prometheus_configs[name]).global.external_labels == { site = "lylat", ha_cluster = "lylat", __replica__ = name } &&
       yamldecode(module.monitoring.prometheus_configs[name]).alerting.alert_relabel_configs == [{ action = "labeldrop", regex = "__replica__" }] &&
-      yamldecode(module.monitoring.prometheus_configs[name]).alerting.alertmanagers[0].static_configs[0].targets == ["10.13.11.30:9093", "10.13.11.31:9093"] &&
+      yamldecode(module.monitoring.prometheus_configs[name]).alerting.alertmanagers[0].static_configs[0].targets == ["10.54.16.30:9093", "10.54.16.31:9093"] &&
       yamldecode(module.monitoring.prometheus_configs[name]).scrape_configs == yamldecode(module.monitoring.prometheus_configs.mon01).scrape_configs
     )])
     error_message = "Both replicas scrape the same targets with __replica__ = their name, and send to both Alertmanagers."
@@ -862,13 +862,13 @@ run "backend_ha" {
 
   assert {
     condition = (
-      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9090") && # every replica's Prometheus and Alertmanager
-      strcontains(module.monitoring.prometheus_config, "10.13.11.31:9093") &&
+      strcontains(module.monitoring.prometheus_config, "10.54.16.31:9090") && # every replica's Prometheus and Alertmanager
+      strcontains(module.monitoring.prometheus_config, "10.54.16.31:9093") &&
       strcontains(module.monitoring.prometheus_config, "10.55.16.31:9100") &&
       !strcontains(module.monitoring.prometheus_config, "localhost:9090") &&
       strcontains(module.monitoring.prometheus_rules, "AlertmanagerClusterDegraded") &&
       strcontains(module.monitoring.prometheus_rules, "address=\\\"10.5.11.102\\\"") &&
-      strcontains(module.monitoring.prometheus_rules, "address=\\\"10.13.11.102\\\"")
+      strcontains(module.monitoring.prometheus_rules, "address=\\\"10.54.16.102\\\"")
     )
     error_message = "Every replica scrapes every Prometheus/Alertmanager by address; HA alerts cover the cluster and both VIPs."
   }
@@ -880,7 +880,7 @@ run "backend_ha" {
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "/var/lib/monitoring/postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "pg_isready") &&
       module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
-      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.13.11.30:5432")
+      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.54.16.30:5432")
     )
     error_message = "Postgres stays on mon01 (Grafana's database); mon02 gets the rest, keepalived last."
   }
@@ -891,7 +891,7 @@ run "backend_ha" {
       strcontains(module.monitoring.units[name].alertmanager, "--cluster.advertise-address=10.50.16.${i.me}:9094") &&
       strcontains(module.monitoring.units[name].alertmanager, "--cluster.peer=10.50.16.${i.peer}:9094") &&
       strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.50.16.${i.me}:9094:9094/udp") &&
-      strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.13.11.102:9093:9093\n") &&
+      strcontains(module.monitoring.units[name].alertmanager, "PublishPort=10.54.16.102:9093:9093\n") &&
       strcontains(module.monitoring.units[name].telegraf, "PublishPort=10.5.11.102:57500:57500\n") &&
       strcontains(module.monitoring.units[name]["node-exporter"], "--collector.netdev.address-info")
     )])
@@ -899,11 +899,11 @@ run "backend_ha" {
   }
 
   assert {
-    # VIPs on eth2 (vmbr100) and eth3 (VLAN 13), adverts unicast on eth4 (VLAN 215), router id 102.
+    # VIPs on eth2 (vmbr100) and eth1 (VLAN 1401 lylat-obs), adverts unicast on eth3 (VLAN 215), router id 102.
     condition = (
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.5.11.102/16 dev eth2") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.13.11.102/16 dev eth3") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "interface eth4") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.54.16.102/16 dev eth1") &&
+      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "interface eth3") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "unicast_src_ip 10.50.16.30") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "    10.50.16.31\n") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "priority 150") &&
@@ -911,17 +911,17 @@ run "backend_ha" {
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "virtual_router_id 102") &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), base64encode(module.monitoring.backend_keepalived_configs.mon02)) &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "sysctl -q -p /etc/sysctl.d/90-monitoring-vip.conf") &&
-      output.monitoring_vips == { monitoring = "10.5.11.102", backend = "10.13.11.102" }
+      output.monitoring_vips == { monitoring = "10.5.11.102", backend = "10.54.16.102" }
     )
-    error_message = "keepalived on mon01/02: VIPs on eth2/eth3, unicast adverts over eth4, vrid 102, mon01 first; nonlocal bind applied."
+    error_message = "keepalived on mon01/02: VIPs on eth2/eth1, unicast adverts over eth3, vrid 102, mon01 first; nonlocal bind applied."
   }
 
   assert {
     # Grafana: Alertmanager on the backend VIP, per-replica Prometheus datasources.
     condition = (
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.102:9093" &&
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon01"]) == "http://10.13.11.30:9090" &&
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon02"]) == "http://10.13.11.31:9090"
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.54.16.102:9093" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon01"]) == "http://10.54.16.30:9090" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus-mon02"]) == "http://10.54.16.31:9090"
     )
     error_message = "Grafana reaches Alertmanager on the backend VIP, and each Prometheus replica directly."
   }
@@ -942,7 +942,7 @@ run "wlc_prometheus" {
         strcontains(module.monitoring.wlc_telegraf_configs[name], "listen = \":9275\"") &&
         strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "put '/etc/monitoring/telegraf/wlc.star'")
       )]) &&
-      one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "wlc"]).static_configs[0].targets == ["10.13.11.102:9275"] &&
+      one([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j if j.job_name == "wlc"]).static_configs[0].targets == ["10.54.16.102:9275"] &&
       strcontains(module.monitoring.prometheus_rules, "WlcTelemetryNotInPrometheus") &&
       contains(flatten([for g in yamldecode(module.monitoring.prometheus_rules).groups : g.rules[*].expr if g.name == "wlc-telemetry"]), "sum(rate(internal_gather_metrics_gathered{job=\"telegraf\", input=\"cisco_telemetry_mdt\"}[10m])) == 0")
     )
@@ -960,7 +960,7 @@ run "backend_vrrp_disabled" {
       output.monitoring_vips == null &&
       !contains(module.monitoring.backend_services, "keepalived") &&
       !strcontains(module.monitoring.units.mon01.telegraf, "10.5.11.102") &&
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.30:9093"
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.54.16.30:9093"
     )
     error_message = "backend_vrrp = null: no keepalived or VIP publishing; Grafana uses the primary."
   }
@@ -978,9 +978,8 @@ run "backend_ha_nic_required" {
       vm_id              = 1100 + i
       management_address = "10.20.11.${i}/16"
       network_devices = concat([
-        { bridge = "vmbr4000", vlan_id = 2, ipv4_address = "10.2.11.${i}/16", ipv4_gateway = "10.2.0.5" },
+        { bridge = "vmbr4000", vlan_id = 1401, ipv4_address = "10.54.16.${i}/16", ipv4_gateway = "10.54.0.1" },
         { bridge = "vmbr100", ipv4_address = "10.5.11.${i}/16" },
-        { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.${i}/16" },
       ], name == "mon01" ? [{ bridge = "vmbr4000", vlan_id = 1016, ipv4_address = "10.50.16.${i}/24" }] : [])
     } }
   }
@@ -1004,10 +1003,10 @@ run "backend_single" {
       !strcontains(module.monitoring.units.mon01.alertmanager, "--cluster.peer") &&
       !strcontains(module.monitoring.units.mon01.telegraf, "10.5.11.102") &&
       yamldecode(module.monitoring.prometheus_config).global.external_labels.__replica__ == "mon01" &&
-      yamldecode(module.monitoring.prometheus_config).alerting.alertmanagers[0].static_configs[0].targets == ["10.13.11.30:9093"] &&
-      !strcontains(module.monitoring.prometheus_config, "10.13.11.31") &&
+      yamldecode(module.monitoring.prometheus_config).alerting.alertmanagers[0].static_configs[0].targets == ["10.54.16.30:9093"] &&
+      !strcontains(module.monitoring.prometheus_config, "10.54.16.31") &&
       !strcontains(module.monitoring.prometheus_rules, "AlertmanagerClusterDegraded") &&
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.13.11.30:9093" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "alertmanager"]) == "http://10.54.16.30:9093" &&
       !contains([for d in yamldecode(module.monitoring.datasources_config).datasources : d.uid], "prometheus-mon02") &&
       output.wlc_telemetry_receiver.address == "10.5.11.30" # no VIP: the primary's own address
     )
@@ -1033,10 +1032,10 @@ run "service_vm_alloy" {
 
   assert {
     # Every services-config Alloy VM has a telemetry NIC (since 2026-11-14) and pushes to the telemetry VIP, so
-    # logging-guard needs no mgmt exceptions: only the backend VLAN (Grafana) and lylat-telemetry reach port 3100.
+    # logging-guard needs no mgmt exceptions: only lylat-app (Grafana), lylat-obs and lylat-telemetry reach port 3100.
     condition = (
-      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.13.0.0/16, 10.55.0.0/16 } accept")
+      strcontains(module.monitoring.logging_guard_config, "tcp dport 3100 ip saddr { 10.52.0.0/16, 10.54.0.0/16, 10.55.0.0/16 } accept")
     )
-    error_message = "No mgmt senders left: logging-guard lets only 10.13.0.0/16 and 10.55.0.0/16 reach Loki's port 3100."
+    error_message = "No mgmt senders left: logging-guard lets only 10.52.0.0/16, 10.54.0.0/16 and 10.55.0.0/16 reach Loki's port 3100."
   }
 }

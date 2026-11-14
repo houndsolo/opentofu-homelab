@@ -16,6 +16,13 @@ vms = {
         ipv4_gateway = "10.8.0.5"
       },
       {
+        # lylat-dns (VNI 5301): BIND + the VIP 10.53.53.53; VLAN 8 above stays the default route (same VRF).
+        bridge       = "vmbr4000"
+        vlan_id      = 1301
+        ipv4_address = "10.53.53.51/16"
+        ipv6_address = "fd69:5301::53:51/64"
+      },
+      {
         # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
         bridge       = "vmbr4000"
         vlan_id      = 1053
@@ -54,6 +61,13 @@ vms = {
         vlan_id      = 8
         ipv4_address = "10.8.53.2/16"
         ipv4_gateway = "10.8.0.5"
+      },
+      {
+        # lylat-dns (VNI 5301): BIND + the VIP 10.53.53.53; VLAN 8 above stays the default route (same VRF).
+        bridge       = "vmbr4000"
+        vlan_id      = 1301
+        ipv4_address = "10.53.53.52/16"
+        ipv6_address = "fd69:5301::53:52/64"
       },
       {
         # HA L2VNI 9212 (l2vnis.ha_dns): keepalived adverts for the DNS VIP 10.8.53.53.
@@ -118,23 +132,20 @@ vms = {
     # No OOB default gateway is configured here.
     network_devices = [
       {
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.30/16"
-        ipv4_gateway = "10.2.0.5"
+        vlan_id      = 1401
+        ipv4_address = "10.54.16.30/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::16:30/64"
       },
       {
         bridge       = "vmbr100"
         ipv4_address = "10.5.11.30/16"
       },
       {
-        # Isolated monitoring backend (lylat_monitor VRF): Grafana <-> mon01.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.30/16"
-      },
-      {
-        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.13.11.102) and Alertmanager gossip.
+        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.54.16.102) and Alertmanager gossip.
         bridge       = "vmbr4000"
         vlan_id      = 1016
         ipv4_address = "10.50.16.30/24"
@@ -160,7 +171,7 @@ vms = {
   }
   triage01 = {
     # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system), HA pair with triage02:
-    # Podman Quadlet + keepalived (VIP 10.2.11.105) deployed by services-config (ticketing.tf),
+    # Podman Quadlet + keepalived (VIP 10.52.13.105) deployed by services-config (ticketing.tf),
     # data in Postgres (Patroni). Same last octet everywhere (.43), like the monitoring VMs.
     owner              = "services-vms"
     role               = "ticketing"
@@ -171,20 +182,16 @@ vms = {
     management_address = "10.20.11.43/16"
     network_devices = [
       {
-        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        # lylat-app (VNI 5201): Grafana/NetBox/dark-triage and its VIP; reaches Postgres/Valkey (lylat-data) and obs over the zone imports.
+        # Flat 10.52.0.0/16, default route via the anycast gateway 10.52.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.43/16"
-        ipv4_gateway = "10.2.0.5"
+        vlan_id      = 1201
+        ipv4_address = "10.52.13.43/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::13:43/64"
       },
       {
-        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) for the app's database.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.43/16"
-      },
-      {
-        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.11.105.
+        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.52.13.105.
         bridge       = "vmbr4000"
         vlan_id      = 1013
         ipv4_address = "10.50.13.43/24"
@@ -210,7 +217,7 @@ vms = {
   }
   triage02 = {
     # dark-triage helpdesk (github.com/houndsolo/vc-ticketing-system), HA pair with triage01:
-    # Podman Quadlet + keepalived (VIP 10.2.11.105) deployed by services-config (ticketing.tf),
+    # Podman Quadlet + keepalived (VIP 10.52.13.105) deployed by services-config (ticketing.tf),
     # data in Postgres (Patroni). Same last octet everywhere (.44), like the monitoring VMs.
     owner              = "services-vms"
     role               = "ticketing"
@@ -221,20 +228,16 @@ vms = {
     management_address = "10.20.11.44/16"
     network_devices = [
       {
-        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        # lylat-app (VNI 5201): Grafana/NetBox/dark-triage and its VIP; reaches Postgres/Valkey (lylat-data) and obs over the zone imports.
+        # Flat 10.52.0.0/16, default route via the anycast gateway 10.52.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.44/16"
-        ipv4_gateway = "10.2.0.5"
+        vlan_id      = 1201
+        ipv4_address = "10.52.13.44/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::13:44/64"
       },
       {
-        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) for the app's database.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.44/16"
-      },
-      {
-        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.2.11.105.
+        # HA L2VNI ha_triage: keepalived adverts for the VIP 10.52.13.105.
         bridge       = "vmbr4000"
         vlan_id      = 1013
         ipv4_address = "10.50.13.44/24"
@@ -260,7 +263,7 @@ vms = {
   }
   netbox01 = {
     # NetBox (IPAM/DCIM), HA pair with netbox02: netbox + netbox-worker as Podman Quadlets and keepalived
-    # (VIP 10.2.11.106, netbox.lylat.space) deployed by services-config (netbox.tf). Data in Postgres
+    # (VIP 10.52.12.106, netbox.lylat.space) deployed by services-config (netbox.tf). Data in Postgres
     # (Patroni, database "netbox"), cache and task queue in Valkey via Sentinel (valkey01-03).
     owner              = "services-vms"
     role               = "netbox"
@@ -271,17 +274,13 @@ vms = {
     management_address = "10.20.11.45/16"
     network_devices = [
       {
-        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        # lylat-app (VNI 5201): Grafana/NetBox/dark-triage and its VIP; reaches Postgres/Valkey (lylat-data) and obs over the zone imports.
+        # Flat 10.52.0.0/16, default route via the anycast gateway 10.52.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.45/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) and the Valkey Sentinels.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.45/16"
+        vlan_id      = 1201
+        ipv4_address = "10.52.12.45/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::12:45/64"
       },
       {
         # Ceph public network: CephFS (/netbox) mounted at /var/lib/netbox, NetBox's media,
@@ -290,7 +289,7 @@ vms = {
         ipv4_address = "10.27.11.45/16"
       },
       {
-        # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.2.11.106.
+        # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.52.12.106.
         bridge       = "vmbr4000"
         vlan_id      = 1012
         ipv4_address = "10.50.12.45/24"
@@ -316,7 +315,7 @@ vms = {
   }
   netbox02 = {
     # NetBox (IPAM/DCIM), HA pair with netbox01: netbox + netbox-worker as Podman Quadlets and keepalived
-    # (VIP 10.2.11.106, netbox.lylat.space) deployed by services-config (netbox.tf). Data in Postgres
+    # (VIP 10.52.12.106, netbox.lylat.space) deployed by services-config (netbox.tf). Data in Postgres
     # (Patroni, database "netbox"), cache and task queue in Valkey via Sentinel (valkey01-03).
     owner              = "services-vms"
     role               = "netbox"
@@ -327,17 +326,13 @@ vms = {
     management_address = "10.20.11.46/16"
     network_devices = [
       {
-        # VLAN 2, static, outside the DHCP pool 10.2.5.1-10.2.5.99. Default route via the anycast gateway.
+        # lylat-app (VNI 5201): Grafana/NetBox/dark-triage and its VIP; reaches Postgres/Valkey (lylat-data) and obs over the zone imports.
+        # Flat 10.52.0.0/16, default route via the anycast gateway 10.52.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.46/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Backend VLAN 13: Postgres (Patroni VIP 10.13.11.104) and the Valkey Sentinels.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.46/16"
+        vlan_id      = 1201
+        ipv4_address = "10.52.12.46/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::12:46/64"
       },
       {
         # Ceph public network: CephFS (/netbox) mounted at /var/lib/netbox, NetBox's media,
@@ -346,7 +341,7 @@ vms = {
         ipv4_address = "10.27.11.46/16"
       },
       {
-        # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.2.11.106.
+        # HA L2VNI ha_netbox: keepalived adverts for the VIP 10.52.12.106.
         bridge       = "vmbr4000"
         vlan_id      = 1012
         ipv4_address = "10.50.12.46/24"
@@ -383,17 +378,13 @@ vms = {
     management_address = "10.20.11.47/16"
     network_devices = [
       {
-        # VLAN 2, static, outside the DHCP pool. Default route via the anycast gateway (apt).
+        # lylat-data (VNI 5601): Postgres (VIP 10.56.14.104) / Valkey + Sentinel for the apps in lylat-app.
+        # Flat 10.56.0.0/16, default route via the anycast gateway 10.56.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.47/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Backend VLAN 13: Valkey (6379) and Sentinel (26379) for NetBox, replication between the trio.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.47/16"
+        vlan_id      = 1601
+        ipv4_address = "10.56.15.47/16"
+        ipv4_gateway = "10.56.0.1"
+        ipv6_address = "fd69:5601::15:47/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -426,17 +417,13 @@ vms = {
     management_address = "10.20.11.48/16"
     network_devices = [
       {
-        # VLAN 2, static, outside the DHCP pool. Default route via the anycast gateway (apt).
+        # lylat-data (VNI 5601): Postgres (VIP 10.56.14.104) / Valkey + Sentinel for the apps in lylat-app.
+        # Flat 10.56.0.0/16, default route via the anycast gateway 10.56.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.48/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Backend VLAN 13: Valkey (6379) and Sentinel (26379) for NetBox, replication between the trio.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.48/16"
+        vlan_id      = 1601
+        ipv4_address = "10.56.15.48/16"
+        ipv4_gateway = "10.56.0.1"
+        ipv6_address = "fd69:5601::15:48/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -469,17 +456,13 @@ vms = {
     management_address = "10.20.11.49/16"
     network_devices = [
       {
-        # VLAN 2, static, outside the DHCP pool. Default route via the anycast gateway (apt).
+        # lylat-data (VNI 5601): Postgres (VIP 10.56.14.104) / Valkey + Sentinel for the apps in lylat-app.
+        # Flat 10.56.0.0/16, default route via the anycast gateway 10.56.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.49/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Backend VLAN 13: Valkey (6379) and Sentinel (26379) for NetBox, replication between the trio.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.49/16"
+        vlan_id      = 1601
+        ipv4_address = "10.56.15.49/16"
+        ipv4_gateway = "10.56.0.1"
+        ipv6_address = "fd69:5601::15:49/64"
       },
       {
         # lylat-telemetry (VNI 5501): scrapes and log pushes. Flat 10.55.0.0/16, gateway 10.55.0.1 (no default
@@ -516,6 +499,13 @@ vms = {
         vlan_id      = 2
         ipv4_address = "10.2.11.50/16"
         ipv4_gateway = "10.2.0.5"
+      },
+      {
+        # lylat-app (VNI 5201): upstream leg to the Grafana/NetBox/dark-triage VIPs in 10.52.0.0/16, on-link.
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.10.50/16"
+        ipv6_address = "fd69:5201::10:50/64"
       },
       {
         bridge       = "vmbr4000"
@@ -560,6 +550,13 @@ vms = {
         ipv4_gateway = "10.2.0.5"
       },
       {
+        # lylat-app (VNI 5201): upstream leg to the Grafana/NetBox/dark-triage VIPs in 10.52.0.0/16, on-link.
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.10.51/16"
+        ipv6_address = "fd69:5201::10:51/64"
+      },
+      {
         bridge       = "vmbr4000"
         vlan_id      = 1010
         ipv4_address = "10.50.10.51/24"
@@ -595,23 +592,20 @@ vms = {
     # No OOB default gateway is configured here. Same NIC order as mon01.
     network_devices = [
       {
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.31/16"
-        ipv4_gateway = "10.2.0.5"
+        vlan_id      = 1401
+        ipv4_address = "10.54.16.31/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::16:31/64"
       },
       {
         bridge       = "vmbr100"
         ipv4_address = "10.5.11.31/16"
       },
       {
-        # Isolated monitoring backend (lylat_monitor VRF): Grafana and Mimir.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.31/16"
-      },
-      {
-        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.13.11.102) and Alertmanager gossip.
+        # HA L2VNI 9215 (l2vnis.ha_monitor): keepalived (VIPs 10.5.11.102, 10.54.16.102) and Alertmanager gossip.
         bridge       = "vmbr4000"
         vlan_id      = 1016
         ipv4_address = "10.50.16.31/24"
@@ -646,19 +640,16 @@ vms = {
     # No OOB default gateway is configured here.
     network_devices = [
       {
+        # lylat-app (VNI 5201): Grafana/NetBox/dark-triage and its VIP; reaches Postgres/Valkey (lylat-data) and obs over the zone imports.
+        # Flat 10.52.0.0/16, default route via the anycast gateway 10.52.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.32/16"
-        ipv4_gateway = "10.2.0.5"
+        vlan_id      = 1201
+        ipv4_address = "10.52.11.32/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::11:32/64"
       },
       {
-        # Isolated monitoring backend (lylat_monitor VRF): mon01 + Grafana HA.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.32/16"
-      },
-      {
-        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.100) and alerting HA (9094).
+        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.52.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
         vlan_id      = 1011
         ipv4_address = "10.50.11.32/24"
@@ -692,19 +683,16 @@ vms = {
     # No OOB default gateway is configured here.
     network_devices = [
       {
+        # lylat-app (VNI 5201): Grafana/NetBox/dark-triage and its VIP; reaches Postgres/Valkey (lylat-data) and obs over the zone imports.
+        # Flat 10.52.0.0/16, default route via the anycast gateway 10.52.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.33/16"
-        ipv4_gateway = "10.2.0.5"
+        vlan_id      = 1201
+        ipv4_address = "10.52.11.33/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::11:33/64"
       },
       {
-        # Isolated monitoring backend (lylat_monitor VRF): mon01 + Grafana HA.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.33/16"
-      },
-      {
-        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.2.11.100) and alerting HA (9094).
+        # HA L2VNI 9213 (l2vnis.ha_grafana): keepalived (VIP 10.52.11.100) and alerting HA (9094).
         bridge       = "vmbr4000"
         vlan_id      = 1011
         ipv4_address = "10.50.11.33/24"
@@ -737,17 +725,13 @@ vms = {
     management_address = "10.20.11.34/16"
     network_devices = [
       {
-        # Internet (image pulls) via the lylat_infra gateway.
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.34/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.34/16"
+        vlan_id      = 1401
+        ipv4_address = "10.54.18.34/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::18:34/64"
       },
       {
         # Monitoring network: syslog and log pushes from devices and PVE nodes.
@@ -794,17 +778,13 @@ vms = {
     management_address = "10.20.11.35/16"
     network_devices = [
       {
-        # Internet (image pulls) via the lylat_infra gateway.
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.35/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.35/16"
+        vlan_id      = 1401
+        ipv4_address = "10.54.18.35/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::18:35/64"
       },
       {
         # Monitoring network: syslog and log pushes from devices and PVE nodes.
@@ -851,17 +831,13 @@ vms = {
     management_address = "10.20.11.36/16"
     network_devices = [
       {
-        # Internet (image pulls) via the lylat_infra gateway.
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.36/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: Loki ring (memberlist) and Grafana queries.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.36/16"
+        vlan_id      = 1401
+        ipv4_address = "10.54.18.36/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::18:36/64"
       },
       {
         # Monitoring network: syslog and log pushes from devices and PVE nodes.
@@ -909,17 +885,13 @@ vms = {
     management_address = "10.20.11.37/16"
     network_devices = [
       {
-        # Internet (image pulls) via the lylat_infra gateway.
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.37/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: remote_write from mon01/mon02, Grafana queries, VIP 10.13.11.103.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.37/16"
+        vlan_id      = 1401
+        ipv4_address = "10.54.17.37/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::17:37/64"
       },
       {
         # Ceph public network: haproxy to the RGWs (S3 for Mimir blocks).
@@ -961,17 +933,13 @@ vms = {
     management_address = "10.20.11.38/16"
     network_devices = [
       {
-        # Internet (image pulls) via the lylat_infra gateway.
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.38/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: remote_write from mon01/mon02, Grafana queries, VIP 10.13.11.103.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.38/16"
+        vlan_id      = 1401
+        ipv4_address = "10.54.17.38/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::17:38/64"
       },
       {
         # Ceph public network: haproxy to the RGWs (S3 for Mimir blocks).
@@ -1013,17 +981,13 @@ vms = {
     management_address = "10.20.11.39/16"
     network_devices = [
       {
-        # Internet (image pulls) via the lylat_infra gateway.
+        # lylat-obs (VNI 5401): Prometheus/Alertmanager, Mimir, Loki query side and their VIPs; Grafana (lylat-app) queries it.
+        # Flat 10.54.0.0/16, default route via the anycast gateway 10.54.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.39/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: remote_write from mon01/mon02, Grafana queries, VIP 10.13.11.103.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.39/16"
+        vlan_id      = 1401
+        ipv4_address = "10.54.17.39/16"
+        ipv4_gateway = "10.54.0.1"
+        ipv6_address = "fd69:5401::17:39/64"
       },
       {
         # Ceph public network: haproxy to the RGWs (S3 for Mimir blocks).
@@ -1067,17 +1031,13 @@ vms = {
     management_address = "10.20.11.40/16"
     network_devices = [
       {
-        # Internet (Debian packages, image pulls) via the lylat_infra gateway.
+        # lylat-data (VNI 5601): Postgres (VIP 10.56.14.104) / Valkey + Sentinel for the apps in lylat-app.
+        # Flat 10.56.0.0/16, default route via the anycast gateway 10.56.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.40/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: Grafana -> Postgres on the VIP 10.13.11.104, scrapes.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.40/16"
+        vlan_id      = 1601
+        ipv4_address = "10.56.14.40/16"
+        ipv4_gateway = "10.56.0.1"
+        ipv6_address = "fd69:5601::14:40/64"
       },
       {
         # Ceph public network: haproxy to the RGWs (pgBackRest WAL archive and base backups in S3).
@@ -1120,17 +1080,13 @@ vms = {
     management_address = "10.20.11.41/16"
     network_devices = [
       {
-        # Internet (Debian packages, image pulls) via the lylat_infra gateway.
+        # lylat-data (VNI 5601): Postgres (VIP 10.56.14.104) / Valkey + Sentinel for the apps in lylat-app.
+        # Flat 10.56.0.0/16, default route via the anycast gateway 10.56.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.41/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: Grafana -> Postgres on the VIP 10.13.11.104, scrapes.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.41/16"
+        vlan_id      = 1601
+        ipv4_address = "10.56.14.41/16"
+        ipv4_gateway = "10.56.0.1"
+        ipv6_address = "fd69:5601::14:41/64"
       },
       {
         # Ceph public network: haproxy to the RGWs (pgBackRest WAL archive and base backups in S3).
@@ -1173,17 +1129,13 @@ vms = {
     management_address = "10.20.11.42/16"
     network_devices = [
       {
-        # Internet (Debian packages, image pulls) via the lylat_infra gateway.
+        # lylat-data (VNI 5601): Postgres (VIP 10.56.14.104) / Valkey + Sentinel for the apps in lylat-app.
+        # Flat 10.56.0.0/16, default route via the anycast gateway 10.56.0.1 (zone design, Obsidian zone-design.md).
         bridge       = "vmbr4000"
-        vlan_id      = 2
-        ipv4_address = "10.2.11.42/16"
-        ipv4_gateway = "10.2.0.5"
-      },
-      {
-        # Isolated monitoring backend: Grafana -> Postgres on the VIP 10.13.11.104, scrapes.
-        bridge       = "vmbr4000"
-        vlan_id      = 13
-        ipv4_address = "10.13.11.42/16"
+        vlan_id      = 1601
+        ipv4_address = "10.56.14.42/16"
+        ipv4_gateway = "10.56.0.1"
+        ipv6_address = "fd69:5601::14:42/64"
       },
       {
         # Ceph public network: haproxy to the RGWs (pgBackRest WAL archive and base backups in S3).

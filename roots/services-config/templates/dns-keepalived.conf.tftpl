@@ -44,9 +44,15 @@ vrrp_instance dns {
   # same-VLAN hosts, DT-045); only its EVPN location moves. Adverts stay on the HA L2VNI.
   virtual_ipaddress {
     ${vip} dev ${interface} use_vmac
+%{ if zone_vip != null ~}
+    ${zone_vip} dev ${zone_interface}
+%{ endif ~}
   }
   track_interface {
     ${interface}
+%{ if zone_vip != null ~}
+    ${zone_interface}
+%{ endif ~}
   }
   track_script {
     chk_bind

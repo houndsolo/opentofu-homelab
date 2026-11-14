@@ -15,13 +15,13 @@ locals {
     triage = sort(flatten([
       for name, vm in var.vms : [
         for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
-        if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+        if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
       ] if vm.role == "ticketing"
     ]))
     netbox = sort(flatten([
       for name, vm in var.vms : [
         for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
-        if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+        if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
       ] if vm.role == "netbox"
     ]))
   }
@@ -44,7 +44,7 @@ locals {
       ]), null)
       backend = try(one([
         for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
-        if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+        if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
       ]), null)
     }
   }
@@ -123,7 +123,7 @@ resource "terraform_data" "postgres" {
   lifecycle {
     precondition {
       condition     = local.postgres_ready
-      error_message = "Every postgres VM needs one addressed NIC each on the Postgres HA VLAN ${var.postgres_ha_vlan_id} and the backend VLAN ${var.backend_vlan_id}."
+      error_message = "Every postgres VM needs one addressed NIC each on the Postgres HA VLAN ${var.postgres_ha_vlan_id} and the backend VLAN ${join("/", var.backend_vlan_ids)}."
     }
     precondition {
       condition     = length(local.postgres_vms) >= 3 && length(local.postgres_vms) % 2 == 1

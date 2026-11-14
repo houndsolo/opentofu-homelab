@@ -10,7 +10,7 @@ vnis = [
       remote_as   = 420 # fw-wan (VXLAN_Border_Spine in its lylat_service VRF)
       description = "lylat_external L3 external connectivity"
     }
-    ipv4_rt_imports = "700:6900 700:6600 700:6200 700:6700"
+    ipv4_rt_imports = "700:6900 700:6600 700:6200 700:6700 700:5100 700:5200 700:5300 700:5400 700:5600"
     ipv4_rt_exports = "700:6666"
     import_ipv4_vpn = true
     export_vpn_ipv4 = true
@@ -20,6 +20,11 @@ vnis = [
       "700:6600",
       "700:6700",
       "700:6200",
+      "700:5100",
+      "700:5200",
+      "700:5300",
+      "700:5400",
+      "700:5600",
     ]
     evpn_rt_exports = [
       "700:6666",
@@ -48,27 +53,7 @@ vnis = [
     #  connected = {}
     #}
 
-    # VLAN 6 (L2VNI 9006) carried only the DHCP HA link; that moved to the
-    # standalone L2VNI l2vnis.ha_dhcp (9211, 10.21.67.0/24).
-    l2 = {
-      8 = {
-        vni                  = 9008
-        vlan_id              = 8
-        anycast_gw_ip        = "10.8.0.5"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:08:01"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
-        dhcp = {
-          scope = {
-            ranges = {
-              0 = { start = "10.8.5.1", stop = "10.8.5.99" }
-            }
-          }
-        }
-      }
-    }
+    # Empty since the zone cutover (DT-090 steps 3-5): VLAN 8 moved into lylat-dns. Retired in step 6.
   },
   {
     vlan_id         = 69
@@ -76,7 +61,7 @@ vnis = [
     roles           = ["proxmox", "external_l2"]
     vrf             = "lylat_lan"
     vrf_table       = 1337
-    ipv4_rt_imports = "700:6600 700:6200 700:6700"
+    ipv4_rt_imports = "700:6600 700:6200 700:6700 700:5100 700:5300"
     ipv4_rt_exports = "700:6900"
     import_ipv4_vpn = true
     export_vpn_ipv4 = true
@@ -89,6 +74,8 @@ vnis = [
       "700:6200",
       "700:6700",
       "700:6666",
+      "700:5100",
+      "700:5300",
     ]
     evpn_rt_exports = [
       "700:6900",
@@ -165,25 +152,6 @@ vnis = [
     #  connected = {}
     #}
 
-    l2 = {
-      2 = {
-        vni                  = 9002
-        vlan_id              = 2
-        anycast_gw_ip        = "10.2.0.5"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:02:01"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
-        dhcp = {
-          scope = {
-            ranges = {
-              0 = { start = "10.2.5.1", stop = "10.2.5.99" }
-            }
-          }
-        }
-      }
-    }
   },
 
   # Isolated monitoring backend (mon01 <-> graf01/02, Grafana HA). No ipv4 VPN
@@ -211,6 +179,213 @@ vnis = [
         anycast_gw_ip   = "10.13.0.5"
         anycast_gw_cidr = 16
         anycast_mac     = "02:00:00:00:13:01"
+      }
+    }
+  },
+
+  # lylat-edge (zone design, DT-090): VLAN 2 / VNI 9002 / 10.2.0.0/16 kept as it was (moved from lylat_infra):
+  # the nginx front end (proxy-vip 10.2.11.107) and other VLAN 2 hosts. 10.51.0.0/16 stays reserved, unused.
+  {
+    vlan_id         = 1100
+    vni             = 5100
+    roles           = ["proxmox"]
+    vrf             = "lylat-edge"
+    vrf_table       = 5100
+    ipv4_rt_imports = "700:6900 700:6700 700:6666 700:5300"
+    ipv4_rt_exports = "700:5100"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
+    evpn_rt_imports = [
+      "700:5100",
+      "700:6900",
+      "700:6700",
+      "700:6666",
+      "700:5300",
+    ]
+    evpn_rt_exports = [
+      "700:5100",
+    ]
+
+    l2 = {
+      2 = {
+        vni                  = 9002
+        vlan_id              = 2
+        anycast_gw_ip        = "10.2.0.5"
+        anycast_gw_cidr      = 16
+        anycast_mac          = "02:00:00:00:02:01"
+        advertise_default_gw = false
+        advertise_svi_ip     = false
+        export_ipv4_unicast  = true
+        dhcp = {
+          scope = {
+            ranges = {
+              0 = { start = "10.2.5.1", stop = "10.2.5.99" }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  # lylat-app: Grafana, NetBox, dark-triage and their VIPs, the proxy's upstream leg. 10.52.0.0/16.
+  {
+    vlan_id         = 1200
+    vni             = 5200
+    roles           = ["proxmox"]
+    vrf             = "lylat-app"
+    vrf_table       = 5200
+    ipv4_rt_imports = "700:5300 700:5400 700:5600 700:6666"
+    ipv4_rt_exports = "700:5200"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
+    evpn_rt_imports = [
+      "700:5200",
+      "700:5300",
+      "700:5400",
+      "700:5600",
+      "700:6666",
+    ]
+    evpn_rt_exports = [
+      "700:5200",
+    ]
+
+    l2 = {
+      1201 = {
+        vni                  = 5201
+        vlan_id              = 1201
+        anycast_gw_ip        = "10.52.0.1"
+        anycast_gw_cidr      = 16
+        anycast_mac          = "02:00:00:12:01:01"
+        advertise_default_gw = false
+        advertise_svi_ip     = false
+        export_ipv4_unicast  = true
+      }
+    }
+  },
+
+  # lylat-dns: dns01/02, VIP 10.53.53.53 on 1301 and the kept VLAN 8 / 9008 / 10.8.0.0/16 (VIP 10.8.53.53,
+  # gateway 10.8.0.5) moved from lylat_service. Imports every zone and client VRF it answers.
+  {
+    vlan_id         = 1300
+    vni             = 5300
+    roles           = ["proxmox"]
+    vrf             = "lylat-dns"
+    vrf_table       = 5300
+    ipv4_rt_imports = "700:5100 700:5200 700:5400 700:5600 700:6900 700:6700 700:6666"
+    ipv4_rt_exports = "700:5300"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
+    evpn_rt_imports = [
+      "700:5300",
+      "700:5100",
+      "700:5200",
+      "700:5400",
+      "700:5600",
+      "700:6900",
+      "700:6700",
+      "700:6666",
+    ]
+    evpn_rt_exports = [
+      "700:5300",
+    ]
+
+    l2 = {
+      1301 = {
+        vni                  = 5301
+        vlan_id              = 1301
+        anycast_gw_ip        = "10.53.0.1"
+        anycast_gw_cidr      = 16
+        anycast_mac          = "02:00:00:13:01:01"
+        advertise_default_gw = false
+        advertise_svi_ip     = false
+        export_ipv4_unicast  = true
+      }
+      8 = {
+        vni                  = 9008
+        vlan_id              = 8
+        anycast_gw_ip        = "10.8.0.5"
+        anycast_gw_cidr      = 16
+        anycast_mac          = "02:00:00:00:08:01"
+        advertise_default_gw = false
+        advertise_svi_ip     = false
+        export_ipv4_unicast  = true
+        dhcp = {
+          scope = {
+            ranges = {
+              0 = { start = "10.8.5.1", stop = "10.8.5.99" }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  # lylat-obs: Prometheus/Alertmanager, Mimir, Loki query side (VIPs 10.54.16.102, .17.103, .18.101). 10.54.0.0/16.
+  {
+    vlan_id         = 1400
+    vni             = 5400
+    roles           = ["proxmox"]
+    vrf             = "lylat-obs"
+    vrf_table       = 5400
+    ipv4_rt_imports = "700:5200 700:5300 700:6666"
+    ipv4_rt_exports = "700:5400"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
+    evpn_rt_imports = [
+      "700:5400",
+      "700:5200",
+      "700:5300",
+      "700:6666",
+    ]
+    evpn_rt_exports = [
+      "700:5400",
+    ]
+
+    l2 = {
+      1401 = {
+        vni                  = 5401
+        vlan_id              = 1401
+        anycast_gw_ip        = "10.54.0.1"
+        anycast_gw_cidr      = 16
+        anycast_mac          = "02:00:00:14:01:01"
+        advertise_default_gw = false
+        advertise_svi_ip     = false
+        export_ipv4_unicast  = true
+      }
+    }
+  },
+
+  # lylat-data: Postgres (VIP 10.56.14.104) and Valkey/Sentinel. 10.56.0.0/16.
+  {
+    vlan_id         = 1600
+    vni             = 5600
+    roles           = ["proxmox"]
+    vrf             = "lylat-data"
+    vrf_table       = 5600
+    ipv4_rt_imports = "700:5200 700:5300 700:6666"
+    ipv4_rt_exports = "700:5600"
+    import_ipv4_vpn = true
+    export_vpn_ipv4 = true
+    evpn_rt_imports = [
+      "700:5600",
+      "700:5200",
+      "700:5300",
+      "700:6666",
+    ]
+    evpn_rt_exports = [
+      "700:5600",
+    ]
+
+    l2 = {
+      1601 = {
+        vni                  = 5601
+        vlan_id              = 1601
+        anycast_gw_ip        = "10.56.0.1"
+        anycast_gw_cidr      = 16
+        anycast_mac          = "02:00:00:16:01:01"
+        advertise_default_gw = false
+        advertise_svi_ip     = false
+        export_ipv4_unicast  = true
       }
     }
   },
@@ -251,7 +426,7 @@ vnis = [
     roles           = ["proxmox", "external_l2"]
     vrf             = "lylat_ai"
     vrf_table       = 6700
-    ipv4_rt_imports = "700:6600 700:6900"
+    ipv4_rt_imports = "700:6600 700:6900 700:5100 700:5300"
     ipv4_rt_exports = "700:6700"
     import_ipv4_vpn = true
     export_vpn_ipv4 = true
@@ -260,6 +435,8 @@ vnis = [
       "700:6900",
       "700:6600",
       "700:6666",
+      "700:5100",
+      "700:5300",
     ]
     evpn_rt_exports = [
       "700:6700",

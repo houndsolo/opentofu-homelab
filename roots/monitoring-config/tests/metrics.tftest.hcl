@@ -49,10 +49,10 @@ run "mimir" {
   assert {
     condition = (
       length(terraform_data.metrics) == 3 &&
-      output.mimir_url == "http://10.13.11.103:8080" &&
-      output.mimir_urls == { mim01 = "http://10.13.11.37:8080", mim02 = "http://10.13.11.38:8080", mim03 = "http://10.13.11.39:8080" }
+      output.mimir_url == "http://10.54.17.103:8080" &&
+      output.mimir_urls == { mim01 = "http://10.54.17.37:8080", mim02 = "http://10.54.17.38:8080", mim03 = "http://10.54.17.39:8080" }
     )
-    error_message = "Deploy Mimir on mim01-03, reached through the backend VIP 10.13.11.103:8080."
+    error_message = "Deploy Mimir on mim01-03, reached through the backend VIP 10.54.17.103:8080."
   }
 
   assert {
@@ -94,11 +94,11 @@ run "mimir" {
   assert {
     # Prometheus pushes to the VIP and scrapes every Mimir and its haproxy over the backend VLAN.
     condition = (
-      one(yamldecode(module.monitoring.prometheus_config).remote_write).url == "http://10.13.11.103:8080/api/v1/push" &&
+      one(yamldecode(module.monitoring.prometheus_config).remote_write).url == "http://10.54.17.103:8080/api/v1/push" &&
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"mimir\"") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.38:8080") &&
+      strcontains(module.monitoring.prometheus_config, "10.54.17.38:8080") &&
       strcontains(module.monitoring.prometheus_config, "\"job_name\": \"haproxy-mimir\"") &&
-      strcontains(module.monitoring.prometheus_config, "10.13.11.39:8405") &&
+      strcontains(module.monitoring.prometheus_config, "10.54.17.39:8405") &&
       strcontains(module.monitoring.prometheus_config, "10.55.17.37:9100") &&  # node job, role metrics (lylat-telemetry)
       strcontains(module.monitoring.prometheus_config, "10.55.17.37:12345") && # Alloy (lylat-telemetry)
       length([for g in yamldecode(module.monitoring.prometheus_rules).groups : g if g.name == "metrics"]) == 1 &&
@@ -111,17 +111,17 @@ run "mimir" {
   assert {
     # Grafana's default datasource keeps uid "prometheus" but queries Mimir.
     condition = (
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus"]) == "http://10.13.11.103:8080/prometheus" &&
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus"]) == "http://10.54.17.103:8080/prometheus" &&
       one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.jsonData.prometheusType if d.uid == "prometheus"]) == "Mimir"
     )
     error_message = "The \"prometheus\" datasource points at Mimir (/prometheus on the VIP)."
   }
 
   assert {
-    # VIP on the backend NIC (eth2), adverts unicast on the HA NIC (eth4), router id 103, Mimir /ready check.
+    # VIP on the backend NIC (eth1), adverts unicast on the HA NIC (eth3), router id 103, Mimir /ready check.
     condition = (
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "10.13.11.103/16 dev eth2") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "interface eth4") &&
+      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "10.54.17.103/16 dev eth1") &&
+      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "interface eth3") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "unicast_src_ip 10.50.17.37") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "    10.50.17.39\n") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "virtual_router_id 103") &&
@@ -130,7 +130,7 @@ run "mimir" {
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "priority 150") &&
       strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim03), "priority 50")
     )
-    error_message = "keepalived on mim01-03: VIP 10.13.11.103 on eth2, unicast adverts over eth4, vrid 103, Mimir /ready check."
+    error_message = "keepalived on mim01-03: VIP 10.54.17.103 on eth1, unicast adverts over eth3, vrid 103, Mimir /ready check."
   }
 
   assert {
@@ -172,11 +172,11 @@ run "mimir_without_s3_keys" {
       length(terraform_data.metrics) == 0 &&
       output.mimir_url == null &&
       !can(yamldecode(module.monitoring.prometheus_config).remote_write[0]) &&
-      !strcontains(module.monitoring.prometheus_config, "10.13.11.37") &&
+      !strcontains(module.monitoring.prometheus_config, "10.54.17.37") &&
       !strcontains(module.monitoring.prometheus_rules, "Mimir") &&
       !contains(keys(module.monitoring.alloy_configs), "mim01") &&
       !contains(keys(module.monitoring.units), "mim01") &&
-      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus"]) != "http://10.13.11.103:8080/prometheus"
+      one([for d in yamldecode(module.monitoring.datasources_config).datasources : d.url if d.uid == "prometheus"]) != "http://10.54.17.103:8080/prometheus"
     )
     error_message = "Without mimir_s3: no Mimir deployment, no remote_write, no Mimir scrape targets, Grafana stays on Prometheus."
   }
@@ -196,7 +196,7 @@ run "mimir_ha_nic_required" {
           vm_id              = 1130
           management_address = "10.20.11.30/16"
           network_devices = [
-            { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.30/16" },
+            { bridge = "vmbr4000", vlan_id = 1401, ipv4_address = "10.54.16.30/16" },
             { bridge = "vmbr100", ipv4_address = "10.5.11.30/16" },
           ]
         }
@@ -208,7 +208,7 @@ run "mimir_ha_nic_required" {
         vm_id                  = 1100 + i
         management_address     = "10.20.11.${i}/16"
         network_devices = [
-          { bridge = "vmbr4000", vlan_id = 13, ipv4_address = "10.13.11.${i}/16" },
+          { bridge = "vmbr4000", vlan_id = 1401, ipv4_address = "10.54.17.${i}/16" },
           { bridge = "vmbr27", ipv4_address = "10.27.11.${i}/16" },
         ]
       } },

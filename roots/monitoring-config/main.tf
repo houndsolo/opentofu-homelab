@@ -38,7 +38,7 @@ locals {
   # Address on the isolated backend VLAN, and the backend VM's monitoring-network address.
   backend_address = {
     for name in keys(local.deploy_vms) : name => try(split("/", one([
-      for nic in local.nics[name] : nic.ipv4_address if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+      for nic in local.nics[name] : nic.ipv4_address if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
     ]))[0], null)
   }
   monitoring_address = {
@@ -59,7 +59,7 @@ locals {
         if nic.vlan_id == var.monitoring_ha_vlan_id && nic.ipv4_address != null
       ]), null)
       backend = try(one([
-        for i, nic in local.nics[name] : "eth${i + 1}" if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+        for i, nic in local.nics[name] : "eth${i + 1}" if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
       ]), null)
       monitoring = try(one([
         for i, nic in local.nics[name] : "eth${i + 1}" if nic.bridge == var.monitoring_bridge && nic.ipv4_address != null
@@ -92,7 +92,7 @@ locals {
       ]), null)
       backend = try(one([
         for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
-        if nic.vlan_id == var.backend_vlan_id && nic.ipv4_address != null
+        if contains(var.backend_vlan_ids, nic.vlan_id) && nic.ipv4_address != null
       ]), null)
       monitoring = try(one([
         for i, nic in local.nics[name] : { address = split("/", nic.ipv4_address)[0], interface = "eth${i + 1}" }
@@ -362,11 +362,11 @@ resource "terraform_data" "backend" {
     }
     precondition {
       condition     = local.backend_address[each.key] != null && local.monitoring_address[each.key] != null
-      error_message = "The monitoring VM needs one addressed NIC on VLAN ${var.backend_vlan_id} and one on ${var.monitoring_bridge}."
+      error_message = "The monitoring VM needs one addressed NIC on VLAN ${join("/", var.backend_vlan_ids)} and one on ${var.monitoring_bridge}."
     }
     precondition {
       condition     = alltrue([for name in keys(local.grafana_vms) : local.backend_address[name] != null])
-      error_message = "Every grafana VM needs one addressed NIC on VLAN ${var.backend_vlan_id}."
+      error_message = "Every grafana VM needs one addressed NIC on VLAN ${join("/", var.backend_vlan_ids)}."
     }
     precondition {
       condition     = local.pve_prefix != null
@@ -417,7 +417,7 @@ resource "terraform_data" "grafana" {
   lifecycle {
     precondition {
       condition     = local.backend_address[each.key] != null
-      error_message = "${each.key} needs one addressed NIC on VLAN ${var.backend_vlan_id}."
+      error_message = "${each.key} needs one addressed NIC on VLAN ${join("/", var.backend_vlan_ids)}."
     }
     precondition {
       condition     = var.grafana_vrrp == null || (local.grafana_nic[each.key].ha != null && local.grafana_nic[each.key].ui != null)
@@ -473,7 +473,7 @@ resource "terraform_data" "logging" {
     }
     precondition {
       condition     = local.logging_ready
-      error_message = "Every logging VM needs a management address and one addressed NIC each on the HA VLAN ${var.ha_vlan_id}, VLAN ${var.backend_vlan_id} and ${var.monitoring_bridge}."
+      error_message = "Every logging VM needs a management address and one addressed NIC each on the HA VLAN ${var.ha_vlan_id}, VLAN ${join("/", var.backend_vlan_ids)} and ${var.monitoring_bridge}."
     }
     precondition {
       condition     = length(local.logging_vms) >= var.logging_settings.replication_factor

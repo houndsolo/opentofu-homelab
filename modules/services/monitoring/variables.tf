@@ -2,7 +2,7 @@ variable "backends" {
   description = "Monitoring backend VMs (Prometheus, Alertmanager, exporters, Telegraf), keyed by VM name. Each runs the same scrape config (a Prometheus HA pair, deduplicated by Mimir's HA tracker) and the Alertmanagers form one cluster. primary_backend also runs Postgres (Grafana's database). ha_address/interfaces: the HA VLAN (keepalived adverts, Alertmanager gossip) and NIC names for backend_vrrp."
   type = map(object({
     monitoring_address = string           # Monitoring network (10.5/16): UIs, PVE metric pushes, node_exporter, WLC telemetry.
-    backend_address    = string           # Isolated backend VLAN (10.13/16): Grafana -> datasources and Postgres.
+    backend_address    = string           # Zone NIC (lylat-app/-obs/-data, DT-090): Grafana -> datasources and Postgres.
     telemetry_address  = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
     ha_address         = optional(string) # HA VLAN (ha_monitor): null on any VM keeps gossip on the backend VLAN and keepalived off
     interfaces = optional(object({
@@ -191,7 +191,7 @@ variable "logging_settings" {
   description = "VIPs (CIDR, one per client network, all in one VRRP instance), VRRP router id, the Ceph RGW endpoints behind each VM's haproxy, Loki retention and replication, the schema's start date, which sources may reach Loki's ports and the syslog host overrides and VyOS dedup."
   type = object({
     vips = optional(object({
-      backend    = optional(string, "10.13.11.101/16") # Grafana datasource, Alloy pushes from the other VMs
+      backend    = optional(string, "10.54.18.101/16") # Grafana datasource, Alloy pushes from the other VMs
       monitoring = optional(string, "10.5.11.101/16")  # syslog from devices and PVE nodes
       telemetry  = optional(string)                    # Alloy pushes from every VM (lylat-telemetry); null = none
       # No VIP on the management network: the VyOS leaves, DHCP and DNS VMs send syslog to
@@ -202,7 +202,7 @@ variable "logging_settings" {
     retention_period      = optional(string, "90d")
     replication_factor    = optional(number, 3)
     schema_start          = optional(string, "2026-11-01")           # never change once Loki has data; add a new period instead
-    loki_allowed_sources  = optional(list(string), ["10.13.0.0/16"]) # Loki HTTP (3100); the ring ports only accept the logging VMs
+    loki_allowed_sources  = optional(list(string), ["10.52.0.0/16", "10.54.0.0/16", "10.55.0.0/16"]) # Loki HTTP (3100); the ring ports only accept the logging VMs
     syslog_host_overrides = optional(map(string), {})                # sender IP => host label
     # Host label regex (anchored) of the VyOS senders: their rsyslog sends each non-kernel line twice and
     # the receiver drops the copy with one leading space (templates/config.alloy.tftpl). "" turns it off.
@@ -276,7 +276,7 @@ variable "metrics" {
 variable "metrics_settings" {
   description = "Mimir: VIP (CIDR on the backend VLAN NIC), VRRP router id, the RGWs behind each VM's haproxy, replication, retention, HA tracker labels and per-tenant limits, and which sources may reach Mimir's HTTP port."
   type = object({
-    vip                        = optional(string, "10.13.11.103/16")
+    vip                        = optional(string, "10.54.17.103/16")
     vrrp_router_id             = optional(number, 103)
     rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
     replication_factor         = optional(number, 3)
@@ -290,7 +290,7 @@ variable "metrics_settings" {
     max_label_names_per_series = optional(number, 40)                           # 21 at most today (default 30)
     out_of_order_time_window   = optional(string, "10m")
     block_upload_enabled       = optional(bool, true) # mimirtool backfill
-    allowed_sources            = optional(list(string), ["10.13.0.0/16"])
+    allowed_sources            = optional(list(string), ["10.54.0.0/16", "10.52.0.0/16"])
   })
   default = {}
   validation {
@@ -328,7 +328,7 @@ variable "postgres" {
 variable "postgres_settings" {
   description = "Patroni cluster: VIP (CIDR on the backend NIC), VRRP router id, cluster name (etcd data dir/token; with pg_major the Patroni scope and pgBackRest stanza, e.g. lylat-pg18), PostgreSQL major (PGDG packages), RGWs behind each member's haproxy, backup schedule/retention, Postgres parameters, the Grafana cutover switches and the package series the deploy accepts."
   type = object({
-    vip            = optional(string, "10.13.11.104/16")
+    vip            = optional(string, "10.56.14.104/16")
     vrrp_router_id = optional(number, 104)
     cluster_name   = optional(string, "lylat-pg")
     # PostgreSQL major version, from the PGDG repository (Debian 13 has 17 only). Changing it is a

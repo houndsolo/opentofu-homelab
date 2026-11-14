@@ -112,11 +112,14 @@ variable "dns_vrrp" {
     VIP, and DHCP hands it out as the first name server. null = no keepalived/VIP.
   EOT
   type = object({
-    vip       = string
-    router_id = optional(number, 53)
+    vip          = string
+    router_id    = optional(number, 53)
+    zone_vip     = optional(string)       # second VIP in the same VRRP instance, on the zone_vlan_id NIC (lylat-dns)
+    zone_vlan_id = optional(number, 1301) # lylat-dns segment
   })
   default = {
-    vip = "10.8.53.53/16"
+    vip      = "10.8.53.53/16"
+    zone_vip = "10.53.53.53/16"
   }
   validation {
     condition = var.dns_vrrp == null || try(
