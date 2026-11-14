@@ -8,7 +8,7 @@ if you use your own customized image.
 
 | Setting | Value |
 | --- | --- |
-| Source | `https://cloud.debian.org/images/cloud/trixie/20261017-2634/debian-13-genericcloud-amd64-20261017-2634.qcow2` (a pinned build) |
+| Source | `https://cloud.debian.org/images/cloud/trixie/20261017-2634/debian-13-genericcloud-amd64-20261017-2634.qcow2` (a pinned build; see below for the file actually on cephfs) |
 | Saved as | `cephfs:import/debian-13-genericcloud-amd64.qcow2` |
 | Proxmox content type | `import`: disk images that VMs can import from |
 | `overwrite` | `false`: an existing file is never replaced automatically |
@@ -46,6 +46,20 @@ DNS VMs need two packages that it doesn't include before
 Either customize the image first (for example with `virt-customize`), upload it,
 point `vm_images` at it and skip this root, or install those packages on the VMs
 after they boot.
+
+## The file on cephfs today
+
+The live `cephfs:import/debian-13-genericcloud-amd64.qcow2` is **not** the stock
+download: it is the 20261017-2634 build customized in place on 2026-10-19
+(1259536384 bytes, sha512 `b96e0d83…`). The untouched download (sha512
+`ec584cca…`, the published checksum of 20261017-2634) is kept beside it as
+`debian-13-genericcloud-amd64.qcow2.bak`. Because no upstream URL or checksum
+matches the customized file, the resource is adopted with an `import` block, sets
+no `checksum`, and ignores `url` and `node_name`. Both force replacement in the
+provider: `url` is empty in imported state, and `node_name` is just the first node
+with a Debian VM, which changes when VMs move. A plan therefore never offers to
+delete and re-download the image VMs import from. To really move to a newer
+build, delete the file (or `state rm` it), change `url`, and apply.
 
 ## Adopting a file that's already there
 
