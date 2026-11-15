@@ -77,7 +77,7 @@ history from before the switch stays visible; the `syslog` alternative can go on
     `ceph_mgr_periodic`, `ceph_clog_debug`, `ceph_mon_poll`, `ceph_mon_cache_autotune`, `ceph_rocksdb`,
     `ceph_logrotate_hup`. ~110–130 lines/day per node, ~3.2k on the active mgr's node.
 - [`pve-alloy-install.sh`](pve-alloy-install.sh), idempotent: Grafana's release `.deb` pinned by version and
-  SHA-256 (no apt repo; same v1.21.3 as the VMs' container), the config, `/etc/alloy/pve.env` (`CONFIG_FILE`,
+  SHA-256 (no apt repo; same v1.22.0 as the VMs' container), the config, `/etc/alloy/pve.env` (`CONFIG_FILE`,
   `CUSTOM_ARGS`: HTTP on the node's 10.5.1.x:12345), a unit drop-in read after the package's
   `/etc/default/alloy` (conffiles stay pristine) with `AmbientCapabilities=CAP_DAC_READ_SEARCH` (ceph.log is
   ceph:ceph 0600 and recreated on every rotation, so an ACL wouldn't stick) and sandboxing

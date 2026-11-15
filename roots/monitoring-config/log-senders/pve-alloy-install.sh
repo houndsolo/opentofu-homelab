@@ -1,11 +1,11 @@
 #!/bin/bash
 # Grafana Alloy for the Ceph daemon logs (DT-021). Run as root on a PVE node from this folder's files:
 #   scp pve-alloy.config.alloy pve-alloy-install.sh root@<node>:/root/ && ssh root@<node> bash /root/pve-alloy-install.sh
-# Optional: put alloy-1.21.3-1.amd64.deb next to them, otherwise the node downloads it from GitHub.
+# Optional: put alloy-1.22.0-1.amd64.deb next to them, otherwise the node downloads it from GitHub.
 # Either way the .deb must match the SHA-256 below. Idempotent: re-run after changing the config.
 #
 # Package: Grafana's GitHub release .deb, pinned by version + checksum, same Alloy as the VMs' container
-# (docker.io/grafana/alloy:v1.21.3). No apt repository is added, so `apt full-upgrade` on the hypervisor
+# (docker.io/grafana/alloy:v1.22.0). No apt repository is added, so `apt full-upgrade` on the hypervisor
 # never moves Alloy; upgrade = new version + checksum here, re-run. The package ships alloy.service
 # (User=alloy, EnvironmentFile=/etc/default/alloy, storage /var/lib/alloy/data), does not enable or start
 # it on first install, and creates the alloy user (groups adm, systemd-journal).
@@ -20,9 +20,9 @@ cd "$(dirname "$0")"
 
 # Keep in step with containers.alloy in inventory/auto.tfvars/software-versions.auto.tfvars (the VMs' Alloy);
 # a version bump also needs the new .deb's SHA256 below.
-ALLOY_VERSION=1.21.3
+ALLOY_VERSION=1.22.0
 ALLOY_DEB="alloy-${ALLOY_VERSION}-1.amd64.deb"
-ALLOY_SHA256=dbbd705de8ab37dec0cbd6361a3fc7e754d6b2854b57ce672a83e6366199ba73
+ALLOY_SHA256=29ca37327c02e30ff7cc3a1e0ff3779217f26092a1adc29ff4738f6a9e4370e3
 ALLOY_URL="https://github.com/grafana/alloy/releases/download/v${ALLOY_VERSION}/${ALLOY_DEB}"
 HTTP_PORT=12345
 

@@ -10,17 +10,17 @@
 # every VM running that container gets the new image on apply.
 containers = {
   # Prometheus stack (monitoring-config)
-  prometheus        = { image = "docker.io/prom/prometheus", version = "v3.15.1" }
-  alertmanager      = { image = "docker.io/prom/alertmanager", version = "v0.34.1" }
+  prometheus        = { image = "docker.io/prom/prometheus", version = "v3.16.0" }
+  alertmanager      = { image = "docker.io/prom/alertmanager", version = "v0.35.0" }
   blackbox_exporter = { image = "docker.io/prom/blackbox-exporter", version = "v0.29.1" }
-  snmp_exporter     = { image = "docker.io/prom/snmp-exporter", version = "v0.30.1" }
-  pve_exporter      = { image = "docker.io/prompve/prometheus-pve-exporter", version = "3.10.2" }
+  snmp_exporter     = { image = "docker.io/prom/snmp-exporter", version = "v0.31.0" }
+  pve_exporter      = { image = "docker.io/prompve/prometheus-pve-exporter", version = "3.11.0" }
   telegraf          = { image = "docker.io/library/telegraf", version = "1.40.3" }
 
   # Grafana, metrics and logs (monitoring-config)
-  grafana = { image = "docker.io/grafana/grafana", version = "13.2.5" }
-  mimir   = { image = "docker.io/grafana/mimir", version = "3.2.4" } # classic architecture (no Kafka)
-  loki    = { image = "docker.io/grafana/loki", version = "3.7.9" }
+  grafana = { image = "docker.io/grafana/grafana", version = "13.3.1" }
+  mimir   = { image = "docker.io/grafana/mimir", version = "3.2.5" } # classic architecture (no Kafka)
+  loki    = { image = "docker.io/grafana/loki", version = "3.7.10" }
   haproxy = { image = "docker.io/library/haproxy", version = "3.2.26" } # LTS branch
 
   # Postgres (monitoring-config); the database itself is a Debian package, see packages below
@@ -28,7 +28,7 @@ containers = {
 
   # On every VM (both roots)
   node_exporter = { image = "docker.io/prom/node-exporter", version = "v1.12.1" }
-  alloy         = { image = "docker.io/grafana/alloy", version = "v1.21.3" } # PVE nodes: pve-alloy-install.sh (.deb)
+  alloy         = { image = "docker.io/grafana/alloy", version = "v1.22.0" } # PVE nodes: pve-alloy-install.sh (.deb)
 
   # Services (services-config)
   bind9 = { # BIND 9.20.30 (named -v); ISC moves the 9.20 tag, the digest pins this build
@@ -39,7 +39,7 @@ containers = {
   bind_exporter  = { image = "docker.io/prometheuscommunity/bind-exporter", version = "v0.8.0" }
   nginx          = { image = "docker.io/library/nginx", version = "1.30.6" } # nginx stable
   nginx_exporter = { image = "docker.io/nginx/nginx-prometheus-exporter", version = "1.5.3" }
-  netbox         = { image = "docker.io/netboxcommunity/netbox", version = "v4.7-5.1.1" }
+  netbox         = { image = "docker.io/netboxcommunity/netbox", version = "v4.7.5-5.1.2" }
   redis_exporter = { image = "docker.io/oliver006/redis_exporter", version = "v1.97.0" }
 }
 
