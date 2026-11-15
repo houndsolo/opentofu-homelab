@@ -75,9 +75,9 @@ root runs the scripts over SSH and documents the behaviour.
 Outputs: `backend_deployments`, `grafana_deployments` and `logging_deployments`
 (sensitive: they embed secrets), plus `prometheus_config`, `prometheus_rules`,
 `prometheus_configs`, `backend_services_by_host`, `backend_url_hosts`, `backend_vips`,
-`backend_keepalived_configs` (sensitive), `wlc_telegraf_configs`, `wlc_receiver`, `alertmanager_targets`, `datasources_config`, `dashboard_providers_config`, `dashboards`, `units`,
+`backend_keepalived_configs`, `wlc_telegraf_configs`, `wlc_receiver`, `alertmanager_targets`, `datasources_config`, `dashboard_providers_config`, `dashboards`, `units`,
 `backend_services`, `loki_configs`, `alloy_configs`, `haproxy_configs` and `loki_url`
-for review and tests. Mimir: `metrics_deployments` and `mimir_keepalived_configs` (sensitive),
+for review and tests. Mimir: `metrics_deployments` (sensitive) and `mimir_keepalived_configs`,
 `mimir_configs`, `mimir_haproxy_configs`, `mimir_url`. Postgres: `postgres_deployments` and
-`postgres_keepalived_configs` (sensitive), `postgres_vip`, `grafana_db_host`, and more; `outputs.tf`
+`postgres_keepalived_configs` (the keepalived configs hold no secrets since VRRPv3), `postgres_vip`, `grafana_db_host`, and more; `outputs.tf`
 has the full list.

@@ -14,7 +14,7 @@ module "leaf" {
   l2vnis   = var.l2vnis
   fabric_macs = each.value.role == "proxmox" ? lookup(
     module.proxmox_fabric_macs.fabric_macs,
-    coalesce(each.value.proxmox_node, each.key),
+    each.key,
     {},
   ) : {}
 }

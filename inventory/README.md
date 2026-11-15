@@ -736,9 +736,9 @@ new names.
 | one `passwords.secret.auto.tfvars` linked into roots | per-provider files in `inventory/auto.tfvars.secret/` (the single file still works with `with-secrets`) |
 
 None of these needs a `tofu state mv`. Module labels and inventory keys didn't
-change. Two spine resources were renamed (`BGP-LOOPBACKS` → `bgp_loopbacks`,
-`test` → `leaf_uplinks`), and `moved` blocks in `modules/fabric/spines` move
-their state automatically on the next plan.
+change. (Two spine resources were renamed then, `BGP-LOOPBACKS` → `bgp_loopbacks` and
+`test` → `leaf_uplinks`; their `moved` blocks were removed on 2026-11-15 once the state had
+the new addresses. A state from before 2026-10-27 needs `tofu state mv` for them.)
 
 ## Fields that aren't used yet
 

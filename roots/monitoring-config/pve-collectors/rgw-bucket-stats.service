@@ -1,4 +1,4 @@
-# Installed by roots/monitoring-config/pve-collectors/install.sh (not managed by OpenTofu).
+# Installed by roots/monitoring-config/pve-collectors/rgw-install.sh (not managed by OpenTofu).
 [Unit]
 Description=Per-bucket Ceph RGW usage for node_exporter (ceph_rgw_buckets.prom)
 After=network-online.target ceph.target

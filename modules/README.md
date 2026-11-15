@@ -167,9 +167,7 @@ Configures one RouterOS spine.
 
 Each spine uses `fabric.settings.spine_as`, unless it sets its own `as` in
 `fabric.auto.tfvars`. The overlay templates and connections use
-`fabric.settings.overlay_as`. Two resources were renamed (`bgp_loopbacks` and
-`leaf_uplinks`), and `moved` blocks in `main.tf` carry their old state addresses
-over.
+`fabric.settings.overlay_as`.
 
 ### fabric/leaves
 
@@ -178,7 +176,7 @@ Builds the one list of leaves that every fabric-aware root uses.
 - **Inputs:** `fabric`, `nodes`.
 - **Output:** `leaves`, which is `fabric.leaves` (the physical leaves) merged with
   one generated leaf per host in `nodes.proxmox`. A generated leaf is
-  `{ role = "proxmox", proxmox_node = <name>, standalone = <node's standalone flag>,
+  `{ role = "proxmox", standalone = <node's standalone flag>,
   id = <node ID>, access_interface = "eth<number of spines + 1>", spine_uplink = null }`.
 - **Called by:** fabric-spines (sessions per leaf), fabric-leaves (config per
   leaf), services-config (the `leaf-<ID>` DNS records) and monitoring-config

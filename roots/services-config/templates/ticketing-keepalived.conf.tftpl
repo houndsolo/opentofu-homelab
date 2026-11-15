@@ -1,6 +1,6 @@
 # Managed by OpenTofu (services-config, ticketing.tf). Local edits are overwritten.
 # VRRP for the dark-triage VIP on ${host}: adverts go unicast over the HA L2VNI (${ha_interface}),
-# the VIP sits on the VLAN 2 NIC (${interface}).
+# the VIP sits on the service NIC (${interface}).
 
 global_defs {
   router_id ${host}

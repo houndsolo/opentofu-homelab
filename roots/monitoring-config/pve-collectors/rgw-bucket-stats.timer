@@ -1,4 +1,4 @@
-# Installed by roots/monitoring-config/pve-collectors/install.sh (not managed by OpenTofu).
+# Installed by roots/monitoring-config/pve-collectors/rgw-install.sh (not managed by OpenTofu).
 [Unit]
 Description=Collect per-bucket Ceph RGW usage every 5 minutes
 

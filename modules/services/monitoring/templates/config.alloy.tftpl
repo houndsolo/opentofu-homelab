@@ -118,7 +118,7 @@ loki.process "journal" {
 %{ if syslog ~}
 
 // Network syslog, received on every address (the VIPs included).
-//   TCP ${syslog_port}:  RFC 5424, octet-counted (VyOS, rsyslog on the PVE nodes); sender's timestamp
+//   TCP ${syslog_port}:  RFC 5424, octet-counted (VyOS); sender's timestamp
 //   UDP ${syslog_port}:  RFC 3164 (MikroTik); no year/zone, so receive time
 //   UDP ${raw_port}: raw lines, not parsed (Cisco C9800 IOS-XE and FS S3910 aren't RFC 3164, and the FS S3700
 //              ends its messages with a NUL byte, which the RFC 3164 parser drops silently; switch-1 has no
@@ -160,8 +160,8 @@ loki.source.syslog "network" {
 // imjournal. Indented continuation lines (tracebacks) keep both copies. A line that only
 // came through imjournal and starts with one space is lost: boot-time lines from before
 // rsyslog started (~100 per reboot) and the odd line imjournal missed, ~125/day over the
-// 14 VyOS routers in the 2026-11-10 check. The PVE nodes (rsyslog, one copy with a
-// leading space on every line) and the switches aren't matched. Dropped lines:
+// 14 VyOS routers in the 2026-11-10 check. The switches aren't matched (the PVE nodes ship
+// their journal with Alloy, not syslog). Dropped lines:
 // loki_process_dropped_lines_total{reason="vyos_imuxsock_duplicate"}.
 loki.process "syslog" {
   stage.match {

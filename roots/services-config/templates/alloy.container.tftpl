@@ -14,7 +14,7 @@ Volume=/var/lib/alloy:/var/lib/alloy
 Volume=/var/log/journal:/var/log/journal:ro
 Volume=/run/log/journal:/run/log/journal:ro
 Volume=/etc/machine-id:/etc/machine-id:ro
-# HTTP (/metrics, /-/ready) on the management address: monitoring-config's alloy job scrapes it.
+# HTTP (/metrics, /-/ready) on the telemetry address: monitoring-config's alloy job scrapes it.
 Exec=run /etc/alloy/config.alloy --storage.path=/var/lib/alloy/data --server.http.listen-addr=${listen} --disable-reporting
 
 [Service]

@@ -12,16 +12,6 @@ locals {
   }
 }
 
-moved {
-  from = routeros_ipv6_firewall_addr_list.BGP-LOOPBACKS
-  to   = routeros_ipv6_firewall_addr_list.bgp_loopbacks
-}
-
-moved {
-  from = routeros_ipv6_nd_prefix.test
-  to   = routeros_ipv6_nd_prefix.leaf_uplinks
-}
-
 resource "routeros_ipv6_firewall_addr_list" "bgp_loopbacks" {
   address = local.spine_loopback
   list    = "BGP-LOOPBACKS"

@@ -28,10 +28,11 @@ locals {
   dns_keepalived_scripts = var.dns_vrrp == null ? {} : {
     for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/dns-keepalived.sh.tftpl", {
       conf_b64 = base64encode(templatefile("${path.module}/templates/dns-keepalived.conf.tftpl", {
-        host         = name
-        ha_interface = local.dns_nics[name].ha.interface
-        ha_address   = local.dns_nics[name].ha.address
-        peers        = [for peer, nics in local.dns_nics : nics.ha.address if peer != name]
+        host = name
+        # try(): a VM without an HA NIC renders a placeholder, so the precondition below can name the problem.
+        ha_interface = try(local.dns_nics[name].ha.interface, "")
+        ha_address   = try(local.dns_nics[name].ha.address, "")
+        peers        = [for peer, nics in local.dns_nics : nics.ha.address if peer != name && nics.ha != null]
         router_id    = var.dns_vrrp.router_id
         # Only the first election: nopreempt keeps the VIP where it is afterwards.
         priority       = name == var.dns_primary ? 150 : 100

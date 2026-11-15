@@ -706,90 +706,48 @@ NAT = [
 
 INTERFACES = {
   "dum666": {
-    "vrf": "wan_vrf",
-    "description": ""
+    "vrf": "wan_vrf"
   },
   "dum69": {
-    "vrf": "lylat-external",
-    "description": ""
+    "vrf": "lylat-external"
   },
   "eth0": {
-    "vrf": "mgmt",
-    "description": "mgmt"
+    "vrf": "mgmt"
   },
   "eth1": {
-    "vrf": "default",
-    "description": "link_to_VyOS_BM_1"
+    "vrf": "default"
   },
   "eth1.1000": {
-    "vrf": "lylat-external",
-    "description": ""
+    "vrf": "lylat-external"
   },
   "eth2": {
-    "vrf": "default",
-    "description": "link_to_VyOS_BM_2"
+    "vrf": "default"
   },
   "eth2.1000": {
-    "vrf": "lylat-external",
-    "description": ""
+    "vrf": "lylat-external"
   },
   "eth3": {
-    "vrf": "default",
-    "description": "lan trunk"
+    "vrf": "default"
   },
   "eth3.4": {
-    "vrf": "guest_vrf",
-    "description": ""
+    "vrf": "guest_vrf"
   },
   "eth3.5": {
-    "vrf": "lylat-external",
-    "description": ""
+    "vrf": "lylat-external"
   },
   "eth4": {
-    "vrf": "default",
-    "description": "link-to-Guest-PVE"
+    "vrf": "default"
   },
   "eth5": {
-    "vrf": "wan_vrf",
-    "description": "WAN [Spectrum]"
+    "vrf": "wan_vrf"
   },
   "vti1": {
-    "vrf": "vpn_me",
-    "description": ""
+    "vrf": "vpn_me"
   },
   "vti69": {
-    "vrf": "vpn_hay",
-    "description": ""
+    "vrf": "vpn_hay"
   },
   "wg77": {
-    "vrf": "vpn_me",
-    "description": ""
-  }
-}
-
-VRFS = {
-  "guest_vrf": {
-    "table": "3004",
-    "description": ""
-  },
-  "lylat-external": {
-    "table": "1000",
-    "description": ""
-  },
-  "mgmt": {
-    "table": "8008",
-    "description": "management vrf"
-  },
-  "vpn_hay": {
-    "table": "4004",
-    "description": ""
-  },
-  "vpn_me": {
-    "table": "1200",
-    "description": ""
-  },
-  "wan_vrf": {
-    "table": "666",
-    "description": ""
+    "vrf": "vpn_me"
   }
 }

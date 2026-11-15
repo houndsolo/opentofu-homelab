@@ -76,17 +76,6 @@ locals {
   # keepalived last: it only takes the VIPs once Alertmanager (and the WLC Telegraf) answer.
   backend_ha_services = local.backend_vrrp_enabled ? ["keepalived"] : []
 
-  # Retired components. The deploy stops and removes their Quadlets (state file); this removes
-  # their config and env files (secrets: the InfluxDB operator token, the WLC Telegraf's write
-  # tokens), which no prune covers. Idempotent: drop a line once both backends are clean.
-  #   - the InfluxDB relay (VyOS Telegraf -> every backend's InfluxDB), retired 2026-11-13;
-  #   - InfluxDB itself and the WLC Telegraf's InfluxDB outputs, retired 2026-11-14. Its data
-  #     (${local.backend_data}/influxdb) is NOT removed here: delete it by hand once the history
-  #     is confirmed in Mimir (or after a final backup).
-  backend_retired_cleanup = [
-    "if [ -e ${local.backend_conf}/influx-relay ] || [ -e ${local.backend_conf}/influx-relay.env ]; then rm -rf ${local.backend_conf}/influx-relay ${local.backend_conf}/influx-relay.env; echo \"removed the retired influx-relay config\"; fi",
-    "if [ -e ${local.backend_conf}/influxdb.env ] || [ -e ${local.backend_conf}/telegraf.env ]; then rm -f ${local.backend_conf}/influxdb.env ${local.backend_conf}/telegraf.env; echo \"removed the retired InfluxDB env files\"; fi",
-  ]
 
   backend_rules = length(var.backends) > 1 ? [{
     name = "monitoring-ha"

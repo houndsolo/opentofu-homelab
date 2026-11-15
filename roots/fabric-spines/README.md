@@ -93,15 +93,6 @@ It holds `routeros_password`, plus `routeros_username` if it isn't `admin`. See
 [Secrets](../../inventory/README.md#secrets). The provider connects over plain
 `http://<management_ip>`, so the password travels unencrypted.
 
-## Renamed resources
-
-Two resources in `modules/fabric/spines` were renamed:
-`routeros_ipv6_firewall_addr_list.BGP-LOOPBACKS` became `.bgp_loopbacks`, and
-`routeros_ipv6_nd_prefix.test` became `.leaf_uplinks`. The module has `moved`
-blocks for both, so on your next plan OpenTofu just updates the addresses in
-state. It reports them as "moved", not as destroy-and-create. The RouterOS
-object names (`BGP-LOOPBACKS` and so on) didn't change.
-
 ## Before you run it
 
 - Both spines must be reachable on their `management_ip`, with the REST API

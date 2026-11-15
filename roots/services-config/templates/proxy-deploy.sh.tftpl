@@ -1,7 +1,7 @@
 #!/bin/bash
 # Reverse proxy deploy (services-config proxy.tf): nginx as a Podman Quadlet container (pinned image,
 # host network), nftables for 80/443 and (HA) keepalived. Fails, without touching the other nodes, if
-# nginx isn't healthy. Replaces a Debian nginx package if one is installed (earlier design).
+# nginx isn't healthy.
 set -euo pipefail
 umask 077
 stage=$(mktemp -d /tmp/tofu-proxy.XXXXXX)
@@ -70,14 +70,10 @@ if ! podman run --rm --network none --entrypoint nginx \
   exit 1
 fi
 
-debian_nginx=0
-dpkg -s nginx >/dev/null 2>&1 && debian_nginx=1
-dpkg -s nginx-common >/dev/null 2>&1 && debian_nginx=1
 conf_changed=0
 cmp -s "$stage/conf/nginx.conf" '${conf_dir}/nginx.conf' || conf_changed=1
 restart=0
 cmp -s "$stage/nginx.container" /etc/containers/systemd/nginx.container || restart=1
-[ $debian_nginx -eq 1 ] && restart=1
 systemctl is-active --quiet nginx.service || restart=1
 
 %{ if ha ~}
@@ -99,12 +95,6 @@ if [ $restart -eq 1 ] && systemctl is-active --quiet keepalived.service && ip -4
 fi
 %{ endif ~}
 
-if [ $debian_nginx -eq 1 ]; then
-  systemctl disable --now nginx.service 2>/dev/null || true
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get purge -y -q nginx nginx-common >/dev/null
-  echo "Debian nginx package removed"
-fi
 install -d -m 0755 -o root -g root '${conf_dir}' /etc/containers/systemd
 install -m 0644 -o root -g root "$stage/conf/nginx.conf" '${conf_dir}/nginx.conf'
 # Landing page (static: served without a reload).

@@ -22,7 +22,7 @@ logging {
 
 loki.write "loki" {
   endpoint {
-    // Loki on the monitoring network (VLAN 5) VIP, the same VIP rsyslog uses for 514. The PVE
+    // Loki on the monitoring network (VLAN 5) VIP (logs-vip, also the devices' syslog VIP). The PVE
     // nodes reach it on their own 10.5.1.x address, directly connected (no routing); logging-guard
     // on loki01-03 lets the PVE nodes' 10.5 addresses in on 3100 (monitoring-config).
     url = "http://10.5.11.101:3100/loki/api/v1/push"

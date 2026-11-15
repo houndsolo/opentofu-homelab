@@ -4,7 +4,6 @@ locals {
   proxmox_leaves = {
     for name, node in var.nodes.proxmox : name => {
       role             = "proxmox"
-      proxmox_node     = name
       standalone       = node.standalone
       id               = node.id
       access_interface = "eth${length(var.fabric.spines) + 1}"

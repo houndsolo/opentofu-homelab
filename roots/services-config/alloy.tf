@@ -1,7 +1,7 @@
 # Grafana Alloy on the service VMs (DNS, NetBox, proxy, Valkey, ticketing): the journal (every
 # Quadlet container included) to Loki with the same labels as monitoring-config's VMs
 # (source="journal", host, unit, container, app, level). It replaced the rsyslog forwarder
-# (source="syslog"); alloy.sh retires that on the first run. Alloy's HTTP listener (/metrics,
+# (source="syslog", retired on every VM by 2026-11-14). Alloy's HTTP listener (/metrics,
 # /-/ready) is on the telemetry address (telemetry.tf scrape_ip), where monitoring-config's alloy job scrapes it
 # (targets.alloy there; keep the port in step). The DNS VMs get it from terraform_data.dns_alloy
 # below, the others from their <role>-monitoring.tf resource, so changing it never restarts a service.

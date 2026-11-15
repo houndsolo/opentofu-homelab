@@ -63,7 +63,6 @@ output "backend_vips" {
 output "backend_keepalived_configs" {
   description = "Rendered keepalived.conf per backend (null when backend_vrrp is off)."
   value       = local.backend_keepalived_conf
-  sensitive   = true
 }
 
 output "pvestatd_telegraf_config" {
@@ -135,7 +134,6 @@ output "loki_url" {
 output "logging_keepalived_configs" {
   description = "Rendered keepalived.conf per logging VM."
   value       = local.keepalived_conf
-  sensitive   = true
 }
 
 output "logging_guard_config" {
@@ -146,7 +144,6 @@ output "logging_guard_config" {
 output "grafana_keepalived_configs" {
   description = "Rendered keepalived.conf per Grafana VM (null when grafana_vrrp is off)."
   value       = local.grafana_keepalived_conf
-  sensitive   = true
 }
 
 output "metrics_deployments" {
@@ -168,7 +165,6 @@ output "mimir_haproxy_configs" {
 output "mimir_keepalived_configs" {
   description = "Mimir VM name => rendered keepalived.conf (empty when Mimir is off)."
   value       = local.mimir_enabled ? local.metrics_keepalived_conf : {}
-  sensitive   = true
 }
 
 output "mimir_url" {
@@ -200,7 +196,6 @@ output "postgres_guard" {
 output "postgres_keepalived_configs" {
   description = "Patroni member name => rendered keepalived.conf."
   value       = local.postgres_enabled ? local.pg_keepalived_conf : {}
-  sensitive   = true
 }
 
 output "pgbackrest_conf" {

@@ -4,7 +4,7 @@
 Runs `radosgw-admin bucket stats` (and `user info` for owners with a user quota) and
 writes ceph_rgw_bucket_* / ceph_rgw_user_quota_* / ceph_rgw_bucket_stats_* metrics to
 /var/lib/prometheus/node-exporter/ceph_rgw_buckets.prom (atomically). Installed on the
-RGW nodes by install.sh with a systemd timer (README.md); Prometheus scrapes it with the
+RGW nodes by rgw-install.sh with a systemd timer (README.md); Prometheus scrapes it with the
 node's node_exporter (job "node", role "proxmox"), so every series also carries the
 node's host label: dashboards and alerts take max by (bucket, owner).
 

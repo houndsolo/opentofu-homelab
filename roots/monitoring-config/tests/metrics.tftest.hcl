@@ -99,17 +99,17 @@ run "mimir" {
   assert {
     # VIP on the backend NIC (eth1), adverts unicast on the HA NIC (eth3), router id 103, Mimir /ready check.
     condition = (
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "10.54.17.103/16 dev eth1") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "interface eth3") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "unicast_src_ip fd69:5017::37") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "    fd69:5017::39\n") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "virtual_router_id 103") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "vrrp_version 3") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "fd69:5017::103/64 dev eth3") &&
-      !strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "auth_pass") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "http://127.0.0.1:8080/ready") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim01), "priority 150") &&
-      strcontains(nonsensitive(module.monitoring.mimir_keepalived_configs.mim03), "priority 50")
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "10.54.17.103/16 dev eth1") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "interface eth3") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "unicast_src_ip fd69:5017::37") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "    fd69:5017::39\n") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "virtual_router_id 103") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "vrrp_version 3") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "fd69:5017::103/64 dev eth3") &&
+      !strcontains(module.monitoring.mimir_keepalived_configs.mim01, "auth_pass") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "http://127.0.0.1:8080/ready") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim01, "priority 150") &&
+      strcontains(module.monitoring.mimir_keepalived_configs.mim03, "priority 50")
     )
     error_message = "keepalived on mim01-03: VIP 10.54.17.103 on eth1, unicast adverts over eth3, vrid 103, Mimir /ready check."
   }

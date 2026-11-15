@@ -43,7 +43,6 @@ variable "fabric" {
     leaves = map(object({
       role             = string
       id               = number
-      proxmox_node     = optional(string)
       access_interface = string
       spine_uplink     = optional(string)
     }))

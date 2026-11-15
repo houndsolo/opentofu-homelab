@@ -6,7 +6,7 @@ variable "vms" {
     role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey or proxy.
     node               = optional(string)
     vm_id              = optional(number)
-    management_address = optional(string)
+    management_address = optional(string, "dhcp") # CIDR, or "dhcp" (same default as inventory/schema/vm.tf)
     gateway            = optional(string)
     # Proxmox VE HA (services-vms): the VM becomes an HA resource that the cluster restarts on another
     # node when its node dies, on any node HA picks (no home node). With a `group`, never on a node

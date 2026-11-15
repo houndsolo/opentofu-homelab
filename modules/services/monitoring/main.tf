@@ -356,9 +356,6 @@ locals {
 
   datasources_yml = yamlencode({
     apiVersion = 1
-    # Provisioning never deletes a datasource that drops out of the list: InfluxDB was retired on
-    # 2026-11-14 (history in Mimir). Deleting one that is already gone is a no-op.
-    deleteDatasources = [{ name = "InfluxDB", orgId = 1 }]
     datasources = concat([
       {
         # uid "prometheus" is what the dashboards use: Mimir when it's on (metrics.tf),
@@ -670,7 +667,7 @@ locals {
       prune_dirs   = []
       files        = local.backend_files[host]
       validations  = local.backend_validations[host]
-      post_install = concat(local.backend_ha_post_install, local.backend_retired_cleanup) # backends.tf
+      post_install = local.backend_ha_post_install # backends.tf
       services     = local.backend_services[host]
       health       = local.backend_health[host]
     })

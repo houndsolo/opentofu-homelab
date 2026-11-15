@@ -316,27 +316,26 @@ run "exporters_and_ceph_alerts" {
   }
 
   assert {
-    # The InfluxDB relay is retired: no unit, scrape job or alerts, and the deploy removes its files.
+    # The InfluxDB relay is retired: no unit, scrape job or alerts (its files were cleaned off both backends).
     condition = (
       !contains([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j.job_name], "influx-relay") &&
       !strcontains(module.monitoring.prometheus_rules, "InfluxRelay") &&
       alltrue([for name in ["mon01", "mon02"] : (
         !contains(keys(module.monitoring.units[name]), "influx-relay") &&
-        !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), ":8087") &&
-        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "rm -rf /etc/monitoring/influx-relay /etc/monitoring/influx-relay.env;")
+        !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), ":8087")
       )])
     )
-    error_message = "No influx-relay unit, scrape job or alerts; the backend deploy removes its config dir and env file."
+    error_message = "No influx-relay unit, scrape job or alerts."
   }
 
   assert {
-    # InfluxDB is retired (2026-11-14): no unit, image, scrape job, datasource, keepalived check or token; Grafana
-    # deletes the old datasource; the backend deploy removes the env files with its tokens but keeps the data.
+    # InfluxDB is retired (2026-11-14): no unit, image, scrape job, datasource, keepalived check or token (the old
+    # datasource and env files are gone from the hosts; the data dir stays until removed by hand).
     condition = (
       !contains([for j in yamldecode(module.monitoring.prometheus_config).scrape_configs : j.job_name], "influxdb") &&
       !strcontains(module.monitoring.prometheus_config, ":8086") &&
       !contains([for d in yamldecode(module.monitoring.datasources_config).datasources : d.uid], "influxdb") &&
-      yamldecode(module.monitoring.datasources_config).deleteDatasources == [{ name = "InfluxDB", orgId = 1 }] &&
+      !contains(keys(yamldecode(module.monitoring.datasources_config)), "deleteDatasources") &&
       alltrue([for name in ["mon01", "mon02"] : (
         !contains(keys(module.monitoring.units[name]), "influxdb") &&
         !contains(module.monitoring.backend_services_by_host[name], "influxdb") &&
@@ -344,12 +343,11 @@ run "exporters_and_ceph_alerts" {
         !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), ":8086") &&
         !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "ensure_dir '/var/lib/monitoring/influxdb") &&
         !strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "rm -rf /var/lib/monitoring/influxdb") &&
-        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "rm -f /etc/monitoring/influxdb.env /etc/monitoring/telegraf.env;") &&
-        !strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "8086") &&
+        !strcontains(module.monitoring.backend_keepalived_configs[name], "8086") &&
         !strcontains(module.monitoring.units[name].telegraf, "EnvironmentFile=")
       )])
     )
-    error_message = "InfluxDB is gone from the backends, Prometheus, Grafana and keepalived; the deploy removes its env files and keeps its data."
+    error_message = "InfluxDB is gone from the backends, Prometheus, Grafana and keepalived; the deploy never touches its data."
   }
 
   assert {
@@ -638,9 +636,9 @@ run "wlc_telemetry" {
   assert {
     # keepalived holds the monitoring VIP (the WLCs' receiver) only where the WLC Telegraf answers.
     condition = alltrue([for name, addr in { mon01 = "30", mon02 = "31" } : (
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "vrrp_script chk_telegraf {\n  script \"/usr/bin/curl -fsS -m 2 -o /dev/null http://10.54.16.${addr}:9273/metrics\"") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "track_script {\n    chk_telegraf\n    chk_alertmanager\n  }") &&
-      !strcontains(nonsensitive(module.monitoring.backend_keepalived_configs[name]), "influx")
+      strcontains(module.monitoring.backend_keepalived_configs[name], "vrrp_script chk_telegraf {\n  script \"/usr/bin/curl -fsS -m 2 -o /dev/null http://10.54.16.${addr}:9273/metrics\"") &&
+      strcontains(module.monitoring.backend_keepalived_configs[name], "track_script {\n    chk_telegraf\n    chk_alertmanager\n  }") &&
+      !strcontains(module.monitoring.backend_keepalived_configs[name], "influx")
     )])
     error_message = "keepalived tracks the WLC Telegraf and Alertmanager on each backend."
   }
@@ -671,7 +669,7 @@ run "wlc_telemetry_disabled" {
       !strcontains(module.monitoring.prometheus_config, "\"job_name\": \"telegraf\"") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "/etc/monitoring/telegraf/") &&
       # Without it keepalived tracks Alertmanager only.
-      !strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "chk_telegraf")
+      !strcontains(module.monitoring.backend_keepalived_configs.mon01, "chk_telegraf")
     )
     error_message = "wlc_telemetry = null leaves Telegraf, its scrape job and its keepalived check out."
   }
@@ -897,13 +895,13 @@ run "grafana_ha" {
   assert {
     # VIP on the UI NIC (eth1, VLAN 1201 lylat-app), adverts unicast on the HA NIC (eth2), router id 100.
     condition = (
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "10.52.11.100/16 dev eth1") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "interface eth2") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "unicast_src_ip fd69:5011::32") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "    fd69:5011::33\n") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf01), "priority 150") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "priority 100") &&
-      strcontains(nonsensitive(module.monitoring.grafana_keepalived_configs.graf02), "virtual_router_id 100")
+      strcontains(module.monitoring.grafana_keepalived_configs.graf01, "10.52.11.100/16 dev eth1") &&
+      strcontains(module.monitoring.grafana_keepalived_configs.graf01, "interface eth2") &&
+      strcontains(module.monitoring.grafana_keepalived_configs.graf01, "unicast_src_ip fd69:5011::32") &&
+      strcontains(module.monitoring.grafana_keepalived_configs.graf01, "    fd69:5011::33\n") &&
+      strcontains(module.monitoring.grafana_keepalived_configs.graf01, "priority 150") &&
+      strcontains(module.monitoring.grafana_keepalived_configs.graf02, "priority 100") &&
+      strcontains(module.monitoring.grafana_keepalived_configs.graf02, "virtual_router_id 100")
     )
     error_message = "keepalived on graf01/02: VIP 10.52.11.100 on eth1, unicast adverts over eth2, vrid 100, name-ordered priority."
   }
@@ -914,7 +912,7 @@ run "grafana_vrrp_disabled" {
   variables { grafana_vrrp = null }
 
   assert {
-    condition     = nonsensitive(module.monitoring.grafana_keepalived_configs.graf01) == null
+    condition     = module.monitoring.grafana_keepalived_configs.graf01 == null
     error_message = "grafana_vrrp = null renders no keepalived config."
   }
 }
@@ -976,14 +974,14 @@ run "backend_ha" {
   assert {
     # VIPs on eth2 (vmbr100) and eth1 (VLAN 1401 lylat-obs), adverts unicast on eth3 (VLAN 1016), router id 102.
     condition = (
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.5.11.102/16 dev eth2") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.54.16.102/16 dev eth1") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "interface eth3") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "unicast_src_ip fd69:5016::30") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "    fd69:5016::31\n") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "priority 150") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "priority 100") &&
-      strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon02), "virtual_router_id 102") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon01, "10.5.11.102/16 dev eth2") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon01, "10.54.16.102/16 dev eth1") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon01, "interface eth3") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon01, "unicast_src_ip fd69:5016::30") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon01, "    fd69:5016::31\n") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon01, "priority 150") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon02, "priority 100") &&
+      strcontains(module.monitoring.backend_keepalived_configs.mon02, "virtual_router_id 102") &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), base64encode(module.monitoring.backend_keepalived_configs.mon02)) &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "sysctl -q -p /etc/sysctl.d/90-monitoring-vip.conf") &&
       output.monitoring_vips == { monitoring = "10.5.11.102", backend = "10.54.16.102" }
@@ -1031,7 +1029,7 @@ run "backend_vrrp_disabled" {
 
   assert {
     condition = (
-      nonsensitive(module.monitoring.backend_keepalived_configs.mon01) == null &&
+      module.monitoring.backend_keepalived_configs.mon01 == null &&
       output.monitoring_vips == null &&
       !contains(module.monitoring.backend_services, "keepalived") &&
       !strcontains(module.monitoring.units.mon01.telegraf, "10.5.11.102") &&
@@ -1071,7 +1069,7 @@ run "backend_single" {
   assert {
     condition = (
       keys(terraform_data.backend) == ["mon01"] &&
-      nonsensitive(module.monitoring.backend_keepalived_configs.mon01) == null &&
+      module.monitoring.backend_keepalived_configs.mon01 == null &&
       output.monitoring_vips == null &&
       !contains(module.monitoring.backend_services, "keepalived") &&
       strcontains(module.monitoring.units.mon01.alertmanager, "--cluster.listen-address=\n") &&

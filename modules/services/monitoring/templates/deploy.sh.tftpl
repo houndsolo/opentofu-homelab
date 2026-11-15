@@ -111,20 +111,10 @@ ${validation}
 %{ endfor ~}
 
 declare -A owner_cache=()
-# "root" -> 0:0; "runtime|IMAGE" -> uid:gid of the user IMAGE runs as;
-# "user|IMAGE|NAME" -> uid:gid of user NAME inside IMAGE (for images that start
-# as root and drop to a service user, like postgres and influxdb).
+# "root" -> 0:0; "runtime|IMAGE" -> uid:gid of the user IMAGE runs as.
 owner_ids() {
   local spec=$1 image user u
   [ "$spec" != root ] || { echo 0:0; return; }
-  if [ "$${spec%%|*}" = user ]; then
-    if [ -z "$${owner_cache[$spec]:-}" ]; then
-      image=$${spec#user|}; image=$${image%|*}; u=$${spec##*|}
-      owner_cache[$spec]="$(podman run --rm --network=none --entrypoint id "$image" -u "$u"):$(podman run --rm --network=none --entrypoint id "$image" -g "$u")"
-    fi
-    echo "$${owner_cache[$spec]}"
-    return
-  fi
   image=$${spec#runtime|}
   if [ -z "$${owner_cache[$image]:-}" ]; then
     user=$(podman image inspect --format '{{.Config.User}}' "$image")

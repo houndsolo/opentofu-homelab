@@ -22,6 +22,12 @@ vips = {
     role        = "logging"
     description = "Loki in lylat-obs: Grafana's Loki datasource (loki01-03), monitoring-config logging_settings.vips.backend"
   }
+  loki-telemetry-vip = {
+    address     = "10.55.18.101/16"
+    vrid        = 101
+    role        = "logging"
+    description = "Loki in lylat-telemetry: every service VM's Alloy pushes its journal here (loki01-03), monitoring-config logging_settings.vips.telemetry"
+  }
   wlc-telemetry-vip = {
     address     = "10.5.11.102/16"
     vrid        = 102
