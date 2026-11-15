@@ -10,9 +10,9 @@
 #                  users/groups (radcheck, radreply, radusergroup, ...), accounting (radacct), every auth
 #                  result (radpostauth). Both servers read the same tables.
 #
-# Deliberately NOT here (owner's call: a separate project): RADIUS users and passwords, the RADIUS clients
-# (devices) and their shared secrets, certificates (EAP). The image's clients.conf only knows localhost
-# (secret testing123), so until that project adds clients, no device can talk to these servers.
+# Deliberately NOT here: RADIUS users/groups and the RADIUS clients (devices) with their shared secrets live in
+# roots/radius (encrypted state); this root mounts /etc/radius/clients.conf and only seeds the image's default
+# (localhost, secret testing123) when it's missing. No EAP certificates yet.
 # The canary's deploy creates the empty tables (the image's postgresql/schema.sql) when they don't exist.
 #
 # Postgres down = SQL users can't log in (the servers keep running: the pool starts empty, retries every 5 s).

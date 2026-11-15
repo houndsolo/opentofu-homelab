@@ -1,6 +1,6 @@
 #!/bin/bash
 # FreeRADIUS deploy (services-config radius.tf): host config, the Quadlet container, the database schema
-# (canary only, empty tables). No users, client secrets or certs: those are managed outside this repo.
+# (canary only, empty tables). Users, groups and RADIUS clients come from roots/radius; no certs yet.
 # Fails, without touching the other server, unless
 #   1. FreeRADIUS answers a Status-Server request on 127.0.0.1:1812 (the image's localhost client), and
 #   2. an Access-Request for a random, non-existent user is rejected AND logged in radpostauth
@@ -30,11 +30,18 @@ cmp -s "$stage/radius.container" /etc/containers/systemd/radius.container || cha
 install -m 0644 -o root -g root "$stage/sql" /etc/radius/sql
 install -m 0600 -o root -g root "$stage/radius.env" /etc/radius/radius.env
 install -m 0644 -o root -g root "$stage/radius.container" /etc/containers/systemd/radius.container
-# Gone from this deploy (managed elsewhere now): an older tofu-written clients.conf.
-rm -f /etc/radius/clients.conf
+# clients.conf belongs to roots/radius (devices + secrets). Seed the image's own (localhost only) once so the
+# mount exists before that root's first apply; never overwrite it here.
+if [ ! -s /etc/radius/clients.conf ]; then
+  podman run --rm --entrypoint cat '${image}' /etc/freeradius/clients.conf > "$stage/clients.conf"
+  install -m 0644 -o root -g root "$stage/clients.conf" /etc/radius/clients.conf
+  changed=1
+  echo "seeded /etc/radius/clients.conf from the image (roots/radius manages it from now on)"
+fi
 
 # Check the whole config with the image before (re)starting the service (-C: check and exit).
 podman run --rm --network none --env-file /etc/radius/radius.env -v /etc/radius/sql:/etc/freeradius/mods-enabled/sql:ro \
+  -v /etc/radius/clients.conf:/etc/freeradius/clients.conf:ro \
   '${image}' -C -l stdout > "$stage/check.log" 2>&1 || { tail -30 "$stage/check.log" >&2; echo "freeradius config check failed" >&2; exit 1; }
 echo "freeradius config ok"
 

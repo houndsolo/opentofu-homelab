@@ -1,0 +1,33 @@
+#!/bin/bash
+# RADIUS clients deploy (roots/radius, clients.tf): /etc/radius/clients.conf, checked with the image first,
+# then radius restarts (only if the file changed) and must answer Status-Server before tofu moves on.
+set -euo pipefail
+umask 077
+stage=$(mktemp -d /tmp/tofu-radius-clients.XXXXXX)
+trap 'rm -rf "$stage"' EXIT
+grep -q '^Volume=/etc/radius/clients.conf:' /etc/containers/systemd/radius.container \
+  || { echo "radius.container doesn't mount /etc/radius/clients.conf yet: apply services-config first" >&2; exit 1; }
+img=$(podman inspect radius --format '{{.ImageName}}')
+printf '%s' '${conf_b64}' | base64 -d > "$stage/clients.conf"
+chmod 0644 "$stage/clients.conf"
+
+if cmp -s "$stage/clients.conf" /etc/radius/clients.conf; then
+  echo "clients.conf unchanged (${count} clients + localhost)"
+  exit 0
+fi
+
+podman run --rm --network none --env-file /etc/radius/radius.env \
+  -v /etc/radius/sql:/etc/freeradius/mods-enabled/sql:ro -v "$stage/clients.conf":/etc/freeradius/clients.conf:ro \
+  "$img" -C -l stdout > "$stage/check.log" 2>&1 || { grep -v secret "$stage/check.log" | tail -20 >&2; echo "freeradius config check failed" >&2; exit 1; }
+install -m 0644 -o root -g root "$stage/clients.conf" /etc/radius/clients.conf
+systemctl restart radius.service
+for i in $(seq 1 30); do
+  if printf 'Message-Authenticator = 0x00\n' | podman exec -i radius radclient -r 1 -t 2 127.0.0.1:1812 status testing123 2>&1 | grep -q 'Received Access-Accept'; then
+    echo "radius restarted with ${count} clients + localhost (answering after $${i}s)"
+    exit 0
+  fi
+  sleep 1
+done
+echo "radius did not answer Status-Server within 30 s after the restart" >&2
+journalctl -u radius --no-pager -n 20 | grep -v secret >&2
+exit 1

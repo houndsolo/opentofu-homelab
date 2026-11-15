@@ -1,0 +1,28 @@
+#!/bin/bash
+# RADIUS users/groups sync (roots/radius, users.tf), run on the canary: one transaction replaces the identity
+# tables, then the row counts must match and every generated-password user must log in (radtest, PAP).
+set -euo pipefail
+umask 077
+stage=$(mktemp -d /tmp/tofu-radius-users.XXXXXX)
+trap 'rm -rf "$stage"' EXIT
+command -v psql >/dev/null || { echo "psql missing (services-config's deploy installs postgresql-client)" >&2; exit 1; }
+set -a; . /etc/radius/radius.env; set +a
+export PGPASSWORD="$RADIUS_DB_PASSWORD" PGSSLMODE=require PGCONNECT_TIMEOUT=5
+pg() { psql -h '${db.host}' -p '${db.port}' -U '${db.user}' -d '${db.name}' -v ON_ERROR_STOP=1 -X -q "$@"; }
+
+printf '%s' '${sql_b64}' | base64 -d > "$stage/sync.sql"
+since=$(pg -Atc "select now()")
+pg -f "$stage/sync.sql"
+got=$(pg -Atc "select (select count(*) from radcheck)||'|'||(select count(*) from radreply)||'|'||(select count(*) from radusergroup)||'|'||(select count(*) from radgroupcheck)||'|'||(select count(*) from radgroupreply)")
+[ "$got" = '${expected}' ] || { echo "row counts radcheck|radreply|radusergroup|radgroupcheck|radgroupreply = $got, expected ${expected}" >&2; exit 1; }
+echo "synced: $(pg -Atc "select string_agg(username, ' ' order by username) from radcheck") (rows $got)"
+
+printf '%s' '${probe_b64}' | base64 -d > "$stage/probe"
+while read -r u p; do
+  [ -n "$u" ] || continue
+  out=$(podman exec radius radtest -t pap "$u" "$p" 127.0.0.1 0 testing123 2>&1 || true)
+  echo "$out" | grep -q 'Received Access-Accept' || { echo "generated-password user $u: login check FAILED" >&2; exit 1; }
+  echo "login check ok: $u ($(echo "$out" | grep -oE 'Cisco-AVPair = "[^"]+"' | head -1))"
+done < "$stage/probe"
+# The checks are our own logins: keep them out of the login history.
+pg -c "delete from radpostauth where authdate >= '$since' and username in (select username from radcheck)" >/dev/null

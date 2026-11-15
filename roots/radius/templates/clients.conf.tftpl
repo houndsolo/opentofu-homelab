@@ -1,0 +1,30 @@
+# Managed by OpenTofu (roots/radius, clients.tf). Local edits are overwritten.
+# localhost: the servers' own health checks (services-config deploy, radtest), secret testing123 like the image.
+client localhost {
+	ipaddr = 127.0.0.1
+	proto = *
+	secret = testing123
+	nas_type = other
+	limit {
+		max_connections = 16
+		lifetime = 0
+		idle_timeout = 900
+	}
+}
+
+client localhost_ipv6 {
+	ipv6addr = ::1
+	secret = testing123
+}
+%{ for name, c in clients ~}
+
+client ${name} {
+	ipaddr = ${c.address}
+	secret = "${c.secret}"
+	shortname = ${name}
+	nas_type = ${c.nas_type}
+%{ if c.require_message_authenticator != null ~}
+	require_message_authenticator = ${c.require_message_authenticator}
+%{ endif ~}
+}
+%{ endfor ~}
