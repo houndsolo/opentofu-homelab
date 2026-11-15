@@ -292,7 +292,7 @@ locals {
         lookup(local.alloy_validation, name, "true"),
         "podman run --rm --network=none --user 0 -v \"$root${local.metrics_conf}/haproxy:/usr/local/etc/haproxy:ro\" '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg",
         "nft -c -f \"$root${local.metrics_conf}/guard.nft\"",
-        "if command -v keepalived >/dev/null; then keepalived -t -f \"$root/etc/keepalived/keepalived.conf\"; else echo \"keepalived not installed yet: config test skipped\"; fi",
+        local.keepalived_validation,
       ]
       post_install = ["systemctl enable --quiet metrics-guard.service keepalived.service"]
       services     = local.metrics_services

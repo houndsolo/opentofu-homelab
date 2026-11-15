@@ -62,6 +62,10 @@ locals {
     "--collector.systemd.unit-include=.+[.](service|socket|timer)",
   ]
 
+  # Deploy-time check of a staged keepalived.conf ($root is the staging directory, deploy.sh.tftpl),
+  # the same on every role that runs keepalived. Skipped on the first deploy, before the package is installed.
+  keepalived_validation = "if command -v keepalived >/dev/null; then keepalived -t -f \"$root/etc/keepalived/keepalived.conf\"; else echo \"keepalived not installed yet: config test skipped\"; fi"
+
   # Rewrites a static target into exporter parameters (the snmp/pve/blackbox pattern).
   proxy_relabel = {
     for name, address in {

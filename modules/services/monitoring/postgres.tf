@@ -479,7 +479,7 @@ locals {
         # The snakeoil pair exists once ssl-cert is installed (postgresql-<major> depends on it).
         "if [ -e /etc/ssl/private/ssl-cert-snakeoil.key ]; then podman run --rm --network=none --user 0 -v \"$root${local.pg_conf}/haproxy:/usr/local/etc/haproxy:ro\" -v /etc/ssl/certs/ssl-cert-snakeoil.pem:/usr/local/etc/haproxy/tls/s3.pem:ro -v /etc/ssl/private/ssl-cert-snakeoil.key:/usr/local/etc/haproxy/tls/s3.pem.key:ro '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg; else echo \"no snakeoil certificate yet: haproxy check skipped\"; fi",
         "nft -c -f \"$root${local.pg_conf}/guard.nft\"",
-        "if command -v keepalived >/dev/null; then keepalived -t -f \"$root/etc/keepalived/keepalived.conf\"; else echo \"keepalived not installed yet: config test skipped\"; fi",
+        local.keepalived_validation,
       ])
       post_install = [
         # The package's default cluster (<major>/main on 5432) and etcd's default single-member

@@ -47,9 +47,6 @@ locals {
     ]))[0], null)
   }
 
-  # Backends: the primary (Postgres, Grafana's fallback Prometheus) and the replica.
-  backend_name = contains(keys(local.monitoring_vms), var.monitoring_primary) ? var.monitoring_primary : null
-
   # Backends: HA VLAN NIC (keepalived adverts, Alertmanager gossip) and the NICs that hold
   # the VIPs. network_devices[i] is eth<i+1>.
   monitoring_nic = {
@@ -205,11 +202,8 @@ module "monitoring" {
       interfaces         = local.monitoring_ha_ready ? { ha = n.ha.interface, backend = n.backend, monitoring = n.monitoring } : null
     }
   }
-  primary_backend = coalesce(local.backend_name, var.monitoring_primary)
-  backend_vrrp = var.backend_vrrp == null ? null : {
-    vips      = var.backend_vrrp.vips
-    router_id = var.backend_vrrp.router_id
-  }
+  primary_backend = var.monitoring_primary
+  backend_vrrp    = var.backend_vrrp
   grafana = {
     for name, n in local.grafana_nic : name => {
       backend_address   = coalesce(local.backend_address[name], "0.0.0.0")
@@ -218,10 +212,7 @@ module "monitoring" {
       interfaces        = n.ha == null || n.ui == null ? null : { ha = n.ha.interface, vip = n.ui }
     }
   }
-  grafana_vrrp = var.grafana_vrrp == null ? null : {
-    vip       = var.grafana_vrrp.vip
-    router_id = var.grafana_vrrp.router_id
-  }
+  grafana_vrrp = var.grafana_vrrp
   # From inventory/auto.tfvars/software-versions.auto.tfvars (the module needs exactly these keys).
   images = { for k in [
     "prometheus", "alertmanager", "node_exporter", "snmp_exporter", "blackbox_exporter", "pve_exporter",
@@ -337,7 +328,7 @@ resource "terraform_data" "backend" {
 
   lifecycle {
     precondition {
-      condition     = local.backend_name != null && length(local.monitoring_vms) <= 2
+      condition     = contains(keys(local.monitoring_vms), var.monitoring_primary) && length(local.monitoring_vms) <= 2
       error_message = "Define one or two services-vms VMs with role = \"monitoring\", one of them named by monitoring_primary (\"${var.monitoring_primary}\")."
     }
     precondition {

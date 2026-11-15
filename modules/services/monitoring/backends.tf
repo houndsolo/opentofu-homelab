@@ -34,9 +34,9 @@ locals {
   alertmanager_targets = [for name in local.backend_names : "${var.backends[name].backend_address}:9093"]
 
   # keepalived.
-  backend_vrrp_enabled   = nonsensitive(var.backend_vrrp != null) && local.backend_ha_ready && alltrue([for b in values(var.backends) : b.interfaces != null])
-  backend_vip_monitoring = local.backend_vrrp_enabled ? [split("/", nonsensitive(var.backend_vrrp.vips.monitoring))[0]] : []
-  backend_vip_backend    = local.backend_vrrp_enabled ? [split("/", nonsensitive(var.backend_vrrp.vips.backend))[0]] : []
+  backend_vrrp_enabled   = var.backend_vrrp != null && local.backend_ha_ready && alltrue([for b in values(var.backends) : b.interfaces != null])
+  backend_vip_monitoring = local.backend_vrrp_enabled ? [split("/", var.backend_vrrp.vips.monitoring)[0]] : []
+  backend_vip_backend    = local.backend_vrrp_enabled ? [split("/", var.backend_vrrp.vips.backend)[0]] : []
   # Where Grafana reaches Alertmanager: the backend VIP, else the primary.
   backend_service_host = local.backend_vrrp_enabled ? local.backend_vip_backend[0] : local.back
 
@@ -69,9 +69,7 @@ locals {
       { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.backend_keepalived_conf[name], restart = [], reload = ["keepalived"] },
     ] : []
   }
-  backend_ha_validations = local.backend_vrrp_enabled ? [
-    "if command -v keepalived >/dev/null; then keepalived -t -f \"$root/etc/keepalived/keepalived.conf\"; else echo \"keepalived not installed yet: config test skipped\"; fi",
-  ] : []
+  backend_ha_validations = local.backend_vrrp_enabled ? [local.keepalived_validation] : []
   backend_ha_post_install = local.backend_vrrp_enabled ? [
     "/usr/sbin/sysctl -q -p /etc/sysctl.d/90-monitoring-vip.conf",
     "systemctl enable --quiet keepalived.service",

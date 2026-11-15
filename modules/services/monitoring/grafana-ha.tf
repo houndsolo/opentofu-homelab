@@ -33,9 +33,7 @@ locals {
       { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.grafana_keepalived_conf[name], restart = [], reload = ["keepalived"] },
     ] : []
   }
-  grafana_ha_validations = local.grafana_vrrp_enabled ? [
-    "if command -v keepalived >/dev/null; then keepalived -t -f \"$root/etc/keepalived/keepalived.conf\"; else echo \"keepalived not installed yet: config test skipped\"; fi",
-  ] : []
+  grafana_ha_validations  = local.grafana_vrrp_enabled ? [local.keepalived_validation] : []
   grafana_ha_post_install = local.grafana_vrrp_enabled ? ["systemctl enable --quiet keepalived.service"] : []
   # keepalived last: it only takes the VIP once Grafana answers.
   grafana_ha_services = local.grafana_vrrp_enabled ? ["keepalived"] : []
