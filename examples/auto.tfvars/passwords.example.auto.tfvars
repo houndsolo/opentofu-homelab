@@ -1,5 +1,6 @@
-# Placeholder credentials. Real values belong in the ignored
-# inventory/auto.tfvars/passwords.secret.auto.tfvars (see inventory/README.md#secrets).
+# Placeholder credentials. Real values belong in the ignored per-provider files in
+# inventory/auto.tfvars.secret/ (or, for tooling/with-secrets, one
+# inventory/auto.tfvars/passwords.secret.auto.tfvars); see inventory/README.md#secrets.
 
 pve_api_token = "tofu@pve!infra=key"
 

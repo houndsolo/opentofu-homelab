@@ -51,16 +51,17 @@ root will silently stop seeing your changes.
 
 | File | Variable | Describes | Read by these roots |
 | --- | --- | --- | --- |
-| `nodes.auto.tfvars` | `nodes` | Proxmox hosts, their IDs, and how to reach them | all roots |
-| `fabric.auto.tfvars` | `fabric` | AS numbers, addressing, physical leaves, spines | fabric-vms, fabric-spines, fabric-leaves, services-config |
+| `nodes.auto.tfvars` | `nodes` | Proxmox hosts, their IDs, and how to reach them | all roots except certs |
+| `fabric.auto.tfvars` | `fabric` | AS numbers, addressing, physical leaves, spines | fabric-vms, fabric-spines, fabric-leaves, services-config, monitoring-config |
 | `fabric-vms.auto.tfvars` | `fabric_vms` | Naming and NICs of the leaf VMs | fabric-vms, fabric-leaves |
-| `pve-network.auto.tfvars` | `pve_network` | Host NICs, bond, bridges, VLAN interfaces | proxmox-network |
+| `pve-network.auto.tfvars` | `pve_network` | Host NICs, bond, bridges, VLAN interfaces | proxmox-network, monitoring-config |
 | `vm-config.auto.tfvars` | `vm_config`, `vm_images` | Shared VM defaults and named images | fabric-vms, services-vms, workloads |
-| `vms.auto.tfvars` | `vms` | Every individual VM: owner, role, placement, NICs, overrides | proxmox-download-files, fabric-vms, services-vms, services-config, workloads |
+| `vms.auto.tfvars` | `vms` | Every individual VM: owner, role, placement, NICs, overrides | proxmox-download-files, fabric-vms, services-vms, certs, services-config, monitoring-config, workloads |
 | `vnis.auto.tfvars` | `vnis` | VRFs (L3VNIs), VLANs (L2VNIs), route-targets, DHCP scopes | fabric-leaves, services-vms, services-config |
 | `l2vnis.auto.tfvars` | `l2vnis` | Standalone L2VNIs for HA peer traffic (no VRF, no gateway, no DHCP), one per HA service `ha_<svc>`: VLAN 10aa / VNI 50aa / `10.50.aa.0/24` (e.g. DHCP 1009/5009, DNS 1053/5053) | fabric-leaves, services-vms, services-config |
 | `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Your own DNS records in `lylat.space` (only what the inventory doesn't generate) | services-config |
 | `vips.auto.tfvars` | `vips` | Every keepalived VIP: DNS name, address, VRID, role | services-config (DNS), monitoring-config (checks) |
+| `proxmox-settings.auto.tfvars` | `proxmox_settings` | Datacenter options, DNS and time zone of the Proxmox hosts | proxmox-settings |
 | `software-versions.auto.tfvars` | `containers`, `packages` | Every pinned software version: container images (`{ image, version[, digest] }`; version = tag or `sha256:` digest, digest pins a moving tag) and Debian packages (`name = version`, today the Patroni stack). Bump one version to upgrade it everywhere | services-config, monitoring-config |
 
 
@@ -311,16 +312,22 @@ root creates it. Service VMs also take a `role`:
 
 | `owner` | `role` | Created by | Configured by | Notes |
 | --- | --- | --- | --- | --- |
-| `services-vms` | `dns` | services-vms | services-config (BIND) | Exactly one NIC with an `ipv4_address`: the DNS service address |
+| `services-vms` | `dns` | services-vms | services-config (BIND) | Exactly one NIC with an `ipv4_address` and an `ipv4_gateway`: the DNS service address |
 | `services-vms` | `dhcp` | services-vms | services-config (VyOS DHCP) | Define exactly two, or none. VM IDs must be 6701–6799. Data NICs are generated. |
-| `services-vms` | `monitoring` | services-vms | (nothing yet) | `mon01`: meant for Prometheus and Grafana's Postgres |
-| `services-vms` | `grafana` | services-vms | (nothing yet) | `graf01`, `graf02` |
-| `services-vms` | `postgres` | services-vms | monitoring-config (Patroni) | `pg01`-`pg03`: Grafana's HA Postgres (Patroni + etcd + pgBackRest); odd count, at least 3 |
+| `services-vms` | `monitoring` | services-vms | monitoring-config (Prometheus, Alertmanager, exporters, Telegraf) | `mon01`, `mon02` |
+| `services-vms` | `grafana` | services-vms | monitoring-config (Grafana) | `graf01`, `graf02` |
+| `services-vms` | `logging` | services-vms | monitoring-config (Loki, Alloy) | `loki01`-`loki03` |
+| `services-vms` | `metrics` | services-vms | monitoring-config (Mimir) | `mim01`-`mim03` |
+| `services-vms` | `postgres` | services-vms | monitoring-config (Patroni) | `pg01`-`pg03`: the HA Postgres for Grafana, NetBox and dark-triage (Patroni + etcd + pgBackRest); odd count, at least 3 |
+| `services-vms` | `ticketing` | services-vms | services-config (dark-triage) | `triage01`, `triage02` |
+| `services-vms` | `netbox` | services-vms | services-config (NetBox) | `netbox01`, `netbox02` |
+| `services-vms` | `valkey` | services-vms | services-config (Valkey + Sentinel) | `valkey01`-`valkey03` |
+| `services-vms` | `proxy` | services-vms | certs (certificate), services-config (nginx) | `proxy01`, `proxy02` |
 | `services-vms` | (none) | services-vms | (nothing) | Any other service VM |
 | `workloads` | (none) | workloads | (nothing) | Ordinary VMs |
 | `fabric-vms` | (none) | fabric-vms | fabric-leaves | Only for **overrides** of the generated `vtep-<node>` VMs |
 
-An annotated entry (this is the real `dns01`):
+An annotated entry (the real `dns01`, trimmed to its first NIC):
 
 ```hcl
 vms = {
@@ -348,7 +355,7 @@ vms = {
     # Any vm_config key can be overridden here, plus the cloud-init user and keys.
     config = {
       cpu_cores    = 2
-      memory_mb    = 2048
+      memory_mb    = 3072
       ssh_username = "mechanic"  # cloud-init creates this user
       ssh_pubkeys  = ["desktop"] # key names from ssh_pubkeys.tf
     }
@@ -561,7 +568,7 @@ Keep the directory `chmod 700` and the files `chmod 600`.
 
 | File | Variables | Link it into |
 | --- | --- | --- |
-| `proxmox.secret.auto.tfvars` | `pve_api_token`, `greatfox_api_token` | proxmox-download-files, proxmox-network, fabric-vms, services-vms, workloads |
+| `proxmox.secret.auto.tfvars` | `pve_api_token`, `greatfox_api_token` | proxmox-download-files, proxmox-network, proxmox-settings, fabric-vms, services-vms, monitoring-config, workloads |
 | `vyos.secret.auto.tfvars` | `vyos_api_key` | fabric-leaves, services-config |
 | `routeros.secret.auto.tfvars` | `routeros_password` (and `routeros_username`, if it isn't `admin`) | fabric-spines |
 | `ssh_keys.secret.auto.tfvars` | `ssh_keys` | nothing: no tracked root reads it. Link it only into a custom root that needs it. |
@@ -570,6 +577,9 @@ Keep the directory `chmod 700` and the files `chmod 600`.
 | `metrics.secret.auto.tfvars` | `mimir_s3` (RGW user for Mimir) | monitoring-config |
 | `postgres.secret.auto.tfvars` | `postgres_s3` (RGW user for Patroni backups) | monitoring-config |
 | `netbox.secret.auto.tfvars` | `netbox_cephfs_key` (CephFS client key for the media mount) | services-config |
+| `app-db.secret.auto.tfvars` | `app_db_passwords` (Postgres passwords of the app databases) | services-config, monitoring-config |
+| `cloudflare.secret.auto.tfvars` | `cloudflare` (API token per zone, for the DNS-01 challenge) | certs |
+| `state.secret.auto.tfvars` | `state_passphrase` (state and plan encryption) | certs, services-config |
 
 ```hcl
 # inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars  (never committed)
@@ -598,17 +608,22 @@ $EDITOR inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars    # and vyos...
 chmod 600 inventory/auto.tfvars.secret/*.secret.auto.tfvars
 
 # Link each file into the roots that use it.
-for root in proxmox-download-files proxmox-network fabric-vms services-vms workloads; do
+for root in proxmox-download-files proxmox-network proxmox-settings fabric-vms services-vms monitoring-config workloads; do
   ln -s ../../inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars roots/$root/
 done
 for root in fabric-leaves services-config; do
   ln -s ../../inventory/auto.tfvars.secret/vyos.secret.auto.tfvars roots/$root/
 done
 ln -s ../../inventory/auto.tfvars.secret/routeros.secret.auto.tfvars roots/fabric-spines/
-for f in monitoring logging metrics postgres; do
+for f in monitoring logging metrics postgres app-db; do
   ln -s ../../inventory/auto.tfvars.secret/$f.secret.auto.tfvars roots/monitoring-config/
 done
-ln -s ../../inventory/auto.tfvars.secret/netbox.secret.auto.tfvars roots/services-config/
+for f in netbox app-db state; do
+  ln -s ../../inventory/auto.tfvars.secret/$f.secret.auto.tfvars roots/services-config/
+done
+for f in cloudflare state; do
+  ln -s ../../inventory/auto.tfvars.secret/$f.secret.auto.tfvars roots/certs/
+done
 
 # Plain tofu now loads the right credentials by itself.
 tofu -chdir=roots/services-config plan
@@ -625,7 +640,7 @@ Two settings aren't in any secret file:
 
 | Variable | Needed by | Notes |
 | --- | --- | --- |
-| `ssh_private_key_path` | the Proxmox roots (both providers SSH in as `root`), services-config (SSH to the DNS VMs) | Defaults to `~/.ssh/id_rsa`. If yours is different, `export TF_VAR_ssh_private_key_path=~/.ssh/id_ed25519`. |
+| `ssh_private_key_path` | the Proxmox roots (both providers SSH in as `root`), and services-config, monitoring-config and certs (SSH to the service VMs) | Defaults to `~/.ssh/id_rsa`. If yours is different, `export TF_VAR_ssh_private_key_path=~/.ssh/id_ed25519`. |
 | `dns_tsig_secret` | services-config (optional) | Leave it out and a key is generated. See [services-config](../roots/services-config/README.md#the-tsig-key). |
 
 Both Proxmox provider blocks live in one shared file, so every Proxmox root
@@ -733,6 +748,6 @@ no code reads them today. Changing them has no effect:
 | File | Fields |
 | --- | --- |
 | `fabric.settings` | `l2_vni_base` |
-| `vnis` (VRF level) | `ext_l3`, `import_ipv4_vrfs`, `redistribute_ipv4`, `anycast_mac` |
+| `vnis` (VRF level) | `import_ipv4_vrfs`, `redistribute_ipv4`, `anycast_mac` |
 | `vnis` (VLAN level) | `advertise_default_gw`, `advertise_svi_ip`, `export_ipv4_unicast` |
 | secrets | `ssh_keys` (in `ssh_keys.secret.auto.tfvars`) |

@@ -1,6 +1,6 @@
 # Examples
 
-Commented, self-contained example values, one file for each inventory file. They
+Commented, self-contained example values, one file for most inventory files. They
 show every field name with typical values, using a simpler addressing plan than
 the live lab:
 
@@ -18,11 +18,10 @@ changes nothing. Use them as a reference when you edit the real files in
 | `fabric-vms.auto.tfvars` | Leaf VM naming and bridge order (their addresses come from `fabric.settings`) | `fabric-vms.auto.tfvars` |
 | `vm-config.auto.tfvars` | Shared VM defaults and named images | `vm-config.auto.tfvars` |
 | `vms.auto.tfvars` | Two DNS VMs and a DHCP HA pair (`owner = "services-vms"` with a `role`), and an ordinary workload VM | `vms.auto.tfvars` |
-| `vnis.auto.tfvars` | Two VRFs with reciprocal [DVNI](../README.md#downstream-vni-dvni) imports. Also a DHCP pool, a NIC-only DHCP VLAN, and a VLAN without DHCP. | `vnis.auto.tfvars` |
+| `vnis.auto.tfvars` | Two VRFs with reciprocal [DVNI](../README.md#downstream-vni-dvni) imports. Also a DHCP pool and VLANs without DHCP. | `vnis.auto.tfvars` |
+| `l2vnis.auto.tfvars` | The standalone L2VNI the DHCP pair peers over (`ha_dhcp`) | `l2vnis.auto.tfvars` |
 | `dns-records.auto.tfvars` | A/AAAA, CNAME, MX, TXT, SRV and NS records, plus several A values for one name | `dns-records.auto.tfvars` |
-| `passwords.example.auto.tfvars` | Every credential variable, with placeholder values, in one file | Your per-provider files in `inventory/auto.tfvars.secret/`, or one `passwords.secret.auto.tfvars` (never this file) |
-
-`services-vms.tfvars` is a leftover note from an older layout. Nothing uses it.
+| `passwords.example.auto.tfvars` | The provider credentials (Proxmox, VyOS, RouterOS), with placeholder values, in one file. The service secrets are described in [Secrets](../inventory/README.md#secrets) | Your per-provider files in `inventory/auto.tfvars.secret/`, or one `passwords.secret.auto.tfvars` (never this file) |
 
 ## How to use them
 
@@ -72,11 +71,11 @@ changes nothing. Use them as a reference when you edit the real files in
   generated A), but not redefine a generated one. See
   [services-config](../roots/services-config/README.md#when-your-names-match-generated-ones).
 - **Real credentials never go in the examples.** The passwords example shows
-  every variable in one file, which is the format the single-file `with-secrets`
+  the provider credentials in one file, which is the format the single-file `with-secrets`
   setup uses. The lab splits the same variables into per-provider files in
   `inventory/auto.tfvars.secret/`; see
   [Secrets](../inventory/README.md#secrets). Git ignores both of those. The
   example file **is** tracked by Git, so never put real values in it.
-- **Some values differ from the live lab on purpose.** For example, the gateways
-  here are `.0.1` (the lab uses `.0.5`), and the route-targets use AS 65000. Use
-  whatever fits your network.
+- **Some values differ from the live lab on purpose.** For example, the
+  route-targets use AS 65000 (the lab uses 700), and the HA segment is VLAN 211 /
+  VNI 9211 (the lab uses 1009 / 5009). Use whatever fits your network.
