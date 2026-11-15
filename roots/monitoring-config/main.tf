@@ -33,7 +33,7 @@ locals {
       for i, nic in local.nics[name] : "eth${i + 1}" if nic.vlan_id == var.telemetry_vlan_id && nic.ipv4_address != null
     ]), null)
   }
-  mgmt = { for name, vm in local.service_vms : name => vm.management_address == "dhcp" ? null : split("/", vm.management_address)[0] }
+  mgmt = { for name, vm in local.service_vms : name => split("/", vm.management_address)[0] }
 
   # Address on the backend NIC (the zone segment, backend_vlan_ids), and the backend VM's monitoring-network address.
   backend_address = {

@@ -33,7 +33,7 @@ run "general_vm_plan" {
   command = plan
   variables {
     name      = "app01"
-    vm        = { node = "venom", vm_id = 401, config = { cpu_cores = 2, memory_mb = 2048, management_bridge = "vmbr10", started = false } }
+    vm        = { node = "venom", vm_id = 401, management_address = "10.20.4.1/16", config = { cpu_cores = 2, memory_mb = 2048, management_bridge = "vmbr10", started = false } }
     vm_config = { datastore_id = "ceph_rbd", import_image = "cephfs:import/debian.qcow2", cloud_init = false, agent_enabled = false }
   }
   assert {
@@ -49,7 +49,7 @@ run "general_vm_plan" {
 run "resource_settings_are_configurable" {
   command = plan
   variables {
-    vm = { node = "venom", vm_id = 711, config = { tags = [] } }
+    vm = { node = "venom", vm_id = 711, management_address = "10.20.4.2/16", config = { tags = [] } }
     vm_config = {
       datastore_id            = "local-lvm"
       import_image            = "local:import/test.qcow2"
@@ -210,4 +210,12 @@ run "ha_vm_without_group" {
     )
     error_message = "ha = {} is a plain HA resource (no group in the comment), still migrate = true."
   }
+}
+
+run "management_address_dhcp_rejected" {
+  command = plan
+  variables {
+    vm = { node = "venom", vm_id = 712, management_address = "dhcp" }
+  }
+  expect_failures = [var.vm]
 }

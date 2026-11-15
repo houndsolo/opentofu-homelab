@@ -338,8 +338,8 @@ vms = {
     vm_id = 5301           # Proxmox VM ID; must be unique
     image = "debian13"     # a key in vm_images
 
-    # Management address on net0 (eth0 in the guest): a CIDR, or "dhcp" (the
-    # default if you leave this out).
+    # Management address on net0 (eth0 in the guest): an IPv4 CIDR. Required (no DHCP, for now);
+    # only generated fabric VM overrides may leave it out.
     management_address = "10.20.53.1/16"
     # gateway = "10.20.0.1" # optional default gateway on the management NIC (none here)
 

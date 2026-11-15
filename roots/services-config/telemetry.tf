@@ -16,8 +16,6 @@ locals {
     ]))[0], null)
   }
   scrape_ip = {
-    for name, vm in var.vms : name => local.telemetry_ip[name] != null ? local.telemetry_ip[name] : (
-      vm.management_address == "dhcp" ? null : split("/", vm.management_address)[0]
-    )
+    for name, vm in var.vms : name => coalesce(local.telemetry_ip[name], try(split("/", vm.management_address)[0], null))
   }
 }

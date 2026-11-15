@@ -6,7 +6,7 @@ variable "vms" {
     role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey or proxy.
     node               = optional(string)
     vm_id              = optional(number)
-    management_address = optional(string, "dhcp") # CIDR, or "dhcp" (same default as inventory/schema/vm.tf)
+    management_address = optional(string) # IPv4 CIDR, required (validation below); no DHCP for now
     gateway            = optional(string)
     # Proxmox VE HA (services-vms): the VM becomes an HA resource that the cluster restarts on another
     # node when its node dies, on any node HA picks (no home node). With a `group`, never on a node
@@ -114,6 +114,18 @@ variable "vms" {
       vm.owner == "fabric-vms" || (vm.node != null && vm.vm_id != null)
     ])
     error_message = "Service and workload VMs require node and vm_id. Generated fabric VM overrides may omit them."
+  }
+
+  # Every VM has a static management address (no DHCP, for now): the deploys ssh to it, DNS publishes
+  # <name>.mgmt, monitoring scrapes it. Generated fabric VM overrides may omit it (fabric-vms computes it).
+  validation {
+    condition = alltrue([
+      for vm in values(var.vms) :
+      vm.management_address == null ? vm.owner == "fabric-vms" : (
+        can(cidrhost(vm.management_address, 0)) && strcontains(vm.management_address, "/") && !strcontains(vm.management_address, ":")
+      )
+    ])
+    error_message = "management_address is required for service and workload VMs: an IPv4 address with prefix length (10.20.11.40/16), not \"dhcp\"."
   }
   validation {
     condition = alltrue([

@@ -46,11 +46,9 @@ locals {
   }
   vm_dns_hosts = merge([
     for name, vm in var.vms : merge(
-      vm.management_address == "dhcp" ? {} : { "${name}.mgmt" = { A = split("/", vm.management_address)[0] } },
+      { "${name}.mgmt" = { A = split("/", vm.management_address)[0] } },
       contains(keys(local.dns_vms), name) ? {} : (
-        local.vm_service_address[name] != null ? { (name) = { A = local.vm_service_address[name] } } : (
-          vm.management_address == "dhcp" ? {} : { (name) = { A = split("/", vm.management_address)[0] } }
-        )
+        local.vm_service_address[name] != null ? { (name) = { A = local.vm_service_address[name] } } : { (name) = { A = split("/", vm.management_address)[0] } }
       ),
     ) if vm.owner != "fabric-vms"
   ]...)

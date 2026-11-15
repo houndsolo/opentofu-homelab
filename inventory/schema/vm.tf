@@ -4,7 +4,7 @@ variable "vm" {
     image              = optional(string)
     node               = string
     vm_id              = number
-    management_address = optional(string, "dhcp")
+    management_address = string # IPv4 CIDR; DHCP isn't supported (for now)
     gateway            = optional(string)
     # Proxmox VE HA (services-vms): the VM becomes an HA resource that the cluster restarts on another
     # node when its node dies, on any node HA picks (no home node). With a `group`, never on a node
@@ -85,4 +85,8 @@ variable "vm" {
       ipv6_gateway = optional(string)
     })), [])
   })
+  validation {
+    condition     = can(cidrhost(var.vm.management_address, 0)) && strcontains(var.vm.management_address, "/") && !strcontains(var.vm.management_address, ":")
+    error_message = "vm.management_address must be an IPv4 address with prefix length (10.20.11.40/16); DHCP isn't supported."
+  }
 }
