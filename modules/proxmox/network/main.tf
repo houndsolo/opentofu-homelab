@@ -1,17 +1,15 @@
 resource "proxmox_network_linux_eth" "this" {
   for_each  = var.pve_network.eths
   node_name = var.node_name
-  #autostart = false
-  name    = "eth${each.key}"
-  mtu     = each.value.mtu
-  comment = each.value.description
+  name      = "eth${each.key}"
+  mtu       = each.value.mtu
+  comment   = each.value.description
 }
 
 resource "proxmox_network_linux_bond" "this" {
-  depends_on = [proxmox_network_linux_eth.this]
-  for_each   = var.pve_network.bonds
-  node_name  = var.node_name
-  #autostart = false
+  depends_on            = [proxmox_network_linux_eth.this]
+  for_each              = var.pve_network.bonds
+  node_name             = var.node_name
   name                  = "bond${each.key}"
   mtu                   = each.value.mtu
   bond_mode             = each.value.bond_mode
@@ -51,9 +49,4 @@ resource "proxmox_network_linux_vlan" "this" {
     "${cidrhost(each.value.ipv4.cidrhost_prefix, var.node_id)}/${each.value.ipv4.cidr}",
     null
   )
-
-  ## or alternatively, use custom name, secifiying vlan
-  #name      = "monitoring_vlan"
-  #interface = "eth5"
-  #vlan      = 5
 }
