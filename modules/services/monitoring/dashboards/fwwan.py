@@ -25,7 +25,7 @@ from custom import (
     BFD_MAP, BGP_MAP, BLUE, FRR_DASH, GREEN, MERGE, NODE_DASH, OK_MAP, ORANGE_IF_ANY,
     RED_IF_ANY, UP_MAP, UP_STEPS, Board, bfd_summary, bgp_summary, bargauge, cell, dashboard,
     fixed_color, gauge, mapping, organize, override, q, query_var, stat, state_timeline, steps,
-    table, text, timeseries,
+    table, text, timeseries, url_link,
 )
 from logs import log_table, lq, on_loki
 from theme import ACCENT, ACCENT2, INFO
@@ -50,11 +50,6 @@ LINK_MAP = mapping(**{"0": ("up", "green"), "1": ("down", "red"), "2": ("admin d
                       "3": ("admin down", "blue")})
 LINK_STEPS = steps(("green", None), ("red", 1), ("blue", 2))
 NOT_VRF_DEV = 'device!~"lo|pim6reg.*|dum.*"'
-
-
-def url_link(title, url, icon="dashboard"):
-    return {"type": "link", "title": title, "url": url, "icon": icon, "includeVars": False, "keepTime": True,
-            "asDropdown": False, "targetBlank": False, "tags": [], "tooltip": ""}
 
 
 NODE_FULL_LINK = url_link("Node Exporter Full (fw-wan)", NODE_DASH + "?var-job=vyos-node&var-node=10.20.10.255:9100")

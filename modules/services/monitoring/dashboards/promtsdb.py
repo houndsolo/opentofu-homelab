@@ -18,8 +18,8 @@ import json
 import urllib.parse
 
 from custom import (
-    BLUE, LOGS_DASH, MERGE, NODE_DASH, STACK_DASH, UP_MAP, Board, bargauge, cell, dashboard, mapping, organize,
-    override, q, query_var, stat, state_timeline, steps, table, timeseries,
+    BLUE, DB_LINK, LOGS_DASH, MERGE, NODE_DASH, OK_FAIL, OK_STEPS, STACK_DASH, UP_MAP, Board, bargauge, cell,
+    dashboard, mapping, organize, override, q, query_var, stat, state_timeline, steps, table, timeseries,
 )
 from logs import logs, lq, per_bucket
 
@@ -31,12 +31,6 @@ MON_FS = 'job="node", mountpoint="/"'
 RETENTION_S = 7 * 86400                 # settings.prometheus_retention_time (variables.tf)
 MIMIR_DASH = "/d/mimir/mimir"           # mimir.py
 
-DB_LINK = {"type": "dashboards", "tags": ["databases"], "asDropdown": True, "title": "Database dashboards",
-           "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
-           "tooltip": "", "url": ""}
-
-OK_FAIL = mapping(**{"0": ("FAIL", "red"), "1": ("OK", "green")})
-OK_STEPS = steps(("red", None), ("green", 1))
 RED = {"color": {"mode": "fixed", "fixedColor": "red"}}
 DASHED = {"custom.lineStyle": {"fill": "dash", "dash": [6, 4]}, "color": {"mode": "fixed", "fixedColor": "orange"}}
 DASHED_RED = {"custom.lineStyle": {"fill": "dash", "dash": [6, 4]}, "color": {"mode": "fixed", "fixedColor": "red"}}

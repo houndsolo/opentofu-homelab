@@ -20,10 +20,11 @@ Telegraf's internal_* counters are cumulative since start (untyped: rate()/incre
 write_time_ns are timings (the mean over the last interval), not counters.
 """
 from custom import (
-    BLUE, LOGS_DASH, MERGE, ORANGE_IF_ANY, UP_MAP, UP_STEPS, Board, bargauge, cell, dashboard, fixed_color, mapping,
-    organize, override, q, query_var, stat, state_timeline, steps, table, timeseries,
+    BLUE, DB_LINK, LOGS_DASH, MERGE, OK_FAIL, OK_STEPS, ORANGE_IF_ANY, UP_MAP, UP_STEPS, Board, bargauge, cell,
+    dashboard, fixed_color, mapping, organize, override, q, query_var, stat, state_timeline, steps, table,
+    timeseries, url_link,
 )
-from logs import logs, lq, per_bucket, url_link
+from logs import logs, lq, per_bucket
 
 TIME = "${__url_time_range}"
 TG_JOBS = 'job=~"telegraf|pvestatd|vyos-telegraf"'   # the Telegraf processes (internal_*, process_*)
@@ -34,13 +35,8 @@ PVE_IN = 'job="pvestatd", input="influxdb_v2_listener"'
 WLC_VIP = "10.5.11.102"   # the monitoring VIP the WLCs dial out to (var.backend_vrrp)
 VIP = f'job="node", role="monitoring", address="{WLC_VIP}"'
 
-DB_TAG_LINK = {"type": "dashboards", "tags": ["databases"], "asDropdown": True, "title": "Database dashboards",
-               "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
-               "tooltip": "", "url": ""}
 LOGS_URL = LOGS_DASH + "?var-host=mon01&var-host=mon02&var-host=fw-wan&var-app=telegraf&var-app=pvestatd"
 
-OK_FAIL = mapping(**{"0": ("FAIL", "red"), "1": ("OK", "green")})
-OK_STEPS = steps(("red", None), ("green", 1))
 JOB_DESC = ("telegraf = WLC telemetry Telegraf on mon01/02, pvestatd = Proxmox metric-server Telegraf (the elected "
             "replica's container, host \"pvestatd\"), vyos-telegraf = fw-wan's VyOS Telegraf.")
 
@@ -333,7 +329,7 @@ def telegraf():
                      "pvestatd listener and fw-wan's VyOS Telegraf. Health tiles from the alert rules, listeners, inputs, "
                      "outputs, the series they export, process stats.",
                      b, tags=["databases", "telegraf"], variables=[host],
-                     extra_links=[DB_TAG_LINK, url_link("Monitoring stack", "/d/monitoring-stack"),
+                     extra_links=[DB_LINK, url_link("Monitoring stack", "/d/monitoring-stack"),
                                   url_link("Telegraf logs", LOGS_URL), url_link("Explore", "/explore")])
 
 

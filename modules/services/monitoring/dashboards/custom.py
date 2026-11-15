@@ -5,10 +5,11 @@
 
 The JSON files it writes are committed and provisioned like the community ones,
 so edit this script and re-run it rather than editing them by hand. It needs no
-network access. The Proxmox dashboards (pvestatd) are built by pve.py, the
-fw-wan ones by fwwan.py, the log dashboards (Loki) by logs.py, the wireless
-ones (C9800 telemetry, wlc_* series) by wireless.py and Ceph RGW buckets by rgw.py,
-which this script imports. Each dashboard:
+network access. Most dashboards are built by the modules main() imports, each
+with its own DASHBOARDS map: pve.py (Proxmox, pvestatd), fwwan.py (fw-wan), logs.py
+(the log dashboards, Loki), wireless.py (C9800 telemetry, wlc_* series), rgw.py
+(Ceph RGW buckets), snmp.py, dns.py, nginx.py, triage.py, and the Databases folder
+(databases.py, promtsdb.py, mimir.py, loki.py, telegraf.py). Each dashboard:
 
 - queries the provisioned Prometheus datasource (uid "prometheus") directly;
 - uses the scrape targets' "host" label for names and pickers;
@@ -54,6 +55,17 @@ NGINX_DASH = "/d/nginx-proxy/nginx-reverse-proxy"  # nginx.py
 CEPH_LINK = {"type": "dashboards", "tags": ["ceph"], "asDropdown": True, "title": "Ceph dashboards",
              "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
              "tooltip": "", "url": ""}
+# The same for the dashboards tagged "databases" (databases.py, promtsdb.py, mimir.py, loki.py,
+# telegraf.py) and the monitoring stack.
+DB_LINK = {"type": "dashboards", "tags": ["databases"], "asDropdown": True, "title": "Database dashboards",
+           "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
+           "tooltip": "", "url": ""}
+
+
+def url_link(title, url, icon="dashboard"):
+    """A top-bar link to a URL (another dashboard, Explore, ...)."""
+    return {"type": "link", "title": title, "url": url, "icon": icon, "includeVars": False, "keepTime": True,
+            "asDropdown": False, "targetBlank": False, "tags": [], "tooltip": ""}
 
 
 # --- building blocks -------------------------------------------------------
@@ -84,6 +96,9 @@ RED_IF_ANY = steps((OK, None), (ERROR, 1))
 ORANGE_IF_ANY = steps((OK, None), (WARN_HIGH, 1))
 PERCENT = steps((OK, None), (WARN_HIGH, 75), (ERROR, 90))
 UP_STEPS = steps((ERROR, None), (OK, 1))
+# Health-check tiles of the Databases dashboards (1 = the check passes).
+OK_FAIL = mapping(**{"0": ("FAIL", "red"), "1": ("OK", "green")})
+OK_STEPS = steps(("red", None), ("green", 1))
 # Share of a service's members that are healthy: 1 = OK, 0 = DOWN, anything between = DEGRADED.
 SERVICE_MAP = [
     {"type": "value", "options": {"1": {"text": "OK", "color": OK, "index": 0},
@@ -1206,9 +1221,7 @@ def stack():
                      "and the logging stack (Loki rings, ingest, S3 flushes, Alloy).",
                      b, tags=["prometheus", "alertmanager", "grafana", "loki"],
                      # Deep dives per store: Databases/{prometheus,mimir,loki,telegraf}.json (and Postgres, Valkey).
-                     extra_links=[{"type": "dashboards", "tags": ["databases"], "asDropdown": True,
-                                   "title": "Database dashboards", "includeVars": False, "keepTime": True,
-                                   "icon": "external link", "targetBlank": False, "tooltip": "", "url": ""}])
+                     extra_links=[DB_LINK])
 
 
 # --- Ceph ----------------------------------------------------------------------
@@ -1216,8 +1229,8 @@ def stack():
 # The mgr prometheus module (job "ceph") exports cluster-wide series without a
 # host label (instance="ceph_cluster"); per-daemon series carry ceph_daemon
 # ("osd.3", "mon.zoness", "mds.fortuna"). Host names come from the *_metadata
-# series (hostname label). node_exporter on the PVE nodes would join on its
-# "host" label = PVE hostname; until it's installed those panels say so.
+# series (hostname label). node_exporter on the PVE nodes (job node, role proxmox)
+# joins on its "host" label = PVE hostname; where it isn't scraped those panels say so.
 
 HEALTH_MAP = mapping(**{"0": ("HEALTH_OK", "green"), "1": ("HEALTH_WARN", "orange"), "2": ("HEALTH_ERR", "red")})
 CHECK_MAP = mapping(**{"0": ("clear", "green"), "1": ("WARN", "orange"), "2": ("ERR", "red")})
@@ -2057,8 +2070,6 @@ DASHBOARDS = {
 
 def main():
     sys.modules.setdefault("custom", sys.modules[__name__])  # for the other builders' "from custom import ..."
-    sys.path.insert(0, str(HERE))
-    sys.dont_write_bytecode = True
     import databases
     import dns
     import fwwan

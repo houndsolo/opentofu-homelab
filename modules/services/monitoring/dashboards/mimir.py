@@ -14,8 +14,9 @@ compactor_block_upload_enabled lets `mimirtool backfill` upload old blocks (Infl
 Jobs: mimir (:8080/metrics, host label = VM), haproxy-mimir, node (role metrics). Logs: Loki app="mimir".
 """
 from custom import (
-    BLUE, LOGS_DASH, MERGE, NODE_DASH, PERCENT, RED_IF_ANY, STACK_DASH, UP_STEPS, Board, bargauge, cell,
-    dashboard, mapping, organize, override, q, query_var, stat, state_timeline, steps, table, timeseries,
+    BLUE, DB_LINK, LOGS_DASH, MERGE, NODE_DASH, OK_FAIL, OK_STEPS, PERCENT, RED_IF_ANY, STACK_DASH, UP_STEPS,
+    Board, bargauge, cell, dashboard, mapping, organize, override, q, query_var, stat, state_timeline, steps,
+    table, timeseries, url_link,
 )
 from logs import logs, lq, per_bucket
 
@@ -34,17 +35,6 @@ RW_LAG = ('max by (host) (prometheus_remote_storage_highest_timestamp_in_seconds
 OBJ = f'{MH}, component!="ruler-storage"'   # ruler_storage is the local filesystem, not S3
 MIMIR_WARN = "level=(warn|error)"
 
-DB_LINK = {"type": "dashboards", "tags": ["databases"], "asDropdown": True, "title": "Database dashboards",
-           "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False, "tooltip": "", "url": ""}
-
-
-def url_link(title, url):
-    return {"type": "link", "title": title, "url": url, "icon": "dashboard", "includeVars": False, "keepTime": True,
-            "asDropdown": False, "targetBlank": False, "tags": [], "tooltip": ""}
-
-
-OK_FAIL = mapping(**{"0": ("FAIL", "red"), "1": ("OK", "green")})
-OK_STEPS = steps(("red", None), ("green", 1))
 DASHED = {"custom.lineStyle": {"fill": "dash", "dash": [6, 4]}, "color": {"mode": "fixed", "fixedColor": "orange"}}
 
 

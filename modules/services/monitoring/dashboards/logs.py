@@ -5,15 +5,17 @@ its helpers; see custom.py for the conventions. They query the provisioned Loki
 datasource (uid "loki", the VIP 10.13.11.101:3100), which holds:
 
 - source="syslog": everything Alloy's syslog listeners on loki01-03 receive (VyOS
-  leaves, fw-wan, dhcp01/02, PVE nodes, MikroTik, FS switches, C9800 WLCs; dns01/02 too
-  until they moved to Alloy's journal source in 2026-11).
+  leaves, fw-wan, dhcp01/02, MikroTik, FS switches, C9800 WLCs; the PVE nodes and dns01/02
+  too until they moved to Alloy in 2026-11).
   Labels host, app (syslog tag; empty for the switches and WLCs, whose raw lines carry
   the Cisco-style %FAC-SEV-MNEMONIC instead), level (syslog severity: informational,
-  warning, ...), facility. The Ceph cluster log is app="ceph-cluster", once per mon.
-- source="journal": the journal of every Linux VM (Alloy): the monitoring stack's VMs and
-  services-config's dns, netbox, proxy, valkey and triage VMs (rsyslog before 2026-11, as
-  source="syslog"). Labels host, unit, app, level (journal priority: info, warning, ...) and
-  container for Podman containers.
+  warning, ...), facility.
+- source="journal": the journal of every Linux VM and PVE node (Alloy): the monitoring
+  stack's VMs, services-config's dns, netbox, proxy, valkey and triage VMs and the PVE
+  nodes (rsyslog before 2026-11, as source="syslog"). Labels host, unit, app, level
+  (journal priority: info, warning, ...) and container for Podman containers.
+- source="ceph": the PVE nodes' Alloy tailing the Ceph cluster log (app="ceph-cluster",
+  once per mon) and the Ceph daemon logs (app ceph-osd|ceph-mon|ceph-mgr|ceph-mds|ceph-rgw).
 
 VyOS's rsyslog sends every non-kernel line twice (imjournal, and imuxsock with a leading
 space); Alloy drops the imuxsock copy on receipt (templates/config.alloy.tftpl), so lines
@@ -41,7 +43,7 @@ picks for the panel width); totals use $__range.
 from custom import (
     BFD_MAP, BGP_MAP, BLUE, MERGE, ORANGE_IF_ANY, RED_IF_ANY, STACK_DASH, Board, bargauge, cell,
     dashboard, fixed_color, mapping, organize, override, panel, q, stat, state_timeline, steps, table,
-    timeseries,
+    timeseries, url_link,
 )
 
 LOKI = {"type": "loki", "uid": "loki"}
@@ -171,18 +173,12 @@ def level_colors():
     return [fixed_color(k, c) for k, c in LEVEL_COLORS.items()]
 
 
-def custom_var(name, label, options, *, multi=True, include_all=True, all_value=".*", current=None):
-    """options: [(text, value)]."""
-    v = {"name": name, "label": label, "type": "custom", "multi": multi, "includeAll": include_all,
-         "query": ",".join(f"{t} : {val}" if t != val else val for t, val in options), "hide": 0,
-         "options": [], "skipUrlSync": False}
-    if include_all:
-        v["allValue"] = all_value
-    if current:
-        v["current"] = {"selected": True, "text": current[0], "value": current[1]}
-    elif include_all:
-        v["current"] = {"selected": True, "text": ["All"], "value": ["$__all"]}
-    return v
+def custom_var(name, label, options, *, all_value=".*"):
+    """A multi-value picker with All. options: [(text, value)]."""
+    return {"name": name, "label": label, "type": "custom", "multi": True, "includeAll": True,
+            "query": ",".join(f"{t} : {val}" if t != val else val for t, val in options), "hide": 0,
+            "options": [], "skipUrlSync": False, "allValue": all_value,
+            "current": {"selected": True, "text": ["All"], "value": ["$__all"]}}
 
 
 def loki_var(name, label, stream, label_name, *, multi=True, include_all=True, all_value=".*", regex="",
@@ -209,11 +205,6 @@ LEVEL_VAR = custom_var("level", "Level", [(k, k) for k in LEVEL_COLORS])
 
 def search(var="search"):
     return f" |~ `(?i)${var}`"
-
-
-def url_link(title, url):
-    return {"type": "link", "title": title, "url": url, "icon": "dashboard", "includeVars": False, "keepTime": True,
-            "asDropdown": False, "targetBlank": False, "tags": [], "tooltip": ""}
 
 
 def logs_dashboard(key, title, description, b, *, tags=(), variables=(), extra_links=()):

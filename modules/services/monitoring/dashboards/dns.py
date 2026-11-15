@@ -11,8 +11,8 @@ keepalived's dns-vip 10.8.53.53 sits on one of them. Data:
 - job "node", role "dns": node_exporter (address-info shows the VIP holder);
 - Loki {app="bind9"} (named's own log) and {app=~"Keepalived.*"} on dns01/02.
 """
-from custom import (Board, UP_MAP, UP_STEPS, BLUE, dashboard, override, q, stat, steps, table, timeseries, organize,
-                    MERGE)
+from custom import (Board, NODE_DASH, PROBES_DASH, UP_MAP, UP_STEPS, BLUE, dashboard, override, q, stat, steps,
+                    table, timeseries, organize, MERGE)
 from logs import lq, logs, on_loki
 from theme import ERROR, OK, WARN_HIGH
 
@@ -28,8 +28,6 @@ ZONES = 'job="bind", zone_name=~"lylat.space|10.in-addr.arpa"'
 BIND_LOG = '{host=~"dns0[12]", app="bind9"}'
 KEEPALIVED = '{host=~"dns0[12]", app=~"Keepalived.*"}'
 TIME = "${__url_time_range}"
-NODE_DASH = "/d/node-exporter-full/node-exporter-full"
-PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
 
 NEED_EXP = "Needs bind_exporter (services-config dns-bind-exporter.tf)"
 NEED_ADDR = "Needs node_exporter --collector.netdev.address-info (services-config node-exporter.container)"

@@ -19,9 +19,9 @@ The setup (modules/services/monitoring/logging.tf, README "Logging (Loki HA)"):
 Jobs: loki (:3100), alloy (:12345), haproxy (the log VMs' RGW haproxy, :8405), node (role logging).
 """
 from custom import (
-    BLUE, LOGS_DASH, MERGE, ORANGE_IF_ANY, PERCENT, STACK_DASH, UP_MAP, Board, bargauge, cell, dashboard,
-    fixed_color, mapping, matrix, organize, override, q, query_var, stat, state_timeline, steps, table,
-    timeseries,
+    BLUE, DB_LINK, LOGS_DASH, MERGE, OK_FAIL, OK_STEPS, ORANGE_IF_ANY, PERCENT, STACK_DASH, UP_MAP, Board,
+    bargauge, cell, dashboard, fixed_color, mapping, matrix, organize, override, q, query_var, stat,
+    state_timeline, steps, table, timeseries, url_link,
 )
 from logs import LOGS_LINK, by_total, logs, lq, per_bucket
 
@@ -39,18 +39,6 @@ QUERY_ROUTES = 'route=~"loki_api_v1_.+", route!="loki_api_v1_push"'
 EXPLORE = ('/explore?schemaVersion=1&panes={"loki":{"datasource":"loki","queries":[{"refId":"A",'
            '"expr":"{app=\\"loki\\"}"}],"range":{"from":"now-1h","to":"now"}}}')
 
-DB_LINK = {"type": "dashboards", "tags": ["databases"], "asDropdown": True, "title": "Database dashboards",
-           "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
-           "tooltip": "", "url": ""}
-
-
-def url_link(title, url, icon="dashboard"):
-    return {"type": "link", "title": title, "url": url, "icon": icon, "includeVars": False, "keepTime": True,
-            "asDropdown": False, "targetBlank": False, "tags": [], "tooltip": ""}
-
-
-OK_FAIL = mapping(**{"0": ("FAIL", "red"), "1": ("OK", "green")})
-OK_STEPS = steps(("red", None), ("green", 1))
 DASHED = {"custom.lineStyle": {"fill": "dash", "dash": [6, 4]}}
 
 

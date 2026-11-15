@@ -60,7 +60,7 @@ def buckets():
         q(SIZE, table=True), q(ACTUAL, table=True), q(OBJECTS, table=True),
         q(f"{SIZE} / ({OBJECTS} > 0)", table=True), q(SHARDS, table=True),
         q(f"{OBJECTS} / {SHARDS}", table=True),
-        q(f"{growth('24h')}", table=True), q(f"{growth('7d')}", table=True),
+        q(growth("24h"), table=True), q(growth("7d"), table=True),
         q(QUOTA_SIZE, table=True), q(f"{ACTUAL} / {QUOTA_SIZE}", table=True), q(QUOTA_OBJECTS, table=True),
     ], desc="One row per bucket (instant values). The Quota, Quota used and Object quota columns appear only "
              "once a bucket quota is set.",

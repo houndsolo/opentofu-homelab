@@ -8,7 +8,7 @@ from the blackbox HTTP probe of /api/health (host "dark-triage", Prometheus).
 The app stores timestamps as ISO-8601 text, hence the ::timestamptz casts. It records no
 "resolved at" time, so "resolved" uses the last update of a ticket that is Resolved now.
 """
-from custom import (DS, Board, ERROR, OK, WARN_HIGH, bargauge, cell, dashboard, mapping, override,
+from custom import (Board, ERROR, OK, UP_MAP, UP_STEPS, WARN_HIGH, bargauge, cell, dashboard, mapping, override,
                     piechart, q, stat, steps, table, text, timeseries)
 from theme import ACCENT, ACCENT2, INFO, TEXT_MUTED, WARN
 
@@ -93,7 +93,7 @@ def triage():
                unit="dtdurations", decimals=0, thresholds=AGE, color_mode="value", no_value="none open"), 3, 4)
     b.add(stat("App", [q('probe_success{job="blackbox-http_2xx", host=~"dark-triage|triage0[0-9]"}', "{{host}}",
                          instant=True)],
-               mappings=mapping(**{"0": ("DOWN", ERROR), "1": ("UP", OK)}), thresholds=steps((ERROR, None), (OK, 1)),
+               mappings=UP_MAP, thresholds=UP_STEPS,
                text_mode="value_and_name", no_value="no probe",
                desc="Blackbox probes of /api/health on the VIP (dark-triage, 10.2.11.105) and each node: 200 only "
                     "when the app reaches its database (Patroni VIP 10.13.11.104)."), 3, 4)

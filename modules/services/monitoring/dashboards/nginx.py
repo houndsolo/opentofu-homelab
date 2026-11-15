@@ -12,8 +12,8 @@ https://<name>.lylat.space for the web UIs (services-config proxy.tf). Data:
   status, rt, urt, upstream, ...) for everything per site, and nginx's error log; {app="Keepalived_vrrp"}
   for VIP moves.
 """
-from custom import (Board, MERGE, UP_MAP, UP_STEPS, BLUE, cell, dashboard, fixed_color, organize, override, q, stat,
-                    steps, table, timeseries)
+from custom import (Board, MERGE, NGINX_DASH, NODE_DASH, PROBES_DASH, UP_MAP, UP_STEPS, BLUE, cell, dashboard,
+                    fixed_color, organize, override, q, stat, steps, table, timeseries)
 from logs import lq, logs, log_table, on_loki, per_bucket, top
 from theme import ERROR, INFO, OK, WARN, WARN_HIGH
 
@@ -29,8 +29,6 @@ ACCESS = LOG + ' |= "vhost=" | logfmt | __error__=""'
 ERRORS = LOG + ' != "vhost=" !~ `signal (17|29) |worker process [0-9]+ exited|: exit(ing)?$`'
 KEEPALIVED = '{host=~"proxy[0-9]+", app="Keepalived_vrrp"}'
 TIME = "${__url_time_range}"
-NODE_DASH = "/d/node-exporter-full/node-exporter-full"
-PROBES_DASH = "/d/blackbox-probes/blackbox-probes"
 
 NEED_PROBES = "Needs the blackbox-https probes (monitoring-config blackbox_https_targets)"
 NEED_ADDR = "Needs node_exporter --collector.netdev.address-info (services-config node-exporter.container)"
@@ -209,7 +207,7 @@ def nginx():
 
 def overview_tiles(b, w):
     """The published sites and the certificate for custom.overview(): a w-wide column."""
-    link = [("nginx reverse proxy", "/d/nginx-proxy/nginx-reverse-proxy?" + TIME)]
+    link = [("nginx reverse proxy", NGINX_DASH + "?" + TIME)]
     b.col(w,
           (stat("Sites (HTTPS)", [q(f"max by (host) (probe_success{{{HTTPS}}})", "{{host}}", instant=True)],
                 text_mode="value_and_name", mappings=UP_MAP, thresholds=UP_STEPS, no_value=NEED_PROBES,

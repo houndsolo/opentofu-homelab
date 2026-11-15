@@ -34,9 +34,9 @@ is pvestatd_system_running; QEMU version/machine and the NIC type are not export
 content label comes in a different order from push to push (each order is its own series), so
 storage queries first collapse it with max by (host, nodename).
 """
-from custom import (BLUE, CEPH_DASH, FILL, MERGE, NODE_DASH, READ, RED_IF_ANY, UP_MAP, UP_STEPS, WRITE, Board,
-                    bargauge, cell, dashboard, fixed_color, gauge, hidden, mapping, matrix, organize, override, q,
-                    query_var, stat, steps, table, timeseries)
+from custom import (BLUE, CEPH_DASH, FILL, HEALTH_MAP, HEALTH_STEPS, MERGE, NODE_DASH, READ, RED_IF_ANY, UP_MAP,
+                    UP_STEPS, WRITE, Board, bargauge, cell, dashboard, fixed_color, gauge, hidden, mapping, matrix,
+                    organize, override, q, query_var, stat, steps, table, timeseries)
 from theme import ACCENT, ACCENT2, ACCENT3, INFO, OK, SERIES, TEXT
 
 OVERVIEW_DASH = "/d/proxmox-overview/proxmox-overview"
@@ -517,7 +517,7 @@ def node():
                                       q(m("cpustat_cpus", n), "cores")],
                      fill=0, min_=0, decimals=2,
                      overrides=[override("cores", {"color": {"mode": "fixed", "fixedColor": "red"},
-                                                   "custom.lineStyle": {"fill": "dash", "dash": [10, 10]}})],
+                                                   "custom.lineStyle": DASHED})],
                      desc="1, 5 and 15 minute load averages; the dashed line is the node's core count."), 12, 8)
 
     b.row("Memory and disk")
@@ -534,7 +534,7 @@ def node():
                      unit="bytes", fill=20, overrides=[fixed_color("used", SWAP),
                                                        override("total", {"custom.fillOpacity": 0,
                                                                           "color": {"mode": "fixed", "fixedColor": "text"},
-                                                                          "custom.lineStyle": {"fill": "dash", "dash": [10, 10]}})]),
+                                                                          "custom.lineStyle": DASHED})]),
           6, 8)
     b.add(timeseries("Root filesystem", [q(f"{m('blockstat_per', n)} / 100", "used")],
                      unit="percentunit", min_=0, max_=1, fill=20, gradient="opacity", thresholds=FILL,
@@ -741,7 +741,7 @@ def guests():
                      unit="bytes", fill=10, min_=0,
                      overrides=[fixed_color("used", MEM), fixed_color("host", "blue"), fixed_color("swap", SWAP),
                                 override("configured", {"custom.fillOpacity": 0, "color": {"mode": "fixed", "fixedColor": "text"},
-                                                        "custom.lineStyle": {"fill": "dash", "dash": [10, 10]}}),
+                                                        "custom.lineStyle": DASHED}),
                                 override("balloon target", {"custom.fillOpacity": 0, "color": {"mode": "fixed", "fixedColor": "green"},
                                                             "custom.lineStyle": {"fill": "dash", "dash": [4, 6]}})],
                      desc="used: what the guest reports in use (VM: via the balloon driver, else the same as host); "
@@ -781,7 +781,7 @@ def guests():
                      unit="bytes", fill=20, min_=0, no_value="containers only",
                      overrides=[fixed_color("used", "blue"),
                                 override("size", {"custom.fillOpacity": 0, "color": {"mode": "fixed", "fixedColor": "text"},
-                                                  "custom.lineStyle": {"fill": "dash", "dash": [10, 10]}})],
+                                                  "custom.lineStyle": DASHED})],
                      desc="Containers only; PVE doesn't see inside a VM's disks."), 8, 8)
     errors = '{__name__=~"pvestatd_blockstat_(failed|invalid)_.*", ' + g + "}"
     b.add(stat("I/O errors (VM)", [now(f"sum by (device) ({errors})", "{{device}}")],
@@ -855,9 +855,8 @@ def storage():
                      "in the range (an unreachable PBS, say) is not counted: `pvesm status` lists those."), 10))
     ceph_link = [("Ceph cluster", CEPH_DASH + "?" + TIME_URL)]
     b.col(9,
-          (stat("Ceph health", [q("ceph_health_status")], mappings=mapping(**{
-              "0": ("HEALTH_OK", "green"), "1": ("HEALTH_WARN", "orange"), "2": ("HEALTH_ERR", "red")}),
-                thresholds=steps(("green", None), ("orange", 1), ("red", 2)), no_value="no ceph metrics",
+          (stat("Ceph health", [q("ceph_health_status")], mappings=HEALTH_MAP, thresholds=HEALTH_STEPS,
+                no_value="no ceph metrics",
                 links=ceph_link, desc="ceph_rbd and cephfs live on the PVE Ceph cluster (Prometheus, mgr exporter)."), 5),
           (stat("Ceph raw used", [q("ceph_cluster_total_used_raw_bytes / ceph_cluster_total_bytes")],
                 unit="percentunit", decimals=1, color_mode="value", graph=True, thresholds=FILL, links=ceph_link,

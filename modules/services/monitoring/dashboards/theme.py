@@ -47,7 +47,6 @@ INFO = "#6870ff"
 SERIES = ["#F70997", "#21E2D7", "#02E5A8", "#9932cc", "#6870ff", "#ffd27a", "#C9499C", "#ff6188", "#8f95ff",
           "#D0D9C4"]
 SELECTION = "#4a1640"
-GRAFANA_BG = "#111217"  # Grafana's dark theme canvas (for previews only)
 
 
 def _rgb(color):

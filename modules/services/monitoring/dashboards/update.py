@@ -32,7 +32,8 @@ upstream JSON stays readable:
   per-query series colors, thin lines with faded fills.
 
 The custom dashboards (overview, FRR, probes, monitoring stack, Ceph cluster and
-OSD) are built by custom.py instead.
+OSD, Proxmox, fw-wan, logs, wireless, databases, ...) are built by custom.py and the
+builder modules it imports.
 """
 import json
 import pathlib

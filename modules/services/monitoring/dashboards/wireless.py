@@ -57,7 +57,7 @@ affected panels carry; drop it once the WLC sends the whole list.
 """
 from custom import (
     BLUE, MERGE, ORANGE_IF_ANY, PERCENT, UP_MAP, UP_STEPS, Board, bargauge, dashboard, fixed_color, mapping,
-    organize, override, q, query_var, stat, state_timeline, steps, table, timeseries,
+    organize, override, q, query_var, stat, state_timeline, steps, table, timeseries, url_link,
 )
 from theme import ACCENT, ACCENT2, SERIES
 
@@ -233,11 +233,6 @@ def empty_notes(b, texts):
     found = {p["title"]: p for top in b.panels for p in [top, *top.get("panels", [])] if p["type"] != "row"}
     for title, text in texts.items():
         empty(found[title], text)
-
-
-def url_link(title, url, icon="dashboard"):
-    return {"type": "link", "title": title, "url": url, "icon": icon, "includeVars": False, "keepTime": True,
-            "asDropdown": False, "targetBlank": False, "tags": [], "tooltip": ""}
 
 
 def sort_by(field):

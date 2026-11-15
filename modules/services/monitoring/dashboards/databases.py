@@ -22,22 +22,15 @@ Patroni, Postgres, pgBackRest and etcd log to the journal, which Alloy ships to 
 "patroni" carries Patroni's, Postgres' and pgBackRest's archive-push lines; app "etcd").
 """
 from custom import (
-    BLUE, LOGS_DASH, MERGE, NODE_DASH, ORANGE_IF_ANY, PERCENT, UP_MAP, UP_STEPS, Board, bargauge, cell, dashboard,
-    fixed_color, gauge, hidden, mapping, organize, override, q, query_var, stat, state_timeline, steps,
-    table, timeseries,
+    BLUE, DB_LINK, LOGS_DASH, MERGE, NODE_DASH, OK_FAIL, OK_STEPS, ORANGE_IF_ANY, PERCENT, UP_MAP, UP_STEPS,
+    VALKEY_DASH, Board, bargauge, cell, dashboard, fixed_color, gauge, mapping, organize, override, q, query_var,
+    stat, state_timeline, steps, table, timeseries,
 )
-from logs import logs, lq, on_loki, per_bucket
+from logs import logs, lq, per_bucket
 
 CLUSTER_DASH = "/d/postgres-cluster/postgres-cluster"
 INSTANCE_DASH = "/d/postgres-instance/postgres-instance"
-VALKEY_DASH = "/d/valkey/valkey"
 TIME = "${__url_time_range}"
-DB_LINK = {"type": "dashboards", "tags": ["databases"], "asDropdown": True, "title": "Database dashboards",
-           "includeVars": False, "keepTime": True, "icon": "external link", "targetBlank": False,
-           "tooltip": "", "url": ""}
-
-OK_FAIL = mapping(**{"0": ("FAIL", "red"), "1": ("OK", "green")})
-OK_STEPS = steps(("red", None), ("green", 1))
 APPS_DESC = "grafana = Grafana (graf01/02), netbox = NetBox (netbox01/02 web + worker), triage = dark-triage (triage01/02)."
 
 # --- Postgres -----------------------------------------------------------------------------
@@ -61,7 +54,6 @@ PG_STATE_MAP = mapping(**{
     "12": ("stopped", "red"), "13": ("stop failed", "red"), "14": ("crashed", "red")})
 ROLE_MAP = mapping(**{"2": ("leader", "green"), "1": ("replica", "blue"), "0": ("not running", "red")})
 NEED_CHECKPOINTER = "Needs postgres_exporter's stat_checkpointer collector (postgres.tf, not applied yet)"
-NEED_POSTMASTER = "Needs postgres_exporter's postmaster collector (postgres.tf, not applied yet)"
 NEED_WRAPAROUND = "Needs postgres_exporter's database_wraparound collector (postgres.tf, not applied yet)"
 NEED_LONG_TX = "No transaction open longer than a minute (long_running_transactions collector)"
 
@@ -660,9 +652,9 @@ def valkey():
           f'or max by (host) (redis_up{{{VK}}} == 0)', "{{host}}")],
         mappings=mapping(**{"2": ("primary", "green"), "1": ("replica", "blue"), "0": ("down", "red")}),
         thresholds=steps(("red", None), ("blue", 1), ("green", 2)), no_value=NO_VALKEY), 12, 6)
-    b.add(on_loki(logs("Sentinel events", f'{{host=~"valkey.*"}} |~ `{SENTINEL_EVENTS}`', max_lines=200,
-                       desc="+sdown/+odown (a node unreachable), +try-failover/+elected-leader/+promoted-slave (a "
-                            "failover) and +switch-master (the new primary) from the Sentinels' logs.")), 12, 6)
+    b.add(logs("Sentinel events", f'{{host=~"valkey.*"}} |~ `{SENTINEL_EVENTS}`', max_lines=200,
+               desc="+sdown/+odown (a node unreachable), +try-failover/+elected-leader/+promoted-slave (a "
+                    "failover) and +switch-master (the new primary) from the Sentinels' logs."), 12, 6)
 
     b.row("Replication and Sentinels")
     b.add(timeseries("Replica lag", [
