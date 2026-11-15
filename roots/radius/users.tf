@@ -42,6 +42,16 @@ locals {
   )
 }
 
+locals {
+  users_script = templatefile("${path.module}/templates/users-sync.sh.tftpl", {
+    db       = var.database
+    sql_b64  = base64encode(local.sync_sql)
+    expected = local.expected_counts
+    # Generated passwords are checked with a real login after the sync (base64: never plain in the script).
+    probe_b64 = base64encode(join("\n", [for u in sort(tolist(local.generated_users)) : "${u} ${random_password.user[u].result}"]))
+  })
+}
+
 resource "random_password" "user" {
   for_each = local.generated_users
   length   = 24
@@ -52,7 +62,7 @@ resource "terraform_data" "users" {
   count = local.canary == null ? 0 : 1
 
   triggers_replace = [
-    sha256(local.sync_sql),
+    sha256(local.users_script), # SQL + script: a fix to the script re-runs the sync too
     local.radius_vms[local.canary].management_address,
     local.radius_vms[local.canary].vm_id,
   ]
@@ -85,13 +95,7 @@ resource "terraform_data" "users" {
   }
 
   provisioner "file" {
-    content = templatefile("${path.module}/templates/users-sync.sh.tftpl", {
-      db       = var.database
-      sql_b64  = base64encode(local.sync_sql)
-      expected = local.expected_counts
-      # Generated passwords are checked with a real login after the sync (base64: never plain in the script).
-      probe_b64 = base64encode(join("\n", [for u in sort(tolist(local.generated_users)) : "${u} ${random_password.user[u].result}"]))
-    })
+    content     = local.users_script
     destination = "/tmp/tofu-radius-users-${self.id}/sync.sh"
   }
 

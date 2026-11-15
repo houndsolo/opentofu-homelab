@@ -18,7 +18,8 @@ got=$(pg -Atc "select (select count(*) from radcheck)||'|'||(select count(*) fro
 echo "synced: $(pg -Atc "select string_agg(username, ' ' order by username) from radcheck") (rows $got)"
 
 printf '%s' '${probe_b64}' | base64 -d > "$stage/probe"
-while read -r u p; do
+# "|| [ -n "$u" ]": the list has no trailing newline, and read returns false on that last line.
+while read -r u p || [ -n "$u" ]; do
   [ -n "$u" ] || continue
   out=$(podman exec radius radtest -t pap "$u" "$p" 127.0.0.1 0 testing123 2>&1 || true)
   echo "$out" | grep -q 'Received Access-Accept' || { echo "generated-password user $u: login check FAILED" >&2; exit 1; }
