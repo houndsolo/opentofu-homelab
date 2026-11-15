@@ -6,7 +6,7 @@ downloading them from the public registry.
 
 | Provider | Name in the HCL (`source`) | Version | Talks to | Used by |
 | --- | --- | --- | --- | --- |
-| `proxmox` | `local/mechanic/proxmox` | 0.111.0 | Proxmox VE API (and SSH to the nodes) | proxmox-download-files, proxmox-network, fabric-vms, services-vms, workloads |
+| `proxmox` | `local/mechanic/proxmox` | 0.111.0 | Proxmox VE API (and SSH to the nodes) | proxmox-download-files, proxmox-network, proxmox-settings, fabric-vms, services-vms, monitoring-config, workloads |
 | `vyoscmd` | `local/mechanic/vyoscmd` | 0.1.0 | VyOS HTTPS API | fabric-leaves, services-config |
 | `routeros` | `local/mechanic/routeros` | 1.99.1 | RouterOS REST API | fabric-spines |
 
@@ -16,8 +16,9 @@ downloading them from the public registry.
 | `terraform-provider-vyoscmd` | `git@github.com:houndsolo/vibecoded-opentofu-vyos-provider.git`, which sends lists of VyOS `set` commands (`vyoscmd_commands`) |
 | `terraform-provider-routeros` | `git@github.com:houndsolo/terraform-provider-routeros.git`, a fork of the community RouterOS provider |
 
-`services-config` also uses two ordinary providers from the public registry,
-`hashicorp/dns` and `hashicorp/random`. `tofu init` downloads those as usual.
+`services-config` and `monitoring-config` also use ordinary providers from the
+public registry (`hashicorp/dns`, `hashicorp/random`), and `certs` uses
+`vancluever/acme`. `tofu init` downloads those as usual.
 
 ## Why `local/mechanic/...`?
 
@@ -50,8 +51,8 @@ git submodule update --init --recursive
 ## Building
 
 ```sh
-nix-shell                  # Go, OpenTofu, Python; also sets TF_CLI_CONFIG_FILE to the mirror config
-tooling/build-all          # build and install all three (or name some: tooling/build-all vyoscmd)
+nix-shell                  # OpenTofu, Python, git; also sets TF_CLI_CONFIG_FILE to the mirror config
+tooling/build-all          # build and install all three (or name some: tooling/build-all vyoscmd); enters tooling/build-shell.nix for Go by itself
 # Outside nix-shell, point OpenTofu at the mirror yourself:
 # export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
 ```
@@ -83,6 +84,7 @@ If the provider's **version number** changes, update it everywhere it's pinned:
 - the matching file in `inventory/versions/`: `pve-versions.tf`,
   `vyos-versions.tf` or `routeros-versions.tf`
 - `roots/services-config/providers.tf`, which has its own pin for `vyoscmd`
+- `roots/monitoring-config/providers.tf`, which has its own pin for `proxmox`
 
 `tooling/build-providers` prints a warning if a submodule has uncommitted local
 changes. A binary built from those can't be reproduced from the recorded commit

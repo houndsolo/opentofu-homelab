@@ -13,9 +13,11 @@ each layer of the lab:
 - **An EVPN/VXLAN fabric.** One VyOS VM per Proxmox host acts as that host's
   leaf switch (its VTEP). Three physical VyOS leaves join the fabric, and two
   MikroTik RouterOS spines carry the BGP underlay and reflect EVPN routes.
-- **Service VMs.** Two DNS servers (BIND 9 in Podman on Debian 13) and two DHCP
-  servers (VyOS, as an active/passive HA pair). Three monitoring VMs (`mon01`,
-  `graf01`, `graf02`) are created too; nothing configures their software yet.
+- **Service VMs.** Two DNS servers (BIND 9 in Podman on Debian 13), two DHCP
+  servers (VyOS, as an active/passive HA pair), the monitoring stack (Prometheus,
+  Grafana, Loki, Mimir and a Patroni Postgres cluster), NetBox with Valkey, the
+  dark-triage helpdesk and an nginx reverse proxy pair. `services-config` and
+  `monitoring-config` set up their software.
 - **Workload VMs.** Ordinary VMs built from the same VM module.
 
 ## Contents
@@ -85,7 +87,7 @@ README here:
 
 | Term | What it means in this repo |
 | --- | --- |
-| **Provider** | A plugin that talks to one API. This repo builds three custom ones: `proxmox` (Proxmox VE API), `vyoscmd` (VyOS HTTPS API) and `routeros` (RouterOS REST API). It also downloads `hashicorp/dns` and `hashicorp/random` from the public registry. |
+| **Provider** | A plugin that talks to one API. This repo builds three custom ones: `proxmox` (Proxmox VE API), `vyoscmd` (VyOS HTTPS API) and `routeros` (RouterOS REST API). It also downloads `hashicorp/dns`, `hashicorp/random` and `vancluever/acme` from the public registry. |
 | **Resource** | One object that a provider manages: a VM, a bridge, a BGP connection, a DNS record set. |
 | **Module** | A folder of `.tf` files that you call with inputs, a bit like a function. |
 | **Root** | A folder you run `tofu` commands in. Each folder in `roots/` is one. |
@@ -212,11 +214,11 @@ exist:
   enabled, and a RouterOS user that OpenTofu can log in as.
 - **A machine to run OpenTofu on** that can reach the management networks:
   Proxmox (`10.20.7.x`), spines (`10.20.0.x`), leaves (`10.20.10.x`) and service
-  VMs (`10.20.53.x`, `10.20.67.x`). It also needs TCP port 53 on the primary DNS
+  VMs (`10.20.11.x`, `10.20.53.x`, `10.20.67.x`). It also needs TCP port 53 on the primary DNS
   server (`10.8.53.1`).
 - **The tools.** Either [Nix](https://nixos.org/download/) (with
   [direnv](https://direnv.net/) + [nix-direnv](https://github.com/nix-community/nix-direnv),
-  or plain `nix-shell`), or install them yourself: OpenTofu ≥ 1.11.6, Python 3
+  or plain `nix-shell`), or install them yourself: OpenTofu ≥ 1.13.0, Python 3
   with `python-hcl2` ≥ 7.3.1, git, and Go ≥ 1.26 for building the providers.
 - **GitHub SSH access.** The provider submodules use `git@github.com:` URLs, so
   you need an SSH key on GitHub. See [providers/](providers/README.md) for an
@@ -278,24 +280,29 @@ needs the real infrastructure from the layers before it to be up and reachable.
    the Debian 13 cloud image (optional).
 2. [proxmox-network](roots/proxmox-network/README.md): host NICs, bond, bridges
    and VLANs.
-3. [fabric-vms](roots/fabric-vms/README.md): one VyOS leaf VM per Proxmox host.
-4. [fabric-spines](roots/fabric-spines/README.md): BGP, BFD and EVPN on the
+3. [proxmox-settings](roots/proxmox-settings/README.md): datacenter options, DNS
+   and time zone on every Proxmox host.
+4. [fabric-vms](roots/fabric-vms/README.md): one VyOS leaf VM per Proxmox host.
+5. [fabric-spines](roots/fabric-spines/README.md): BGP, BFD and EVPN on the
    RouterOS spines.
-5. [fabric-leaves](roots/fabric-leaves/README.md): the EVPN/VXLAN config on
+6. [fabric-leaves](roots/fabric-leaves/README.md): the EVPN/VXLAN config on
    every leaf.
-6. [services-vms](roots/services-vms/README.md): the DNS, DHCP and monitoring
-   VMs.
-7. [services-config](roots/services-config/README.md): BIND, DNS records, and
-   DHCP high availability and pools.
-8. [monitoring-config](roots/monitoring-config/README.md): Prometheus,
-   exporters, Telegraf and Grafana on the monitoring VMs.
-9. [workloads](roots/workloads/README.md): ordinary VMs.
+7. [services-vms](roots/services-vms/README.md): every service VM (DNS, DHCP,
+   monitoring, NetBox, Valkey, dark-triage and the reverse proxy).
+8. [certs](roots/certs/README.md): the Let's Encrypt wildcard certificate for
+   the reverse proxy VMs.
+9. [services-config](roots/services-config/README.md): BIND and the DNS records,
+   DHCP, NetBox, Valkey, dark-triage and the nginx reverse proxy.
+10. [monitoring-config](roots/monitoring-config/README.md): Prometheus,
+    Alertmanager, Grafana, Loki, Mimir and the Postgres cluster.
+11. [workloads](roots/workloads/README.md): ordinary VMs.
 
 [roots/README.md](roots/README.md) has the prerequisites for each step.
 
 ## Tests
 
-The modules and the `services-config` and `monitoring-config` roots have `tofu test` suites (`*.tftest.hcl`).
+The modules and four roots (`services-vms`, `services-config`, `monitoring-config`,
+`proxmox-settings`) have `tofu test` suites (`*.tftest.hcl`).
 The tooling scripts have Python unit tests. None of them touch real
 infrastructure. To run them, see [modules/](modules/README.md#tests) and
 [tooling/](tooling/README.md#tests).

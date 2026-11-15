@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Import existing spine objects. Run from the repository root.
 
-python3 import-spines.py             # Preview only
-python3 import-spines.py --import    # Write state; never apply router changes
+python3 tooling/routeros-spine-imports.py             # Preview only
+python3 tooling/routeros-spine-imports.py --import    # Write state; never apply router changes
 
 Requires Python 3 and initialized OpenTofu. REST credentials are prompted.
 The OpenTofu provider must also have valid credentials configured.

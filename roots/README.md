@@ -26,6 +26,7 @@ configured until its VM has booted and its API answers.
 | `*.auto.tfvars` → `inventory/auto.tfvars/` | Symlinks to the values |
 | `*.variables.tf` → `inventory/schema/` | Symlinks to the variable declarations |
 | `providers.tf`, `versions.tf` → `inventory/...` | Symlinks to the provider settings and version pins |
+| `*.secret.auto.tfvars` → `inventory/auto.tfvars.secret/` | Symlinks to the credentials this root needs. Git-ignored. |
 | `.terraform/` | Created by `tofu init`: the providers and modules this root uses. Git-ignored. |
 | `.terraform.lock.hcl` | Created by `tofu init`: checksums of the providers in use. Git-ignored, because locally built providers get different checksums on every machine. |
 | `terraform.tfstate` | Created by `tofu apply`: the state. Git-ignored. **Back it up.** |
@@ -36,13 +37,15 @@ configured until its VM has booted and its API answers.
 | --- | --- | --- | --- | --- |
 | 1 | [proxmox-download-files](proxmox-download-files/README.md) | The Debian 13 cloud image on `cephfs` (optional) | `cephfs` storage allows *Import* content | `proxmox.secret.auto.tfvars` |
 | 2 | [proxmox-network](proxmox-network/README.md) | NICs, bond, bridges and VLAN interfaces on each cluster node | Console access to the hosts, in case a change cuts off management | `proxmox.secret.auto.tfvars` |
-| 3 | [fabric-vms](fabric-vms/README.md) | A `vtep-<host>` VyOS VM on every Proxmox host | VyOS image and `vyos_api.yml` snippet on `cephfs`; bridges `vmbr4000`–`vmbr4002` on every host | `proxmox.secret.auto.tfvars` |
-| 4 | [fabric-spines](fabric-spines/README.md) | BGP, BFD and EVPN route reflection on the RouterOS spines | Spines reachable, REST API enabled | `routeros.secret.auto.tfvars` |
-| 5 | [fabric-leaves](fabric-leaves/README.md) | The EVPN/VXLAN config on every leaf | Leaf VMs booted with their HTTPS API enabled | `vyos.secret.auto.tfvars` |
-| 6 | [services-vms](services-vms/README.md) | The DNS, DHCP and monitoring VMs | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
-| 7 | [services-config](services-config/README.md) | BIND (over SSH), DNS records (RFC 2136), DHCP HA and pools (VyOS API) | DNS VMs have Podman and passwordless sudo; the fabric routes VLAN 8 | `vyos.secret.auto.tfvars` (plus `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
-| 8 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, Telegraf, Postgres and Grafana as Podman Quadlets (over SSH) | Monitoring/Grafana VMs have Podman and passwordless sudo; the zone segments (lylat-app/-obs/-data), lylat-telemetry (VLAN 1501) and the `ha_*` L2VNIs on the leaves | `proxmox.secret.auto.tfvars` (Proxmox metric servers; optional `pve.secret.auto.tfvars`; `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
-| 9 | [workloads](workloads/README.md) | Ordinary VMs (`owner = "workloads"`) | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
+| 3 | [proxmox-settings](proxmox-settings/README.md) | Datacenter options, DNS and time zone on every Proxmox host | Nothing: the existing settings are imported | `proxmox.secret.auto.tfvars` |
+| 4 | [fabric-vms](fabric-vms/README.md) | A `vtep-<host>` VyOS VM on every Proxmox host | VyOS image and `vyos_api.yml` snippet on `cephfs`; bridges `vmbr4000`–`vmbr4002` on every host | `proxmox.secret.auto.tfvars` |
+| 5 | [fabric-spines](fabric-spines/README.md) | BGP, BFD and EVPN route reflection on the RouterOS spines | Spines reachable, REST API enabled | `routeros.secret.auto.tfvars` |
+| 6 | [fabric-leaves](fabric-leaves/README.md) | The EVPN/VXLAN config on every leaf | Leaf VMs booted with their HTTPS API enabled | `vyos.secret.auto.tfvars` |
+| 7 | [services-vms](services-vms/README.md) | Every service VM (`owner = "services-vms"`): DNS, DHCP, monitoring, NetBox, Valkey, dark-triage, reverse proxy | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
+| 8 | [certs](certs/README.md) | The Let's Encrypt wildcard certificate, copied to the proxy VMs (over SSH) | The proxy VMs exist; a Cloudflare API token for the zone | `cloudflare.secret.auto.tfvars`, `state.secret.auto.tfvars` |
+| 9 | [services-config](services-config/README.md) | BIND (over SSH), DNS records (RFC 2136), DHCP HA and pools (VyOS API), NetBox, Valkey, dark-triage and the nginx reverse proxy (over SSH) | The service VMs have Podman and passwordless sudo; the fabric routes VLAN 8; the certificate is on the proxy VMs | `vyos`, `app-db`, `netbox` and `state` `.secret.auto.tfvars` (plus `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
+| 10 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, Telegraf, Grafana, Loki, Mimir and the Patroni Postgres cluster (over SSH) | The monitoring VMs have Podman and passwordless sudo; the zone segments (lylat-app/-obs/-data), lylat-telemetry (VLAN 1501) and the `ha_*` L2VNIs on the leaves | `proxmox`, `monitoring`, `logging`, `metrics`, `postgres` and `app-db` `.secret.auto.tfvars` (optional `pve.secret.auto.tfvars`; `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
+| 11 | [workloads](workloads/README.md) | Ordinary VMs (`owner = "workloads"`) | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
 
 Why this order:
 
@@ -53,6 +56,9 @@ Why this order:
   configure a leaf VM after it exists and is running.
 - **`fabric-spines` and `fabric-leaves`** can each be applied on their own. The
   BGP sessions come up once both sides are configured.
+- **`certs` comes after `services-vms` and before `services-config`.** The proxy
+  VMs must exist to receive the certificate, and nginx expects it on its first
+  start.
 - **`services-config` comes after `services-vms` and after the fabric.** The DNS
   VMs have no management gateway: they reach the internet (to pull the BIND
   image) and receive DNS updates through VLAN 8, which the leaves route.
@@ -101,9 +107,11 @@ credentials. If you keep everything in one file instead, put
 - **Where it lives.** Each root keeps `terraform.tfstate` in its own folder, and
   OpenTofu keeps the previous version as `terraform.tfstate.backup`. Git ignores
   both.
-- **It's sensitive.** State holds some secrets in plain text, such as the
-  generated TSIG key in `services-config`. Keep it private, and copy it somewhere
-  safe regularly.
+- **It's sensitive.** State holds secrets, such as the generated passwords in
+  `monitoring-config`, in plain text. The `certs` and `services-config` states and
+  plans are encrypted with the passphrase in `state.secret.auto.tfvars`; without
+  it they can't be read, so keep a copy of the passphrase as well. Keep state
+  private, and copy it somewhere safe regularly.
 - **If you lose it,** OpenTofu no longer knows it manages those objects. It
   won't delete them, but the next apply will try to create them again, which
   usually fails or makes duplicates. You recover with `tofu import`.

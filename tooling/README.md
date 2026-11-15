@@ -14,7 +14,7 @@ them from the top of the repo, in the dev shell (direnv or `nix-shell`; see belo
 | `with-secrets` | Runs a command with one shared secrets file loaded as `TF_VAR_*` | Only if you keep all secrets in one file instead of per-provider links |
 | `routeros-spine-imports.py` | Imports existing spine objects into state | Adopting a spine that's already configured |
 | `tofu_import_stuff.sh` | Imports existing Proxmox host networking into state | Adopting hosts that are already configured |
-| `tests/` | Unit tests for `walk-roots.sh` and `with-secrets` | After changing those scripts |
+| `tests/` | Unit tests for `walk-roots.sh`, `with-secrets` and the VM schema files | After changing those scripts or a VM schema |
 
 ## The development shell
 
@@ -23,7 +23,7 @@ you `cd` into the repo (`.envrc`: `use nix`; nix-direnv caches it in `.direnv/`
 and re-evaluates only when `shell.nix` or the tfrc changes), or run `nix-shell`.
 In a script or non-interactive shell, use `direnv exec . tofu ...`. It gives you:
 
-- **OpenTofu ≥ 1.11.6.**
+- **OpenTofu ≥ 1.13.0.**
 - **Python 3 with `python-hcl2` ≥ 7.3.1**, which `with-secrets` uses.
 - **git.**
 - **`TF_CLI_CONFIG_FILE`**, already pointing at
@@ -39,9 +39,10 @@ Startup time: `<nixpkgs>` should resolve to a store path (`NIX_PATH=nixpkgs=/nix
 With the NixOS default `nixpkgs=flake:nixpkgs`, every lookup re-hashes the nixpkgs tree
 (~4 s per `nix-shell`); a0-nix pins it with `nix.nixPath`.
 
-`shell.nix` uses your configured nixpkgs channel (`<nixpkgs>`). If that channel's
-versions are too old, it stops with a message. You can point it at a newer
-channel for one run:
+`shell.nix` takes Python and git from your configured nixpkgs channel
+(`<nixpkgs>`), and OpenTofu from `<nixpkgs-unstable>` when that is on `NIX_PATH`
+(a0-nix sets it; otherwise it falls back to `<nixpkgs>`). If a version is too old,
+it stops with a message. You can point it at a newer channel for one run:
 
 ```sh
 nix-shell -I nixpkgs=https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz
@@ -97,7 +98,7 @@ export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
 
 | CLI config | Use it for | What it does |
 | --- | --- | --- |
-| `local-provider.generated.tfrc` | Normal use | A `filesystem_mirror` for `local/mechanic/*`. Everything else (`hashicorp/dns`, `hashicorp/random`) comes from the public registry. `tofu init` and lock files work as usual. |
+| `local-provider.generated.tfrc` | Normal use | A `filesystem_mirror` for `local/mechanic/*`. Everything else (`hashicorp/dns`, `hashicorp/random`, `vancluever/acme`) comes from the public registry. `tofu init` and lock files work as usual. |
 | `dev.generated.tfrc` | Provider development | `dev_overrides`: OpenTofu loads the binaries straight from the mirror folders, skips the version and checksum checks, and prints a warning on every command. |
 
 The generated files contain **absolute paths**, so `install-providers` rewrites

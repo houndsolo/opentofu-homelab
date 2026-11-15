@@ -71,7 +71,7 @@ for root in "${roots[@]}"; do
     services-vms) echo 'Create DNS/DHCP VMs; images, snippets and fabric must be ready.' ;;
     certs) echo "Let's Encrypt wildcard for the proxy VMs (Cloudflare DNS-01); state is encrypted." ;;
     services-config) echo 'DNS VMs need SSH/sudo and Podman; DHCP VMs need reachable VyOS APIs.' ;;
-    monitoring-config) echo 'Monitoring/Grafana VMs need SSH/sudo and Podman, and the VLAN 13 backend NICs.' ;;
+    monitoring-config) echo 'Monitoring VMs need SSH/sudo and Podman, and their zone, telemetry and HA segments on the leaves.' ;;
     workloads) echo 'Create VMs owned by workloads.' ;;
   esac
   while true; do
