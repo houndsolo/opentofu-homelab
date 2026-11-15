@@ -46,7 +46,7 @@ split across hosts (see [Proxmox HA](#proxmox-ha)), so losing one host doesn't t
 
 - **NICs.** They get exactly the NICs listed in the inventory: the management
   NIC (net0 on `vmbr0`) plus `network_devices`.
-- **Cloud-init** sets both addresses at first boot. It also creates
+- **Cloud-init** sets all of their addresses at first boot. It also creates
   `config.ssh_username` with the keys selected in `config.ssh_pubkeys`.
 - **Routing.** There's no management gateway, so the data NIC's gateway
   (`10.8.0.1`, the anycast gateway on the local leaf) is the VM's only default
@@ -158,7 +158,7 @@ Operating HA VMs:
 - **Fencing**: every node that runs an HA resource arms its watchdog. A node that loses corosync
   quorum reboots itself before its VMs are restarted elsewhere.
 - The WLC pair (vm:20901/20902) and the HA containers/VMs outside this repo (ct:660, ct:666, ct:7001,
-  vm:2802, vm:20101) keep their hand-made HA config.
+  vm:20101) keep their hand-made HA config.
 
 ## Good to know
 

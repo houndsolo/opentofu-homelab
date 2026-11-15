@@ -1,17 +1,31 @@
 # services-config
 
 This root sets up the software on the VMs that
-[services-vms](../services-vms/README.md) created: BIND 9 on the DNS VMs, the
-DNS records, and the DHCP high-availability pair.
+[services-vms](../services-vms/README.md) created: BIND 9 and its keepalived
+VIPs on the DNS VMs, the DNS records, the DHCP high-availability pair, NetBox
+(two nodes) with its Valkey/Sentinel trio, the nginx reverse proxy pair, the
+dark-triage helpdesk, and node_exporter and Alloy on all of them.
+
+This README covers DNS and DHCP in detail. NetBox, Valkey, the proxy and
+dark-triage are documented in the header comment of their `.tf` file.
 
 | File | What it does |
 | --- | --- |
 | `main.tf` | Deploys BIND 9 on each DNS VM over SSH (Podman + Quadlet), and generates the TSIG key |
 | `dns-records.tf` | Builds the generated record names (taking the leaf list from `modules/fabric/leaves`), and manages records in `lylat.space` with signed RFC 2136 dynamic updates (the `hashicorp/dns` provider) |
+| `dns-keepalived.tf` | keepalived on the DNS pair: the DNS VIPs (see [The DNS VIP](#the-dns-vip)) |
+| `dns-node-exporter.tf`, `dns-bind-exporter.tf` | node_exporter and bind_exporter on the DNS VMs |
 | `dhcp.tf` | Works out the DHCP HA pair and calls [modules/services/dhcp](../../modules/README.md#servicesdhcp) for each DHCP VM (VyOS API) |
+| `netbox.tf` | NetBox and its worker (Podman Quadlets), the CephFS mount and keepalived on the `netbox` VMs, canary first |
+| `valkey.tf` | Valkey + Sentinel (NetBox's cache and task queue) on the `valkey` VMs |
+| `proxy.tf` | The nginx reverse proxy, its nftables rules and keepalived on the `proxy` VMs; needs the certificate from [certs](../certs/README.md) |
+| `ticketing.tf` | The dark-triage helpdesk (built from a pinned commit, Podman Quadlet) and keepalived on the `ticketing` VMs |
+| `netbox-monitoring.tf`, `valkey-monitoring.tf`, `proxy-monitoring.tf`, `ticketing-monitoring.tf` | node_exporter, the role's own exporters and Alloy on those VMs, separate from the service's deploy |
+| `alloy.tf` | The Grafana Alloy install script every service VM gets (see [Logs to Loki](#logs-to-loki)) |
+| `telemetry.tf` | Each VM's lylat-telemetry address (`scrape_ip`), where the exporters listen |
 | `variables.tf` | This root's own settings (see [Inputs](#inputs)) |
 | `providers.tf` | Provider requirements: `vyoscmd` (built locally), `hashicorp/dns`, `hashicorp/random` |
-| `templates/` | `named.conf`, the seed zone, the TSIG key file, the Quadlet unit and the deploy script |
+| `templates/` | `named.conf`, the seed zone, the TSIG key file, the Quadlet units, the keepalived and nginx configs and the deploy scripts |
 | `tests/` | A `tofu test` suite with mocked providers |
 
 ## Contents
@@ -26,6 +40,7 @@ DNS records, and the DHCP high-availability pair.
 - [Logs to Loki](#logs-to-loki)
 - [Checking that it works](#checking-that-it-works)
 - [Tests](#tests)
+- [The DNS VIP](#the-dns-vip)
 
 ## Requirements
 
@@ -55,7 +70,7 @@ transfers.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `ssh_private_key_path` | `~/.ssh/id_rsa` | Private key used to SSH into the DNS VMs |
+| `ssh_private_key_path` | `~/.ssh/id_rsa` | Private key used to SSH into every VM this root deploys (DNS, NetBox, Valkey, proxy, ticketing) |
 | `containers` | [`software-versions.auto.tfvars`](../../inventory/auto.tfvars/software-versions.auto.tfvars) | Every container image and version (BIND, exporters, Alloy, nginx, NetBox), shared with monitoring-config: change a `version` there (the same file's `packages` are monitoring-config's) |
 | `vyos_api_key` | `null` (then `VYOS_API_KEY` is used) | API key for the DHCP VMs |
 | `dns_primary` | `dns01` | Which DNS VM is the writable primary. The others are secondaries. |
@@ -67,13 +82,23 @@ transfers.
 | `dns_node_exporter` | `{}` (port 9100) | node_exporter on each DNS VM ([`dns-node-exporter.tf`](dns-node-exporter.tf)): a Podman Quadlet with host networking, listening on the VM's lylat-telemetry address `:9100` (`telemetry.tf` `scrape_ip`; the management address without a telemetry NIC), where monitoring-config's `node` job scrapes it. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it. |
 | `dns_bind_exporter` | `{}` | bind_exporter on each DNS VM ([`dns-bind-exporter.tf`](dns-bind-exporter.tf)): a Podman Quadlet with host networking, reading BIND's statistics channel (`127.0.0.1:8053`, loopback only, in `named.conf`) and listening on the VM's lylat-telemetry address `:9119` (like node_exporter), where monitoring-config's `bind` job scrapes it. Its deploy fails unless it reports `bind_up 1`. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it (the statistics channel stays on). |
 | `alloy` | `{}` (port 12345) | Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs ([`alloy.tf`](alloy.tf)). Every VM pushes from its lylat-telemetry NIC (VLAN 1501, `telemetry.tf`) to `loki_url` (`http://10.55.18.101:3100`, Loki's telemetry VIP); a check warns about Alloy VMs without that NIC. Also takes `max_age` (`12h`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
-| `ticketing_monitoring` | `{}` (node_exporter `v1.12.1`) | node_exporter on the triage VMs ([`ticketing-monitoring.tf`](ticketing-monitoring.tf)), next to their Alloy; separate from the app's deploy. `null` skips both. |
+| `ticketing_monitoring` | `{}` | node_exporter on the triage VMs ([`ticketing-monitoring.tf`](ticketing-monitoring.tf)), next to their Alloy; separate from the app's deploy. `null` skips both. |
+| `netbox_monitoring`, `valkey_monitoring`, `proxy_monitoring` | `{}` | The same for the NetBox, Valkey (plus the Valkey and Sentinel exporters) and proxy (plus nginx-prometheus-exporter) VMs. `null` skips them. |
+| `netbox` | see [`netbox.tf`](netbox.tf) | NetBox image, database, superuser and VIP. `null` = don't deploy. |
+| `valkey` | see [`valkey.tf`](valkey.tf) | Valkey + Sentinel for NetBox. `null` = don't deploy. |
+| `proxy` | see [`proxy.tf`](proxy.tf) | The reverse proxy: published hosts and where they forward to, certificate path, VIP. `null` = don't deploy. |
+| `ticketing` | see [`ticketing.tf`](ticketing.tf) | dark-triage source (pinned commit), ports, database and VIP. `null` = don't deploy. |
+| `telemetry_vlan_id` | `1501` | VLAN of lylat-telemetry, every service VM's scrape and log-push NIC |
+| `app_db_passwords` | from `app-db.secret.auto.tfvars` | Postgres passwords of the app databases (NetBox, dark-triage) on the Patroni cluster, shared with monitoring-config |
+| `netbox_cephfs_key` | `null` (from `netbox.secret.auto.tfvars`) | CephFS key for NetBox's media mount. `null` keeps media local to each VM. |
 | `dns_vrrp` | `{ vip = "10.8.53.53/16", zone_vip = "10.53.53.53/16", router_id = 53 }` | keepalived VIPs for the DNS pair: `vip` on BIND's service NIC (VLAN 8), `zone_vip` on the lylat-dns NIC (`zone_vlan_id` 1301), one VRRP instance, adverts unicast over the `ha_dns` L2VNI. BIND listens on both; DHCP hands out only `vip`. `null` skips it. See [The DNS VIP](#the-dns-vip). |
 | `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
 
-The root also reads `vms`, `vnis`, `nodes` and `fabric` from the inventory.
-`vyos_api_key` comes from `vyos.secret.auto.tfvars`, linked into this root (see
-[Secrets](../../inventory/README.md#secrets)).
+The root also reads `vms`, `vnis`, `l2vnis`, `vips`, `nodes` and `fabric` from the
+inventory. `vyos_api_key` comes from `vyos.secret.auto.tfvars`, linked into this
+root like the `app-db`, `netbox` and `state` secret files (see
+[Secrets](../../inventory/README.md#secrets)). The state and plans of this root are
+encrypted with `state_passphrase`.
 
 ## First deployment: bootstrap first
 
@@ -144,7 +169,8 @@ What ends up on each DNS VM:
 **What's Quadlet?** It's Podman's systemd integration. You drop a `.container`
 file into `/etc/containers/systemd/`, and systemd turns it into a normal service.
 Here, that's `bind9.service`. It uses host networking, restarts on failure, and
-starts at boot. BIND runs in the foreground (`-g`), so its logs go to the journal.
+starts at boot. BIND runs in the foreground (`-f`) and logs to stderr through `named.conf`'s
+`logging` channel, so its logs go to the journal with category and severity.
 
 **When it redeploys.** The script runs again whenever any of these change:
 

@@ -4,7 +4,7 @@ This root configures the two MikroTik RouterOS spines through their REST API.
 The spines carry the **underlay** (eBGP over IPv6 link-local, one session per
 leaf) and act as **EVPN route reflectors** for the overlay (iBGP, one session
 per leaf). BFD runs on both kinds of session. The root also sets the spines'
-NTP client and their in-memory log size.
+NTP client, their in-memory log size and remote syslog.
 
 The code is in [modules/fabric/spines](../../modules/README.md#fabricspines).
 The provider block in `inventory/provider-config/routeros-provider.tf` uses
@@ -47,6 +47,7 @@ Using spine 1 (`m326-1`, ID 1) as the example:
 | BGP timers | `keepalive-time=1m hold-time=3m` on both templates **and** every connection | Set explicitly everywhere; see [Inputs](#inputs) |
 | NTP client | unicast, servers from `fabric.settings.ntp_servers` | Only managed when that list isn't empty |
 | Logging action | the built-in `memory` action: 10,000 lines, keeps logging when full | A bigger in-memory log for troubleshooting |
+| Logging action + rules | the built-in `remote` action → `fabric.settings.spine_syslog.host` (UDP 514, BSD syslog), and one rule per topic (`info`, `warning`, `error`, `critical`) | Remote syslog to Loki's Alloy receiver. Only managed when `spine_syslog` is set |
 
 `next-hop propagate` on the overlay means the spines never put themselves in the
 data path. Reflected EVPN routes keep the original leaf's VTEP address as the
