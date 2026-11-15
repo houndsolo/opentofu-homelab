@@ -62,6 +62,10 @@ locals {
     "--collector.systemd.unit-include=.+[.](service|socket|timer)",
   ]
 
+  # What templates/container.tftpl needs and most units leave empty (templatefile() has no optional
+  # variables): a unit merges its own settings over these.
+  container_defaults = { publish = [], volumes = [], env = {}, env_files = [], exec = [], user = null, caps = [], podman_args = [], reload = false }
+
   # Deploy-time check of a staged keepalived.conf ($root is the staging directory, deploy.sh.tftpl),
   # the same on every role that runs keepalived. Skipped on the first deploy, before the package is installed.
   keepalived_validation = "if command -v keepalived >/dev/null; then keepalived -t -f \"$root/etc/keepalived/keepalived.conf\"; else echo \"keepalived not installed yet: config test skipped\"; fi"
@@ -679,7 +683,7 @@ locals {
   # Quadlet units per Grafana VM (no secrets; those live in grafana.env).
   grafana_units = {
     for name, g in var.grafana : name => {
-      grafana = templatefile("${path.module}/templates/container.tftpl", {
+      grafana = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "grafana"
         description = "Grafana"
         image       = var.images.grafana
@@ -703,31 +707,21 @@ locals {
           }, local.grafana_db_env, local.home_dashboard_path == null ? {} : {
           GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = local.home_dashboard_path
         })
-        env_files   = ["${local.grafana_conf}/grafana.env"]
-        exec        = []
-        user        = null
-        caps        = []
-        podman_args = []
+        env_files = ["${local.grafana_conf}/grafana.env"]
         # Grafana 13's file provisioner doesn't always pick up new dashboard folders by
         # polling, so dashboard changes ask it to rescan through the admin API.
         reload = "/usr/bin/podman exec grafana sh -c 'curl -fsS -X POST -u \"$$GF_SECURITY_ADMIN_USER:$$GF_SECURITY_ADMIN_PASSWORD\" http://127.0.0.1:3000/api/admin/provisioning/dashboards/reload'"
-      })
-      node-exporter = templatefile("${path.module}/templates/container.tftpl", {
+      }))
+      node-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "node-exporter"
         description = "Prometheus node exporter"
         image       = var.images.node_exporter
         network     = "host"
-        publish     = []
         volumes     = local.node_exporter_volumes
-        env         = {}
-        env_files   = []
         # address-info: node_network_address_info shows which VM holds the Grafana VIP.
         exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(g.telemetry_address, g.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors)
-        user        = null
-        caps        = []
         podman_args = ["--pid=host"]
-        reload      = false
-      })
+      }))
     }
   }
 

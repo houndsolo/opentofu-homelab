@@ -188,12 +188,11 @@ locals {
     })
   }
   alloy_unit = {
-    for name, a in local.alloy_hosts : name => templatefile("${path.module}/templates/container.tftpl", {
+    for name, a in local.alloy_hosts : name => templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
       name        = "alloy"
       description = "Grafana Alloy (journal${a.syslog ? " and syslog" : ""} -> Loki)"
       image       = var.images.alloy
       network     = "host" # syslog senders' addresses, the VIPs, the journal
-      publish     = []
       volumes = [
         "${local.alloy_conf}:/etc/alloy:ro",
         "${local.alloy_data}:/var/lib/alloy",
@@ -201,19 +200,14 @@ locals {
         "/run/log/journal:/run/log/journal:ro",
         "/etc/machine-id:/etc/machine-id:ro",
       ]
-      env       = {}
-      env_files = []
       exec = concat([
         "run", "/etc/alloy/config.alloy",
         "--storage.path=/var/lib/alloy/data",
         "--server.http.listen-addr=${a.listen}:12345",
         "--disable-reporting",
       ], local.alloy_stability[name])
-      user        = null
-      caps        = []
-      podman_args = []
-      reload      = true # SIGHUP reloads the config
-    })
+      reload = true # SIGHUP reloads the config
+    }))
   }
   alloy_dirs = [
     { path = local.alloy_conf, mode = "0755", owner = "root" },
@@ -254,53 +248,33 @@ locals {
 
   logging_units = {
     for name, vm in var.logging : name => {
-      haproxy = templatefile("${path.module}/templates/container.tftpl", {
+      haproxy = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "haproxy"
         description = "haproxy: S3 on 127.0.0.1:7480 -> Ceph RGWs"
         image       = var.images.haproxy
         network     = "host"
-        publish     = []
         volumes     = ["${local.logging_conf}/haproxy:/usr/local/etc/haproxy:ro"]
-        env         = {}
-        env_files   = []
-        exec        = []
-        user        = null
-        caps        = []
-        podman_args = []
-        reload      = false
-      })
-      loki = templatefile("${path.module}/templates/container.tftpl", {
+      }))
+      loki = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "loki"
         description = "Grafana Loki (monolithic, ring of ${length(var.logging)})"
         image       = var.images.loki
         network     = "host"
-        publish     = []
         volumes     = ["${local.logging_conf}/loki:/etc/loki:ro", "${local.logging_data}/loki:/loki"]
-        env         = {}
         env_files   = ["${local.logging_conf}/loki.env"]
         exec        = ["-config.file=/etc/loki/loki.yaml", "-config.expand-env=true"]
-        user        = null
-        caps        = []
-        podman_args = []
-        reload      = false
-      })
+      }))
       alloy = local.alloy_unit[name]
-      node-exporter = templatefile("${path.module}/templates/container.tftpl", {
+      node-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "node-exporter"
         description = "Prometheus node exporter"
         image       = var.images.node_exporter
         network     = "host"
-        publish     = []
         volumes     = local.node_exporter_volumes
-        env         = {}
-        env_files   = []
         # address-info: node_network_address_info shows which VM holds each VIP.
         exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
-        user        = null
-        caps        = []
         podman_args = ["--pid=host"]
-        reload      = false
-      })
+      }))
     }
   }
 

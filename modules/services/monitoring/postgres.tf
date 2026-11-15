@@ -292,33 +292,23 @@ locals {
 
   pg_units = {
     for name, vm in var.postgres : name => {
-      haproxy = templatefile("${path.module}/templates/container.tftpl", {
+      haproxy = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "haproxy"
         description = "haproxy: S3 (TLS) on 127.0.0.1:7443 -> Ceph RGWs"
         image       = var.images.haproxy
         network     = "host"
-        publish     = []
         volumes = [
           "${local.pg_conf}/haproxy:/usr/local/etc/haproxy:ro",
           "/etc/ssl/certs/ssl-cert-snakeoil.pem:/usr/local/etc/haproxy/tls/s3.pem:ro",
           "/etc/ssl/private/ssl-cert-snakeoil.key:/usr/local/etc/haproxy/tls/s3.pem.key:ro",
         ]
-        env         = {}
-        env_files   = []
-        exec        = []
-        user        = "0" # reads the key, then drops to haproxy (global user/group)
-        caps        = []
-        podman_args = []
-        reload      = false
-      })
-      postgres-exporter = templatefile("${path.module}/templates/container.tftpl", {
+        user = "0" # reads the key, then drops to haproxy (global user/group)
+      }))
+      postgres-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "postgres-exporter"
         description = "Prometheus postgres_exporter (local member)"
         image       = var.images.postgres_exporter
         network     = "host"
-        publish     = []
-        volumes     = []
-        env         = {}
         env_files   = ["${local.pg_conf}/postgres-exporter.env"]
         # Off by default, used by the Databases dashboards: pg_stat_checkpointer (PG 17+ moved the
         # checkpoint counters out of pg_stat_bgwriter), postmaster start time, transactions open
@@ -330,27 +320,17 @@ locals {
           "--collector.long_running_transactions",
           "--collector.database_wraparound",
         ]
-        user        = null
-        caps        = []
-        podman_args = []
-        reload      = false
-      })
-      node-exporter = templatefile("${path.module}/templates/container.tftpl", {
+      }))
+      node-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "node-exporter"
         description = "Prometheus node exporter"
         image       = var.images.node_exporter
         network     = "host"
-        publish     = []
         volumes     = local.node_exporter_volumes
-        env         = {}
-        env_files   = []
         # address-info: which VM holds the VIP; textfile: pg-backup's result.
         exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info", "--collector.textfile.directory=/host${local.pg_textfile}"], local.node_exporter_collectors) # main.tf: the extra collectors
-        user        = null
-        caps        = []
         podman_args = ["--pid=host"]
-        reload      = false
-      })
+      }))
     }
   }
 

@@ -190,52 +190,32 @@ locals {
 
   metrics_units = {
     for name, vm in var.metrics : name => {
-      haproxy = templatefile("${path.module}/templates/container.tftpl", {
+      haproxy = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "haproxy"
         description = "haproxy: S3 on 127.0.0.1:7480 -> Ceph RGWs"
         image       = var.images.haproxy
         network     = "host"
-        publish     = []
         volumes     = ["${local.metrics_conf}/haproxy:/usr/local/etc/haproxy:ro"]
-        env         = {}
-        env_files   = []
-        exec        = []
-        user        = null
-        caps        = []
-        podman_args = []
-        reload      = false
-      })
-      mimir = templatefile("${path.module}/templates/container.tftpl", {
+      }))
+      mimir = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "mimir"
         description = "Grafana Mimir (monolithic, ring of ${length(var.metrics)})"
         image       = var.images.mimir
         network     = "host"
-        publish     = []
         volumes     = ["${local.metrics_conf}/mimir:/etc/mimir:ro", "${local.metrics_data}/mimir:/data"]
-        env         = {}
         env_files   = ["${local.metrics_conf}/mimir.env"]
         exec        = ["-config.file=/etc/mimir/mimir.yaml", "-config.expand-env=true"]
-        user        = null
-        caps        = []
-        podman_args = []
-        reload      = false
-      })
-      node-exporter = templatefile("${path.module}/templates/container.tftpl", {
+      }))
+      node-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
         name        = "node-exporter"
         description = "Prometheus node exporter"
         image       = var.images.node_exporter
         network     = "host"
-        publish     = []
         volumes     = local.node_exporter_volumes
-        env         = {}
-        env_files   = []
         # address-info: node_network_address_info shows which VM holds the VIP.
         exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
-        user        = null
-        caps        = []
         podman_args = ["--pid=host"]
-        reload      = false
-      })
+      }))
     }
   }
 
