@@ -18,7 +18,7 @@ generates the secrets and does the SSH deployment.
 | VM | Services (systemd units) | Listens on |
 | --- | --- | --- |
 | backends (mon01 primary, mon02 replica; [Backend HA](#backend-ha-mon01--mon02)) | `prometheus`, `alertmanager` | monitoring network (`10.5.11.30`/`.31`) and the backend NIC in lylat-obs (`10.54.16.30`/`.31`): 9090, 9093; Alertmanager also on the backend VIP `10.54.16.102`; Alertmanager gossip 9094 on the ha_monitor segment (VLAN 1016, `10.50.16.30`/`.31`) |
-| | `snmp-exporter`, `blackbox-exporter`, `pve-exporter` | not published; Prometheus reaches them by name on the `monitoring` Podman network |
+| | `snmp-exporter`, `blackbox-exporter`, `pve-exporter` | Prometheus reaches them by name on the `monitoring` Podman network. `snmp-exporter` (9116) and `blackbox-exporter` (9115) are also published on the backend address, for the other replica's self-scrape; `pve-exporter` isn't published |
 | | `telegraf` ([C9800 telemetry](#c9800-telemetry-model-driven-dial-out), `wlc_telemetry`) | gRPC MDT receiver on the monitoring network only: `10.5.11.30:57500` (mon02: `.31`) and the monitoring VIP `10.5.11.102:57500` (`wlc-telemetry-vip`, where the WLCs send); its own metrics on the backend address, 9273; the `wlc_*` series on 9275 (all addresses) |
 | | `keepalived` (Debian package) | VRRPv3 (router id 102) unicast over IPv6 on the ha_monitor segment (`fd69:5016::30`/`::31`); VIPs `10.5.11.102/16` (vmbr100 NIC, eth2) and `10.54.16.102/16` (lylat-obs NIC, eth1) |
 | | `node-exporter` | lylat-telemetry address (`10.55.16.30`/`.31`), 9100 |
@@ -70,10 +70,6 @@ backends. Each uploads `deploy.sh` to a private `/tmp` directory, runs it with
    `--config.check` and `telegraf config check`. A broken config never gets installed.
 4. Creates the directories. Data directories are owned by the user each image
    runs as (looked up from the image), so non-root containers can write them.
-   Postgres starts as root and drops to its `postgres` user, so its data directory
-   is owned by that user, looked up in the image (the entrypoint only fixes
-   ownership when the container starts, so any other owner would lock out a server
-   this deployment doesn't restart).
 5. Installs only files that changed (content, mode or owner), and records which
    services those files belong to. Under the dashboards directory, files that are
    no longer in the module are deleted.
@@ -85,7 +81,7 @@ backends. Each uploads `deploy.sh` to a private `/tmp` directory, runs it with
    reloadable config changed. Prometheus, Alertmanager and blackbox reload, so
    editing scrape targets doesn't restart Prometheus.
 8. Waits up to two minutes for every service to be active and for its health
-   checks (`/-/ready`, `pg_isready`, Grafana `/api/health`, Telegraf's ports) to pass.
+   checks (`/-/ready`, Grafana `/api/health`, Telegraf's ports) to pass.
    If not, it prints the failing units' journal and exits non-zero.
 
 `deploy.sh check` runs steps 1–3 and lists the files that would change or be
@@ -103,11 +99,10 @@ part of the rendered files, but they're generated once and kept in state.
 | `/etc/containers/systemd/*.container`, `monitoring.network` | The Quadlet units (`<name>.service`) |
 | `/etc/monitoring/prometheus/prometheus.yml`, `rules/basic.yml` | Prometheus config and alert rules |
 | `/etc/monitoring/alertmanager/alertmanager.yml` | Alertmanager config |
-| `/etc/monitoring/blackbox/config.yml` | Blackbox modules: `icmp`, `http_2xx`, `dns_soa` |
+| `/etc/monitoring/blackbox/config.yml` | Blackbox modules: `icmp`, `http_2xx`, `https`, `dns_soa` |
 | `/etc/monitoring/pve-exporter/pve.yml` | PVE API token (mode 0640, only with a token) |
-| `/etc/monitoring/postgres.env` | Initial credentials (mode 0600) |
 | `/etc/monitoring/telegraf/telegraf.conf`, `wlc.star` | Telegraf (C9800 telemetry) config and its starlark reshaping |
-| `/var/lib/monitoring/{prometheus,alertmanager,postgres}` | Data. `/var/lib/monitoring/influxdb` is the retired InfluxDB's data, left in place until it is removed by hand ([Retired: InfluxDB](#retired-influxdb)) |
+| `/var/lib/monitoring/{prometheus,alertmanager}` | Data. `/var/lib/monitoring/postgres` (mon01's retired Postgres container) and `/var/lib/monitoring/influxdb` (the retired InfluxDB) are left in place until removed by hand ([Retired: InfluxDB](#retired-influxdb)) |
 | `/etc/grafana-container/provisioning/datasources/datasources.yml` | Grafana datasources (graf VMs) |
 | `/etc/grafana-container/provisioning/dashboards/dashboards.yml` | Grafana dashboard provider (graf VMs) |
 | `/etc/grafana-container/provisioning/dashboards/files/<Folder>/*.json` | Provisioned dashboards (graf VMs) |
@@ -134,13 +129,13 @@ service VM updates Prometheus on the next apply.
 | `vyos-node` (:9100), `vyos-frr` (:9342) | every leaf (mgmt), DHCP VMs (mgmt), `vyos_extra_targets` (fw-wan) | `fabric`, `nodes`, `vms` |
 | `snmp-<name>` | `snmp_targets`: FS switches, CRS317s and spines on their monitoring-network (10.5/16) addresses, where the MikroTiks bind their SNMP agent; the C9800 WLCs (10.5.1.1/.2) over SNMPv3 (`snmp_v3_auths`). The MikroTik jobs walk `mikrotik_lite` (below) and use a 30 s interval and 20 s `scrape_timeout` (RouterOS walks are slow) | variables |
 | `pve` | cluster nodes' API, through pve-exporter (only with a token; standalone greatfox is left out) | `nodes` |
-| `blackbox-icmp`, `blackbox-http_2xx` | `blackbox_icmp_targets`, `blackbox_http_targets` | variables |
+| `blackbox-icmp`, `blackbox-http_2xx`, `blackbox-https` | `blackbox_icmp_targets`, `blackbox_http_targets`, `blackbox_https_targets` (the sites published through the reverse proxy; HTTPS with a valid certificate) | variables |
 | `blackbox-dns_soa` | each DNS VM's service address, `SOA lylat.space` | `vms` |
 | `grafana` | each Grafana VM's `/metrics` on its backend (lylat-app) address | `vms` |
-| `telegraf` | Telegraf's own `internal_*` metrics (`telegraf:9273` on the Podman network), with `wlc_telemetry` | variables |
+| `telegraf` | Telegraf's own `internal_*` metrics (each backend's backend address, :9273), with `wlc_telemetry` | variables |
 
-Most targets **don't run an exporter yet**, so they show as down (`up == 0`)
-until they do. See [Next steps](#next-steps).
+A target that doesn't run its exporter yet shows as down (`up == 0`) until it
+does. Today that is only greatfox; see [Next steps](#next-steps).
 
 ### The `mikrotik_lite` SNMP module
 
@@ -179,7 +174,7 @@ Grafana's **home page** is the overview (`GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_P
 points at its provisioned file), until a user, team or org preference picks
 another. Grafana serves that copy as `/d/default-home-dashboard`; the one in the
 Overview folder (`lylat-overview`) is the same JSON. Every dashboard has a **Dashboards** dropdown in the top bar listing all
-of them (they share the `lylat` tag); the overview shows them as buttons.
+of them (they share the `lylat` tag); the overview has one dropdown per folder instead (tags `lylat-<folder>`).
 
 | Folder | Dashboard (uid) | Source | Shows |
 | --- | --- | --- | --- |
@@ -194,6 +189,8 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Edge | fw-wan VRFs & routing (`fw-wan-routing`) | custom | Router picker (default fw-wan, works for the leaves and DHCP VMs) and VRF picker: BGP/BFD summary, routes, VRFs, route changes, RIB not in FIB; routing table per VRF (IPv4/IPv6 RIB and FIB, BGP RIB, sessions up, changes), routes and route changes per VRF; BGP peer table (state, uptime, prefixes, messages, flaps), session state, BGP RIB, prefixes rx/tx, messages; traffic per VRF, interface traffic and table with the VRF (fw-wan); collapsed BFD peers and frr_exporter collectors |
 | Network | Wireless (C9800) (`wireless-overview`) | custom (Prometheus: `wlc_*`, job `wlc`) | The C9800 WLCs' [model-driven telemetry](#c9800-telemetry-model-driven-dial-out). **Status:** clients, APs joined, radios up/total and down, WLANs with clients, telemetry age per WLC, SNMP up. **Controllers:** table (HA role, clients, radios, Linux CPU, IOSd CPU, load, memory; click a WLC for its logs), CPU per core, memory, IOSd CPU and load. **Access points:** AP table (state, clients, IP, model, serial, software, mode, uptime, joined for, uplink state and speed, tags, last disconnect reason, certificate expiry; click an AP for its join/leave lines), radio table (band, state, channel and bonded channels, width, tx power and level, clients, channel busy, tx/rx/non-Wi-Fi airtime, tx/rx traffic, last channel change, BSS color), channel busy, clients, traffic, channel, tx power and retries/failures per radio. **RF environment:** airtime breakdown per radio, AP uplink traffic, noise floor / strongest other network / other networks' airtime / other APs per scanned channel. **SSIDs:** WLAN table (clients, random-MAC clients, download/upload), clients per WLAN, traffic per SSID. **Clients:** table (MAC, IP, AP, SSID, band, protocol, channel, RSSI, SNR, PHY rate, MCS, streams, download/upload, retries, state, security, connected for; click a client for its history), clients per WLC and by band/protocol, RSSI and throughput per client. Collapsed: the WLCs' own interfaces from SNMP. WLC picker |
 | Network | Wireless client (C9800) (`wireless-client`) | custom (Prometheus: `wlc_*`, job `wlc`) | One client (MAC picker, most recently seen first): its row of the clients table, RSSI/SNR, PHY rate and spatial streams, throughput and packets (download up, upload down), retries/drops/decrypt and MIC errors, and a timeline of its AP, SSID (a row each) and channel (roams) |
+| Network | SNMP interface throughput (`snmp-throughput`) | custom (`snmp.py`) | Interface traffic, link utilisation, errors and operational state, for one or several SNMP devices |
+| Network | SNMP Interface Throughput (community) (`snmp-throughput-community`) | grafana.com 1124 rev 1 | Interface bandwidth as collected by the SNMP exporter |
 | Network | Mikrotik monitoring (`mikrotik-snmp`) | [grafana.com 14420](https://grafana.com/grafana/dashboards/14420) rev 9 | MikroTik `mikrotik_lite` module: board/firmware, CPU temperature, per-interface traffic and Ethernet error counters, interface table, neighbors (MNDP/LLDP) |
 | Probes | Blackbox probes (`blackbox-probes`) | custom | ICMP/HTTP/DNS SOA probes: status, availability over the time range, duration, ICMP RTT and hop limit, HTTP status/phases (no TLS)/size, DNS query time, SOA serial and drift between the DNS servers |
 | Monitoring | Monitoring stack (`monitoring-stack`) | custom | Component status and versions, config reloads; Prometheus targets per job, scrape duration, samples, head series, TSDB size, ingestion, rule evaluation, query latency; Alertmanager alerts, silences, notifications; Grafana requests, latency, datasource queries, DB connections, alerting; **Loki and Alloy**: up, ACTIVE ring members per ring, unhealthy/memberlist members, RGWs UP per haproxy, flush failures, Alloy drops and syslog parse errors, lines/bytes received, Alloy sent/received, chunks flushed to S3, S3 requests and p95 latency, in-memory streams and flush queue; SNMP/FRR/node exporter scrape times; **Telegraf** (C9800 telemetry, pvestatd): metrics received per input, output buffer; process memory and CPU |
@@ -207,6 +204,7 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Storage | Ceph RBD overview (mixin) (`ceph-rbd-overview`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | RBD IOPS/throughput/latency totals and the top images |
 | Storage | Ceph RBD details (mixin) (`ceph-rbd-details`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | One image: IOPS, throughput, latency |
 | Storage | Ceph filesystem (mixin) (`ceph-filesystem`) | [ceph-mixin](https://github.com/ceph/ceph/tree/tentacle/monitoring/ceph-mixin) `tentacle` @ `804c5928` | CephFS: metadata/data pool usage and I/O, MDS requests, sessions, caps, cache, journal, reply latency |
+| Storage | Ceph RGW buckets (`ceph-rgw-buckets`) | custom (`rgw.py`) | Per-bucket RGW (S3) usage: size, objects, growth and quotas, from the collector in [`pve-collectors/`](pve-collectors/README.md) |
 | Proxmox | Proxmox overview (`proxmox-overview`) | custom (Prometheus, job `pvestatd`) | **Cluster:** nodes up/down, guests (running VMs/CTs, stopped, templates), CPU and memory over all nodes (sparklines), vCPUs and memory allocated to running guests vs the nodes' cores and RAM. **Nodes:** table (state, uptime, CPU, cores, load per core, IO wait, memory, RAM, swap, root FS, guests, physical NIC in/out; click for Proxmox node). **Node trends:** CPU, memory, load per core, physical NIC traffic, IO wait per node. **Guests:** top 10 by CPU, memory, disk I/O and network, running guests over time, guest CPU per node. **Storage:** used % per storage (shared ones once) and over time |
 | Proxmox | Proxmox node (`proxmox-node`) | custom (Prometheus, job `pvestatd`) | One node (picker): state, uptime, CPU/memory/swap/root FS gauges, load per core, guests, cores/RAM/swap/disk, node_exporter state (click for Node Exporter Full); CPU and IO wait, load averages vs cores; memory (used/available, ZFS ARC where there is one), swap, root FS; physical NICs, bridges and bonds, interface table; its guests (table, click for Proxmox guests; stacked CPU, memory, disk I/O and network); its storages; collapsed: temperatures and disk busy from node_exporter |
 | Proxmox | Proxmox guests (`proxmox-guest`) | custom (Prometheus, job `pvestatd`) | Every guest on the selected nodes (table: type, node, status, uptime, vCPUs, CPU, memory used/configured, disk size, disk and net rates, tags), then one guest (picker by name, value = vmid): status, type, node, uptime, vCPUs, memory, disk size, tags, CPU/memory/balloon/CT root disk gauges, pressure (PSI); CPU, memory (used, host, configured, balloon target), pressure; disk throughput, per-disk IOPS, latency and throughput, CT root disk, I/O errors; network total and per NIC; collapsed: balloon, guest page faults and swap |
@@ -215,7 +213,7 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Logs | Network device logs (`logs-network`) | custom (Loki) | Leaves, fw-wan, MikroTik spines/CRS317, FS switches, C9800 WLCs: event counts (BGP/BFD, interface up/down, STP, auth failures, logins, config changes, AP join/leave, client failures), events per device (status history), events by category, lines per device; BGP and BFD session changes of the VyOS routers from frr_exporter (Prometheus: changed or restarted sessions, state timeline), RouterOS session state lines, interface events, STP, logins/auth failures/config changes, AP join/leave table, client failures, Cisco/FS message types; all device logs. Device and search pickers |
 | Logs | fw-wan firewall & VPN logs (`logs-fw-wan`) | custom (Loki) | Firewall log parsed with LogQL (chain, rule, action, in/out, proto, addresses, ports): logged/dropped/rejected/accepted, distinct sources and ports, by rule/action/interface, top dropped sources, destinations, ports and rules, firewall log table; strongSwan IKE events (initiating, established, retransmits, failures, deletes), initiations per connection, charon log without packet traces, WireGuard; config commits and the rest of the router log. Action, address and search pickers |
 | Logs | Proxmox & Ceph logs (`logs-proxmox`) | custom (Loki) | PVE nodes: errors, warnings, failed and started tasks, corosync, HA and auth events; lines by node and app; corosync events, corosync/pmxcfs and HA logs; tasks by type and task table; guest lifecycle, PVE daemons, kernel warnings. Ceph cluster log (one mon's copy): health checks raised/cleared, HEALTH_ERR, OSD events, slow ops; by severity, health checks per bucket and in range, health changes, OSD events and slow ops, the log without DBG, Ceph daemons and kernel client. Node, Ceph mon and search pickers |
-| Logs | Services logs (`logs-services`) | custom (Loki) | BIND: transfers, notifies, DNSSEC validation and resolution errors, queries (if logged), messages by kind, zone transfer table, log. Kea: leases, NAKs, allocation failures, HA state changes and comms problems, messages by code, leases and HA transition tables, log. keepalived: who became MASTER of each VRRP instance, transitions, state change table. Monitoring stack containers: errors/warnings by container, haproxy, Loki/Alloy, Prometheus/Alertmanager and Grafana logs. Container and search pickers |
+| Logs | Services logs (`logs-services`) | custom (Loki) | BIND: transfers, notifies, DNSSEC validation and resolution errors, messages by kind, zone transfer table, log. Kea: leases, NAKs, allocation failures, HA state changes and comms problems, messages by code, leases and HA transition tables, log. keepalived: who became MASTER of each VRRP instance, transitions, state change table. Monitoring stack containers: errors/warnings by container, haproxy, Loki/Alloy, Prometheus/Alertmanager and Grafana logs. Container and search pickers |
 | Databases | Postgres cluster (Patroni) (`postgres-cluster`) | custom (Prometheus + Loki) | The Patroni cluster behind Grafana, NetBox and dark-triage. **Status:** leader, VIP holder, a checks tile (one leader, VIP on the leader, replicas streaming and < 1 MiB behind, leader lock, auto failover, etcd quorum, WAL archived < 1 h, backup < 36 h, RGW reachable), timeline and leader changes in range, last full backup and last WAL archived, connections used, the leader's WAL rate. **Members** table (role, state, VIP, timeline, streaming, replay lag, pending restart, DCS key age, uptime, version, connections, WAL held by slots; click for the instance dashboard or logs). **Failover history:** role timeline and Patroni's promote/demote/switchover lines. **Replication:** replay lag in bytes and time, WAL written vs received, the leader's walsenders, WAL kept for slots. **Apps and connections:** app probes, connections per database and by state, commits and rows written per app database, longest open transaction, database size and growth. **WAL, archive and backups:** pgBackRest results, segments archived/failed, pg_wal vs max_wal_size, checkpoints and their write/sync time, RGWs behind haproxy. **etcd:** role timeline, WAL fsync/commit p99 against the 300 ms heartbeat, leader changes and failed proposals, peer RTT, Patroni's key age vs ttl, db size. **Hosts:** CPU, memory, vda busy/await, root FS. Collapsed: Postgres errors, Patroni/pgBackRest/etcd warnings. Cluster (scope) picker |
 | Databases | Postgres instance (`postgres-instance`) | custom | One member (picker) and its databases (picker): role, exporter, version, uptime, connections, cache hit, commits, deadlocks/conflicts; backends by user, state and wait event, transactions, rows read/written; cache hit ratio, block reads vs hits, temp files, bgwriter/checkpointer, checkpoints, pg_wal; locks by mode, longest transaction, xid wraparound age; key settings and settings that differ between members; collapsed: postgres_exporter collectors |
 | Databases | Prometheus (`prometheus-server`) | custom (Prometheus + Loki) | The HA pair mon01/mon02 (7 d / 20 GB local, remote_write to Mimir). **Status:** the replica Mimir keeps and HA failovers, a checks tile (13 tests mirroring the Prometheus alerts: config reload, TSDB/rule/scrape failures, remote_write behind, size < 80 % of 20 GB, both Alertmanagers seen), samples/s, head series, size vs the 20 GB cap, history vs 7 d, remote_write lag, alerts; replicas table. **TSDB head**, **storage and retention**, **WAL and compactions**, **scrapes** (per job: targets, samples, new series, slowest), **rules** (per group: duration, share of interval, misses), **remote write to Mimir** (sent/failed/retried, lag vs the 300 s alert, shards, pending), **Alertmanager notifications**, **queries and API**, **process**; collapsed: WARN/ERROR logs. Replica picker. Scrape/rule panels only show the replica Mimir keeps (Explore links for each replica) |
@@ -223,8 +221,9 @@ of them (they share the `lylat` tag); the overview shows them as buttons.
 | Databases | Loki (`loki`) | custom (Prometheus + Loki) | loki01-03 (RF 3, chunks in RGW bucket loki) and the 24 Alloy senders. **Status:** VIP holders, elected compactor, checks mirroring the logging alerts, lines and bytes/s, streams, bucket size/objects, last retention run, discarded lines; instances table. **Ingestion** (per distributor, push status/p99, discards by reason, lines stored by host via LogQL), **ingesters and chunks**, **WAL and checkpoints**, **ring and memberlist**, **queries**, **object storage**, **compactor and retention**, **ruler**, **Alloy senders** (table, entries, drops/retries, push latency, journal/syslog input), **resources**; collapsed: Loki and Alloy logs. Instance and sender pickers. dns/proxy Alloys push to all three Lokis: per-sender panels use the max over endpoints |
 | Databases | Telegraf (`telegraf`) | custom (Prometheus + Loki) | The WLC telemetry Telegraf on mon01/02 (gRPC dial-out to the monitoring VIP: VIP holder, telemetry received, `wlc_*` series per WLC, wlc.star processing), the pvestatd listener (writes, wrong-token rejections, PVE nodes, series by object) and fw-wan's VyOS Telegraf. Checks mirror WlcTelemetry*, PveMetrics*, TargetDown and MonitoringVIPNotHeldOnce. Per instance: inputs (gathered, errors, gather time), outputs (written, dropped, buffer fill, write time), the InfluxDB outputs until retired, what Prometheus scrapes per job, process; collapsed: E!/W! logs. Instance picker |
 | Databases | Valkey (NetBox cache and queue) (`valkey`) | custom (Prometheus + Loki) | valkey01-03 and their Sentinels. **Status:** primary, the primary each Sentinel reports, a checks tile (one primary, replicas linked, Sentinels agree, quorum, all Sentinels seen, memory < 80 % of maxmemory, AOF/RDB writes, exporters), failovers in range, memory, NetBox clients and idle RQ workers, ops/s, keys per db, RQ jobs queued. **Nodes** table (role, link, bytes behind, Sentinel, memory, clients, keys, AOF, uptime, version). Role timeline and Sentinel +switch-master/+sdown/+odown lines; replica lag, what each Sentinel sees, resyncs; NetBox's commands/s and p99 latency per command (the exporters' own commands left out), hit ratio, network, connections and error replies; RQ queue, failed jobs and workers; memory vs maxmemory, keys, expired/evicted, AOF, fragmentation, last RDB save; hosts; collapsed log |
+| Services | dark-triage helpdesk (`dark-triage`) | custom (Postgres + Prometheus, `triage.py`) | dark-triage tickets: open queue, priorities, assignment, flow and app health |
 | Services | nginx reverse proxy (`nginx-proxy`) | custom (Prometheus + Loki) | proxy01/02 behind proxy-vip (services-config proxy.tf). **Status:** VIP holder, nginx up per proxy, the published sites probed over HTTPS by name (job blackbox-https), certificate expiry and subject/issuer, requests/s, active connections, 5xx share and requests in range. **Sites (access log, `log_format lylat` parsed with `| logfmt`):** requests per site, responses by status class, request and upstream time p95 per site, a per-site table (requests, 2xx/4xx/5xx, p95, bytes), top paths and clients, failed requests. **Connections (stub_status):** requests/s per proxy, connections by state, accepted vs dropped. **Probes:** probe time per site and by phase. **Proxy VMs:** CPU, memory, network, VIP moves. **Logs:** nginx's error log, keepalived |
-| Services | DNS (BIND) (`dns-bind`) | custom (Prometheus + Loki) | dns01/02 behind dns-vip (services-config main.tf; job `bind` = bind_exporter on the mgmt address :9119 reading BIND's statistics channel, services-config dns-bind-exporter.tf). **Status:** VIP holder, BIND up per server, the SOA probes, time since the last config load, zone serials per server, queries/s, cache hit ratio, SERVFAIL and NXDOMAIN share. **Queries:** by type, responses by rcode, per server, SERVFAIL/NXDOMAIN share per server, rejected/failed queries. **Recursion and cache:** recursions and queries to the forwarders, forwarder RTT p50/p95, recursive clients, resolver errors, DNSSEC validation, cache RRsets. **Zones:** serials over time, transfers ok/failed/rejected. **Probes:** SOA query time, serial and a current table. **DNS VMs:** CPU, memory, network, VIP moves. **Logs:** bind9, keepalived |
+| Services | DNS (BIND) (`dns-bind`) | custom (Prometheus + Loki) | dns01/02 behind dns-vip (services-config main.tf; job `bind` = bind_exporter on the telemetry address :9119 reading BIND's statistics channel, services-config dns-bind-exporter.tf). **Status:** VIP holder, BIND up per server, the SOA probes, time since the last config load, zone serials per server, queries/s, cache hit ratio, SERVFAIL and NXDOMAIN share. **Queries:** by type, responses by rcode, per server, SERVFAIL/NXDOMAIN share per server, rejected/failed queries. **Recursion and cache:** recursions and queries to the forwarders, forwarder RTT p50/p95, recursive clients, resolver errors, DNSSEC validation, cache RRsets. **Zones:** serials over time, transfers ok/failed/rejected. **Probes:** SOA query time, serial and a current table. **DNS VMs:** CPU, memory, network, VIP moves. **Logs:** bind9, keepalived |
 
 The SNMP dashboards need only `if_mib`, so they work for every SNMP job. A dropdown
 in the top bar ("SNMP dashboards") switches between them and keeps the selected
@@ -302,16 +301,16 @@ Panels that stay empty, and why:
 
 - **Node Exporter Full:** swap (none configured), zswap, processes/PIDs/threads,
   systemd, TCP connection states, IRQ detail, CPU frequency and throttling,
-  EDAC, power supply, fans and cooling. These need node_exporter collectors that
-  aren't enabled (`processes`, `systemd`, `tcpstat`, `interrupts`) or hardware a VM
-  doesn't have. On VyOS, "Root FS" is empty because the overlay root isn't
+  EDAC, power supply, fans and cooling. These need hardware a VM doesn't have, or
+  the `processes`, `systemd`, `tcpstat` and `interrupts` collectors: the VMs this
+  root deploys enable them (`node_exporter_collectors` in the module's `main.tf`),
+  so only a host whose node_exporter runs without them leaves those panels empty. On VyOS, "Root FS" is empty because the overlay root isn't
   reported; the persistence partition shows under the filesystem panels.
   Temperatures show only for the bare-metal leaves (leaf-18, leaf-19, leaf-42);
   the other routers are VMs without hwmon sensors.
-- **Mikrotik monitoring:** CPU load, RAM, disk, uptime, model and identity need the
-  `hrDevice`, `hrStorage` and `system` modules, which the MikroTik jobs in
-  `snmp_targets` don't include. The Wi-Fi, CAPsMAN, 60 GHz, PoE and queue panels
-  don't apply to CRS switches.
+- **Mikrotik monitoring:** the Wi-Fi, CAPsMAN, 60 GHz, PoE and queue panels
+  don't apply to CRS switches. (CPU load, RAM, disk and uptime come from the
+  `mikrotik-hr` job and the `system` module in `snmp_targets`.)
 - **FRR / EVPN fabric:** "Flaps per session in range" says "No BGP flaps in range"
   when there were none.
 - **Ceph cluster / Ceph OSD:** PG states, "PGs not clean, by state", slow ops per
@@ -347,7 +346,7 @@ Panels that stay empty, and why:
   journal and journald's syslog socket; that copy has a leading space): Alloy drops the copy with
   exactly one leading space for `logging_settings.syslog_dedup_hosts` (kernel lines excepted), so
   only lines from before that change are doubled. Indented continuation lines keep both copies, and
-  the few lines that came only from the journal with one leading space (boot) are dropped too. The
+  the few lines that came only from the journal with one leading space (boot) are dropped too.
   The fw-wan dashboards read Loki since 2026-11-13, so their log tables show the same doubles for older
   ranges. The Ceph cluster log arrives once per mon: pick
   one with the Ceph mon picker. BIND writes everything to stderr, so its BIND panels go by the
@@ -393,7 +392,9 @@ Panels that stay empty, and why:
   stores' deep dives in [`promtsdb.py`](../../modules/services/monitoring/dashboards/promtsdb.py), [`mimir.py`](../../modules/services/monitoring/dashboards/mimir.py),
   [`loki.py`](../../modules/services/monitoring/dashboards/loki.py) and [`telegraf.py`](../../modules/services/monitoring/dashboards/telegraf.py), the nginx
   reverse proxy's in [`dashboards/nginx.py`](../../modules/services/monitoring/dashboards/nginx.py), DNS
-  (BIND)'s in [`dashboards/dns.py`](../../modules/services/monitoring/dashboards/dns.py). After
+  (BIND)'s in [`dashboards/dns.py`](../../modules/services/monitoring/dashboards/dns.py); `rgw.py`
+  (Ceph RGW buckets), `snmp.py` (SNMP interface throughput) and `triage.py` (dark-triage) are the
+  remaining builders, and `theme.py` is the palette pass both scripts apply. After
   changing fw-wan's firewall, NAT, interfaces or VRFs, refresh the snapshot first (reads the
   config over `ssh vyos@10.20.10.255`, keeps only those paths) and commit both:
   `python3 -I modules/services/monitoring/dashboards/fwwan_config.py`, then `custom.py`.
@@ -513,7 +514,7 @@ To check that data arrives: `journalctl -u telegraf` on the VIP holder, or in Gr
 ## Backend HA (mon01 + mon02)
 
 Every `role = "monitoring"` VM is a backend (at most two: `monitoring_primary`, default mon01, plus one
-replica). They run the same stack from the same rendered files, except Postgres (primary only) and the
+replica). They run the same stack from the same rendered files, except the
 per-replica bits below. The rendering is in the module's `backends.tf`.
 
 - **Prometheus HA pair.** Both scrape every target with the same config; `external_labels` are
@@ -547,7 +548,7 @@ through **Grafana Alloy**, and are queried from Grafana (datasource `Loki`, uid 
 `terraform_data.logging["<vm>"]` deploys each VM like the others (generated `deploy.sh`, Quadlets).
 
 ```
-devices / PVE --syslog--> VIP 10.5.11.101 ----------------------------\
+devices --syslog--> VIP 10.5.11.101 (PVE nodes: alloy --> :3100) ------\
 VyOS leaves, DHCP VMs --syslog--> 10.20.11.34-36 (each, mgmt) ---------> alloy (VIP holder / each)
 every other service VM alloy --journal--> telemetry VIP 10.55.18.101:3100 --\
                                                                             v
@@ -562,7 +563,7 @@ Grafana --> VIP 10.54.18.101:3100 ;  Loki ruler --> both Alertmanagers (10.54.16
 | --- | --- | --- |
 | mgmt (`eth0`) | 10.20.11.34-36 | SSH; syslog from the VyOS leaves and DHCP VMs (mgmt VRF; each sends to all three, no VIP on mgmt) |
 | lylat-obs, VLAN 1401 (`eth1`) | 10.54.18.34-36 | backend and default route (gateway 10.54.0.1): Loki HTTP API, haproxy metrics; VIP `10.54.18.101` (Grafana datasource) |
-| vmbr100 (`eth2`) | 10.5.11.34-36 | monitoring network: VIP `10.5.11.101` for syslog from switches, WLCs, fw-wan and the PVE nodes |
+| vmbr100 (`eth2`) | 10.5.11.34-36 | monitoring network: VIP `10.5.11.101` for syslog from switches, WLCs and fw-wan, and for the PVE nodes' Alloy pushes (Loki API, 3100) |
 | vmbr27 (`eth3`) | 10.27.11.34-36 | Ceph public network: haproxy -> RGWs |
 | VLAN 1018 (`eth4`, L2VNI `ha_logging`) | 10.50.18.34-36, fd69:5018::34-36 | HA: Loki memberlist and ingester gRPC (the ring), keepalived adverts (IPv6) |
 | lylat-telemetry, VLAN 1501 (`eth5`) | 10.55.18.34-36 | Alloy/node_exporter metrics; VIP `10.55.18.101` (Alloy pushes from every other VM) |
@@ -605,7 +606,7 @@ Grafana --> VIP 10.54.18.101:3100 ;  Loki ruler --> both Alertmanagers (10.54.16
 
   | Listener | Format | Senders | Timestamp |
   | --- | --- | --- | --- |
-  | TCP 514 | RFC 5424, octet-counted | VyOS leaves, DHCP VMs, fw-wan, PVE nodes (rsyslog) | sender's |
+  | TCP 514 | RFC 5424, octet-counted | VyOS leaves, DHCP VMs, fw-wan | sender's |
   | UDP 514 | RFC 3164 | MikroTik CRS317/CRS326 | receive time (no year/zone) |
   | UDP 1514 | raw (unparsed line) | Cisco C9800 WLCs (IOS-XE), FS S3910, FS S3700: RFC 3164 parsing silently drops their messages (the S3700's end in a NUL byte) | receive time (switch-1 has no NTP) |
 
@@ -638,7 +639,7 @@ and Debian ships security updates for it. There's no trustworthy upstream keepal
   3 failures), when Loki's `/ready` fails, Alloy's `/-/ready` fails, a client NIC goes down
   (`track_interface`), or the VM or keepalived stops (3 missed adverts, ~3 s). The new holder sends
   gratuitous ARPs (and every 60 s while it holds them), which the EVPN fabric learns as a MAC move.
-- What senders see: UDP syslog sent during the switchover is lost. TCP senders (rsyslog, VyOS)
+- What senders see: UDP syslog sent during the switchover is lost. TCP senders (the VyOS routers)
   reconnect and resend their queue. Grafana and the pushing Alloys retry.
 - If all three fail their checks, nobody holds the VIPs (alert `LoggingVIPNotHeldOnce`).
 
@@ -667,8 +668,6 @@ loki_s3 = { bucket = "loki", access_key = "...", secret_key = "..." }
 ```
 
 `logging_settings.rgw_endpoints` lists the RGWs haproxy uses (default `10.27.0.12/13/17:7480`).
-
-<!-- The exact install commands (radosgw, keyrings, pools, S3 user) are added here by the main session. -->
 
 Per-bucket usage (size, objects, quotas of the `loki`, `mimir`, `postgres` buckets) comes from a
 timer on the RGW nodes that writes `radosgw-admin bucket stats` into node_exporter's textfile
@@ -725,7 +724,7 @@ Grafana (uid prometheus) --/prometheus------------------/     ingesters --2 h bl
 
 ### Mimir
 
-- **Mimir 3.2.4, monolithic** (`-target=all`: distributor, ingester, querier, query-frontend and
+- **Mimir 3.2, monolithic** (`-target=all`: distributor, ingester, querier, query-frontend and
   -scheduler, store-gateway, compactor, ruler) on each VM, **classic architecture**: Mimir 3.x
   still defaults to it in the binary (`ingest_storage.enabled: false`, set explicitly); the Kafka
   "ingest storage" architecture is only the Helm chart's default. No Kafka.
@@ -742,7 +741,8 @@ Grafana (uid prometheus) --/prometheus------------------/     ingesters --2 h bl
   from the elected replica. After deduplication `drop_labels` removes `ha_cluster` and `site`, so the
   series in Mimir are the ones each Prometheus stores (and the backfilled history matches). `cluster`
   isn't used as the HA label because the ceph job has its own `cluster` target label.
-- **Limits** (`metrics_settings`): 300k series (118k today; the default 150k is too tight),
+- **Limits** (`metrics_settings`): 600k series (Mimir's default 150k is too tight, and 300k was full on
+  2026-11-14 when the instance relabel doubled the VM jobs' series for a few hours),
   300k samples/s (4.2k today; see below), 40 labels per series (21 at most today), 10 min out-of-order window
   (a replica failover can resend slightly older samples), block upload off (`block_upload_enabled`: set it
   true only while running a `mimirtool backfill`).
@@ -750,7 +750,7 @@ Grafana (uid prometheus) --/prometheus------------------/     ingesters --2 h bl
   distributors` (burst not divided). All pushes go through the VIP to one distributor, so that one
   allows only a third: 100k/s. Prometheus treats a 429 as non-recoverable and drops the batch, so the
   limit must cover a WAL catch-up after an outage. At 40k (13.3k/s on the VIP holder), mon01 dropped
-  ~1.08M samples catching up during the first deploy (2026-11-10 ~00:27 UTC). Mimir 3.2.4 has no
+  ~1.08M samples catching up during the first deploy (2026-11-10 ~00:27 UTC). Mimir 3.2 has no
   option to answer rate limits with a retryable status.
 - **Ports**: Mimir uses host networking and listens on every address (the VIP moves).
   `metrics-guard` (nftables table `inet metrics_guard`) drops 8080 except from loopback and
@@ -890,10 +890,10 @@ A new major (`postgresql = "19.x"`) is not this: it builds a new cluster (see ab
 | `metrics_ha_vlan_id` | `1017` | HA VLAN of the Mimir VMs (memberlist, gRPC, VRRP); each needs one addressed NIC on it |
 | `metrics_settings` | see `variables.tf` | [Mimir](#metrics-mimir-ha): VIP (`10.54.17.103/16`), VRRP router id (103), RGW endpoints, RF (3), retention (396d), HA tracker labels, `drop_labels`, limits, block upload (off), sources allowed to Mimir's HTTP port |
 | `mimir_s3` | `null` (Mimir off) | Mimir's S3 bucket and RGW keys, in the git-ignored `metrics.secret.auto.tfvars` |
-| `postgres_ha_vlan_id`, `postgres_settings` | `1014`, see `variables.tf` | [Patroni](#postgres-ha-patroni): HA VLAN, VIP (`10.56.14.104/16`), VRRP router id (104), `pg_major`, cutover switches |
+| `postgres_ha_vlan_id`, `postgres_settings` | `1014`, see `variables.tf` | [Patroni](#postgres-ha-patroni): HA VLAN, VIP (`10.56.14.104/16`), VRRP router id (104), cluster name, RGW endpoints, backup schedule and retention, Postgres parameters, `bootstrap_from_backup`. The PostgreSQL major comes from `packages.postgresql` |
 | `grafana_ha_vlan_id`, `grafana_vrrp` | `1011`, VIP `10.52.11.100/16` router id 100 | Grafana's HA VLAN (alerting gossip, VRRP adverts) and keepalived VIP; `grafana_vrrp = null` = no VIP |
 | `monitoring_bridge` | `vmbr100` | Bridge of the backends' monitoring-network NIC |
-| `monitoring_primary` | `"mon01"` | [Backend HA](#backend-ha-mon01--mon02): the backend with Postgres (Grafana's fallback Prometheus without Mimir); the other `role = "monitoring"` VM (at most one) is the replica |
+| `monitoring_primary` | `"mon01"` | [Backend HA](#backend-ha-mon01--mon02): the backend whose Prometheus Grafana falls back to without Mimir, and the first VRRP priority; the other `role = "monitoring"` VM (at most one) is the replica |
 | `monitoring_ha_vlan_id` | `1016` | HA VLAN of the backends (L2VNI `ha_monitor`): keepalived adverts, Alertmanager gossip; each backend needs one addressed NIC on it |
 | `backend_vrrp` | VIPs `10.5.11.102/16`, `10.54.16.102/16`, router id 102 | keepalived on the backends; `null` = no VIPs, Grafana uses the primary |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
@@ -906,7 +906,10 @@ A new major (`postgresql = "19.x"`) is not this: it builds a new cluster (see ab
 | `grafana_admin_password` | `null` (generated) | Fixed UI password; set it in a git-ignored `*.secret.auto.tfvars` |
 | `snmp_v3_auths` | `{}` | SNMPv3 credentials for snmp_exporter (git-ignored `*.secret.auto.tfvars`); written to `/etc/monitoring/snmp-exporter/auths.yml` and loaded as a second exporter config file. The WLCs' `lylat_v3` lives here |
 | `wlc_telemetry` | `{ port = 57500 }` | [C9800 telemetry](#c9800-telemetry-model-driven-dial-out): the WLC Telegraf's gRPC port on the backends and the monitoring VIP. `null` leaves Telegraf out |
-| `vyos_extra_targets`, `node_extra_targets`, `snmp_targets`, `blackbox_icmp_targets`, `blackbox_http_targets` | see `variables.tf` | Targets outside the inventory |
+| `vyos_extra_targets`, `vyos_telegraf_targets`, `node_extra_targets`, `ceph_mgr_nodes`, `snmp_targets`, `blackbox_icmp_targets`, `blackbox_http_targets`, `blackbox_https_targets` | see `variables.tf` | Targets outside the inventory |
+| `postgres_s3` | `null` (the Patroni cluster off) | The Patroni backups' S3 bucket and RGW keys, in the git-ignored `postgres.secret.auto.tfvars` |
+| `app_db_passwords` | from `app-db.secret.auto.tfvars` | Postgres passwords of the app databases (NetBox, dark-triage), shared with services-config |
+| `rgw_bucket_alerts` | see `variables.tf` | Thresholds of the `ceph-rgw-buckets` alert group (growth, quota) |
 
 ## Running it
 
@@ -996,14 +999,15 @@ receiver, now `wlc-telemetry-vip`, and keepalived checks the WLC Telegraf instea
 
 `tests/postgres.tftest.hcl` covers the Patroni cluster (Patroni/etcd configs on the HA VLAN 1014, pg_hba,
 the guard, keepalived on `/primary` with vrid 104, pgBackRest via the TLS haproxy, deploy.sh packages/order,
-scrapes/alerts, the Grafana cutover and mon01 container switches and their guard, `bootstrap_from_backup`).
+scrapes/alerts, that Grafana's database is the Patroni VIP and mon01 runs no Postgres, `bootstrap_from_backup`).
+`tests/rgw.tftest.hcl` covers the per-bucket RGW alert rules and their thresholds.
 `tests/metrics.tftest.hcl` covers Mimir (config per VM, HA tracker and limits, remote_write and the
 datasource switch, keepalived, deploy.sh, and that nothing Mimir-related renders without `mimir_s3`).
 `tests/monitoring.tftest.hcl` plans against the real inventory with a mocked
 `random` provider. It checks the derived targets and URLs, that pve-exporter
 appears only with a token (and the token stays out of `prometheus.yml`), the
-unit contents (Postgres bound to the backend address, Grafana HA peers), the
-Postgres data-directory owner, the dashboard provider and files (the
+unit contents (no Postgres container on mon01, Grafana HA peers), the
+dashboard provider and files (the
 expected files and uids per folder, every query uses the provisioned Prometheus
 datasource, no import-time placeholders, every dashboard in the `lylat` links
 dropdown, the Ceph dashboards' `ceph` tag and dropdown with no `$datasource` left, the Proxmox
@@ -1026,7 +1030,7 @@ files removed and the data kept. The two wireless dashboards carry the `wireless
 dropdown, read `wlc_*` from the Prometheus datasource (no InfluxDB or Flux left), and pick WLCs by the
 `host` label. Backend HA (`backend_ha`, `wlc_prometheus`, `backend_vrrp_disabled`,
 `backend_ha_nic_required`): identical scrapes with per-replica `__replica__`, alerts without it to both
-Alertmanagers, Postgres on mon01 only, Alertmanager gossip on VLAN 1016, the keepalived config (VIPs on
+Alertmanagers, no Postgres on the backends, Alertmanager gossip on VLAN 1016, the keepalived config (VIPs on
 eth1/eth2, adverts over eth3, vrid 102, mon01 first) and the VIP publishes, Grafana's VIP and per-replica
 datasources, the `wlc_*` clones scraped through the backend VIP, and that a missing VLAN 1016 NIC fails
 the plan.
