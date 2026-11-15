@@ -25,7 +25,7 @@ variable "valkey" {
 }
 
 resource "random_password" "valkey" {
-  count   = var.valkey != null && length(local.valkey_vms) > 0 ? 1 : 0
+  count   = local.valkey_enabled ? 1 : 0
   length  = 32
   special = false
 }
@@ -46,10 +46,10 @@ locals {
 
   # Who may reach Valkey/Sentinel: the trio itself and the NetBox VMs (their lylat-app addresses).
   valkey_clients = local.valkey_enabled ? sort(concat(values(local.valkey_backend), flatten([
-    for name, vm in var.vms : [
+    for vm in values(local.netbox_vms) : [ # netbox.tf
       for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
       if nic.vlan_id == var.valkey.client_vlan_id && nic.ipv4_address != null
-    ] if vm.owner == "services-vms" && vm.role == "netbox"
+    ]
   ]))) : []
 
   valkey_script = !local.valkey_enabled ? {} : {

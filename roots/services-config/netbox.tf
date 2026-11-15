@@ -53,8 +53,6 @@ variable "netbox" {
   }
 }
 
-# SECRET_KEY (sessions, password reset links) and the API token pepper (v2 tokens are stored as
-# HMACs with it): the same on both nodes. Changing either logs everyone out / breaks every token.
 variable "netbox_cephfs_key" {
   description = "CephFS key of client.netbox (netbox.secret.auto.tfvars, git-ignored). null = media/scripts/reports stay local to each VM."
   type        = string
@@ -62,6 +60,8 @@ variable "netbox_cephfs_key" {
   default     = null
 }
 
+# SECRET_KEY (sessions, password reset links) and the API token pepper (v2 tokens are stored as
+# HMACs with it): the same on both nodes. Changing either logs everyone out / breaks every token.
 resource "random_password" "netbox_secret_key" {
   count   = local.netbox_enabled ? 1 : 0
   length  = 64
