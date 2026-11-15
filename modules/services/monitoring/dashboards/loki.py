@@ -10,7 +10,7 @@ The setup (modules/services/monitoring/logging.tf, README "Logging (Loki HA)"):
   auth disabled (tenant "fake"). TSDB index schema v13, chunks and index in the Ceph RGW bucket `loki`
   through a local haproxy (127.0.0.1:7480 -> the RGWs on macbeth/titania/venom). Retention 90d, applied by
   the one compactor the ring elects. The ruler (rules in /etc/loki/rules/fake) sends to both Alertmanagers.
-- keepalived VIPs 10.13.11.101 (backend: Grafana, Alloy pushes) and 10.5.11.101 (syslog from devices).
+- keepalived VIPs 10.54.18.101 (backend: Grafana, Alloy pushes) and 10.5.11.101 (syslog from devices).
 - Alloy on every Linux VM (job alloy, 24 senders): journal -> Loki; on loki01-03 also the syslog
   receiver, pushing to the local Loki. dns01/02 and proxy01/02 push over mgmt to all three Lokis
   (one loki.write endpoint each, exported_host = the endpoint), so their entries count three times
@@ -32,7 +32,7 @@ A = 'job="alloy"'
 AS = 'job="alloy", host=~"$sender"'
 HAP = 'job="haproxy", proxy="rgw"'
 NODE = 'job="node", role="logging"'
-VIPS = {"backend": "10.13.11.101", "monitoring": "10.5.11.101"}
+VIPS = {"backend": "10.54.18.101", "monitoring": "10.5.11.101"}
 RGWS = 3  # logging_settings.rgw_endpoints
 # Loki's HTTP query API (everything under /loki/api/v1 except the push), as the route label spells it.
 QUERY_ROUTES = 'route=~"loki_api_v1_.+", route!="loki_api_v1_push"'

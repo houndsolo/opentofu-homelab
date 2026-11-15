@@ -1693,7 +1693,7 @@
     {
       "type": "stat",
       "title": "Mimir / haproxy",
-      "description": "Mimir and haproxy (S3 to the RGWs) on mim01-03. Prometheus pushes to the VIP 10.13.11.103.",
+      "description": "Mimir and haproxy (S3 to the RGWs) on mim01-03. Prometheus pushes to the VIP 10.54.17.103.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2725,7 +2725,7 @@
     {
       "type": "stat",
       "title": "Leader",
-      "description": "The member that holds Patroni's leader key and the VIP 10.13.11.104 (keepalived checks /primary). None or two: alert PatroniNoLeader.",
+      "description": "The member that holds Patroni's leader key and the VIP 10.56.14.104 (keepalived checks /primary). None or two: alert PatroniNoLeader.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2837,7 +2837,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "count(node_network_address_info{job=\"node\", role=\"postgres\", address=\"10.13.11.104\"}) or vector(0)",
+          "expr": "count(node_network_address_info{job=\"node\", role=\"postgres\", address=\"10.56.14.104\"}) or vector(0)",
           "legendFormat": "VIP held",
           "range": true,
           "instant": false,
@@ -3714,7 +3714,7 @@
     {
       "type": "stat",
       "title": "Cluster",
-      "description": "Members each Alertmanager sees in its gossip cluster (2 = both backends, over the ha_monitor VLAN), and which backend holds the keepalived VIPs 10.5.11.102/10.13.11.102 (2 = both).",
+      "description": "Members each Alertmanager sees in its gossip cluster (2 = both backends, over the ha_monitor VLAN), and which backend holds the keepalived VIPs 10.5.11.102/10.54.16.102 (2 = both).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -4526,7 +4526,7 @@
     {
       "type": "timeseries",
       "title": "Database connections",
-      "description": "Connections from each Grafana to its Postgres (Patroni on pg01-03, through the VIP 10.13.11.104 on the leader).",
+      "description": "Connections from each Grafana to its Postgres (Patroni on pg01-03, through the VIP 10.56.14.104 on the leader).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

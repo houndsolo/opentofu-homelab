@@ -89,7 +89,7 @@ def cluster():
                 links=[("Instance dashboard", INSTANCE_DASH + "?var-host=${__field.labels.host}&" + TIME)]), 4),
           (stat("VIP on", [q(f"max by (host, address) (node_network_address_info{{{VIP}}})", "{{host}}", instant=True)],
                 text_mode="name", color_mode="value", thresholds=BLUE, no_value="NOBODY", text_size=(12, 30),
-                desc="The member that holds the keepalived VIP (10.13.11.104, what Grafana, NetBox and dark-triage "
+                desc="The member that holds the keepalived VIP (10.56.14.104, what Grafana, NetBox and dark-triage "
                      "connect to). keepalived checks Patroni's /primary, so it must be the leader."), 4))
     checks = [
         ("one leader", f"sum(patroni_primary{{{PAT}}}) == bool 1"),

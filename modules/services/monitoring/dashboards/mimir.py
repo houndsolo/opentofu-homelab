@@ -6,7 +6,7 @@ The deep dive behind the Mimir row of Monitoring/monitoring-stack.
 Setup (modules/services/monitoring/metrics.tf): Mimir 3.x monolithic (`target: all`, classic architecture,
 no ingest storage) on mim01-03, one ring of three, replication factor 3, everything in the tenant
 "anonymous" (multitenancy off). Both Prometheus replicas (mon01/mon02) remote_write everything to the
-keepalived VIP 10.13.11.103:8080; the distributors' HA tracker (cluster label ha_cluster, replica label
+keepalived VIP 10.54.17.103:8080; the distributors' HA tracker (cluster label ha_cluster, replica label
 __replica__, kv in memberlist) keeps the elected replica's samples (HTTP 200) and acknowledges the other
 one's without storing them (HTTP 202). Blocks go to the Ceph RGW bucket "mimir" through a local haproxy on
 127.0.0.1:7480 (job haproxy-mimir, :8405). The ruler runs but has no rules (alerting stays in Prometheus);
@@ -25,7 +25,7 @@ M = 'job="mimir"'
 MH = 'job="mimir", host=~"$host"'
 HA = 'job="haproxy-mimir"'
 NODE = 'job="node", role="metrics"'
-VIP = "10.13.11.103"
+VIP = "10.54.17.103"
 RGW_DASH = "/d/ceph-rgw-buckets/ceph-rgw-buckets"
 RINGS = "ingester|store-gateway|compactor|distributor"   # the rings MimirRingMembersMissing watches
 N_MIMIR = f"scalar(count(up{{{M}}}))"                   # the rule's length(var.metrics): every Mimir target

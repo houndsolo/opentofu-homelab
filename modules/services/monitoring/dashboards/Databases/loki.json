@@ -190,7 +190,7 @@
     {
       "type": "stat",
       "title": "VIPs on",
-      "description": "The log VM holding keepalived's VIPs (10.13.11.101 for Grafana and the Alloy pushes, 10.5.11.101 for syslog from the devices; one VRRP instance, they move together). Its Alloy receives the devices' syslog and its distributor most pushes.",
+      "description": "The log VM holding keepalived's VIPs (10.54.18.101 for Grafana and the Alloy pushes, 10.5.11.101 for syslog from the devices; one VRRP instance, they move together). Its Alloy receives the devices' syslog and its distributor most pushes.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -202,7 +202,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host) (node_network_address_info{job=\"node\", role=\"logging\", address=\"10.13.11.101\"})",
+          "expr": "max by (host) (node_network_address_info{job=\"node\", role=\"logging\", address=\"10.54.18.101\"})",
           "legendFormat": "{{host}}",
           "range": false,
           "instant": true,
@@ -424,7 +424,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(count(node_network_address_info{job=\"node\", role=\"logging\", address=\"10.13.11.101\"}) or vector(0)) == bool 1",
+          "expr": "(count(node_network_address_info{job=\"node\", role=\"logging\", address=\"10.54.18.101\"}) or vector(0)) == bool 1",
           "legendFormat": "backend VIP held once",
           "range": false,
           "instant": true,
@@ -1054,7 +1054,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host) (node_network_address_info{job=\"node\", role=\"logging\", address=\"10.13.11.101\"})",
+          "expr": "max by (host) (node_network_address_info{job=\"node\", role=\"logging\", address=\"10.54.18.101\"})",
           "legendFormat": "",
           "range": false,
           "instant": true,

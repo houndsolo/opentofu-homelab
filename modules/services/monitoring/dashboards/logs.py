@@ -2,7 +2,7 @@
 
 Built by custom.py (python3 -I modules/services/monitoring/dashboards/custom.py) with
 its helpers; see custom.py for the conventions. They query the provisioned Loki
-datasource (uid "loki", the VIP 10.13.11.101:3100), which holds:
+datasource (uid "loki", the VIP 10.54.18.101:3100), which holds:
 
 - source="syslog": everything Alloy's syslog listeners on loki01-03 receive (VyOS
   leaves, fw-wan, dhcp01/02, MikroTik, FS switches, C9800 WLCs; the PVE nodes and dns01/02

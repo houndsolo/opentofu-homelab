@@ -188,7 +188,7 @@
     {
       "type": "stat",
       "title": "VIP on",
-      "description": "The member that holds the keepalived VIP (10.13.11.104, what Grafana, NetBox and dark-triage connect to). keepalived checks Patroni's /primary, so it must be the leader.",
+      "description": "The member that holds the keepalived VIP (10.56.14.104, what Grafana, NetBox and dark-triage connect to). keepalived checks Patroni's /primary, so it must be the leader.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

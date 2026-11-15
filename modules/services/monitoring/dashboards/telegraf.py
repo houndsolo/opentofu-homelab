@@ -8,7 +8,7 @@ The deep dive behind the Telegraf panels of Monitoring/monitoring-stack.json. Wh
   (gRPC, cisco_telemetry_mdt) to the monitoring VIP 10.5.11.102 :57500, so only the VIP holder's Telegraf
   receives. It serves a renamed copy of the YANG data (wlc.star) on :9275 (its InfluxDB outputs and InfluxDB itself
   were retired on 2026-11-14); its own internal_* stats on :9273 (host = mon01/mon02).
-- job wlc: the :9275 wlc_* series, scraped through the backend VIP 10.13.11.102 (= the VIP holder's Telegraf);
+- job wlc: the :9275 wlc_* series, scraped through the backend VIP 10.54.16.102 (= the VIP holder's Telegraf);
   up/scrape_* carry host="wlc-telemetry", the series themselves host = the WLC.
 - job pvestatd (pvestatd.tf): a second Telegraf per mon (influxdb_v2_listener :8186, token-checked) that takes
   every PVE node's pvestatd pushes and serves them as pvestatd_* on :9274. Each Prometheus scrapes its OWN

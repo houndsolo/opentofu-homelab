@@ -277,7 +277,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "(count(node_network_address_info{job=\"node\", role=\"metrics\", address=\"10.13.11.103\"}) or vector(0)) == bool 1",
+          "expr": "(count(node_network_address_info{job=\"node\", role=\"metrics\", address=\"10.54.17.103\"}) or vector(0)) == bool 1",
           "legendFormat": "VIP held once",
           "range": false,
           "instant": true,
@@ -422,7 +422,7 @@
     {
       "type": "stat",
       "title": "VIP on",
-      "description": "The Mimir VM holding keepalived's VIP 10.13.11.103: Prometheus pushes and Grafana queries arrive there (its distributor and query-frontend fan out to all three).",
+      "description": "The Mimir VM holding keepalived's VIP 10.54.17.103: Prometheus pushes and Grafana queries arrive there (its distributor and query-frontend fan out to all three).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -434,7 +434,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (host) (node_network_address_info{job=\"node\", role=\"metrics\", address=\"10.13.11.103\"})",
+          "expr": "max by (host) (node_network_address_info{job=\"node\", role=\"metrics\", address=\"10.54.17.103\"})",
           "legendFormat": "{{host}}",
           "range": false,
           "instant": true,

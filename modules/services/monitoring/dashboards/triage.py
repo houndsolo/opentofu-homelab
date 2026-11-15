@@ -96,7 +96,7 @@ def triage():
                mappings=UP_MAP, thresholds=UP_STEPS,
                text_mode="value_and_name", no_value="no probe",
                desc="Blackbox probes of /api/health on the VIP (dark-triage, 10.2.11.105) and each node: 200 only "
-                    "when the app reaches its database (Patroni VIP 10.13.11.104)."), 3, 4)
+                    "when the app reaches its database (Patroni VIP 10.56.14.104)."), 3, 4)
 
     b.row("Open queue")
     b.add(bargauge("By priority", [counts(PRIO_COLORS, "priority")], overrides=fixed_colors(PRIO_COLORS),

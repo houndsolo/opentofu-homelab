@@ -965,7 +965,7 @@ def stack():
     mj = 'job="mimir"'
     b.add(stat("Mimir / haproxy", [q('up{job=~"mimir|haproxy-mimir"}', "{{job}} {{host}}", instant=True)],
                text_mode="value_and_name", mappings=UP_MAP, thresholds=UP_STEPS,
-               desc="Mimir and haproxy (S3 to the RGWs) on mim01-03. Prometheus pushes to the VIP 10.13.11.103."), 8, 7)
+               desc="Mimir and haproxy (S3 to the RGWs) on mim01-03. Prometheus pushes to the VIP 10.54.17.103."), 8, 7)
     b.add(stat("Ring members ACTIVE", [q(f'min by (name) (cortex_ring_members{{{mj}, state="ACTIVE"}})', "{{name}}")],
                text_mode="value_and_name", thresholds=steps(("red", None), ("orange", 2), ("green", 3)),
                desc="ACTIVE members of each Mimir ring, as seen by the Mimir that sees fewest. 3 = all Mimir VMs."), 6, 7)
@@ -1020,7 +1020,7 @@ def stack():
           "{{operation}} failed"),
     ], unit="reqps", fill=0, desc="Requests to the RGWs through each Mimir VM's haproxy."), 8, 8)
 
-    # Grafana's database: the Patroni cluster on pg01-03 (postgres.tf), VIP 10.13.11.104 on the leader.
+    # Grafana's database: the Patroni cluster on pg01-03 (postgres.tf), VIP 10.56.14.104 on the leader.
     b.row("Postgres (Patroni, Grafana's database)")
     pj, ej = 'job="patroni"', 'job="etcd"'
     b.add(stat("Patroni / etcd / exporters", [q('up{job=~"patroni|etcd|postgres|haproxy-postgres"}', "{{job}} {{host}}", instant=True)],
@@ -1028,13 +1028,13 @@ def stack():
                desc="Patroni REST API, etcd, postgres_exporter and haproxy (S3 to the RGWs) on pg01-03."), 6, 7)
     b.add(stat("Leader", [q(f"max by (host) (patroni_primary{{{pj}}}) == 1", "{{host}}", instant=True)],
                text_mode="name", color_mode="value", thresholds=BLUE,
-               desc="The member that holds Patroni's leader key and the VIP 10.13.11.104 (keepalived checks /primary). "
+               desc="The member that holds Patroni's leader key and the VIP 10.56.14.104 (keepalived checks /primary). "
                     "None or two: alert PatroniNoLeader."), 3, 7)
     b.add(stat("Members", [
         q(f"sum(patroni_postgres_running{{{pj}}})", "Postgres running"),
         q(f"sum(patroni_replica{{{pj}}} == 1 and on (host) patroni_postgres_streaming{{{pj}}} == 1) or vector(0)", "replicas streaming"),
         q(f"count(etcd_server_has_leader{{{ej}}} == 1) or vector(0)", "etcd with leader"),
-        q('count(node_network_address_info{job="node", role="postgres", address="10.13.11.104"}) or vector(0)', "VIP held"),
+        q('count(node_network_address_info{job="node", role="postgres", address="10.56.14.104"}) or vector(0)', "VIP held"),
     ], text_mode="value_and_name", color_mode="value", decimals=0, thresholds=BLUE,
         desc="3 / 2 / 3 / 1 when healthy."), 5, 7)
     b.add(stat("Timeline / backups", [
@@ -1082,7 +1082,7 @@ def stack():
           instant=True),
     ], text_mode="value_and_name", color_mode="value", decimals=0, thresholds=BLUE,
         desc="Members each Alertmanager sees in its gossip cluster (2 = both backends, over the ha_monitor VLAN), "
-             "and which backend holds the keepalived VIPs 10.5.11.102/10.13.11.102 (2 = both)."), 4, 7)
+             "and which backend holds the keepalived VIPs 10.5.11.102/10.54.16.102 (2 = both)."), 4, 7)
     b.add(timeseries("Alerts received", [
         q("sum by (host, status) (rate(alertmanager_alerts_received_total[$__rate_interval]))", "{{host}} {{status}}")], fill=0,
         desc="Per second, from both Prometheus replicas and the Loki ruler (each sends to every member)."), 4, 7)
@@ -1120,7 +1120,7 @@ def stack():
     b.add(timeseries("Database connections", [
         q("grafana_database_conn_in_use", "{{host}} in use"), q("grafana_database_conn_open", "{{host}} open"),
     ], fill=0, decimals=0, desc="Connections from each Grafana to its Postgres (Patroni on pg01-03, through the VIP "
-                                  "10.13.11.104 on the leader)."), 8, 8)
+                                  "10.56.14.104 on the leader)."), 8, 8)
     b.add(timeseries("Grafana alerting", [
         q("grafana_alerting_active_alerts", "{{host}} active alerts"),
         q("rate(grafana_alerting_execution_time_milliseconds_count[$__rate_interval])", "{{host}} evaluations/s"),

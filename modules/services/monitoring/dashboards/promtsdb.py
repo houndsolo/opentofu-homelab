@@ -5,7 +5,7 @@ custom.main(). The deep dive behind the Prometheus rows of Monitoring/monitoring
 
 The setup (modules/services/monitoring main.tf, metrics.tf): Prometheus 3 in a Podman container on each backend
 (mon01, mon02), the same scrape config and rules on both (global interval 30 s), local TSDB capped at 7 d and 20 GB
-(settings.prometheus_retention_time/_size), both remote_write everything to Mimir (VIP 10.13.11.103:8080). Mimir's
+(settings.prometheus_retention_time/_size), both remote_write everything to Mimir (VIP 10.54.17.103:8080). Mimir's
 HA tracker keeps one replica's samples (cluster "lylat", label __replica__) and drops the other's.
 
 What that means for this dashboard (it reads Mimir, the default datasource):
@@ -478,7 +478,7 @@ def remote_write(b):
     b.add(timeseries("Samples in / sent", [
         q(f"sum by (host) (rate(prometheus_remote_storage_samples_in_total{{{P}}}[$__rate_interval]))", "{{host}} in"),
         q(f"sum by (host) (rate(prometheus_remote_storage_samples_total{{{P}}}[$__rate_interval]))", "{{host}} sent"),
-    ], fill=0, decimals=0, desc="Samples read from the WAL into the queue and samples sent to Mimir (10.13.11.103:8080), "
+    ], fill=0, decimals=0, desc="Samples read from the WAL into the queue and samples sent to Mimir (10.54.17.103:8080), "
                                 "per second. Both replicas send everything; Mimir keeps the elected one's."), 8, 8)
     b.add(timeseries("Failed / retried", [
         q(f"sum by (host) (rate(prometheus_remote_storage_samples_failed_total{{{P}}}[$__rate_interval])) > 0",
@@ -546,7 +546,7 @@ def notifications_queries_process(b):
         q(f"sum by (host, am) ({am(f'rate(prometheus_notifications_errors_total{{{P}}}[$__rate_interval])')}) > 0",
           "{{host}} → {{am}} errors"),
         q(f"sum by (host) (rate(prometheus_notifications_dropped_total{{{P}}}[$__rate_interval])) > 0", "{{host}} dropped"),
-    ], fill=0, desc="Each replica sends every alert to both Alertmanagers (mon01 10.13.11.30, mon02 10.13.11.31 :9093), "
+    ], fill=0, desc="Each replica sends every alert to both Alertmanagers (mon01 10.54.16.30, mon02 10.54.16.31 :9093), "
                     "which dedupe them over their gossip cluster. Errors and drops only show when they happen.",
         overrides=[override(".*(errors|dropped).*", RED, regex=True)]), 8, 7)
     b.add(timeseries("Notification queue", [
