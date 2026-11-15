@@ -1,9 +1,9 @@
 # Monitoring for the Valkey trio (valkey.tf), the same way as the DNS VMs: node_exporter
 # (dns-node-exporter.tf's Quadlet), two redis_exporter Quadlets (Valkey :9121 with the password,
-# Sentinel :9355 without one; both talk to 127.0.0.1), all listening on the management address,
+# Sentinel :9355 without one; both talk to 127.0.0.1), all listening on the telemetry address (telemetry.tf scrape_ip),
 # where monitoring-config scrapes them (jobs node, valkey, valkey-sentinel; keep the ports in
 # step with modules/services/monitoring/valkey.tf). Grafana Alloy (alloy.tf) ships the journal to
-# Loki's backend VIP. Separate from terraform_data.valkey, so changing it
+# Loki's telemetry VIP. Separate from terraform_data.valkey, so changing it
 # never restarts Valkey or Sentinel.
 variable "valkey_monitoring" {
   description = "node_exporter, Valkey/Sentinel exporters and Alloy (journal to Loki, alloy.tf) on the role = \"valkey\" VMs. null = don't install them."

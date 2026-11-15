@@ -4,7 +4,7 @@
 # modules/services/monitoring/bind.tf). Separate from terraform_data.bind9, so changing it never
 # restarts BIND. The DNS VMs run no nftables ruleset.
 variable "dns_bind_exporter" {
-  description = "bind_exporter on each DNS VM (Podman Quadlet, host network, listening on <mgmt address>:9119). null = don't install it."
+  description = "bind_exporter on each DNS VM (Podman Quadlet, host network, listening on <telemetry address>:9119). null = don't install it."
   type = object({
   })
   default = {}

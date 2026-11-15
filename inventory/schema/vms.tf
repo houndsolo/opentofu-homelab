@@ -3,7 +3,7 @@ variable "vms" {
   type = map(object({
     image              = optional(string)
     owner              = string           # fabric-vms, services-vms or workloads.
-    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres or ticketing.
+    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey or proxy.
     node               = optional(string)
     vm_id              = optional(number)
     management_address = optional(string)

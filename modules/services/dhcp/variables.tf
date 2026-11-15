@@ -20,7 +20,7 @@ variable "ha_prefix" {
 }
 
 variable "ha" {
-  description = "Pair identity derived from numeric VM-ID order; active-active mode is separate from identity."
+  description = "Pair identity derived from numeric VM-ID order: the role, both HA address slots, the peer's real host name and both management addresses."
   type = object({
     role                = string
     address_slot        = number

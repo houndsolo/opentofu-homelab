@@ -1,5 +1,5 @@
 variable "ssh_private_key_path" {
-  description = "Local private key authorized for each DNS VM's config.ssh_username."
+  description = "Local private key authorized for config.ssh_username on every VM this root deploys over SSH (DNS, NetBox, Valkey, proxy, ticketing)."
   type        = string
   default     = "~/.ssh/id_rsa"
 }
@@ -99,7 +99,7 @@ variable "dns_vrrp" {
   description = <<-EOT
     keepalived VIP for the DNS pair. Adverts go unicast over the HA L2VNI (l2vnis.ha_dns, the NIC on
     that VLAN); the VIP sits on BIND's service NIC (the one with the gateway). BIND also listens on the
-    VIP, and DHCP hands it out as the first name server. null = no keepalived/VIP.
+    VIP, and DHCP hands out only this VIP as name server (DT-051). null = no keepalived/VIP.
   EOT
   type = object({
     vip          = string

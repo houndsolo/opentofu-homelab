@@ -2,7 +2,7 @@
 # telemetry address :9100 (telemetry.tf scrape_ip; mgmt without a telemetry NIC), where monitoring-config's `node` job scrapes service VMs. Separate from
 # terraform_data.bind9, so changing it never restarts BIND. The DNS VMs run no nftables ruleset.
 variable "dns_node_exporter" {
-  description = "node_exporter on each DNS VM (Podman Quadlet, host network, listening on <mgmt address>:<port>). null = don't install it."
+  description = "node_exporter on each DNS VM (Podman Quadlet, host network, listening on <telemetry address>:<port>). null = don't install it."
   type = object({
     port = optional(number, 9100)
   })

@@ -3,9 +3,9 @@
 # from a pinned commit and run as a rootful Podman Quadlet container.
 #
 # HA: every VM with role "ticketing" runs the app (stateless: sessions, tokens and tickets live
-# in Postgres). keepalived holds var.ticketing.vip on the VLAN 2 NIC of the healthy node whose
+# in Postgres). keepalived holds var.ticketing.vip on the lylat-app NIC of the healthy node whose
 # /api/health answers 200 (the app reaches its database); adverts go unicast over the HA L2VNI
-# (l2vnis.ha_triage). The app is published on the node's own VLAN 2 address and on the VIP
+# (l2vnis.ha_triage). The app is published on the node's own lylat-app address and on the VIP
 # (net.ipv4.ip_nonlocal_bind, so the BACKUP can bind it too). The first start bootstraps the
 # admin account from ADMIN_USERNAME / ADMIN_PASSWORD (ignored once users exist).
 #
@@ -28,7 +28,7 @@ variable "ticketing" {
       user = optional(string, "triage")
     }), {})
     ports = optional(list(number), [80, 3000])
-    # keepalived VIP on VLAN 2 (dark-triage-vip.lylat.space; users reach https://dark-triage.lylat.space
+    # keepalived VIP in lylat-app (dark-triage-vip.lylat.space; users reach https://dark-triage.lylat.space
     # through the reverse proxy, proxy.tf). null = no keepalived.
     vip       = optional(string, "10.52.13.105/16")
     router_id = optional(number, 105) # = the VIP's last octet, like Grafana 100, Loki 101, monitoring 102, Mimir 103, Postgres 104
@@ -57,7 +57,7 @@ locals {
   ticketing_vip   = var.ticketing == null ? null : try(split("/", var.ticketing.vip)[0], null)
   ticketing_ha    = var.ticketing != null && local.ticketing_vip != null
 
-  # network_devices[i] is eth<i+1> (eth0 is management). The app listens on the VLAN 2 NIC (the one
+  # network_devices[i] is eth<i+1> (eth0 is management). The app listens on the lylat-app NIC (the one
   # with the gateway); keepalived adverts use the NIC on the HA L2VNI.
   ticketing_nics = {
     for name, vm in local.ticketing_vms : name => {

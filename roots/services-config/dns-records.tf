@@ -126,7 +126,7 @@ check "vips_match_services_config" {
         { name = "dns-zone-vip", vip = try(var.dns_vrrp.zone_vip, null), vrid = try(var.dns_vrrp.router_id, null), role = "dns" },
       ] : c.vip == null || try(var.vips[c.name].address == c.vip && var.vips[c.name].vrid == c.vrid && var.vips[c.name].role == c.role, false)
     ])
-    error_message = "A VIP in services-config (netbox.vip/router_id, ticketing.vip/router_id, proxy.vip/router_id, dns_vrrp) differs from inventory/auto.tfvars/vips.auto.tfvars (netbox-vip, dark-triage-vip, proxy-vip, dns-vip). Keep them identical."
+    error_message = "A VIP in services-config (netbox.vip/router_id, ticketing.vip/router_id, proxy.vip/router_id, dns_vrrp) differs from inventory/auto.tfvars/vips.auto.tfvars (netbox-vip, dark-triage-vip, proxy-vip, dns-vip, dns-zone-vip). Keep them identical."
   }
 }
 
