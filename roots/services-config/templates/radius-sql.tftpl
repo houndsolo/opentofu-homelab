@@ -46,5 +46,21 @@ sql {
 	client_table = "nas"
 	group_attribute = "SQL-Group"
 
+	# Login log (radpostauth) WITHOUT the password. The stock post-auth query in queries.conf writes the typed
+	# PAP/CHAP password, right or wrong, into radpostauth.pass in clear text (then into the WAL, the replicas
+	# and the pgBackRest backups). rlm_sql uses the first "post-auth" section it finds, so this one, placed
+	# before the $INCLUDE, wins. pass stays in the stock schema, always ''. The stock "class" column is left
+	# out: its settings are defined in queries.conf, after this point, and referencing them here fails.
+	post-auth {
+		query = "\
+			INSERT INTO $${..postauth_table} \
+				(username, pass, reply, authdate) \
+			VALUES(\
+				'%%{User-Name}', \
+				'', \
+				'%%{reply:Packet-Type}', \
+				'%S.%M')"
+	}
+
 	$INCLUDE $${modconfdir}/$${.:name}/main/$${dialect}/queries.conf
 }
