@@ -1,7 +1,8 @@
 # Managed by OpenTofu (services-config, proxy.tf). Local edits are overwritten.
 # Complete nginx.conf for the nginx container (Quadlet nginx.container, host network): TLS reverse
 # proxy for <name>.${domain}, one server block per published host (its name plus aliases), upstreams
-# are the services' own VIPs over HTTP, or the Proxmox nodes' :8006 over HTTPS (pve, pve-<node>). IPv4 only (the proxies have no global IPv6 address).
+# are the services' own VIPs over HTTP, every VM of a role over HTTP (active/active apps: nextcloud), or the
+# Proxmox nodes' :8006 over HTTPS (pve, pve-<node>). IPv4 only (the proxies have no global IPv6 address).
 # Logs: the image links /var/log/nginx/*.log to stdout/stderr, so they land in the journal (and Loki).
 
 user  nginx;
@@ -42,10 +43,10 @@ http {
 
 %{ for name, h in hosts ~}
 %{ if length(h.servers) > 0 ~}
-  # ${h.names[0]}: Proxmox web UI on the nodes' management addresses.
+  # ${h.names[0]}: ${h.backend}.
   upstream ${replace(name, "-", "_")} {
-%{ if h.sticky ~}
-    ip_hash; # one browser stays on one node (noVNC/xterm.js consoles); a failed node moves it to the next
+%{ if h.balance != "" ~}
+    ${h.balance};
 %{ endif ~}
 %{ for s in h.servers ~}
     server ${s} max_fails=1 fail_timeout=30s;
@@ -132,7 +133,19 @@ http {
       proxy_buffering         off;
       proxy_read_timeout 3600s;
 %{ else ~}
+%{ if length(h.servers) > 0 ~}
+      # Several nodes: give up on a dead one within 1 s and try the next (the deploy's 5 s health check).
+      proxy_connect_timeout 1s;
+%{ endif ~}
+%{ if h.stream ~}
+      # Big uploads/downloads stream through instead of being buffered on the proxy's disk.
+      proxy_request_buffering off;
+      proxy_buffering         off;
+      proxy_read_timeout 3600s;
+      proxy_send_timeout 3600s;
+%{ else ~}
       proxy_read_timeout 300s;
+%{ endif ~}
 %{ endif ~}
     }
   }

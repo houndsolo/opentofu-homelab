@@ -1,4 +1,4 @@
-# Grafana Alloy on the service VMs (DNS, NetBox, proxy, Valkey, ticketing): the journal (every
+# Grafana Alloy on the service VMs (DNS, NetBox, Nextcloud, proxy, Valkey, ticketing): the journal (every
 # Quadlet container included) to Loki with the same labels as monitoring-config's VMs
 # (source="journal", host, unit, container, app, level). It replaced the rsyslog forwarder
 # (source="syslog", retired on every VM by 2026-11-14). Alloy's HTTP listener (/metrics,
@@ -28,7 +28,7 @@ check "alloy_telemetry_nic" {
 }
 
 locals {
-  alloy_vms = merge(local.dns_vms, local.netbox_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
+  alloy_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
 
   # VM name => the install script (templates/alloy.sh.tftpl); empty when var.alloy is null.
   alloy_scripts = var.alloy == null ? {} : {

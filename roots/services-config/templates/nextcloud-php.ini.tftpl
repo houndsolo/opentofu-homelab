@@ -1,0 +1,24 @@
+; Managed by OpenTofu (services-config, nextcloud.tf). Mounted into the app container as
+; /usr/local/etc/php/conf.d/zz-lylat.ini (loaded after the image's own ini files, so it wins).
+memory_limit = ${php.memory_limit}
+upload_max_filesize = ${php.upload_limit}
+post_max_size = ${php.upload_limit}
+; Assembling big chunked uploads and some occ-like web requests take minutes.
+max_execution_time = 3600
+max_input_time = 3600
+output_buffering = 0
+apc.shm_size = ${php.apcu_shm}
+%{ if shared_sessions ~}
+
+; PHP sessions in Valkey, so any node can serve any request. phpredis can't follow Sentinel, so it talks
+; to the HAProxy in the pod (127.0.0.1:6379), which only forwards to the current primary.
+; Locking is required (Nextcloud docs): without it, parallel requests corrupt sessions (Talk, Files).
+session.save_handler = redis
+session.save_path = "tcp://127.0.0.1:6379?auth=${valkey_password}&database=${session_dbindex}&timeout=2&read_timeout=2"
+redis.session.locking_enabled = 1
+redis.session.lock_retries = -1
+redis.session.lock_wait_time = 10000
+%{ else ~}
+
+; PHP sessions as files in the container (per node): the proxy host must be sticky.
+%{ endif ~}

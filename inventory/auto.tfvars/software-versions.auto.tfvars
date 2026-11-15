@@ -40,6 +40,7 @@ containers = {
   nginx          = { image = "docker.io/library/nginx", version = "1.30.6" } # nginx stable
   nginx_exporter = { image = "docker.io/nginx/nginx-prometheus-exporter", version = "1.5.3" }
   netbox         = { image = "docker.io/netboxcommunity/netbox", version = "v4.7.5-5.1.2" }
+  nextcloud      = { image = "docker.io/library/nextcloud", version = "35.0.3-fpm" } # php-fpm variant (Debian trixie, PHP 8.5); one major at a time
   redis_exporter = { image = "docker.io/oliver006/redis_exporter", version = "v1.97.0" }
 }
 

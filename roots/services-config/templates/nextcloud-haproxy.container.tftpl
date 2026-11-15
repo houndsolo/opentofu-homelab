@@ -1,0 +1,21 @@
+# Managed by OpenTofu (services-config, nextcloud.tf). Local edits are overwritten.
+# HAProxy in the Nextcloud pod: 127.0.0.1:6379 -> the current Valkey primary, for PHP sessions only
+# (haproxy.cfg explains how it follows Sentinel). Only with nextcloud.sessions = "valkey".
+[Unit]
+Description=Nextcloud session proxy (HAProxy to the Valkey primary)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=nextcloud-haproxy
+Pod=nextcloud.pod
+EnvironmentFile=/etc/nextcloud/haproxy.env
+Volume=/etc/nextcloud/haproxy:/usr/local/etc/haproxy:ro
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,60 @@
+<?php
+// Managed by OpenTofu (services-config, nextcloud.tf). Same file on every Nextcloud node (shared CephFS
+// config dir). Nextcloud merges *.config.php over config.php (written once by the installer: instanceid,
+// secret, passwordsalt, database). Keys set here can't be changed with occ config:system:set.
+$CONFIG = [
+  // Users only reach Nextcloud through the reverse proxy pair (https://${domain}/).
+  'trusted_domains'       => ['${domain}'],
+  // The proxies' addresses: only they may set X-Forwarded-For (the real client IP for logs and brute-force
+  // protection). Keep in step with the proxy VMs (proxy.tf); a request from anywhere else keeps its own IP.
+  'trusted_proxies'       => [${join(", ", [for p in trusted_proxies : "'${p}'"])}],
+  'forwarded_for_headers' => ['HTTP_X_FORWARDED_FOR'],
+  // TLS ends at the proxy: generated links must say https and the public name, not the node.
+  'overwriteprotocol'     => 'https',
+  'overwritehost'         => '${domain}',
+  'overwrite.cli.url'     => 'https://${domain}',
+
+  // Postgres: TLS without certificate checks (pg_hba hostssl), like NetBox's sslmode=require.
+  'pgsql_ssl' => ['mode' => 'require'],
+
+  // Caches. APCu: per node, fastest, never shared. Distributed cache and transactional file locking:
+  // Valkey through KeyValueCache (Nextcloud 34.0.2+, bundled predis), which asks the Sentinels for the
+  // current primary itself. The password is also sent to the Sentinels as HELLO AUTH default <pw>, which
+  // their passwordless default user accepts. Never give the Sentinels their own requirepass: NetBox
+  // can't send one (vault planned-projects/nextcloud-ha-plan, section 3).
+  'memcache.local'       => '\OC\Memcache\APCu',
+  'memcache.distributed' => '\OC\Memcache\KeyValueCache',
+  'memcache.locking'     => '\OC\Memcache\KeyValueCache',
+  'memcache.kvstore'     => [
+    'sentinel' => [
+      'service' => '${master_name}',
+      'seeds'   => [
+%{ for s in sentinels ~}
+        ['host' => '${s}', 'port' => 26379],
+%{ endfor ~}
+      ],
+    ],
+    'password'     => '${valkey_password}',
+    'dbindex'      => ${cache_dbindex}, // NetBox uses 0 (tasks) and 1 (cache); PHP sessions use their own
+    'timeout'      => 1.5,
+    'read_timeout' => 1.5,
+  ],
+
+  // App-store installs go to custom_apps (CephFS, so every node has them); the image's apps.config.php
+  // isn't copied in (the entrypoint only fills an empty config dir), so the paths are set here.
+  'apps_paths' => [
+    ['path' => '/var/www/html/apps', 'url' => '/apps', 'writable' => false],
+    ['path' => '/var/www/html/custom_apps', 'url' => '/custom_apps', 'writable' => true],
+  ],
+
+  // Heavy daily background jobs only in the 4 hours after this UTC hour.
+  'maintenance_window_start' => ${maintenance},
+  'default_phone_region'     => '${phone_region}',
+
+  // Logs to PHP's error log = the container's stderr = the journal (and Loki through Alloy).
+  'log_type' => 'errorlog',
+  'loglevel' => 2,
+
+  // Upgrades come from a new image tag (software-versions.auto.tfvars), never from the web updater.
+  'upgrade.disable-web' => true,
+];

@@ -1,4 +1,5 @@
-# Valkey + Sentinel for NetBox (cache and task queue) on the role = "valkey" VMs (valkey01-03),
+# Valkey + Sentinel for NetBox (cache and task queue) and Nextcloud (file locking, cache and PHP sessions;
+# nextcloud.tf) on the role = "valkey" VMs (valkey01-03),
 # from Debian's packages. Every VM runs valkey-server (6379) and valkey-sentinel (26379) on its
 # backend VLAN address (plus loopback). The first VM by name starts as the primary, the others
 # replicate from it. The Sentinels watch the primary; when a quorum of them (2 of 3) agrees it's
@@ -9,7 +10,10 @@
 # sentinel.conf). A deploy therefore asks the running Sentinels for the current primary and writes
 # valkey.conf to match, and only writes sentinel.conf the first time or when its settings change.
 # Deploys are canary-first (first VM, then the rest) and restart a service only when its config
-# changed. An nftables table limits 6379/26379 to the NetBox and Valkey VMs.
+# changed. An nftables table limits 6379/26379 to the NetBox, Nextcloud and Valkey VMs.
+#
+# Memory: maxmemory with noeviction (locks and task queues must never be evicted), so a full Valkey refuses
+# writes for every app at once. Keep maxmemory well under the VMs' RAM (2 GB) and watch used/max.
 variable "valkey" {
   description = "Valkey + Sentinel for NetBox on the role = \"valkey\" VMs. null = don't deploy."
   type = object({
@@ -17,9 +21,9 @@ variable "valkey" {
     quorum              = optional(number, 2)        # Sentinels that must agree the primary is down
     down_after_ms       = optional(number, 5000)     # no reply for this long = subjectively down
     failover_timeout_ms = optional(number, 60000)
-    maxmemory           = optional(string, "512mb")
-    backend_vlan_id     = optional(number, 1601) # lylat-data: Valkey + Sentinel listen here
-    client_vlan_id      = optional(number, 1201) # lylat-app: the NetBox VMs' NIC (routed to lylat-data)
+    maxmemory           = optional(string, "1gb") # NetBox + Nextcloud; the VMs have 2 GB
+    backend_vlan_id     = optional(number, 1601)  # lylat-data: Valkey + Sentinel listen here
+    client_vlan_id      = optional(number, 1201)  # lylat-app: the NetBox and Nextcloud VMs' NIC (routed to lylat-data)
   })
   default = {}
 }
@@ -44,9 +48,9 @@ locals {
   } : {}
   valkey_sentinels = [for name in local.valkey_names : "${local.valkey_backend[name]}:26379"]
 
-  # Who may reach Valkey/Sentinel: the trio itself and the NetBox VMs (their lylat-app addresses).
+  # Who may reach Valkey/Sentinel: the trio itself and the NetBox and Nextcloud VMs (their lylat-app addresses).
   valkey_clients = local.valkey_enabled ? sort(concat(values(local.valkey_backend), flatten([
-    for vm in values(local.netbox_vms) : [ # netbox.tf
+    for vm in values(merge(local.netbox_vms, local.nextcloud_vms)) : [ # netbox.tf, nextcloud.tf
       for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
       if nic.vlan_id == var.valkey.client_vlan_id && nic.ipv4_address != null
     ]

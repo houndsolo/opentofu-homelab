@@ -1,0 +1,14 @@
+# Managed by OpenTofu (services-config, nextcloud.tf). Local edits are overwritten.
+# The Nextcloud pod: app (php-fpm), web (nginx) and, with shared sessions, haproxy share one network
+# namespace (127.0.0.1). Only nginx's port is published, on the node's lylat-app address.
+[Unit]
+Description=Nextcloud pod
+Wants=network-online.target
+After=network-online.target
+
+[Pod]
+PodName=nextcloud
+PublishPort=${listen}:${port}:80
+
+[Install]
+WantedBy=multi-user.target

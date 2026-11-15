@@ -1,9 +1,10 @@
 # Reverse proxy for the lab's web UIs: nginx (Podman Quadlet container, pinned official image, host
 # network; config in /etc/nginx-proxy) on every role "proxy" VM terminates
 # TLS for https://<name>.lylat.space with the Let's Encrypt wildcard *.lylat.space that roots/certs
-# installs in var.proxy.cert_dir, and forwards over plain HTTP to the service's own VIP (its address
-# from vips.auto.tfvars, e.g. grafana-vip). DNS: every host name and alias is generated as a CNAME
-# to proxy-vip.lylat.space (dns-records.tf).
+# installs in var.proxy.cert_dir, and forwards over plain HTTP either to the service's own VIP (its address
+# from vips.auto.tfvars, e.g. grafana-vip) or, for active/active apps without a VIP (Nextcloud), to every
+# VM of a role (an nginx upstream over their service addresses; nginx skips a node that stops answering).
+# DNS: every host name and alias is generated as a CNAME to proxy-vip.lylat.space (dns-records.tf).
 #
 # A deploy that restarts nginx (new image/unit) on the node holding the VIP first hands the VIP to a
 # healthy peer (stops keepalived), so the switch costs ~1 s instead of the ~9 s health-check failover.
@@ -21,15 +22,24 @@ variable "proxy" {
     domain   = optional(string, "lylat.space")  # the zone; the certificate is *.<domain>
     cert_dir = optional(string, "/etc/ssl/svc") # = roots/certs var.certificate.directory
     hosts = optional(map(object({
-      vip        = string                     # key in vips.auto.tfvars: nginx forwards to its address
-      port       = number                     # the service's port on that VIP
+      vip        = optional(string)           # key in vips.auto.tfvars: nginx forwards to its address
+      role       = optional(string)           # or: every VM of this role (its NIC with the gateway), active/active
+      port       = number                     # the service's port on that VIP / those VMs
       aliases    = optional(list(string), []) # more names in the same zone (also CNAMEs to the proxy)
       websockets = optional(bool, false)      # Upgrade/Connection headers (Grafana Live)
       max_body   = optional(string, "10m")    # client_max_body_size (uploads)
+      stream     = optional(bool, false)      # no request/response buffering on the proxy, 1 h timeouts (big uploads/downloads)
+      # role hosts: nginx upstream balancing. "" = round robin (the app shares sessions between nodes);
+      # "hash $remote_addr consistent" = sticky per client IP (per-node sessions; ip_hash would only hash
+      # the first three octets, so a whole /24 would land on one node).
+      balance = optional(string, "")
       })), {
       grafana       = { vip = "grafana-vip", port = 3000, websockets = true }
       netbox        = { vip = "netbox-vip", port = 80, max_body = "100m" }
       "dark-triage" = { vip = "dark-triage-vip", port = 80, aliases = ["triage"] }
+      # Nextcloud (nextcloud.tf): nc01-03, sessions shared through Valkey, so plain round robin. With
+      # nextcloud.sessions = "local" set balance = "hash $remote_addr consistent" (vault nextcloud-ha-plan).
+      nextcloud = { role = "nextcloud", port = 80, max_body = "16g", stream = true }
     })
     clients = optional(list(string), ["10.0.0.0/8"]) # may reach 80/443
     # Landing page https://<name>.<domain>: links to every published host. null = none.
@@ -58,13 +68,13 @@ variable "proxy" {
     condition = var.proxy == null || try(
       (var.proxy.vip == null || (can(cidrhost(var.proxy.vip, 0)) && strcontains(var.proxy.vip, "/"))) &&
       var.proxy.router_id >= 1 && var.proxy.router_id <= 255 &&
-      alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && contains(keys(var.vips), h.vip) && h.port >= 1 && h.port <= 65535]) &&
+      alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && (h.vip == null) != (h.role == null) && (h.vip == null || contains(keys(var.vips), coalesce(h.vip, "-"))) && h.port >= 1 && h.port <= 65535 && contains(["", "ip_hash", "least_conn", "hash $remote_addr consistent"], h.balance)]) &&
       length(distinct(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]))) == length(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)])) &&
       alltrue([for c in var.proxy.clients : can(cidrhost(c, 0))]) &&
       (var.proxy.landing == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.landing.name)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.landing.name))) &&
       (var.proxy.pve == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.pve.cluster_name)) && can(regex("^[a-z0-9][a-z0-9-]*$", var.proxy.pve.node_prefix)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.pve.cluster_name))), false
     )
-    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host's vip is a key in vips.auto.tfvars and port is 1..65535; clients are CIDRs; landing.name is a DNS label not used by a host; pve.cluster_name is a DNS label not used by a host and pve.node_prefix starts a DNS label."
+    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host has either a vip (a key in vips.auto.tfvars) or a role, port 1..65535, balance \"\", \"ip_hash\", \"least_conn\" or \"hash $remote_addr consistent\"; clients are CIDRs; landing.name is a DNS label not used by a host; pve.cluster_name is a DNS label not used by a host and pve.node_prefix starts a DNS label."
   }
 }
 
@@ -86,21 +96,31 @@ locals {
     }
   }
 
+  # Role hosts (active/active apps, no VIP): host key => the role's VMs' service addresses (the NIC with
+  # the gateway) and the port. A role without VMs (yet) publishes nothing (check proxy_role_hosts_have_vms).
+  proxy_role_servers = var.proxy == null ? {} : {
+    for name, h in var.proxy.hosts : name => [
+      for vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == h.role]) :
+      "${split("/", one([for nic in var.vms[vm_name].network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null]))[0]}:${h.port}"
+    ] if h.role != null
+  }
+
   # Proxmox web UIs (var.proxy.pve): host key => nginx upstream servers (node management addresses).
   proxy_pve = try(var.proxy.pve, null)
   proxy_pve_upstreams = local.proxy_pve == null ? {} : merge(
     { (local.proxy_pve.cluster_name) = {
-      sticky  = true
+      balance = "ip_hash" # one browser stays on one node (noVNC/xterm.js consoles); a failed node moves it to the next
       servers = [for name in sort(keys(var.nodes.proxmox)) : "${cidrhost(var.nodes.management_prefix, var.nodes.proxmox[name].id)}:${local.proxy_pve.port}" if !var.nodes.proxmox[name].standalone]
     } },
     { for name, n in var.nodes.proxmox : "${local.proxy_pve.node_prefix}${name}" => {
-      sticky  = false
+      balance = ""
       servers = ["${cidrhost(var.nodes.management_prefix, n.id)}:${local.proxy_pve.port}"]
     } },
   )
 
   # Each published host: all its names (key + aliases, fully qualified) and the upstream URL. VIP hosts
-  # forward over HTTP to their service VIP; Proxmox hosts over HTTPS to an nginx upstream block of nodes.
+  # forward over HTTP to their service VIP; role hosts over HTTP and Proxmox hosts over HTTPS to an nginx
+  # upstream block of their servers.
   proxy_hosts = var.proxy == null ? {} : merge(
     { for name, h in var.proxy.hosts : name => {
       names      = [for n in concat([name], h.aliases) : "${n}.${var.proxy.domain}"]
@@ -109,10 +129,23 @@ locals {
       vip        = h.vip
       websockets = h.websockets
       max_body   = h.max_body
+      stream     = h.stream
       servers    = []
-      sticky     = false
+      balance    = ""
       tls        = false
-    } },
+    } if h.vip != null },
+    { for name, h in var.proxy.hosts : name => {
+      names      = [for n in concat([name], h.aliases) : "${n}.${var.proxy.domain}"]
+      upstream   = "http://${replace(name, "-", "_")}"
+      backend    = "${h.role} VMs ${join(", ", local.proxy_role_servers[name])}"
+      vip        = null
+      websockets = h.websockets
+      max_body   = h.max_body
+      stream     = h.stream
+      servers    = local.proxy_role_servers[name]
+      balance    = h.balance
+      tls        = false
+    } if h.role != null && length(try(local.proxy_role_servers[name], [])) > 0 },
     { for name, u in local.proxy_pve_upstreams : name => {
       names      = ["${name}.${var.proxy.domain}"]
       upstream   = "https://${replace(name, "-", "_")}"
@@ -120,8 +153,9 @@ locals {
       vip        = null
       websockets = true
       max_body   = local.proxy_pve.max_body
+      stream     = false
       servers    = u.servers
-      sticky     = u.sticky
+      balance    = u.balance
       tls        = true
     } },
   )
@@ -195,6 +229,13 @@ locals {
   # Canary first: the first VM by name, then everything else (depends_on).
   proxy_canary = { for name, s in local.proxy_script : name => s if name == local.proxy_names[0] }
   proxy_rest   = { for name, s in local.proxy_script : name => s if name != local.proxy_names[0] }
+}
+
+check "proxy_role_hosts_have_vms" {
+  assert {
+    condition     = var.proxy == null || alltrue([for name, servers in local.proxy_role_servers : length(servers) > 0])
+    error_message = "proxy: role hosts without any VM of that role aren't published (yet): ${join(", ", [for name, servers in local.proxy_role_servers : name if length(servers) == 0])}."
+  }
 }
 
 resource "terraform_data" "proxy_canary" {

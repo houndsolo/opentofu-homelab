@@ -365,6 +365,123 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  nc01 = {
+    # Nextcloud app node, active/active trio nc01-03 behind the proxy pair (no VIP): Quadlet pod nginx +
+    # nextcloud:fpm + HAProxy (PHP sessions to the Valkey primary), deployed by services-config (nextcloud.tf).
+    # Data in Postgres (Patroni, database "nextcloud"), files/config/apps on CephFS /nextcloud.
+    owner              = "services-vms"
+    role               = "nextcloud"
+    ha                 = { group = "nextcloud" } # Proxmox HA; never on a node with another nextcloud VM
+    node               = "titania"
+    vm_id              = 1152
+    image              = "debian13"
+    management_address = "10.20.11.52/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.19.52/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::19:52/64"
+      },
+      {
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.52/16"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.19.52/16"
+        ipv6_address = "fd69:5501::19:52/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "nextcloud"]
+      cpu_cores    = 4
+      memory_mb    = 6144
+      disk_size_gb = 32
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  nc02 = {
+    # Nextcloud app node, active/active trio nc01-03 behind the proxy pair (no VIP): Quadlet pod nginx +
+    # nextcloud:fpm + HAProxy (PHP sessions to the Valkey primary), deployed by services-config (nextcloud.tf).
+    # Data in Postgres (Patroni, database "nextcloud"), files/config/apps on CephFS /nextcloud.
+    owner              = "services-vms"
+    role               = "nextcloud"
+    ha                 = { group = "nextcloud" } # Proxmox HA; never on a node with another nextcloud VM
+    node               = "fichina"
+    vm_id              = 1153
+    image              = "debian13"
+    management_address = "10.20.11.53/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.19.53/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::19:53/64"
+      },
+      {
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.53/16"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.19.53/16"
+        ipv6_address = "fd69:5501::19:53/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "nextcloud"]
+      cpu_cores    = 4
+      memory_mb    = 6144
+      disk_size_gb = 32
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  nc03 = {
+    # Nextcloud app node, active/active trio nc01-03 behind the proxy pair (no VIP): Quadlet pod nginx +
+    # nextcloud:fpm + HAProxy (PHP sessions to the Valkey primary), deployed by services-config (nextcloud.tf).
+    # Data in Postgres (Patroni, database "nextcloud"), files/config/apps on CephFS /nextcloud.
+    owner              = "services-vms"
+    role               = "nextcloud"
+    ha                 = { group = "nextcloud" } # Proxmox HA; never on a node with another nextcloud VM
+    node               = "macbeth"
+    vm_id              = 1154
+    image              = "debian13"
+    management_address = "10.20.11.54/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.19.54/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::19:54/64"
+      },
+      {
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.54/16"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.19.54/16"
+        ipv6_address = "fd69:5501::19:54/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "nextcloud"]
+      cpu_cores    = 4
+      memory_mb    = 6144
+      disk_size_gb = 32
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   valkey01 = {
     # Valkey + Sentinel for NetBox (cache and task queue), trio valkey01-03: valkey01 starts as the
     # primary, the others replicate; the three Sentinels (quorum 2) promote a replica if the primary
@@ -397,8 +514,8 @@ vms = {
     ]
     config = {
       tags         = ["opentofu", "debian", "valkey"]
-      cpu_cores    = 1
-      memory_mb    = 1024
+      cpu_cores    = 2
+      memory_mb    = 2048
       disk_size_gb = 10
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
@@ -436,8 +553,8 @@ vms = {
     ]
     config = {
       tags         = ["opentofu", "debian", "valkey"]
-      cpu_cores    = 1
-      memory_mb    = 1024
+      cpu_cores    = 2
+      memory_mb    = 2048
       disk_size_gb = 10
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
@@ -475,8 +592,8 @@ vms = {
     ]
     config = {
       tags         = ["opentofu", "debian", "valkey"]
-      cpu_cores    = 1
-      memory_mb    = 1024
+      cpu_cores    = 2
+      memory_mb    = 2048
       disk_size_gb = 10
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
@@ -1062,8 +1179,8 @@ vms = {
     ]
     config = {
       tags         = ["opentofu", "debian", "postgres"]
-      cpu_cores    = 2
-      memory_mb    = 4096
+      cpu_cores    = 4
+      memory_mb    = 8192
       disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
@@ -1111,8 +1228,8 @@ vms = {
     ]
     config = {
       tags         = ["opentofu", "debian", "postgres"]
-      cpu_cores    = 2
-      memory_mb    = 4096
+      cpu_cores    = 4
+      memory_mb    = 8192
       disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]
@@ -1160,8 +1277,8 @@ vms = {
     ]
     config = {
       tags         = ["opentofu", "debian", "postgres"]
-      cpu_cores    = 2
-      memory_mb    = 4096
+      cpu_cores    = 4
+      memory_mb    = 8192
       disk_size_gb = 40 # Postgres data dir (POSIX filesystem); backups and WAL archive live in Ceph (RGW).
       ssh_username = "mechanic"
       ssh_pubkeys  = ["desktop"]

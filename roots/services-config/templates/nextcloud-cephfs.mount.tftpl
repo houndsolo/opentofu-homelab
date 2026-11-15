@@ -1,0 +1,16 @@
+# Managed by OpenTofu (services-config, nextcloud.tf). CephFS /nextcloud: Nextcloud's shared config,
+# data, custom_apps and themes, mounted on every Nextcloud VM (kernel client over the Ceph public NIC).
+[Unit]
+Description=CephFS for Nextcloud (config, data, apps, themes)
+Wants=network-online.target
+After=network-online.target
+
+[Mount]
+What=${what}
+Where=/var/lib/nextcloud
+Type=ceph
+Options=${options}
+TimeoutSec=60
+
+[Install]
+WantedBy=remote-fs.target

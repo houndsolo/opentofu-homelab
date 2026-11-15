@@ -1,0 +1,13 @@
+# Managed by OpenTofu (services-config, nextcloud.tf). Nextcloud background jobs (cron mode), on one
+# node only (var.nextcloud.cron_node). Skipped while Nextcloud is in maintenance mode or needs an upgrade.
+[Unit]
+Description=Nextcloud cron.php
+After=nextcloud-app.service
+Requisite=nextcloud-app.service
+
+[Service]
+Type=oneshot
+ExecCondition=/usr/bin/podman exec -u www-data nextcloud-app php -f /var/www/html/occ status -e
+ExecStart=/usr/bin/podman exec -u www-data nextcloud-app php -f /var/www/html/cron.php
+# Programs started by a job may keep running after cron.php ends (Nextcloud docs).
+KillMode=process

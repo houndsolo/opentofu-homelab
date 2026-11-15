@@ -193,8 +193,9 @@ variable "blackbox_https_targets" {
     grafana     = "https://grafana.lylat.space/api/health"
     netbox      = "https://netbox.lylat.space/login/"
     dark-triage = "https://dark-triage.lylat.space/api/health"
-    proxy       = "https://proxy.lylat.space/" # the proxy's landing page
-    pve         = "https://pve.lylat.space/"   # Proxmox cluster UI (greatfox's pve-greatfox isn't probed: often off)
+    nextcloud   = "https://nextcloud.lylat.space/status.php" # through the proxy to any of nc01-03
+    proxy       = "https://proxy.lylat.space/"               # the proxy's landing page
+    pve         = "https://pve.lylat.space/"                 # Proxmox cluster UI (greatfox's pve-greatfox isn't probed: often off)
   }
 }
 

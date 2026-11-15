@@ -1,0 +1,32 @@
+# Managed by OpenTofu (services-config, nextcloud.tf). Local edits are overwritten.
+# Nextcloud php-fpm (official image). On start the image's entrypoint copies the code from the image into
+# /var/www/html (local per node) when the image is newer, and runs occ upgrade if Nextcloud is installed.
+# config/, data/, custom_apps/ and themes/ come from CephFS (/var/lib/nextcloud), shared by every node.
+[Unit]
+Description=Nextcloud (php-fpm)
+Wants=network-online.target
+RequiresMountsFor=/var/lib/nextcloud
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=nextcloud-app
+Pod=nextcloud.pod
+# Read by the image's nextcloud.ini; zz-lylat.ini repeats them (and wins).
+Environment=PHP_MEMORY_LIMIT=${memory_limit}
+Environment=PHP_UPLOAD_LIMIT=${upload_limit}
+Volume=/var/lib/nextcloud-html:/var/www/html
+Volume=/var/lib/nextcloud/config:/var/www/html/config
+Volume=/var/lib/nextcloud/data:/var/www/html/data
+Volume=/var/lib/nextcloud/custom_apps:/var/www/html/custom_apps
+Volume=/var/lib/nextcloud/themes:/var/www/html/themes
+Volume=/etc/nextcloud/php.ini:/usr/local/etc/php/conf.d/zz-lylat.ini:ro
+Volume=/etc/nextcloud/fpm.conf:/usr/local/etc/php-fpm.d/zz-lylat.conf:ro
+
+[Service]
+Restart=always
+# The first start copies the code; an upgrade runs occ upgrade before php-fpm starts.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

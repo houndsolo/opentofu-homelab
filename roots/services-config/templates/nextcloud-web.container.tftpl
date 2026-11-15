@@ -1,0 +1,26 @@
+# Managed by OpenTofu (services-config, nextcloud.tf). Local edits are overwritten.
+# nginx in the Nextcloud pod: static files from the node's code dir (read-only), PHP to php-fpm on
+# 127.0.0.1:9000. The config dir is mounted as a directory, so a replaced file is seen after a restart.
+[Unit]
+Description=Nextcloud web server (nginx)
+Wants=network-online.target
+RequiresMountsFor=/var/lib/nextcloud
+After=network-online.target nextcloud-app.service
+
+[Container]
+Image=${image}
+ContainerName=nextcloud-web
+Pod=nextcloud.pod
+Volume=/etc/nextcloud/nginx:/etc/nextcloud-nginx:ro
+Volume=/var/lib/nextcloud-html:/var/www/html:ro
+Volume=/var/lib/nextcloud/custom_apps:/var/www/html/custom_apps:ro
+Volume=/var/lib/nextcloud/themes:/var/www/html/themes:ro
+Exec=nginx -c /etc/nextcloud-nginx/nginx.conf -g "daemon off;"
+Environment=NGINX_ENTRYPOINT_QUIET_LOGS=1
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

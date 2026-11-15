@@ -13,11 +13,12 @@ locals {
   logging_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "logging" }
   valkey_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "valkey" }
   netbox_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "netbox" }
+  nextcloud_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "nextcloud" }
   proxy_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "proxy" }
   ticketing_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "ticketing" }
   # Grafana Alloy from services-config (alloy.tf) on these VMs: HTTP on the telemetry address (alloy job);
   # they push to Loki's telemetry VIP (logging-guard allows 10.55.0.0/16 on 3100).
-  alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
+  alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
   deploy_vms        = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
@@ -123,6 +124,7 @@ locals {
       [for name in keys(local.dns_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "dns" } }],
       [for name in keys(local.valkey_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "valkey" } }],
       [for name in keys(local.netbox_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "netbox" } }],
+      [for name in keys(local.nextcloud_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "nextcloud" } }],
       [for name in keys(local.proxy_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "proxy" } }],
       [for name in keys(local.ticketing_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "ticketing" } }],
       [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
@@ -293,8 +295,8 @@ module "monitoring" {
   }
   # pg_major and the package pins come from packages in software-versions.auto.tfvars (postgres.tf).
   postgres_settings = merge(var.postgres_settings, { pg_major = local.pg_major, package_versions = local.pg_package_versions })
-  # Application databases (role = database = key): dark-triage (role "ticketing" VMs) and NetBox
-  # (role "netbox" VMs) connect from their backend VLAN addresses with the shared passwords from
+  # Application databases (role = database = key): dark-triage (role "ticketing" VMs), NetBox
+  # (role "netbox" VMs) and Nextcloud (role "nextcloud" VMs) connect from their backend VLAN addresses with the shared passwords from
   # app-db.secret.auto.tfvars.
   postgres_apps = {
     for app, clients in local.postgres_app_clients : app => {
