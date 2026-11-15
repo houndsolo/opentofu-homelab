@@ -616,12 +616,12 @@ def fw_wan():
 
 # --- Proxmox & Ceph logs -------------------------------------------------------------
 
-PVE = '{source="syslog", host=~"$node"}'
+PVE = '{source=~"journal|syslog", host=~"$node"}'
 CEPH = '{app="ceph-cluster", host="${cephmon}"}'
 TASK_RE = (r"<(?P<user>[^>]+)> (?P<what>starting|end) task UPID:(?P<tnode>[^:]+):[^:]+:[^:]+:[^:]+:(?P<task>[^:]+):"
            r"(?P<vmid>[^:]*):[^:]+:\s*(?P<status>[^\n]*)")
 # Only corosync's and pmxcfs's lines: pve-ha-lrm's "startup => wait_for_quorum" is no corosync event.
-COROSYNC = '{source="syslog", host=~"$node", app=~"corosync|pmxcfs"}' + search()
+COROSYNC = '{source=~"journal|syslog", host=~"$node", app=~"corosync|pmxcfs"}' + search()
 COROSYNC_RE = (r"(?i:host: \d+ link: \d+ is (up|down)|new membership|members\[|quorum|token has not been "
                r"received|retransmit list|failed to receive)")
 OSD_RE = r"(?i:osd\.\d+ (\[[^\]]*\] )?boot|osd\.\d+ (marked|failed|reported)|marked osd\.\d+|marking osd\.\d+|osd\.\d+ out\b)"
@@ -642,7 +642,7 @@ def proxmox():
     b.add(range_stat("Tasks started", f'{sel} |= "starting task UPID"'), 3, 4)
     b.add(range_stat("Corosync events", f"{COROSYNC} |~ `{COROSYNC_RE}`", thresholds=ORANGE_IF_ANY,
                      desc="corosync/pmxcfs: link up/down, membership and quorum changes, token loss."), 3, 4)
-    b.add(range_stat("HA events", '{source="syslog", host=~"$node", app=~"pve-ha-.*"}' + search(),
+    b.add(range_stat("HA events", '{source=~"journal|syslog", host=~"$node", app=~"pve-ha-.*"}' + search(),
                      desc="pve-ha-crm/lrm lines (service starts, migrations, fencing)."), 3, 4)
     b.add(range_stat("Auth failures", f'{sel} |~ `(?i)authentication failure|auth fail|failed password|invalid user`',
                      thresholds=ORANGE_IF_ANY, desc="PVE web/API (pveproxy, pvedaemon) and SSH login failures."), 3, 4)
@@ -665,7 +665,7 @@ def proxmox():
                      desc="corosync/pmxcfs: link up/down, membership and quorum changes, token loss."), 8, 10)
     b.add(logs("corosync / pmxcfs", COROSYNC,
                desc="Cluster communication and the cluster filesystem (/etc/pve)."), 8, 10)
-    b.add(logs("HA manager", '{source="syslog", host=~"$node", app=~"pve-ha-.*"}' + search(),
+    b.add(logs("HA manager", '{source=~"journal|syslog", host=~"$node", app=~"pve-ha-.*"}' + search(),
                desc="pve-ha-crm (cluster resource manager) and pve-ha-lrm (local resource manager)."), 8, 10)
 
     b.row("Tasks and guests")
@@ -682,14 +682,14 @@ def proxmox():
                         {"type": "regex", "options": {"pattern": "/^(?!OK$).+$/", "result": {"color": "red", "index": 1}}}],
                                                    "custom.cellOptions": {"type": "color-text"}})],
                     desc="Task starts and ends (pvedaemon, pveproxy, pvescheduler, ...)."), 18, 10)
-    b.add(logs("Guest lifecycle", '{source="syslog", host=~"$node", app=~"qmeventd|qm|pct|lxc.*|pvescheduler"}'
+    b.add(logs("Guest lifecycle", '{source=~"journal|syslog", host=~"$node", app=~"qmeventd|qm|pct|lxc.*|pvescheduler"}'
                + search(), desc="qmeventd (VM start/stop/cleanup), qm/pct and scheduled jobs."), 12, 10)
     b.add(logs("pvestatd / pveproxy / pvedaemon",
-               '{source="syslog", host=~"$node", app=~"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall"}'
+               '{source=~"journal|syslog", host=~"$node", app=~"pvestatd|pveproxy|pvedaemon|pvescheduler|pve-firewall"}'
                + search() + ' !~ `status update time`', desc="PVE daemons, without pvestatd's 'status update time' "
                                                               "lines."), 12, 10)
-    b.add(logs("Kernel errors and warnings", '{source="syslog", host=~"$node", app="kernel"}' + search()
-               + ' | level=~"emergency|alert|critical|error|warning"', desc="Kernel lines at warning or worse."), 24, 9)
+    b.add(logs("Kernel errors and warnings", '{source=~"journal|syslog", host=~"$node", app="kernel"}' + search()
+               + ' | level=~"emerg(ency)?|alert|crit(ical)?|err(or)?|warning"', desc="Kernel lines at warning or worse."), 24, 9)
 
     b.row("Ceph cluster log")
     ceph = CEPH + search()
@@ -723,11 +723,11 @@ def proxmox():
     b.add(logs("Cluster log (without DBG)", ceph + ' != "[DBG]"', desc="The cluster log minus [DBG] (pgmap) lines."),
           12, 12)
     b.add(logs("Ceph daemons and kernel client",
-               '{source="syslog", host=~"$node", app=~"ceph-(osd|mon|mgr|mds|crash|volume).*|kernel"} '
+               '{source=~"journal|syslog|ceph", host=~"$node", app=~"ceph-(osd|mon|mgr|mds|rgw|crash|volume).*|kernel"} '
                '|~ `(?i)ceph|osd|libceph|rbd`' + search(),
                desc="Ceph daemons' journal lines and the kernel's libceph/rbd messages on the selected nodes."), 12, 12)
 
-    node_var = loki_var("node", "Node", f'{{source="syslog", host=~"{PVE_HOSTS}"}}', "host", all_value=PVE_HOSTS)
+    node_var = loki_var("node", "Node", f'{{source=~"journal|syslog", host=~"{PVE_HOSTS}"}}', "host", all_value=PVE_HOSTS)
     mon_var = loki_var("cephmon", "Ceph mon", '{app="ceph-cluster"}', "host", multi=False, include_all=False,
                        current={"selected": True, "text": "macbeth", "value": "macbeth"})
     mon_var["description"] = "Every mon sends the same cluster log: read one copy."
