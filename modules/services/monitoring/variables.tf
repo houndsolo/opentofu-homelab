@@ -330,19 +330,24 @@ variable "postgres_settings" {
     # rebuild, not an in-place upgrade: the new major gets its own Patroni scope and pgBackRest
     # stanza ("<cluster_name><pg_major>") and data dir, so the old cluster's are left untouched
     # (dump/restore; 17 -> 18: DT-046).
-    pg_major                   = number # from packages.postgresql (software-versions.auto.tfvars)
-    rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
-    retention_days             = optional(number, 14)               # PITR window (pgBackRest time-based full retention)
-    backup_schedule            = optional(string, "*-*-* 01:30:00") # systemd OnCalendar: daily full backup on the leader
-    archive_timeout            = optional(number, 300)              # s: a WAL segment is archived at least this often when there are writes (RPO)
-    maximum_lag_on_failover    = optional(number, 1048576)          # bytes: replicas further behind don't take over
-    max_connections            = optional(number, 200)              # cluster-wide: only at bootstrap, later via pgctl edit-config
-    parameters                 = optional(map(string), {})          # extra/overriding local postgresql.conf parameters
-    etcd_initial_cluster_state = optional(string, "new")            # "existing" when a rebuilt member rejoins (README)
-    etcd_heartbeat_interval    = optional(number, 300)              # ms (etcd default 100): Ceph RBD fsync p99 is 125-355 ms (DT-017)
-    etcd_election_timeout      = optional(number, 3000)             # ms (etcd default 1000): ~10x the heartbeat, per the etcd tuning guide
-    bootstrap_from_backup      = optional(bool, false)              # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
-    restore_target_time        = optional(string)                   # with bootstrap_from_backup: PITR target, e.g. "2026-11-20 12:00:00+00"
+    pg_major                = number # from packages.postgresql (software-versions.auto.tfvars)
+    rgw_endpoints           = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
+    retention_days          = optional(number, 14)               # PITR window (pgBackRest time-based full retention)
+    backup_schedule         = optional(string, "*-*-* 01:30:00") # systemd OnCalendar: daily full backup on the leader
+    archive_timeout         = optional(number, 300)              # s: a WAL segment is archived at least this often when there are writes (RPO)
+    maximum_lag_on_failover = optional(number, 1048576)          # bytes: replicas further behind don't take over
+    max_connections         = optional(number, 200)              # cluster-wide: only at bootstrap, later via pgctl edit-config
+    # Synchronous replication: "quorum" (commit waits for ANY synchronous_node_count replicas), "on" (one named
+    # sync standby) or "off" (async). Never strict: with no replica left the leader falls back to async and keeps
+    # accepting writes. Set at bootstrap AND enforced on the leader by every deploy (pg-leader-setup).
+    synchronous_mode           = optional(string, "quorum")
+    synchronous_node_count     = optional(number, 1)
+    parameters                 = optional(map(string), {}) # extra/overriding local postgresql.conf parameters
+    etcd_initial_cluster_state = optional(string, "new")   # "existing" when a rebuilt member rejoins (README)
+    etcd_heartbeat_interval    = optional(number, 300)     # ms (etcd default 100): Ceph RBD fsync p99 is 125-355 ms (DT-017)
+    etcd_election_timeout      = optional(number, 3000)    # ms (etcd default 1000): ~10x the heartbeat, per the etcd tuning guide
+    bootstrap_from_backup      = optional(bool, false)     # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
+    restore_target_time        = optional(string)          # with bootstrap_from_backup: PITR target, e.g. "2026-11-20 12:00:00+00"
     # Debian package => accepted version (dpkg glob), from packages in software-versions.auto.tfvars.
     # A package that is missing or outside its pattern is installed at the newest apt version that
     # matches; the deploy fails if none does.
@@ -356,10 +361,11 @@ variable "postgres_settings" {
       var.postgres_settings.retention_days >= 1 && contains(["new", "existing"], var.postgres_settings.etcd_initial_cluster_state) &&
       var.postgres_settings.etcd_heartbeat_interval >= 10 && var.postgres_settings.etcd_election_timeout >= 5 * var.postgres_settings.etcd_heartbeat_interval &&
       var.postgres_settings.etcd_election_timeout <= 50000 &&
+      contains(["quorum", "on", "off"], var.postgres_settings.synchronous_mode) && var.postgres_settings.synchronous_node_count >= 1 &&
       floor(var.postgres_settings.pg_major) == var.postgres_settings.pg_major && var.postgres_settings.pg_major >= 17 &&
       alltrue([for k, v in var.postgres_settings.package_versions : can(regex("^[a-z0-9.+-]+$", k)) && can(regex("^[A-Za-z0-9.+~:*-]+$", v))])
     )
-    error_message = "postgres_settings: vip is an IPv4 CIDR, vrrp_router_id 1..255, cluster_name lowercase [a-z0-9-], rgw_endpoints \"IP:port\", retention_days >= 1, etcd_initial_cluster_state new|existing, etcd_heartbeat_interval >= 10 ms, etcd_election_timeout 5x the heartbeat .. 50000 ms, pg_major an integer >= 17, package_versions package => version glob."
+    error_message = "postgres_settings: vip is an IPv4 CIDR, vrrp_router_id 1..255, cluster_name lowercase [a-z0-9-], rgw_endpoints \"IP:port\", retention_days >= 1, etcd_initial_cluster_state new|existing, etcd_heartbeat_interval >= 10 ms, etcd_election_timeout 5x the heartbeat .. 50000 ms, synchronous_mode quorum|on|off with synchronous_node_count >= 1, pg_major an integer >= 17, package_versions package => version glob."
   }
 }
 

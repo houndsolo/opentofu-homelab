@@ -359,6 +359,8 @@ variable "postgres_settings" {
     archive_timeout            = optional(number, 300)
     maximum_lag_on_failover    = optional(number, 1048576)
     max_connections            = optional(number, 200)
+    synchronous_mode           = optional(string, "quorum") # quorum | on | off (module postgres_settings)
+    synchronous_node_count     = optional(number, 1)
     parameters                 = optional(map(string), {})
     etcd_initial_cluster_state = optional(string, "new")
     etcd_heartbeat_interval    = optional(number, 300)  # ms; slow Ceph RBD fsync (DT-017)

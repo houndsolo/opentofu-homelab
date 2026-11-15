@@ -4,6 +4,8 @@
 # Grafana's and the exporter's roles (passwords from /etc/postgres-ha/roles.env), the
 # grafana database, the pgBackRest stanza and, if the repository has none yet, a first full
 # backup. Replicas get all of it through replication; they exit right away.
+# Also enforces the cluster's synchronous replication setting in Patroni's DCS (bootstrap.dcs only
+# applies when a cluster is created).
 set -euo pipefail
 member='${name}'
 stanza='${stanza}'
@@ -23,6 +25,11 @@ for _ in $(seq 1 60); do
   [ "$(runuser -u postgres -- psql -XAtqc 'select pg_is_in_recovery()' 2>/dev/null || true)" = f ] && break
   sleep 2
 done
+
+# Synchronous replication (postgres_settings.synchronous_mode): a reload, no restart. Prints "Not changed"
+# when the DCS already has these values.
+/usr/local/sbin/pgctl edit-config --force -s synchronous_mode=${sync_mode} -s synchronous_node_count=${sync_count} -s synchronous_mode_strict=false
+echo "synchronous_mode=${sync_mode} synchronous_node_count=${sync_count} (strict off) in the DCS"
 
 # Passwords come from the environment (\getenv), never from the command line.
 runuser -u postgres -- psql -X -v ON_ERROR_STOP=1 -q <<'SQL'

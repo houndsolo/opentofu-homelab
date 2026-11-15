@@ -39,11 +39,13 @@ locals {
     s3_bucket        = "", s3_access_key = "", s3_secret_key = "", superuser_password = "", replication_password = ""
     restapi_password = "", monitor_password = ""
   }
-  pg_names   = sort(keys(var.postgres))
-  pgs        = var.postgres_settings
-  pg_vip     = split("/", local.pgs.vip)[0]
-  pg_scope   = "${local.pgs.cluster_name}${local.pg_major}" # Patroni scope, pgBackRest stanza and repo path
-  etcd_scope = local.pgs.cluster_name                       # etcd data dir and cluster token: unchanged across majors
+  pg_names = sort(keys(var.postgres))
+  pgs      = var.postgres_settings
+  # Patroni's synchronous_mode value: the string "quorum" or a YAML bool ("on"/"off" strings aren't accepted).
+  pg_sync_yaml = { quorum = "quorum", on = "true", off = "false" }[var.postgres_settings.synchronous_mode]
+  pg_vip       = split("/", local.pgs.vip)[0]
+  pg_scope     = "${local.pgs.cluster_name}${local.pg_major}" # Patroni scope, pgBackRest stanza and repo path
+  etcd_scope   = local.pgs.cluster_name                       # etcd data dir and cluster token: unchanged across majors
 
   # Grafana (main.tf): always this cluster's VIP.
   grafana_db_host = "${local.pg_vip}:5432"
@@ -104,6 +106,11 @@ locals {
           maximum_lag_on_failover = local.pgs.maximum_lag_on_failover
           # The leader keeps running through an etcd outage if it still reaches every member.
           failsafe_mode = true
+          # Synchronous replication (postgres_settings.synchronous_mode). Bootstrap only; the running cluster gets it
+          # from pg-leader-setup (patronictl edit-config) on every deploy.
+          synchronous_mode        = jsondecode(local.pg_sync_yaml == "quorum" ? "\"quorum\"" : local.pg_sync_yaml)
+          synchronous_node_count  = local.pgs.synchronous_node_count
+          synchronous_mode_strict = false
           postgresql = {
             use_pg_rewind = true
             use_slots     = true
@@ -437,7 +444,7 @@ locals {
           { path = "${local.pg_conf}/s3.env", mode = "0600", owner = "root", content = local.pg_s3_env, restart = [], reload = [] },
           { path = "/etc/systemd/system/patroni.service.d/lylat.conf", mode = "0644", owner = "root", content = file("${path.module}/templates/patroni-dropin.conf"), restart = [], reload = [] },
           { path = "${local.pg_conf}/roles.env", mode = "0600", owner = "root", content = local.pg_roles_env, restart = ["pg-leader-setup"], reload = [] },
-          { path = "/usr/local/sbin/pg-leader-setup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-leader-setup.sh.tftpl", { name = name, stanza = local.pg_scope, apps = sort(keys(var.postgres_apps)), grafana = { for app in local.pg_grafana_apps : app => var.postgres_apps[app].grafana_grants } }), restart = ["pg-leader-setup"], reload = [] },
+          { path = "/usr/local/sbin/pg-leader-setup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-leader-setup.sh.tftpl", { name = name, stanza = local.pg_scope, sync_mode = local.pg_sync_yaml, sync_count = local.pgs.synchronous_node_count, apps = sort(keys(var.postgres_apps)), grafana = { for app in local.pg_grafana_apps : app => var.postgres_apps[app].grafana_grants } }), restart = ["pg-leader-setup"], reload = [] },
           { path = "/etc/systemd/system/pg-leader-setup.service", mode = "0644", owner = "root", content = file("${path.module}/templates/pg-leader-setup.service"), restart = ["pg-leader-setup"], reload = [] },
           { path = "/etc/pgbackrest/pgbackrest.conf", mode = "0644", owner = "root", content = local.pgbackrest_conf, restart = [], reload = [] },
           { path = "/usr/local/sbin/pg-backup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-backup.sh.tftpl", { stanza = local.pg_scope, textfile_dir = local.pg_textfile }), restart = [], reload = [] },
@@ -532,6 +539,15 @@ locals {
         for         = "5m"
         labels      = { severity = "warning" }
         annotations = { summary = "Postgres replica {{ $labels.host }} is {{ $value | humanize1024 }}B behind the leader (no longer a failover candidate)" }
+      },
+      {
+        # Synchronous replication is configured but no replica is a sync/quorum standby: commits run async, so a
+        # failover can lose the last commits. Normal for a few seconds while a replica restarts.
+        alert       = "PatroniNoSyncStandby"
+        expr        = "${local.pgs.synchronous_mode == "off" ? "vector(0) == 1" : "(sum(patroni_sync_standby{job=\"patroni\"}) + sum(patroni_quorum_standby{job=\"patroni\"})) == 0 and on () count(patroni_primary{job=\"patroni\"} == 1) == 1"}"
+        for         = "5m"
+        labels      = { severity = "warning" }
+        annotations = { summary = "Postgres has no synchronous standby (synchronous_mode ${local.pgs.synchronous_mode}): commits are async, a failover can lose the latest commits" }
       },
       {
         alert       = "PatroniPendingRestart"
