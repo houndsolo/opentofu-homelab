@@ -1,81 +1,42 @@
 # Examples
 
-Commented, self-contained example values, one file for most inventory files. They
-show every field name with typical values, using a simpler addressing plan than
-the live lab:
+Commented example values for most inventory files, with a simpler plan than the live lab
+(route-targets in AS 65000, cluster nodes `fichina` and `macbeth` plus standalone `greatfox`, a
+`services` and a `lan` VRF). **Nothing loads them**: no root links this folder. Reference only for
+editing [`inventory/auto.tfvars/`](../inventory/README.md).
 
-- route-targets in AS 65000
-- two cluster nodes, `fichina` and `macbeth`
-- a `services` VRF and a `lan` VRF
+| Example (`auto.tfvars/`) | Shows |
+| --- | --- |
+| `nodes.auto.tfvars` | Host map: IDs, management prefix, cluster API host, one `standalone` host |
+| `fabric-vms.auto.tfvars` | Leaf VM naming and bridge order |
+| `vm-config.auto.tfvars` | Shared VM defaults and named images |
+| `vms.auto.tfvars` | Two DNS VMs, a DHCP HA pair (`owner = "services-vms"` + `role`), a workload VM |
+| `vnis.auto.tfvars` | Two VRFs with reciprocal [DVNI](../README.md#downstream-vni-dvni) imports, a DHCP pool, VLANs without DHCP |
+| `l2vnis.auto.tfvars` | The DHCP pair's HA L2VNI (`ha_dhcp`) |
+| `dns-records.auto.tfvars` | A/AAAA, CNAME, MX, TXT, SRV, NS, several A values for one name |
+| `passwords.example.auto.tfvars` | Provider credentials (Proxmox, VyOS, RouterOS) as placeholders in one file: the single-file `with-secrets` format. Tracked by git: never put real values in it. Service secrets: [Secrets](../inventory/README.md#secrets). |
 
-**Nothing loads these files.** No root links to this folder, so editing them
-changes nothing. Use them as a reference when you edit the real files in
-[`inventory/auto.tfvars/`](../inventory/README.md).
+Copy the **entries** you need into the matching inventory file and adapt names, IDs, storage,
+image paths, addresses and route-targets; preview with `tooling/walk-roots.sh` (`p`).
 
-| Example (in `auto.tfvars/`) | What it shows | Merge it into |
-| --- | --- | --- |
-| `nodes.auto.tfvars` | The host map: IDs, the management prefix, the cluster API host, and one `standalone` host | `nodes.auto.tfvars` |
-| `fabric-vms.auto.tfvars` | Leaf VM naming and bridge order (their addresses come from `fabric.settings`) | `fabric-vms.auto.tfvars` |
-| `vm-config.auto.tfvars` | Shared VM defaults and named images | `vm-config.auto.tfvars` |
-| `vms.auto.tfvars` | Two DNS VMs and a DHCP HA pair (`owner = "services-vms"` with a `role`), and an ordinary workload VM | `vms.auto.tfvars` |
-| `vnis.auto.tfvars` | Two VRFs with reciprocal [DVNI](../README.md#downstream-vni-dvni) imports. Also a DHCP pool and VLANs without DHCP. | `vnis.auto.tfvars` |
-| `l2vnis.auto.tfvars` | The standalone L2VNI the DHCP pair peers over (`ha_dhcp`) | `l2vnis.auto.tfvars` |
-| `dns-records.auto.tfvars` | A/AAAA, CNAME, MX, TXT, SRV and NS records, plus several A values for one name | `dns-records.auto.tfvars` |
-| `passwords.example.auto.tfvars` | The provider credentials (Proxmox, VyOS, RouterOS), with placeholder values, in one file. The service secrets are described in [Secrets](../inventory/README.md#secrets) | Your per-provider files in `inventory/auto.tfvars.secret/`, or one `passwords.secret.auto.tfvars` (never this file) |
+> **Don't copy whole files** into `inventory/auto.tfvars/` or a root. OpenTofu doesn't merge a
+> variable across tfvars files: a second file setting `vms` replaces the whole map, and the plan
+> offers to **destroy** every VM missing from it.
 
-## How to use them
+Assumptions:
 
-1. **Read** the example for the thing you want to add.
-2. **Copy the entries you need** into the matching file in `inventory/auto.tfvars/`.
-3. **Adapt them to your lab:** host names, IDs, storage IDs, image paths, IP
-   addresses and route-targets.
-4. **Preview the result** with `tooling/walk-roots.sh` (choose `p` for plan).
-
-> **Don't copy whole example files** into `inventory/auto.tfvars/` or into a root.
-> OpenTofu doesn't merge a variable across tfvars files. If two files both set
-> `vms`, the one loaded last replaces the entire map. Every VM missing from it
-> drops out of the configuration, and the plan offers to **destroy** those VMs.
-
-## Things the examples assume
-
-- **Both SSH key names must exist.** The VM examples select the keys `laptop`
-  and `desktop`. The real
-  [`inventory/ssh_pubkeys.tf`](../inventory/ssh_pubkeys.tf) only defines
-  `desktop` (`laptop` is commented out). Either define both, or change the
-  lists; otherwise `plan` fails.
-
-  ```hcl
-  locals {
-    ssh_pubkeys = {
-      laptop  = "ssh-ed25519 AAAA...REPLACE_WITH_LAPTOP_PUBLIC_KEY laptop"
-      desktop = "ssh-ed25519 AAAA...REPLACE_WITH_DESKTOP_PUBLIC_KEY desktop"
-    }
-  }
-  ```
-
-- **tfvars files hold literal values only.** Refer to keys and images by name,
-  as in `ssh_pubkeys = ["laptop"]` or `image = "debian13"`. You can't use
-  `local.` or `var.` references in a tfvars file.
-- **The DHCP pair needs `l2vnis.ha_dhcp`.** `services-config` and `services-vms`
-  peer the DHCP pair over that standalone L2VNI (see `l2vnis.auto.tfvars`): the
-  DHCP VMs get one extra NIC on it, after the data NICs, with hosts `.1` and `.2`
-  of its `prefix`.
-- **The DVNI pair needs an `external_l2` leaf.** The `lan` VRF uses the
-  `external_l2` role, so add a leaf with that role in `fabric.auto.tfvars` if you
-  want it to actually appear on a device.
-- **The VyOS image needs your own snippet.** The image entry expects your own
-  cloud-init snippet (`vyos_api.yml`) that enables the VyOS API.
-- **Generated names can't be redefined in `dns_hosts`.** VMs, VIPs, Proxmox
-  hosts, leaves and spines get their names from the inventory. A `dns_hosts`
-  entry may add another type to such a name (an AAAA next to `greatfox`'s
-  generated A), but not redefine a generated one. See
-  [services-config](../roots/services-config/README.md#when-your-names-match-generated-ones).
-- **Real credentials never go in the examples.** The passwords example shows
-  the provider credentials in one file, which is the format the single-file `with-secrets`
-  setup uses. The lab splits the same variables into per-provider files in
-  `inventory/auto.tfvars.secret/`; see
-  [Secrets](../inventory/README.md#secrets). Git ignores both of those. The
-  example file **is** tracked by Git, so never put real values in it.
-- **Some values differ from the live lab on purpose.** For example, the
-  route-targets use AS 65000 (the lab uses 700), and the HA segment is VLAN 211 /
-  VNI 9211 (the lab uses 1009 / 5009). Use whatever fits your network.
+- The VM examples select SSH keys `laptop` and `desktop`; the real
+  [`inventory/ssh_pubkeys.tf`](../inventory/ssh_pubkeys.tf) only defines `desktop`. Define both or
+  change the lists, or `plan` fails.
+- tfvars hold literal values only: refer to keys and images by name (`ssh_pubkeys = ["laptop"]`,
+  `image = "debian13"`), no `local.`/`var.`.
+- The DHCP pair needs `l2vnis.ha_dhcp`: each DHCP VM gets one NIC on it after the data NICs, hosts
+  `.1`/`.2` of its `prefix`.
+- The `lan` VRF uses the `external_l2` role: it only lands on a device if `fabric.auto.tfvars` has
+  a leaf with that role.
+- The VyOS image entry expects your own `vyos_api.yml` cloud-init snippet.
+- Generated DNS names (VMs, VIPs, hosts, leaves, spines) can get extra types in `dns_hosts` but
+  can't be redefined
+  ([services-config](../roots/services-config/README.md#when-your-names-match-generated-ones)).
+- Some values differ from the lab on purpose: RTs in AS 65000 (lab: 700), HA segment VLAN 211 /
+  VNI 9211 / `10.21.67.0/24` (lab: 1009 / 5009 / `10.50.9.0/24`).

@@ -1,35 +1,16 @@
 # OpenTofu homelab
 
-This repository builds and configures a homelab network with
-[OpenTofu](https://opentofu.org/), the open-source fork of Terraform.
+Builds and configures the lylat.space homelab with [OpenTofu](https://opentofu.org/). The lab is
+described once in [`inventory/`](inventory/README.md) (hosts and IDs, VRFs and VLANs, VMs, VIPs,
+DNS records, software versions); independent **roots** read it and build one layer each:
 
-You describe the lab once, in [`inventory/`](inventory/README.md): the hosts and
-their ID numbers, the VRFs and VLANs, the VMs and the DNS records. A set of small,
-independent deployments (called **roots**) then reads those same values and builds
-each layer of the lab:
-
-- **Proxmox VE host networking.** NICs, a LACP bond, Linux bridges and VLAN
-  interfaces on every cluster node.
-- **An EVPN/VXLAN fabric.** One VyOS VM per Proxmox host acts as that host's
-  leaf switch (its VTEP). Three physical VyOS leaves join the fabric, and two
-  MikroTik RouterOS spines carry the BGP underlay and reflect EVPN routes.
-- **Service VMs.** Two DNS servers (BIND 9 in Podman on Debian 13), two DHCP
-  servers (VyOS, as an active/passive HA pair), the monitoring stack (Prometheus,
-  Grafana, Loki, Mimir and a Patroni Postgres cluster), NetBox with Valkey, the
-  dark-triage helpdesk and an nginx reverse proxy pair. `services-config` and
-  `monitoring-config` set up their software.
-- **Workload VMs.** Ordinary VMs built from the same VM module.
-
-## Contents
-
-- [The lab at a glance](#the-lab-at-a-glance)
-- [How the repository fits together](#how-the-repository-fits-together)
-- [OpenTofu in two minutes](#opentofu-in-two-minutes)
-- [Network design](#network-design)
-- [Before you start](#before-you-start)
-- [Getting started](#getting-started)
-- [Deployment order](#deployment-order)
-- [Tests](#tests)
+- **Proxmox VE hosts**: NICs, LACP bond, bridges, VLAN interfaces; datacenter/DNS/time settings.
+- **EVPN/VXLAN fabric**: one VyOS leaf VM (`vtep-<host>`) per Proxmox host, three physical VyOS
+  leaves, and two MikroTik RouterOS spines (BGP underlay, EVPN route reflectors).
+- **Service VMs**: DNS (BIND in Podman), DHCP (VyOS, HA pair), monitoring (Prometheus,
+  Alertmanager, Grafana, Loki, Mimir), Patroni Postgres, NetBox, Valkey, dark-triage, nginx
+  reverse proxy pair. Configured by `services-config` and `monitoring-config`.
+- **Workload VMs**: ordinary VMs from the same VM module.
 
 ## The lab at a glance
 
@@ -50,259 +31,158 @@ each layer of the lab:
      dns01       dhcp01      pg01   ...    VMs; each NIC is tagged with a VLAN
 ```
 
-VMs on a Proxmox host don't connect to the physical network directly. Their NICs
-plug into the host's `vmbr4000` bridge with a VLAN tag. The host's leaf VM
-(`vtep-<host>`) is the default gateway for those VLANs and carries them across
-the fabric as VXLAN.
+VM NICs plug into the host's `vmbr4000` with a VLAN tag. The host's leaf VM is the anycast
+gateway for those VLANs and carries them across the fabric as VXLAN.
 
-## How the repository fits together
+## Repository layout
 
-```text
-inventory/   values you edit: hosts, IDs, VRFs, VLANs, VMs, DNS records
-    │        (symlinked into every root that needs them)
-    ▼
-roots/       one folder per layer. You run `tofu` here. Each has its own state.
-    │        (roots call modules)
-    ▼
-modules/     reusable building blocks: a VM, a leaf's VyOS config, DHCP config...
-    │        (modules use providers)
-    ▼
-providers/   source code for the custom Proxmox, VyOS and RouterOS providers
-```
-
-| Directory | What's in it |
+| Directory | Contents |
 | --- | --- |
-| [inventory/](inventory/README.md) | All the values you edit, plus the shared variable declarations, provider settings and SSH public keys |
-| [roots/](roots/README.md) | The deployable configurations, one per layer, each with its own state |
-| [modules/](modules/README.md) | Shared logic used by the roots: VMs, host networking, leaf/spine config, DHCP |
-| [providers/](providers/README.md) | Git submodules with the source of the three custom providers |
-| [tooling/](tooling/README.md) | Scripts to build the providers, load secrets and walk the roots in order |
-| [examples/](examples/README.md) | Commented example values. Nothing loads these automatically. |
-| `shell.nix`, `.envrc` | The everyday shell: OpenTofu, Python (+ `python-hcl2`) and git, loaded by direnv (or `nix-shell`); Go for the provider builds is in `tooling/build-shell.nix` |
+| [inventory/](inventory/README.md) | The values you edit, variable schemas, provider config, version pins, SSH public keys. Symlinked into the roots. |
+| [roots/](roots/README.md) | One deployable folder per layer; you run `tofu` here. Each has its own local state. |
+| [modules/](modules/README.md) | Shared logic: VM, host networking, leaf/spine config, DHCP, monitoring |
+| [providers/](providers/README.md) | Git submodules: source of the custom `proxmox`, `vyoscmd` and `routeros` providers |
+| [tooling/](tooling/README.md) | Provider build, `walk-roots.sh` runner, `with-secrets`, import helpers, tests |
+| [examples/](examples/README.md) | Commented example values; nothing loads them |
+| `shell.nix`, `.envrc` | Dev shell (OpenTofu, Python + `python-hcl2`, git, `TF_CLI_CONFIG_FILE`) via direnv or `nix-shell`. Go for provider builds is in `tooling/build-shell.nix`. |
 
-## OpenTofu in two minutes
-
-If you're new to OpenTofu (or Terraform), these are the terms used in every
-README here:
-
-| Term | What it means in this repo |
-| --- | --- |
-| **Provider** | A plugin that talks to one API. This repo builds three custom ones: `proxmox` (Proxmox VE API), `vyoscmd` (VyOS HTTPS API) and `routeros` (RouterOS REST API). It also downloads `hashicorp/dns`, `hashicorp/random` and `vancluever/acme` from the public registry. |
-| **Resource** | One object that a provider manages: a VM, a bridge, a BGP connection, a DNS record set. |
-| **Module** | A folder of `.tf` files that you call with inputs, a bit like a function. |
-| **Root** | A folder you run `tofu` commands in. Each folder in `roots/` is one. |
-| **State** | `terraform.tfstate`, OpenTofu's record of what it has created. Each root keeps its own state file next to its `.tf` files. State is git-ignored and can contain secrets, so back it up. |
-| **Variables / tfvars** | Inputs. OpenTofu automatically loads every `*.auto.tfvars` file in the root folder. |
-| **`plan` / `apply`** | `plan` is a dry run that lists what would change. `apply` makes the changes, after asking you to confirm. |
-| **`import`** | Adopts something that already exists into state, so OpenTofu manages it instead of trying to create a duplicate. |
+Registry providers also in use: `hashicorp/dns`, `hashicorp/random` (services-config,
+monitoring-config), `vancluever/acme` (certs).
 
 ## Network design
 
 ### Underlay and overlay
 
-- **Underlay: getting packets from leaf to leaf.** Each leaf runs eBGP to each
-  spine over their point-to-point link, using only IPv6 link-local addresses
-  ("BGP unnumbered": FRR's `neighbor eth1 interface v6only`). No IP addresses are
-  configured on the links. The only route a leaf advertises into the underlay is
-  its own loopback `/128`, which is its VTEP address.
-- **Underlay AS numbers.** The spines are AS 810 (`spine_as`). Each leaf appears
-  in the underlay as its own AS, 700 + its ID (`leaf_underlay_as_base` + ID), so
-  venom (ID 17) is AS 717.
-- **Overlay: EVPN.** Leaves and spines run iBGP in AS 700 (`overlay_as`) between
-  their loopback addresses, in the L2VPN EVPN address family. The spines are route reflectors,
-  so each leaf peers only with the two spines, never with other leaves. BFD runs
-  on every BGP session.
-- **Data plane.** VXLAN over IPv6, sourced from each leaf's loopback.
-  Broadcast/unknown/multicast traffic uses head-end (ingress) replication, so the
-  underlay needs no multicast. Each leaf has a single VXLAN device, `vxlan0`, that
-  maps VLANs to VNIs.
+- **Underlay**: eBGP leaf-to-spine over IPv6 link-local only (BGP unnumbered, FRR
+  `neighbor ethN interface v6only`); no addresses on the links. A leaf advertises only its
+  loopback `/128` (its VTEP).
+- **Underlay AS**: spines AS 810 (`spine_as`); each leaf `leaf_underlay_as_base` (700) + its ID,
+  so venom (17) is AS 717.
+- **Overlay**: iBGP L2VPN EVPN in AS 700 (`overlay_as`) between loopbacks. The spines are route
+  reflectors; leaves peer only with the spines. BFD on every session.
+- **Data plane**: VXLAN over IPv6 from the leaf loopback, head-end replication (no underlay
+  multicast). One external-mode `vxlan0` per leaf with VLAN-to-VNI mappings.
 
 ### VRFs, VLANs and VNIs
 
-- An **L3VNI** is a VRF. Traffic routed between leaves travels in the VRF's L3VNI
-  (this is called *symmetric IRB*).
-- An **L2VNI** is one VLAN, with its subnet, inside a VRF. It is stretched across
-  every leaf that carries that VRF.
-- Every L2VNI has a **distributed anycast gateway**: the same gateway IP and MAC
-  on every leaf. A VM always uses its local leaf as its gateway, wherever it runs.
-- **Leaf roles** decide which leaves get which VRFs. Each L3VNI lists the roles
-  that receive it: `proxmox` (the VM leaves), `external_l2` or `external_l3`.
-- **Route-targets** decide which VRFs can reach each other. They are written out
-  explicitly for each VRF. See [DVNI](#downstream-vni-dvni) below.
+- **L3VNI** = a VRF; routed traffic between leaves uses it (symmetric IRB).
+- **L2VNI** = one VLAN/subnet in a VRF, stretched to every leaf that carries the VRF, with a
+  distributed anycast gateway (same IP and MAC on every leaf).
+- **Leaf roles** (`proxmox`, `external_l2`, `external_l3`) select which leaves get a VRF.
+- **Route-targets** are written out per VRF and decide which VRFs reach each other (see
+  [DVNI](#downstream-vni-dvni)).
 
-The VRFs in the inventory today (the source of truth is
-[`vnis.auto.tfvars`](inventory/auto.tfvars/vnis.auto.tfvars)):
+Source of truth: [`vnis.auto.tfvars`](inventory/auto.tfvars/vnis.auto.tfvars).
 
-| VRF | L3VNI | Leaf roles | L2VNIs (VLAN: subnet, gateway) |
+| VRF | L3VNI | Leaf roles | L2VNIs (VLAN: subnet) |
 | --- | --- | --- | --- |
-| `lylat-edge` | 5100 | proxmox | 2: 10.2.0.0/16 (gateway .0.1; the proxy VIP 10.2.11.107) |
-| `lylat-app` | 5200 | proxmox | 1201: 10.52.0.0/16 (gateway .0.1; Grafana, NetBox, dark-triage) |
-| `lylat-dns` | 5300 | proxmox | 1301: 10.53.0.0/16 (gateway .0.1); 8: 10.8.0.0/16 (gateway .0.1; DNS 10.8.53.53/.1/.2) |
-| `lylat-obs` | 5400 | proxmox | 1401: 10.54.0.0/16 (gateway .0.1; Prometheus, Loki, Mimir) |
-| `lylat-telemetry` | 5500 | proxmox | 1501: 10.55.0.0/16 (gateway .0.1; scrapes and log pushes, isolated) |
-| `lylat-data` | 5600 | proxmox | 1601: 10.56.0.0/16 (gateway .0.1; Postgres, Valkey) |
+| `lylat-edge` | 5100 | proxmox | 2: 10.2.0.0/16 (proxy VIP 10.2.11.107) |
+| `lylat-app` | 5200 | proxmox | 1201: 10.52.0.0/16 (Grafana, NetBox, dark-triage) |
+| `lylat-dns` | 5300 | proxmox | 1301: 10.53.0.0/16; 8: 10.8.0.0/16 (DNS VIP 10.8.53.53, VMs .1/.2) |
+| `lylat-obs` | 5400 | proxmox | 1401: 10.54.0.0/16 (Prometheus, Loki, Mimir) |
+| `lylat-telemetry` | 5500 | proxmox | 1501: 10.55.0.0/16 (scrapes and log pushes; isolated) |
+| `lylat-data` | 5600 | proxmox | 1601: 10.56.0.0/16 (Postgres, Valkey) |
 | `lylat-lan` | 6900 | proxmox, external_l2 | 9, 10, 11: 10.9/10.10/10.11.0.0/16 |
 | `lylat-ai` | 6700 | proxmox, external_l2 | 12: 10.12.0.0/16 |
-| `lylat-external` | 6666 | external_l3 | none (routed only; the only VRF that sends 0.0.0.0/0 into EVPN; fw-wan's VRF on the other side has the same name) |
+| `lylat-external` | 6666 | external_l3 | none (routed only; the only VRF that sends 0.0.0.0/0 into EVPN; fw-wan's VRF has the same name) |
 
-The zone VRFs (lylat-edge ... lylat-data, DT-090) number everything from the zone id Z (51-56): L3VNI
-Z00, one flat segment L2VNI Z01 on VLAN Z01 - 4000, `10.Z.0.0/16` with the anycast gateway `.0.1`
-(plus `fd69:Z01::1/64`). The older VLANs keep L2VNI = 9000 + the VLAN ID (VLAN 8 is L2VNI 9008) and
-the gateway `.0.1` (for example `10.8.0.1`). HA peer traffic uses standalone L2VNIs without a VRF
-(VLAN 10aa / VNI 50aa / `10.50.aa.0/24`, [`l2vnis.auto.tfvars`](inventory/auto.tfvars/l2vnis.auto.tfvars)).
+Every gateway is `.0.1`. Numbering:
+
+- **Zone VRFs** (lylat-edge ... lylat-data, zone id Z = 51-56, DT-090): L3VNI Z00, one segment
+  L2VNI Z01 on VLAN Z01 - 4000, `10.Z.0.0/16`, IPv6 gateway `fd69:Z01::1/64`.
+- **Older VLANs**: L2VNI = 9000 + VLAN (VLAN 8 = 9008).
+- **HA peer segments**: standalone L2VNIs without a VRF, VLAN 10aa / VNI 50aa / `10.50.aa.0/24`
+  ([`l2vnis.auto.tfvars`](inventory/auto.tfvars/l2vnis.auto.tfvars)).
 
 ### MTU
 
 | Where | MTU |
 | --- | --- |
-| Tenant side: VM NICs, the leaf's access interface, `vxlan0`, the leaf's `br0` bridge and its VLAN interfaces | 9119 (`vxlan_mtu`) |
-| Underlay side: leaf-to-spine links and the loopback | 9189 (`outer_mtu`) |
+| Tenant side: VM NICs, leaf access port, `vxlan0`, `br0` and its VLANs | 9119 (`vxlan_mtu`) |
+| Underlay side: leaf-spine links, loopback | 9189 (`outer_mtu`) |
 
-The 70-byte difference is the VXLAN-over-IPv6 overhead: outer IPv6 header
-(40 bytes) + UDP (8) + VXLAN header (8) + the inner Ethernet header (14).
+70 bytes = VXLAN-over-IPv6 overhead: IPv6 (40) + UDP (8) + VXLAN (8) + inner Ethernet (14).
 
 ### Downstream VNI (DVNI)
 
-Normally, both directions of a routed flow use the VRF's own L3VNI. With
-**downstream VNI**, when VRF A imports routes from VRF B, the ingress leaf
-encapsulates traffic with the L3VNI that the *destination* VRF advertised (B's).
-The egress leaf then drops the packet straight into VRF B. Return traffic uses
-A's L3VNI. See
-[FRR's DVNI documentation](https://docs.frrouting.org/en/latest/bgp.html#evpn-downstream-vni).
+When VRF A imports VRF B's route-target, the ingress leaf encapsulates with B's L3VNI and the
+egress leaf drops the packet straight into B; return traffic uses A's L3VNI
+([FRR docs](https://docs.frrouting.org/en/latest/bgp.html#evpn-downstream-vni)). There is no `dvni`
+variable: add the other VRF's RT to `evpn_rt_imports`. Example: `lylat-dns` imports `700:5100`,
+`700:5200`, `700:6900`, `700:6666` and the other zones. This data plane needs the single
+`vxlan0` device. Minimal pair: [`examples/auto.tfvars/vnis.auto.tfvars`](examples/auto.tfvars/vnis.auto.tfvars)
+(`services` 10000 on `proxmox` leaves, `lan` 20000 on `external_l2`, reciprocal imports).
 
-You don't need a special `dvni` variable. Add the other VRF's route-target to
-`evpn_rt_imports`, and EVPN supplies the destination VNI. The live inventory
-already does this: for example, `lylat-dns` (5300) imports `700:5100`, `700:5200`,
-`700:6900`, `700:6666` and the other zones. FRR needs a single VXLAN device for this data plane,
-which is why the leaf module uses one external-mode `vxlan0` with VLAN-to-VNI
-mappings.
+When testing:
 
-[`examples/auto.tfvars/vnis.auto.tfvars`](examples/auto.tfvars/vnis.auto.tfvars)
-shows a minimal pair: `services` (L3VNI 10000, on `proxmox` leaves) and `lan`
-(L3VNI 20000, on `external_l2` leaves). Each exports its own route-target and
-imports the other's. Traffic towards `lan` uses VNI 20000, and the return path
-uses VNI 10000.
-
-Things to keep in mind when testing it:
-
-- Importing a route-target doesn't bypass routing policy or firewall rules.
-- A route-target only selects routes that some leaf actually advertises; it
-  doesn't create routes.
-- The leaf export policy deliberately does **not** send type-5 (IP prefix) routes
-  for a leaf's own L2VNI subnets to the spines. Hosts in those subnets are
-  reachable through type-2 (MAC/IP) routes instead. So when you test cross-VRF
-  reachability, look at the EVPN routes that are actually advertised and
-  imported.
+- Importing an RT doesn't bypass routing policy or firewalls, and only selects routes some leaf
+  actually advertises.
+- Leaves deliberately send the spines **no** type-5 routes for their own L2VNI subnets; those
+  hosts are reachable via type-2. Check the EVPN routes actually advertised and imported.
 
 ## Before you start
 
-OpenTofu configures these things, but it doesn't create them. They must already
-exist:
+OpenTofu configures these but doesn't create them:
 
-- **A Proxmox VE cluster** whose node names match
-  [`nodes.auto.tfvars`](inventory/auto.tfvars/nodes.auto.tfvars), plus the
-  standalone host `greatfox`.
-- **Proxmox storage.** `ceph_rbd` for VM disks, and a CephFS storage called
-  `cephfs` that allows the *Import* and *Snippets* content types.
-- **A VyOS image and snippet.** A VyOS qcow2 image in `cephfs:import/`, and a
-  cloud-init snippet `cephfs:snippets/vyos_api.yml` that turns on the VyOS HTTPS
-  API with your API key. The repo references both but creates neither.
-- **Proxmox API tokens** for the cluster and for `greatfox`, plus root SSH access
-  to the Proxmox nodes with your key. The Proxmox provider uses SSH for some
-  operations.
-- **Two RouterOS spines** reachable on their management IPs, with the REST API
-  enabled, and a RouterOS user that OpenTofu can log in as.
-- **A machine to run OpenTofu on** that can reach the management networks:
-  Proxmox (`10.20.7.x`), spines (`10.20.0.x`), leaves (`10.20.10.x`) and service
-  VMs (`10.20.11.x`, `10.20.53.x`, `10.20.67.x`). It also needs TCP port 53 on the primary DNS
-  server (`10.8.53.1`).
-- **The tools.** Either [Nix](https://nixos.org/download/) (with
-  [direnv](https://direnv.net/) + [nix-direnv](https://github.com/nix-community/nix-direnv),
-  or plain `nix-shell`), or install them yourself: OpenTofu ≥ 1.13.0, Python 3
-  with `python-hcl2` ≥ 7.3.1, git, and Go ≥ 1.26 for building the providers.
-- **GitHub SSH access.** The provider submodules use `git@github.com:` URLs, so
-  you need an SSH key on GitHub. See [providers/](providers/README.md) for an
-  HTTPS alternative.
+- **Proxmox VE cluster** with node names matching
+  [`nodes.auto.tfvars`](inventory/auto.tfvars/nodes.auto.tfvars), plus the standalone host
+  `greatfox`.
+- **Storage**: `ceph_rbd` for VM disks; CephFS storage `cephfs` with the *Import* and *Snippets*
+  content types.
+- **VyOS image** in `cephfs:import/` and the cloud-init snippet `cephfs:snippets/vyos_api.yml`
+  that enables the VyOS HTTPS API with your key.
+- **Proxmox API tokens** for the cluster and `greatfox`, and root SSH to the nodes (the provider
+  uses SSH for some operations).
+- **RouterOS spines** reachable on their management IPs with the REST API enabled.
+- **Reachability** from the OpenTofu machine to Proxmox (`10.20.7.x`), spines (`10.20.0.x`),
+  leaves (`10.20.10.x`), service VMs (`10.20.11.x`, `10.20.53.x`, `10.20.67.x`), and TCP 53 on
+  the primary DNS server (`10.8.53.1`).
+- **Tools**: Nix (direnv + nix-direnv, or `nix-shell`), or by hand: OpenTofu >= 1.13.0, Python 3
+  with `python-hcl2` >= 7.3.1, git, Go >= 1.26 (provider builds only).
+- **GitHub SSH access** for the provider submodules (HTTPS alternative in
+  [providers/](providers/README.md)).
 
 ## Getting started
 
-Run these from the top of the repository:
-
 ```sh
-# 1. Download the provider source code (the git submodules under providers/).
-git submodule update --init --recursive
+git submodule update --init --recursive      # provider sources
+direnv allow                                 # or: nix-shell; sets TF_CLI_CONFIG_FILE to the local mirror
+tooling/build-all                            # build + install the custom providers (enters build-shell.nix for Go)
+# Without direnv/nix-shell: export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
 
-# 2. Load the development shell: OpenTofu, Python + python-hcl2, git. It also sets
-#    TF_CLI_CONFIG_FILE, which tells OpenTofu to look for the custom providers in
-#    the local mirror built in step 3. With direnv + nix-direnv this happens every
-#    time you cd into the repo (cached; ~0.1 s); allow it once. Or use nix-shell.
-direnv allow        # or: nix-shell
-
-# 3. Build the three custom providers and install them into that mirror
-#    (.tofu-provider-mirror/). This also writes the CLI config the shell points at.
-#    Go is only needed here: without Go on PATH the script re-runs itself in
-#    tooling/build-shell.nix, which brings Go 1.26.
-tooling/build-all
-
-# 4. Only if you're using neither direnv nor nix-shell: point OpenTofu at the
-#    mirror yourself, in every new shell (or in your shell profile).
-export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
-
-# 5. Put your credentials in the per-provider secret files, and link each file
-#    into the roots that need it. Git ignores them. See inventory/README.md#secrets.
+# Credentials: one file per provider, linked into the roots that need them (inventory/README.md#secrets)
 mkdir -m 700 inventory/auto.tfvars.secret
-$EDITOR inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars   # and vyos..., routeros...
+$EDITOR inventory/auto.tfvars.secret/proxmox.secret.auto.tfvars   # and vyos..., routeros..., ...
 
-# 6. Edit the inventory to match your lab, then walk the roots in order.
-#    At each root you choose plan, apply, skip or quit. Nothing changes until
-#    you choose apply and then type "yes".
-tooling/walk-roots.sh
+tooling/walk-roots.sh                        # every root in order: plan / apply / skip / quit per root
+tooling/walk-roots.sh services-config        # one root
+tofu -chdir=roots/services-config plan       # plain tofu works too; linked secret files auto-load
 ```
 
-To work on a single root, name it: `tooling/walk-roots.sh services-config`.
-You can also run plain `tofu` commands; a root with its secret files linked in
-loads them by itself:
-
-```sh
-tofu -chdir=roots/services-config plan
-```
-
-Every root keeps its own `terraform.tfstate` file. Back these files up. If you
-lose one, OpenTofu forgets what it built for that layer, and you'll need to
-import everything again.
+Each root keeps a local `terraform.tfstate` (git-ignored, may contain secrets). Back them up: a
+lost state means re-importing that layer.
 
 ## Deployment order
 
-The roots don't read each other's state. The order exists because each layer
-needs the real infrastructure from the layers before it to be up and reachable.
+Roots don't read each other's state; the order is real-world readiness. It's the list in
+[`tooling/walk-roots.sh`](tooling/walk-roots.sh):
 
-1. [proxmox-download-files](roots/proxmox-download-files/README.md): download
-   the Debian 13 cloud image (optional).
-2. [proxmox-network](roots/proxmox-network/README.md): host NICs, bond, bridges
-   and VLANs.
-3. [proxmox-settings](roots/proxmox-settings/README.md): datacenter options, DNS
-   and time zone on every Proxmox host.
-4. [fabric-vms](roots/fabric-vms/README.md): one VyOS leaf VM per Proxmox host.
-5. [fabric-spines](roots/fabric-spines/README.md): BGP, BFD and EVPN on the
-   RouterOS spines.
-6. [fabric-leaves](roots/fabric-leaves/README.md): the EVPN/VXLAN config on
-   every leaf.
-7. [services-vms](roots/services-vms/README.md): every service VM (DNS, DHCP,
-   monitoring, NetBox, Valkey, dark-triage and the reverse proxy).
-8. [certs](roots/certs/README.md): the Let's Encrypt wildcard certificate for
-   the reverse proxy VMs.
-9. [services-config](roots/services-config/README.md): BIND and the DNS records,
-   DHCP, NetBox, Valkey, dark-triage and the nginx reverse proxy.
-10. [monitoring-config](roots/monitoring-config/README.md): Prometheus,
-    Alertmanager, Grafana, Loki, Mimir and the Postgres cluster.
-11. [workloads](roots/workloads/README.md): ordinary VMs.
+1. [proxmox-download-files](roots/proxmox-download-files/README.md): Debian 13 cloud image (optional)
+2. [proxmox-network](roots/proxmox-network/README.md): host NICs, bond, bridges, VLANs
+3. [proxmox-settings](roots/proxmox-settings/README.md): datacenter options, DNS, time zone
+4. [fabric-vms](roots/fabric-vms/README.md): one VyOS leaf VM per Proxmox host
+5. [fabric-spines](roots/fabric-spines/README.md): BGP, BFD, EVPN on the spines
+6. [fabric-leaves](roots/fabric-leaves/README.md): EVPN/VXLAN config on every leaf
+7. [services-vms](roots/services-vms/README.md): every service VM
+8. [certs](roots/certs/README.md): Let's Encrypt wildcard for the proxy VMs
+9. [services-config](roots/services-config/README.md): BIND + DNS records, DHCP, NetBox, Valkey, dark-triage, nginx
+10. [monitoring-config](roots/monitoring-config/README.md): Prometheus, Alertmanager, Grafana, Loki, Mimir, Patroni Postgres
+11. [workloads](roots/workloads/README.md): ordinary VMs
 
-[roots/README.md](roots/README.md) has the prerequisites for each step.
+`proxmox-virtual-hosts` is empty and skipped. Prerequisites per root: [roots/README.md](roots/README.md).
 
 ## Tests
 
-The modules and four roots (`services-vms`, `services-config`, `monitoring-config`,
-`proxmox-settings`) have `tofu test` suites (`*.tftest.hcl`).
-The tooling scripts have Python unit tests. None of them touch real
-infrastructure. To run them, see [modules/](modules/README.md#tests) and
-[tooling/](tooling/README.md#tests).
+`tofu test` suites (`*.tftest.hcl`) in the modules and in `services-vms`, `services-config`,
+`monitoring-config` and `proxmox-settings`; Python unit tests for the tooling. None touch real
+infrastructure. See [modules/](modules/README.md#tests) and [tooling/](tooling/README.md#tests).

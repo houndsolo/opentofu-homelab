@@ -1,34 +1,26 @@
 # services/dhcp/macs: DHCP VM MAC calculator
 
-This module works out the VLAN NICs of the two DHCP VMs, and a fixed MAC for each
-one. It creates nothing; it only does arithmetic. It's used by two roots, with
-the same inputs, so both sides agree:
+Works out the VLAN NICs of the two DHCP VMs and a fixed MAC for each. Creates nothing. Called with
+the same inputs by:
 
-- **[services-vms](../../../../roots/services-vms/README.md)** creates the
-  Proxmox NICs from it (the `network_devices` output).
-- **[services-config](../../../../roots/services-config/README.md)** binds each
-  VyOS interface to its MAC with `hw-id` (the `interface_macs` output). It also
-  uses the same order to work out each interface's address.
+- [services-vms](../../../../roots/services-vms/README.md): Proxmox NICs (`network_devices`).
+- [services-config](../../../../roots/services-config/README.md): VyOS `hw-id` bindings
+  (`interface_macs`), and the same order for each interface's address.
 
 ## What it produces
 
-The module reads `vnis` itself and picks out the DHCP-enabled VLANs: every L2VNI
-that has a `dhcp` block. There's one NIC per DHCP-enabled VLAN:
+One NIC per DHCP-enabled VLAN (every L2VNI in `vnis` with a `dhcp` block), plus the Kea HA NIC:
 
-- **Order.** The NICs are sorted by VLAN number and become `eth1`, `eth2`, ...
-  The sort is numeric, so VLAN 2 comes before VLAN 12.
-- **Bridge.** They're all on the `bridge` input (default `vmbr4000`), tagged
-  with their VLAN.
-- **MAC.** `02:00:00:67:<VM ID % 100>:<VLAN>`, with both numbers written as two
-  decimal digits. `67` is the DHCP number used throughout the lab: in the VM IDs
-  (67xx) and the addresses (`10.<VLAN>.67.x`). To remember it, think of UDP
-  port 67, the DHCP server port, just as the DNS VMs use 53.
-- **No addresses.** This module assigns no IP addresses.
-- **No management NIC.** `eth0` is created separately and isn't included here.
+- **Order**: sorted numerically by VLAN (2 before 12) → `eth1`, `eth2`, ...; the HA NIC
+  (`ha_vlan_id`, from `l2vnis.ha_dhcp`) always last.
+- **Bridge**: `bridge` input (default `vmbr4000`), tagged with the VLAN.
+- **MAC**: `02:00:00:67:<VM ID % 100>:<VLAN>`, both as two decimal digits; HA NIC last octet `ff`.
+  `67` = DHCP (UDP 67) throughout the lab: VM IDs 67xx, addresses `10.<VLAN>.67.x`.
+- No IP addresses, no `eth0` (created separately).
 
-With today's DHCP VLANs (2, 8, 9, 10, 12) and the Kea HA NIC (`ha_vlan_id` 1009):
+Today (DHCP VLANs 2, 8, 9, 10, 12; HA VLAN 1009):
 
-| Interface | VLAN | `dhcp01` (VM 6701) | `dhcp02` (VM 6702) |
+| Interface | VLAN | `dhcp01` (6701) | `dhcp02` (6702) |
 | --- | --- | --- | --- |
 | eth1 | 2 | `02:00:00:67:01:02` | `02:00:00:67:02:02` |
 | eth2 | 8 | `02:00:00:67:01:08` | `02:00:00:67:02:08` |
@@ -37,62 +29,39 @@ With today's DHCP VLANs (2, 8, 9, 10, 12) and the Kea HA NIC (`ha_vlan_id` 1009)
 | eth5 | 12 | `02:00:00:67:01:12` | `02:00:00:67:02:12` |
 | eth6 | 1009 (Kea HA) | `02:00:00:67:01:ff` | `02:00:00:67:02:ff` |
 
-The Kea HA NIC (`ha_vlan_id`, from `l2vnis.ha_dhcp`) always comes last, with the
-MAC last octet `ff`. Outputs: `network_devices` (all NICs, for services-vms),
-`data_network_devices` (DHCP NICs only), `interface_macs` and `ha_interfaces`.
+Outputs: `network_devices` (all NICs), `data_network_devices` (DHCP NICs only), `interface_macs`,
+`ha_interfaces` (the HA NIC's `ethN`).
 
-**Limits** (checked during `plan`):
+Checked at plan: DHCP VM IDs unique integers 6701-6799 (`vms` validation); DHCP VLANs unique
+integers 1-99 and the HA VLAN not one of them (precondition on `network_devices`).
 
-- DHCP VM IDs must be unique whole numbers from 6701 to 6799. This is a
-  validation on the `vms` input.
-- DHCP-enabled VLANs must be unique whole numbers from 1 to 99. This is a
-  precondition on the `network_devices` output, because the VLANs are picked out
-  inside the module.
-
-## Inputs and outputs
+## Inputs
 
 ```hcl
 module "dhcp_macs" {
-  source = "../../modules/services/dhcp/macs"
-
-  # The DHCP VMs (only vm_id is used).
-  vms = { for name, vm in var.vms : name => vm if vm.owner == "services-vms" && vm.role == "dhcp" }
-
-  # The whole VNI inventory; the module picks out the DHCP-enabled VLANs.
-  vnis = var.vnis
-
-  # bridge = "vmbr4000"   # optional: the VLAN-aware bridge for the NICs (this is the default)
+  source     = "../../modules/services/dhcp/macs"
+  vms        = { ... }                       # the DHCP VMs; only vm_id is used
+  vnis       = var.vnis                      # the module picks the DHCP VLANs
+  ha_vlan_id = var.l2vnis.ha_dhcp.vlan_id    # optional; null = no HA NIC
+  # bridge   = "vmbr4000"                    # default
 }
-
-# Outputs, for dhcp01:
-#   network_devices["dhcp01"][0] = { bridge = "vmbr4000", vlan_id = 2, mac_address = "02:00:00:67:01:02" }
-#   interface_macs["dhcp01"]     = { eth1 = "02:00:00:67:01:02", eth2 = "02:00:00:67:01:08", ... }
+# network_devices["dhcp01"][0] = { bridge = "vmbr4000", vlan_id = 2, mac_address = "02:00:00:67:01:02" }
+# interface_macs["dhcp01"]     = { eth1 = "02:00:00:67:01:02", eth2 = "02:00:00:67:01:08", ... }
 ```
 
-## Adding or removing a VLAN
+## Adding or removing a DHCP VLAN
 
-Each VLAN keeps its MAC forever, but the `ethN` numbers can shift. For example,
-adding VLAN 4 makes VLAN 8 move from `eth2` to `eth3`, and every VLAN above it
-moves up one as well. Because VyOS binds by MAC, the interfaces follow correctly.
-But plan and apply `services-vms` and `services-config` together, and check for
-old interface addresses afterwards. See
-[services-config](../../../../roots/services-config/README.md#things-to-know).
-
-The HA settings and the pools aren't in this module. They live in the parent
-[services/dhcp](../../../README.md#servicesdhcp) module.
+Each VLAN keeps its MAC, but `ethN` numbers shift (adding VLAN 4 moves VLAN 8 from `eth2` to
+`eth3`, and everything above up one). VyOS binds by MAC, so interfaces follow, but plan and apply
+`services-vms` and `services-config` together and check for stale interface addresses afterwards
+([services-config](../../../../roots/services-config/README.md#things-to-know)). HA settings and
+pools live in the parent [services/dhcp](../../../README.md#servicesdhcp) module.
 
 ## Tests
 
-`tests/macs.tftest.hcl` checks six things:
-
-- The VLANs are sorted, each peer gets a distinct octet, and `eth0` is excluded.
-- A new VLAN doesn't change an existing VLAN's MAC.
-- VLAN 100 is rejected.
-- Duplicate VM IDs are rejected.
-- The HA NIC comes last, with MAC octet `ff`, and moves no data NIC.
-- An HA VLAN that also serves DHCP is rejected.
-
-No providers are needed:
+`tests/macs.tftest.hcl` (no providers): sorted VLANs, distinct peer octets, no `eth0`; a new VLAN
+keeps existing MACs; VLAN 100 rejected; duplicate VM IDs rejected; HA NIC last with `ff`, moving no
+data NIC; an HA VLAN that also serves DHCP rejected.
 
 ```sh
 tofu -chdir=modules/services/dhcp/macs init

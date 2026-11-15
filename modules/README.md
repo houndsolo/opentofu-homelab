@@ -1,245 +1,175 @@
 # Modules
 
-Modules hold the shared logic. Roots call them, passing in inventory values and
-providers. A module has no state of its own, and you don't run `tofu plan` or
-`apply` in a module folder. You run those from a [root](../roots/README.md).
-The only exception is tests (see [Tests](#tests)).
+Shared logic called by the roots. No state of their own; run `tofu` from a
+[root](../roots/README.md) (except [tests](#tests)).
 
 ## Catalog
 
 | Module | Called by | Creates | Provider |
 | --- | --- | --- | --- |
 | [proxmox/network](#proxmoxnetwork) | proxmox-network | NIC settings, bonds, bridges, VLANs on one node | proxmox |
-| [proxmox/vm](#proxmoxvm) | fabric-vms, services-vms, workloads | One VM | proxmox |
-| [fabric/leaf](#fabricleaf) | fabric-leaves | One list of VyOS commands per leaf | vyoscmd |
-| [fabric/spines](#fabricspines) | fabric-spines | BGP, BFD and EVPN objects on one RouterOS spine | routeros |
-| [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, services-config, monitoring-config | Nothing; it builds the shared list of leaves | none |
-| [fabric/macs](fabric/macs/README.md) | fabric-vms, fabric-leaves | Nothing; it's a calculator | none |
-| [services/dhcp](#servicesdhcp) | services-config | One list of VyOS commands per DHCP VM | vyoscmd |
-| [services/dhcp/macs](services/dhcp/macs/README.md) | services-vms, services-config | Nothing; it's a calculator | none |
-| [services/monitoring](services/monitoring/README.md) | monitoring-config | Nothing; renders one `deploy.sh` per monitoring/Grafana VM | none |
+| [proxmox/vm](#proxmoxvm) | fabric-vms, services-vms, workloads | One VM (+ HA resource) | proxmox |
+| [fabric/leaf](#fabricleaf) | fabric-leaves | One VyOS command list per leaf | vyoscmd |
+| [fabric/spines](#fabricspines) | fabric-spines | BGP, BFD, EVPN, NTP, logging on one RouterOS spine | routeros |
+| [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, services-config, monitoring-config | Nothing: the shared leaf list | none |
+| [fabric/macs](fabric/macs/README.md) | fabric-vms, fabric-leaves | Nothing: leaf VM MAC calculator | none |
+| [services/dhcp](#servicesdhcp) | services-config | One VyOS command list per DHCP VM | vyoscmd |
+| [services/dhcp/macs](services/dhcp/macs/README.md) | services-vms, services-config | Nothing: DHCP VM NIC/MAC calculator | none |
+| [services/monitoring](services/monitoring/README.md) | monitoring-config | Nothing: renders one `deploy.sh` per monitoring, Grafana, logging, Mimir and Patroni VM | none |
 
-## Patterns used across the modules
+## Patterns
 
-**1. Shared variable declarations.** Most modules don't declare their inputs
-themselves. They symlink the declarations from `inventory/schema/`. For example,
-`fabric/leaf/vnis.variables.tf` is a link to `inventory/schema/vnis.tf`. A
-module's input types and validation are therefore exactly the inventory's, with
-one copy and no drift. Version pins are shared the same way: each module's
-`versions.tf` links into `inventory/versions/`.
-
-**2. VyOS config as command lists.** The VyOS modules don't model every VyOS
-feature as a separate resource. Each topic file (`bgp.tf`, `vxlan.tf`, ...)
-builds a list of plain `set` commands in a `locals` block. `main.tf` joins them
-all into **one `vyoscmd_commands` resource per device**. That means one API
-request per device, and a plan that shows the exact CLI that will be sent.
-
-**3. Calculators.** `fabric/leaves` and the two `macs` modules contain only
-`locals` and `outputs`: no resources, no provider. They exist so that several
-roots compute the same thing in exactly the same way:
-
-- Each `macs` module is called by the root that creates the VMs and by the root
-  that configures them, so both sides calculate identical MAC addresses.
-- `fabric/leaves` is called by every root that needs the list of leaves, so the
-  spines, the leaves and the DNS records always agree.
+1. **Shared declarations.** Modules symlink their input declarations from `inventory/schema/`
+   (e.g. `fabric/leaf/vnis.variables.tf` → `inventory/schema/vnis.tf`) and their `versions.tf`
+   from `inventory/versions/`: one copy of types and validation, no drift.
+2. **VyOS config as command lists.** Each topic file (`bgp.tf`, `vxlan.tf`, ...) builds a list of
+   `set` commands in `locals`; `main.tf` joins them into **one `vyoscmd_commands` resource per
+   device**: one API call per device, and the plan shows the exact CLI sent.
+3. **Calculators.** `fabric/leaves` and the two `macs` modules have only `locals` and outputs.
+   They're called by every root that needs the same result (the root that creates VMs and the one
+   that configures them; spines, leaves and DNS records), so all sides agree.
 
 ## Module details
 
 ### proxmox/network
 
-Configures one Proxmox node's networking from the `pve_network` profile.
+One node's networking from the `pve_network` profile.
 
 - **Inputs:** `node_name`, `node_id`, `pve_network`.
-- **Creates:** `proxmox_network_linux_eth`, `_bond`, `_bridge` and `_vlan`
-  resources, one per map entry (`.this["<key>"]`).
-- **Addresses:** `cidrhost(ipv4.cidrhost_prefix, node_id)/ipv4.cidr`.
-- **Order:** `depends_on` makes the bonds and bridges wait for the NICs, and the
-  VLANs wait for the bridges and bonds.
+- **Creates:** `proxmox_network_linux_eth`, `_bond`, `_bridge`, `_vlan`, one per map entry
+  (`.this["<key>"]`). Addresses: `cidrhost(ipv4.cidrhost_prefix, node_id)/ipv4.cidr`.
+- **Order:** bonds and bridges wait for the NICs; VLANs wait for bridges and bonds.
 
-See [roots/proxmox-network](../roots/proxmox-network/README.md) for what a node
-ends up with.
+Per-node result: [roots/proxmox-network](../roots/proxmox-network/README.md).
 
 ### proxmox/vm
 
-Builds one Proxmox VM from a cloud image.
+One VM from a cloud image.
 
-- **Inputs:**
-  - `name`
-  - `vm`: one entry from `vms`, or one generated by fabric-vms
-  - `vm_config`, `vm_images`
-  - `ssh_pubkeys`: the key registry
-  - `configure_data_ips` (default `true`)
-  - `vendor_data_file_id` (optional; no root sets it today)
-- **Creates:** one `proxmox_virtual_environment_vm`, plus one `proxmox_haresource`
-  when `vm.ha` is set (`ha.tf`).
-- **Outputs:** `vm_id`, `node_name`, `name`, `management_address` (`null` when
-  cloud-init is off), `network_devices` and `ha_resource_id` (`null` without `vm.ha`).
+- **Inputs:** `name`, `vm` (a `vms` entry or a generated fabric VM), `vm_config`, `vm_images`,
+  `ssh_pubkeys` (key registry), `configure_data_ips` (default `true`), `vendor_data_file_id`
+  (optional; unused today).
+- **Creates:** `proxmox_virtual_environment_vm`, plus `proxmox_haresource` when `vm.ha` is set
+  (`ha.tf`).
+- **Outputs:** `vm_id`, `node_name`, `name`, `management_address` (null when cloud-init is off),
+  `network_devices`, `ha_resource_id` (null without `vm.ha`).
 
-How the VM is put together (`main.tf`):
+`main.tf`:
 
-- **Settings.** The `defaults/` submodule merges `vm_config`, the chosen image,
-  and the VM's own `config` block into one set of settings.
-  Later layers win.
-- **Disk.** Imported from `import_image` into `datastore_id` (on `virtio0`,
-  10 GB by default).
-- **Cloud-init** (if enabled). A cloud-init drive on `scsi0` with:
-  - the management address and gateway for net0
-  - the address of each data NIC that has an `ipv4_address` or an `ipv6_address`,
-    if `configure_data_ips` is `true` (NICs without one get no address config)
-  - a user with the selected SSH keys, if `config.ssh_pubkeys` isn't empty
-  - an optional custom `user_data_file_id` snippet
-
-  It's set with `upgrade = false`, so cloud-init doesn't upgrade packages on
-  first boot.
-- **NICs.** First the management NIC (net0, on `management_bridge`), then
-  `network_devices` in order. Data NICs default to MTU `1`, which means "use the
-  bridge's MTU".
-- **Extras.** A serial console (on by default), OS type `l26`, and standard VGA.
-- **A safety check.** `ssh_pubkeys` requires cloud-init, and can't be combined
-  with a custom user-data snippet, because Proxmox would ignore the generated
-  keys.
-
-`defaults/` is a calculator submodule. Its one output, `config`, holds the
-effective settings. It's tested on its own (`defaults/tests/`).
+- **Settings**: the `defaults/` calculator submodule merges `vm_config`, the image and the VM's
+  `config` (later wins); output `config`, tested in `defaults/tests/`.
+- **Disk**: imported from `import_image` into `datastore_id` on `virtio0` (10 GB default).
+- **Cloud-init** (if enabled) on `scsi0`: net0 address/gateway; each data NIC with an
+  `ipv4_address`/`ipv6_address` if `configure_data_ips`; a user with the selected keys if
+  `config.ssh_pubkeys` is set; optional `user_data_file_id`. `upgrade = false`.
+- **NICs**: net0 on `management_bridge`, then `network_devices` in order. Data NIC MTU defaults to
+  `1` (= bridge MTU).
+- **Extras**: serial console (default on), OS type `l26`, std VGA.
+- **Check**: `ssh_pubkeys` needs cloud-init and can't be combined with a custom user-data snippet
+  (Proxmox would ignore the generated keys).
 
 ### fabric/leaf
 
-Turns one leaf's inventory into its full VyOS configuration.
+One leaf's full VyOS configuration.
 
-- **Inputs:** `name`, `leaf` (`role`, `id`, `access_interface`, `standalone`),
-  `fabric`, `vnis`, `l2vnis`, `fabric_macs`, `router_advert_routes`.
-- **Creates:** one `vyoscmd_commands` resource called `<name>-system`, sent to
-  `https://<management IP>`, with `save = true` (the config survives a leaf reboot).
+- **Inputs:** `name`, `leaf` (`role`, `id`, `access_interface`, `standalone`), `fabric`, `vnis`,
+  `l2vnis`, `fabric_macs`, `router_advert_routes` (default `["fd69::/16"]`).
+- **Creates:** one `vyoscmd_commands` named `<name>-system` at `https://<management IP>`,
+  `save = true` (survives a reboot). Precondition: `l2vnis` don't reuse a VNI/VLAN from `vnis`.
 
 | File | Builds |
 | --- | --- |
-| `addressing.tf` | The router-ID, VTEP IPv6 address and VTEP MAC, from the leaf ID |
-| `vnis.tf` | Which VRFs and VLANs this leaf gets, based on its role |
-| `interface.tf` | The `hw-id` bindings, spine links, loopback and access port |
-| `bgp.tf` | Global BGP (including `log-neighbor-changes`), EVPN, the neighbors and the two peer groups |
-| `vxlan.tf` | `vxlan0`, `br0`, VLAN-to-VNI mappings, the anycast gateways (IPv4, and IPv6 with router advertisements where set) and the standalone HA L2VNIs |
-| `vrf.tf` | VRF tables and VNIs, per-VRF BGP, and the route-targets |
-| `policy.tf` | Prefix lists and route-maps |
-| `system.tf` | Hostname, domain, multipath settings, and NTP (see below) |
-| `monitoring.tf` | node-exporter and frr-exporter on the management address and VRF, when `fabric.settings.leaf_prometheus_exporters` is set |
-| `logging.tf` | Remote syslog (RFC 5424, TCP with octet-counted framing by default) from the given VRF, when `fabric.settings.leaf_syslog` is set |
-| `external.tf` | On `external_l3` leaves: the VLAN sub-interface and unnumbered BGP session to the external router, for VRFs with `ext_l3_peer` |
-| `main.tf` | Combines everything into the one resource |
+| `addressing.tf` | Router-ID, VTEP IPv6 and VTEP MAC from the leaf ID |
+| `vnis.tf` | Which VRFs/VLANs this leaf gets, by role |
+| `interface.tf` | `hw-id` bindings, spine links, loopback, access port |
+| `bgp.tf` | Global BGP (`log-neighbor-changes`), EVPN, neighbors, peer groups `spine_underlay`/`spine_overlay` |
+| `vxlan.tf` | `vxlan0`, `br0`, VLAN-to-VNI mappings, anycast gateways (IPv4; IPv6 + RAs where set), standalone HA L2VNIs |
+| `vrf.tf` | VRF tables/VNIs, per-VRF BGP (IPv4 and IPv6), route-targets |
+| `policy.tf` | Prefix lists and route-maps (default-route deny, no type-5 for own L2VNI subnets to the spines) |
+| `system.tf` | Hostname `LEAF-<ID>`, domain, multipath, NTP |
+| `monitoring.tf` | node-/frr-exporter when `fabric.settings.leaf_prometheus_exporters` is set |
+| `logging.tf` | Remote syslog when `fabric.settings.leaf_syslog` is set |
+| `external.tf` | `external_l3` leaves: VLAN sub-interface + unnumbered BGP to the external router for VRFs with `ext_l3_peer` |
+| `main.tf` | The one resource |
 
-If the leaf's role gets no VRFs, everything except the `hw-id` bindings, the
-system settings, the exporters and syslog is skipped. [roots/fabric-leaves](../roots/fabric-leaves/README.md)
-walks through the generated commands.
+A role with no VRFs gets only the `hw-id` bindings, system settings, exporters and syslog.
 
-**NTP on the leaves.** `system.tf` adds a `set service ntp server` command for
-each entry in `fabric.settings.ntp_servers`. When that list isn't empty, it also:
-
-- deletes any of the VyOS image's default servers (`0/1.pool.ntp.org`,
-  `time1`–`time3.vyos.net`) that aren't in the list
-- runs the NTP client in `fabric.settings.leaf_ntp_vrf`, if that's set (`mgmt` in
-  the inventory, so the leaf reaches an NTP server on the management network)
-
-An empty list skips NTP entirely. It doesn't remove servers that are already
-configured. The leaves no longer send router advertisements on their spine
-links; the spines' advertisements are what the leaves' BGP peering listens for.
+**NTP**: one `set service ntp server` per `ntp_servers` entry. With a non-empty list it also
+deletes VyOS's default servers not in the list and sets the client VRF from `leaf_ntp_vrf`. An
+empty list skips NTP (doesn't remove anything). Leaves send no RAs on spine links; they peer on the
+spines' RAs. Generated commands: [roots/fabric-leaves](../roots/fabric-leaves/README.md).
 
 ### fabric/spines
 
-Configures one RouterOS spine.
+One RouterOS spine.
 
-- **Inputs:**
-  - `spine`: `management_ip`, `id`, `uplink_interface`, plus an optional `as`
-    override
-  - `fabric`
-  - `leaves`: a map of `id` and `spine_uplink`. The IDs must be unique, so each
-    spine has exactly one underlay/overlay pair per leaf.
-  - `keepalive_time` (default `"1m"`) and `hold_time` (default `"3m"`), set on
-    both BGP templates and on every connection. Keep keepalive at most hold/3.
-- **Creates** (all described in
-  [roots/fabric-spines](../roots/fabric-spines/README.md)):
-  - in `main.tf`: the address lists, BFD settings, BGP instance, templates and
-    connections, the ND prefixes, the router-advertisement interval on the leaf
-    ports, and the EVPN filter rule
-  - in `system.tf`: the NTP client (only when `fabric.settings.ntp_servers` isn't
-    empty), and the built-in `memory` logging action with 10,000 lines
-  - in `syslog.tf`: the built-in `remote` logging action pointed at
-    `fabric.settings.spine_syslog.host` (UDP, BSD syslog) and one logging rule per topic
-    (only when `spine_syslog` is set)
+- **Inputs:** `spine` (`management_ip`, `id`, `uplink_interface`, optional `as`), `fabric`,
+  `leaves` (map of `id`, `spine_uplink`; unique IDs: one underlay/overlay pair per leaf),
+  `keepalive_time` (`"1m"`) and `hold_time` (`"3m"`) on both templates and every connection (keep
+  keepalive <= hold/3).
+- **Creates** (see [roots/fabric-spines](../roots/fabric-spines/README.md)):
+  - `main.tf`: address lists, BFD, BGP instance, templates, connections, ND prefix, RA interval on
+    the leaf ports, EVPN filter rule
+  - `system.tf`: NTP client (when `ntp_servers` is non-empty); built-in `memory` logging action,
+    10,000 lines
+  - `syslog.tf`: built-in `remote` action to `spine_syslog.host` (UDP, BSD syslog) + one rule per
+    topic (when `spine_syslog` is set)
 
-Each spine uses `fabric.settings.spine_as`, unless it sets its own `as` in
-`fabric.auto.tfvars`. The overlay templates and connections use
-`fabric.settings.overlay_as`.
+Underlay AS: `spine_as` unless the spine sets `as`; overlay uses `overlay_as`.
 
 ### fabric/leaves
 
-Builds the one list of leaves that every fabric-aware root uses.
-
 - **Inputs:** `fabric`, `nodes`.
-- **Output:** `leaves`, which is `fabric.leaves` (the physical leaves) merged with
-  one generated leaf per host in `nodes.proxmox`. A generated leaf is
-  `{ role = "proxmox", standalone = <node's standalone flag>,
-  id = <node ID>, access_interface = "eth<number of spines + 1>", spine_uplink = null }`.
-- **Called by:** fabric-spines (sessions per leaf), fabric-leaves (config per
-  leaf), services-config (the `leaf-<ID>` DNS records) and monitoring-config
-  (the leaves as scrape targets).
+- **Output:** `leaves` = `fabric.leaves` (physical, `standalone = false`) merged with one generated
+  leaf per `nodes.proxmox` host: `{ role = "proxmox", standalone = <node flag>, id = <node ID>,
+  access_interface = "eth<spines + 1>", spine_uplink = null }`.
+- **Used for:** spine sessions per leaf, leaf config, `leaf-<ID>` DNS records, scrape targets.
 
 ### fabric/macs
 
-Calculates fixed MACs for the leaf VMs' data NICs.
-See [its README](fabric/macs/README.md).
+Fixed MACs for the leaf VMs' data NICs: [README](fabric/macs/README.md).
 
 ### services/dhcp
 
-Turns one DHCP VM's identity, and the DHCP-enabled VLANs, into its VyOS
-configuration.
+One DHCP VM's VyOS configuration.
 
-- **Inputs:**
-  - `name`, `management_ip`
-  - `interface_macs` (ethN → MAC), `interface_addresses` (ethN → CIDR)
-  - `ha` (role, slots, peer), `ha_prefix`, `ha_interface`
-  - `vnis`
-  - `default_name_servers`, `default_domain` (`lylat.space`)
-  - `prometheus_exporters`, `syslog` (both optional)
-- **Creates:** one `vyoscmd_commands` resource called `<name>-dhcp`, with
-  `save = true`.
-- **Outputs:** `commands`, the full list (used by the tests).
+- **Inputs:** `name`, `management_ip`, `interface_macs` (ethN → MAC), `interface_addresses`
+  (ethN → CIDR; `eth1`+ only, `eth0` untouchable), `ha` (role, slots, peer), `ha_prefix`,
+  `ha_interface`, `vnis`, `default_name_servers`, `default_domain` (`lylat.space`),
+  `prometheus_exporters`, `syslog` (optional).
+- **Creates:** one `vyoscmd_commands` named `<name>-dhcp`, `save = true`. **Output:** `commands`
+  (for tests).
 
 | File | Builds |
 | --- | --- |
-| `interfaces.tf` | `hw-id` bindings and the data interface addresses |
-| `dhcp-commands.tf` | The HA settings, listen interfaces and the pools (one per VLAN with a `dhcp.scope`) |
-| `main.tf` | The hostname and `disable-forwarding`, plus the one combined resource |
-| `monitoring.tf` | node-exporter and frr-exporter on the management address and VRF, when `prometheus_exporters` is set |
-| `logging.tf` | Remote syslog, same commands as the leaves, when `syslog` is set |
-
-`interface_addresses` only accepts `eth1` and above, with valid CIDRs. The
-management interface `eth0` can't be touched.
+| `interfaces.tf` | `hw-id` bindings, data interface addresses |
+| `dhcp-commands.tf` | HA settings, listen interfaces, one pool per VLAN with `dhcp.scope` |
+| `main.tf` | Hostname, `disable-forwarding`, the combined resource |
+| `monitoring.tf` | node-/frr-exporter when `prometheus_exporters` is set |
+| `logging.tf` | Remote syslog (same commands as the leaves) when `syslog` is set |
 
 ### services/dhcp/macs
 
-Calculates fixed MACs for the DHCP VMs' VLAN NICs.
-See [its README](services/dhcp/macs/README.md).
+DHCP VM NICs and fixed MACs: [README](services/dhcp/macs/README.md).
 
 ## Tests
 
-| Test file | Needs the locally built providers? |
+| Test file | Needs locally built providers? |
 | --- | --- |
 | `fabric/macs/tests/macs.tftest.hcl` | no |
 | `services/dhcp/macs/tests/macs.tftest.hcl` | no |
 | `proxmox/vm/defaults/tests/defaults.tftest.hcl` | no |
-| `proxmox/vm/tests/vm.tftest.hcl` | yes: `proxmox` (mocked) |
-| `services/dhcp/tests/commands.tftest.hcl` | yes: `vyoscmd` (mocked) |
-| `roots/services-config/tests/dns.tftest.hcl` | yes: `vyoscmd`, plus `dns` and `random` from the registry (all mocked) |
-| `roots/monitoring-config/tests/{monitoring,metrics,postgres,rgw}.tftest.hcl` | yes: `proxmox`, plus `random` from the registry (all mocked) |
-| `roots/services-vms/tests/ha.tftest.hcl` | yes: `proxmox` (mocked) |
-| `roots/proxmox-settings/tests/settings.tftest.hcl` | yes: `proxmox` (mocked) |
+| `proxmox/vm/tests/vm.tftest.hcl` | `proxmox` (mocked) |
+| `services/dhcp/tests/commands.tftest.hcl` | `vyoscmd` (mocked) |
+| `roots/services-config/tests/dns.tftest.hcl` | `vyoscmd` + registry `dns`, `random` (mocked) |
+| `roots/monitoring-config/tests/{monitoring,metrics,postgres,rgw}.tftest.hcl` | `proxmox` + registry `random` (mocked) |
+| `roots/services-vms/tests/ha.tftest.hcl` | `proxmox` (mocked) |
+| `roots/proxmox-settings/tests/settings.tftest.hcl` | `proxmox` (mocked) |
 
-A mocked provider never contacts anything, but `tofu init` still has to install
-it. The tests marked "yes" therefore need `tooling/build-all` and
-`TF_CLI_CONFIG_FILE` first (see [tooling](../tooling/README.md)).
+Mocked providers contact nothing, but `tofu init` must still install them: run
+`tooling/build-all` and set `TF_CLI_CONFIG_FILE` first ([tooling](../tooling/README.md)).
 
 ```sh
-# Run one module's tests from the top of the repo.
-# init creates a .terraform/ folder inside the module; Git ignores it.
-tofu -chdir=modules/fabric/macs init
+tofu -chdir=modules/fabric/macs init    # creates a git-ignored .terraform/ in the module
 tofu -chdir=modules/fabric/macs test
 ```

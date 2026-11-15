@@ -1,83 +1,35 @@
 # services/monitoring
 
-Renders the monitoring stack for the backend VMs (a Prometheus/Alertmanager HA pair), any number of Grafana VMs,
-the logging VMs (Loki HA), the Mimir VMs and the Patroni Postgres cluster, and outputs one self-contained `deploy.sh` per VM. It has no providers and
-changes nothing itself. The [monitoring-config](../../../roots/monitoring-config/README.md)
-root runs the scripts over SSH and documents the behaviour.
+Renders the monitoring stack and outputs one self-contained `deploy.sh` per VM: the backends (Prometheus/
+Alertmanager HA pair), Grafana VMs, logging VMs (Loki HA), Mimir VMs and the Patroni cluster. No providers;
+changes nothing itself. The [monitoring-config](../../../roots/monitoring-config/README.md) root runs the scripts
+over SSH and documents the behaviour.
 
-- `main.tf`: Prometheus, Alertmanager, blackbox, pve-exporter, Grafana
-  datasource and dashboard-provider configs (built as HCL objects and `yamlencode`d), the Quadlet
-  units, and the file/directory/validation/health lists for each VM.
-- `logging.tf`: the logging VMs (`var.logging`): Loki config per VM (ring on the HA
-  address), ruler rules, haproxy (S3 -> RGWs), keepalived, the nftables guard, their
-  units and `deploy.sh`; Alloy for every VM (journal, plus the syslog receiver on the
-  logging VMs); the `loki`/`alloy`/`haproxy` scrape jobs, the `logging` alert group and
-  the Loki datasource, which `main.tf` merges in.
-- `metrics.tf`: the Mimir VMs (`var.metrics`; empty or `metrics_secrets = null` leaves Mimir
-  out): Mimir config per VM (rings and memberlist on the HA address, HA tracker, limits, S3 via
-  haproxy), haproxy, keepalived (VIP), the nftables guard (`metrics-guard`), their units and
-  `deploy.sh`; the `mimir`/`haproxy-mimir` scrape jobs and the `metrics` alert group (merged in
-  `main.tf`), and the `mimir_remote_write`, `mimir_query_url` and `mimir_datasource_json` locals
-  that `main.tf` uses for Prometheus' `remote_write` and Grafana's `prometheus` datasource.
-- `postgres.tf`: the Patroni cluster (`var.postgres`; empty or `postgres_secrets = null` leaves it out):
-  Patroni and etcd configs per member (HA VLAN), pgBackRest (S3 via a TLS haproxy), keepalived on Patroni's
-  `/primary` (VIP), the nftables guard (`postgres-guard`), the leader-setup and backup scripts/units, their
-  `deploy.sh` (Debian packages for Postgres/Patroni/etcd/pgBackRest, containers for the exporters); the
-  `patroni`/`etcd`/`postgres`/`haproxy-postgres` scrape jobs and the `postgres` alert group, and
-  `grafana_db_host`/`grafana_db_env`, which `main.tf` uses for Grafana's database (the Patroni VIP). The
-  package pins (`postgres_settings.package_versions`, `pg_major`) come from the root (software-versions.auto.tfvars).
-- `rgw.tf`: the `ceph-rgw-buckets` alert group (`var.rgw_bucket_alerts`; only with `targets.ceph`) on the
-  per-bucket RGW metrics from `roots/monitoring-config/pve-collectors` (dashboard `dashboards/rgw.py`).
-- `backends.tf`: backend HA (`var.backends`, `primary_backend`): the Alertmanager cluster (gossip on the
-  HA VLAN), keepalived and its VIPs (`backend_vrrp`, with `ip_nonlocal_bind` so containers publish on the
-  VIPs) and the `monitoring-ha` alert group. `main.tf` renders every backend's units and
-  `deploy.sh` and one `prometheus.yml` per backend (`__replica__`).
-- `templates/monitoring-keepalived.conf.tftpl`: the backends' VRRP instance.
-- `grafana-ha.tf`: Grafana HA (`grafana_vrrp`): unified alerting's gossip and keepalived on the
-  Grafana HA VLAN, the VIP on the UI NIC (`templates/grafana-keepalived.conf.tftpl`).
-- `pvestatd.tf`: a second Telegraf on each backend (`var.pvestatd`; null leaves it out) that takes
-  the PVE nodes' pvestatd pushes (InfluxDB line protocol) and serves them to Prometheus (job `pvestatd`).
-- `bind.tf`, `nginx.tf`, `valkey.tf`: scrape jobs and alert groups for services deployed by
-  services-config (bind_exporter, nginx-prometheus-exporter, the Valkey/Sentinel redis_exporters).
-- `infra-alerts.tf`: alert rules for the network, the hosts and their hardware (routing, VPN,
-  SMART, PSU, systemd, reboots, etcd).
-- `instance-labels.tf`: relabels `instance` to `<host>:<port>` for the VM-hosted jobs, so a scrape
-  address change doesn't start new series.
-- `telemetry.tf`: Telegraf on the backends (`var.wlc_telemetry`; null leaves it out): the
-  C9800 WLCs' model-driven telemetry (gRPC dial-out) reshaped into `wlc_*` series for Prometheus
-  (`telegraf/wlc.star`, served on :9275, job `wlc`), its unit, `telegraf.conf`, config check,
-  health checks, the `telegraf` and `wlc` scrape jobs and the `wlc-telemetry` alert group, which
-  `main.tf` merges in. With two or more Telegraf backends and keepalived every Telegraf also
-  listens on the monitoring VIP (the WLCs' one receiver) and keepalived tracks it. Nothing goes
-  to InfluxDB any more (retired 2026-11-14).
-- `templates/container.tftpl`: a generic Quadlet `.container` unit.
-- `templates/config.alloy.tftpl`, `keepalived.conf.tftpl`, `haproxy.cfg.tftpl`,
-  `logging-guard.nft.tftpl`, `logging-guard.service`: the logging configs (`haproxy.cfg.tftpl` is
-  shared with the Mimir VMs); `metrics-keepalived.conf.tftpl`, `metrics-guard.nft.tftpl`,
-  `metrics-guard.service`: the Mimir VMs' configs; the `postgres-*`, `pg-*`, `patroni-dropin.conf`,
-  `etcd-dropin.conf` and `pgdg.asc` files: the Patroni members' configs, scripts and units.
-- `templates/monitoring.network`: the backend's Podman bridge network.
-- `templates/deploy.sh.tftpl`: unpack, pull, validate, install changed files,
-  prune files that are no longer managed (dashboards), restart/start/reload
-  services, health-check. Optional Debian `packages` (installed in deploy mode
-  only) and `post_install` commands (after `daemon-reload`). `deploy.sh check`
-  stops after validation.
-- `dashboards/<Folder>/*.json`: Grafana dashboards. They're minified, which also
-  checks the JSON, and installed on every Grafana VM under
-  `provisioning/dashboards/files`, with a file provider (`dashboards.yml`) that
-  makes each subdirectory a folder. `dashboards/update.py` downloads the pinned
-  community dashboards (grafana.com revisions and the ceph-mixin at a pinned commit) and adapts
-  them to the provisioned datasource; `dashboards/custom.py` generates the custom ones (overview,
-  FRR/EVPN, probes, monitoring stack, Ceph, and through the builder modules its `main()` imports
-  the Proxmox, fw-wan, log, wireless, database and service dashboards). `Overview/overview.json` is set as Grafana's home dashboard.
-  See the root README's [Dashboards](../../../roots/monitoring-config/README.md#dashboards).
+| File | What |
+| --- | --- |
+| `main.tf` | Prometheus, Alertmanager, blackbox, snmp/pve exporters, Grafana datasources and dashboard provider (HCL objects, `yamlencode`d), Quadlet units, per-VM file/dir/validation/health lists; merges every other file's scrape jobs and alert groups into `prometheus.yml` / `rules/basic.yml` |
+| `backends.tf` | Backend HA (`backends`, `primary_backend`): Alertmanager cluster (gossip on the HA VLAN), keepalived VIPs (`backend_vrrp`, `ip_nonlocal_bind`), `monitoring-ha` alerts. One `prometheus.yml` per backend (`__replica__`) |
+| `grafana-ha.tf` | Grafana HA (`grafana_vrrp`): alerting gossip and keepalived on the Grafana HA VLAN, VIP on the UI NIC |
+| `logging.tf` | Loki per VM (ring on the HA address), ruler rules, haproxy (S3 -> RGWs), keepalived, `logging-guard`; Alloy for every VM (journal; plus the syslog receiver on log VMs); `loki`/`alloy`/`haproxy` jobs, `logging` alerts, Loki datasource |
+| `metrics.tf` | Mimir (`metrics`; empty or `metrics_secrets = null` leaves it out): config per VM, haproxy, keepalived, `metrics-guard`; `mimir`/`haproxy-mimir` jobs, `metrics` alerts; the remote_write and datasource locals `main.tf` uses |
+| `postgres.tf` | Patroni cluster (`postgres`; empty or `postgres_secrets = null` leaves it out): Patroni/etcd per member, pgBackRest via a TLS haproxy, keepalived on `/primary`, `postgres-guard`, leader-setup and backup units, Debian packages (pins from `postgres_settings.package_versions`, `pg_major`), app databases (`postgres_apps`); `patroni`/`etcd`/`postgres`/`haproxy-postgres` jobs, `postgres` alerts; Grafana's DB host |
+| `telemetry.tf` | WLC Telegraf (`wlc_telemetry`; null leaves it out): C9800 gRPC dial-out reshaped into `wlc_*` (`telegraf/wlc.star`, :9275, job `wlc`), `telegraf` job, `wlc-telemetry` alerts; listens on the monitoring VIP with two backends + keepalived |
+| `pvestatd.tf` | Second Telegraf per backend (`pvestatd`; null leaves it out): PVE metric-server pushes (InfluxDB line protocol) -> `pvestatd_*` for Prometheus (job `pvestatd`) |
+| `rgw.tf` | `ceph-rgw-buckets` alerts (`rgw_bucket_alerts`; only with `targets.ceph`) on the metrics from `roots/monitoring-config/pve-collectors` |
+| `bind.tf`, `nginx.tf`, `valkey.tf` | Scrape jobs and alerts for services-config's bind_exporter, nginx exporter, Valkey/Sentinel exporters (`nginx.tf` also the `tls` cert-expiry group) |
+| `infra-alerts.tf` | `fabric`, `vpn`, `hosts`, `hardware` alert groups (BGP/BFD, IPsec, reboots, systemd, SMART, MikroTik PSUs) |
+| `instance-labels.tf` | `instance = <host>:<port>` for the VM-hosted jobs, so address changes don't start new series |
+| `rules/ceph-mixin/` | Vendored ceph-mixin alerts (`fetch.sh`; same commit as `dashboards/update.py`), rendered to `rules/ceph.yml` with some groups skipped and node selectors narrowed |
+| `snmp/` | `mikrotik_lite.yml` (generated) and `build-mikrotik-lite.sh` (its source) |
+| `telegraf/wlc.star` | Starlark reshaping of the C9800 telemetry |
+| `templates/deploy.sh.tftpl` | Unpack, pull, install pinned Debian packages (deploy mode only), validate, install changed files, prune (dashboards), remove dropped Quadlets, restart/start/reload, health-check. `deploy.sh check` installs nothing |
+| `templates/container.tftpl`, `monitoring.network` | Generic Quadlet `.container` unit; the backends' Podman network |
+| `templates/*keepalived.conf.tftpl` | VRRP per role (`monitoring-`, `grafana-`, logging `keepalived`, `metrics-`, `postgres-`) |
+| `templates/config.alloy.tftpl`, `haproxy.cfg.tftpl`, `*-guard.nft.tftpl`, `*-guard.service` | Alloy, haproxy (logging and Mimir), nftables guards |
+| `templates/postgres-*`, `pg-*`, `patroni-dropin.conf`, `etcd-dropin.conf`, `pgctl.sh.tftpl`, `pgdg.asc` | Patroni members' configs, scripts, units, apt pin/hold, PGDG key |
+| `dashboards/<Folder>/*.json` | Grafana dashboards (46), minified at plan time (validates the JSON), provisioned on every Grafana VM; each subdirectory is a folder; `Overview/overview.json` is the home dashboard. Generated by `update.py` (community, pinned) and `custom.py` (custom, with the builder modules). See the root README's [Dashboards](../../../roots/monitoring-config/README.md#dashboards) |
 
-Outputs: `backend_deployments`, `grafana_deployments` and `logging_deployments`
-(sensitive: they embed secrets), plus `prometheus_config`, `prometheus_rules`,
-`prometheus_configs`, `backend_services_by_host`, `backend_url_hosts`, `backend_vips`,
-`backend_keepalived_configs`, `wlc_telegraf_configs`, `wlc_receiver`, `alertmanager_targets`, `datasources_config`, `dashboard_providers_config`, `dashboards`, `units`,
-`backend_services`, `loki_configs`, `alloy_configs`, `haproxy_configs` and `loki_url`
-for review and tests. Mimir: `metrics_deployments` (sensitive) and `mimir_keepalived_configs`,
-`mimir_configs`, `mimir_haproxy_configs`, `mimir_url`. Postgres: `postgres_deployments` and
-`postgres_keepalived_configs` (the keepalived configs hold no secrets since VRRPv3), `postgres_vip`, `grafana_db_host`, and more; `outputs.tf`
-has the full list.
+Outputs: the `*_deployments` (backend, grafana, logging, metrics, postgres) are sensitive (they embed secrets);
+the rest (`prometheus_configs`, `prometheus_rules`, `datasources_config`, `dashboards`, `units`, `loki_configs`,
+`alloy_configs`, `mimir_configs`, `patroni_configs`, the `*_keepalived_configs`, `loki_url`, `mimir_url`,
+`postgres_vip`, `grafana_db_host`, ...) are for review and tests. Full list: `outputs.tf`.

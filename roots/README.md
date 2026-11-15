@@ -1,130 +1,92 @@
 # Roots
 
-A **root** is a folder that you run `tofu` in. Each folder here deploys one
-layer of the lab and keeps its **own state file**.
+A root is a folder you run `tofu` in. Each deploys one layer and keeps its own local state. Split
+so plans stay readable, a mistake in one layer can't plan another's destruction, each root needs
+only its own credentials/reachability, and you re-run only what changed.
 
-## Why the lab is split into roots
+Roots don't read each other's state (no `terraform_remote_state`); they share only the
+[inventory](../inventory/README.md), via symlinks. The order below is not enforced by OpenTofu: it
+is real-world readiness (a leaf can't be configured until its VM boots and its API answers).
 
-- **Plans stay small** enough to read properly before you apply them.
-- **Layers are isolated.** A mistake in one layer can't plan the destruction of
-  another.
-- **Access is limited.** Each root only needs the credentials and network
-  reachability for its own layer.
-- **Re-runs are cheap.** You can re-run just the layer you changed.
-
-The roots don't read each other's state (there's no `terraform_remote_state`).
-The only thing they share is the [inventory](../inventory/README.md), which
-every root reads through symlinks. So the deployment order below isn't enforced
-by OpenTofu. It reflects real-world readiness: for example, a leaf can't be
-configured until its VM has booted and its API answers.
-
-## What's in a root folder
+## Root folder contents
 
 | File | What it is |
 | --- | --- |
-| `main.tf`, `locals.tf`, ... | The root's own code. Mostly calls to [modules](../modules/README.md). |
-| `*.auto.tfvars` → `inventory/auto.tfvars/` | Symlinks to the values |
-| `*.variables.tf` → `inventory/schema/` | Symlinks to the variable declarations |
-| `providers.tf`, `versions.tf` → `inventory/...` | Symlinks to the provider settings and version pins |
-| `*.secret.auto.tfvars` → `inventory/auto.tfvars.secret/` | Symlinks to the credentials this root needs. Git-ignored. |
-| `.terraform/` | Created by `tofu init`: the providers and modules this root uses. Git-ignored. |
-| `.terraform.lock.hcl` | Created by `tofu init`: checksums of the providers in use. Git-ignored, because locally built providers get different checksums on every machine. |
-| `terraform.tfstate` | Created by `tofu apply`: the state. Git-ignored. **Back it up.** |
+| `main.tf`, `locals.tf`, ... | The root's own code, mostly module calls |
+| `*.auto.tfvars` → `inventory/auto.tfvars/` | Values |
+| `*.variables.tf` → `inventory/schema/` | Variable declarations |
+| `providers.tf`/`*-provider.tf`, `versions.tf` → `inventory/provider-config/`, `inventory/versions/` | Provider blocks and version pins (services-config and monitoring-config have their own `providers.tf`) |
+| `state-encryption.tf` → `inventory/schema/` | State/plan encryption (certs, services-config) |
+| `*.secret.auto.tfvars` → `inventory/auto.tfvars.secret/` | Credentials this root needs. Git-ignored. |
+| `.terraform/`, `.terraform.lock.hcl` | From `tofu init`. Git-ignored (local provider builds give per-machine checksums). |
+| `terraform.tfstate` | State. Git-ignored. Back it up. |
+
+`ls -l roots/<root>/` shows exactly what a root links.
 
 ## Deployment order
 
-| # | Root | What it builds or configures | Must be ready first | Secret file to link in |
+| # | Root | Builds / configures | Must be ready first | Linked secret files |
 | --- | --- | --- | --- | --- |
-| 1 | [proxmox-download-files](proxmox-download-files/README.md) | The Debian 13 cloud image on `cephfs` (optional) | `cephfs` storage allows *Import* content | `proxmox.secret.auto.tfvars` |
-| 2 | [proxmox-network](proxmox-network/README.md) | NICs, bond, bridges and VLAN interfaces on each cluster node | Console access to the hosts, in case a change cuts off management | `proxmox.secret.auto.tfvars` |
-| 3 | [proxmox-settings](proxmox-settings/README.md) | Datacenter options, DNS and time zone on every Proxmox host | Nothing: the existing settings are imported | `proxmox.secret.auto.tfvars` |
-| 4 | [fabric-vms](fabric-vms/README.md) | A `vtep-<host>` VyOS VM on every Proxmox host | VyOS image and `vyos_api.yml` snippet on `cephfs`; bridges `vmbr4000`–`vmbr4002` on every host | `proxmox.secret.auto.tfvars` |
-| 5 | [fabric-spines](fabric-spines/README.md) | BGP, BFD and EVPN route reflection on the RouterOS spines | Spines reachable, REST API enabled | `routeros.secret.auto.tfvars` |
-| 6 | [fabric-leaves](fabric-leaves/README.md) | The EVPN/VXLAN config on every leaf | Leaf VMs booted with their HTTPS API enabled | `vyos.secret.auto.tfvars` |
-| 7 | [services-vms](services-vms/README.md) | Every service VM (`owner = "services-vms"`): DNS, DHCP, monitoring, NetBox, Valkey, dark-triage, reverse proxy | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
-| 8 | [certs](certs/README.md) | The Let's Encrypt wildcard certificate, copied to the proxy VMs (over SSH) | The proxy VMs exist; a Cloudflare API token for the zone | `cloudflare.secret.auto.tfvars`, `state.secret.auto.tfvars` |
-| 9 | [services-config](services-config/README.md) | BIND (over SSH), DNS records (RFC 2136), DHCP HA and pools (VyOS API), NetBox, Valkey, dark-triage and the nginx reverse proxy (over SSH) | The service VMs have Podman and passwordless sudo; the fabric routes VLAN 8; the certificate is on the proxy VMs | `vyos`, `app-db`, `netbox` and `state` `.secret.auto.tfvars` (plus `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
-| 10 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, Telegraf, Grafana, Loki, Mimir and the Patroni Postgres cluster (over SSH) | The monitoring VMs have Podman and passwordless sudo; the zone segments (lylat-app/-obs/-data), lylat-telemetry (VLAN 1501) and the `ha_*` L2VNIs on the leaves | `proxmox`, `monitoring`, `logging`, `metrics`, `postgres` and `app-db` `.secret.auto.tfvars` (optional `pve.secret.auto.tfvars`; `ssh_private_key_path` if your key isn't `~/.ssh/id_rsa`) |
-| 11 | [workloads](workloads/README.md) | Ordinary VMs (`owner = "workloads"`) | Images and host bridges exist | `proxmox.secret.auto.tfvars` |
+| 1 | [proxmox-download-files](proxmox-download-files/README.md) | Debian 13 cloud image on `cephfs` (optional) | `cephfs` allows *Import* | `proxmox` |
+| 2 | [proxmox-network](proxmox-network/README.md) | NICs, bond, bridges, VLAN interfaces on each cluster node | Console access in case management is cut off | `proxmox` |
+| 3 | [proxmox-settings](proxmox-settings/README.md) | Datacenter options, DNS, time zone on every host | Nothing (existing settings are imported) | `proxmox` |
+| 4 | [fabric-vms](fabric-vms/README.md) | A `vtep-<host>` VyOS VM per Proxmox host | VyOS image + `vyos_api.yml` snippet on `cephfs`; `vmbr4000`-`vmbr4002` on every host | `proxmox` |
+| 5 | [fabric-spines](fabric-spines/README.md) | BGP, BFD, EVPN route reflection on the spines | Spines reachable, REST API on | `routeros` |
+| 6 | [fabric-leaves](fabric-leaves/README.md) | EVPN/VXLAN config on every leaf | Leaf VMs booted, HTTPS API on | `vyos` |
+| 7 | [services-vms](services-vms/README.md) | Every `owner = "services-vms"` VM | Images and host bridges | `proxmox` |
+| 8 | [certs](certs/README.md) | Let's Encrypt wildcard (Cloudflare DNS-01), copied to the proxy VMs over SSH | Proxy VMs exist | `cloudflare`, `state` |
+| 9 | [services-config](services-config/README.md) | BIND (SSH), DNS records (RFC 2136), DHCP (VyOS API), NetBox, Valkey, dark-triage, nginx (SSH) | Service VMs have Podman + passwordless sudo; fabric routes VLAN 8; certificate on the proxy VMs | `vyos`, `app-db`, `netbox`, `state` |
+| 10 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, Telegraf, Grafana, Loki, Mimir, Patroni Postgres (SSH); PVE metric servers (API) | Monitoring VMs have Podman + passwordless sudo; zone segments, lylat-telemetry (VLAN 1501) and the `ha_*` L2VNIs on the leaves | `proxmox`, `monitoring`, `logging`, `metrics`, `postgres`, `app-db` |
+| 11 | [workloads](workloads/README.md) | Every `owner = "workloads"` VM | Images and host bridges | `proxmox` |
+
+Secret file names are `<name>.secret.auto.tfvars`. The SSH roots (Proxmox roots, certs,
+services-config, monitoring-config) also read `ssh_private_key_path` (default `~/.ssh/id_rsa`).
+monitoring-config's optional secret inputs (`pve_exporter_token`, `snmp_v3_auths`) go in a
+git-ignored `*.secret.auto.tfvars`.
 
 Why this order:
 
-- **`proxmox-network` comes first**, because every VM plugs into its bridges.
-  `vmbr4000` carries the tenant VLANs, and `vmbr4001`/`vmbr4002` are the links to
-  the spines.
-- **`fabric-vms` comes before `fabric-leaves`**, because OpenTofu can only
-  configure a leaf VM after it exists and is running.
-- **`fabric-spines` and `fabric-leaves`** can each be applied on their own. The
-  BGP sessions come up once both sides are configured.
-- **`certs` comes after `services-vms` and before `services-config`.** The proxy
-  VMs must exist to receive the certificate, and nginx expects it on its first
-  start.
-- **`services-config` comes after `services-vms` and after the fabric.** The DNS
-  VMs have no management gateway: they reach the internet (to pull the BIND
-  image) and receive DNS updates through VLAN 8, which the leaves route.
-- **`proxmox-download-files`** only matters if your VMs use the stock `debian13`
-  image, and it must run before the roots that create those VMs.
+- **proxmox-network first**: every VM plugs into its bridges (`vmbr4000` tenant VLANs,
+  `vmbr4001`/`vmbr4002` spine links).
+- **fabric-vms before fabric-leaves**: a leaf is configured through its running VM's API.
+- **fabric-spines and fabric-leaves** apply independently; sessions come up once both sides are done.
+- **certs between services-vms and services-config**: the proxy VMs must exist, and nginx expects
+  the certificate on first start.
+- **services-config after the fabric**: the DNS VMs have no management gateway; they pull the
+  BIND image and receive DNS updates through VLAN 8, which the leaves route.
+- **proxmox-download-files** only matters for VMs on the stock `debian13` image.
 
 ## Running a root
 
-### With the guided runner
-
 ```sh
-tooling/walk-roots.sh                               # every root, in the order above
-tooling/walk-roots.sh services-vms services-config  # only these, still in that order
-tooling/walk-roots.sh --list                        # print the root names
+tooling/walk-roots.sh                               # every root, in order
+tooling/walk-roots.sh services-vms services-config  # only these, still in order
+tooling/walk-roots.sh --list                        # root names
 ```
 
-At each root you choose plan, apply, skip or quit. Details are in
-[tooling](../tooling/README.md#walk-rootssh-the-guided-runner).
-
-### By hand
+Details: [tooling](../tooling/README.md#walk-rootssh-the-guided-runner). By hand (dev shell sets
+`TF_CLI_CONFIG_FILE`; outside it, `export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"`):
 
 ```sh
-# Inside nix-shell, TF_CLI_CONFIG_FILE is already set, so OpenTofu finds the
-# locally built providers. Outside it, set it first:
-export TF_CLI_CONFIG_FILE="$PWD/tooling/local-provider.generated.tfrc"
-
-# init: prepare the providers and modules. Run it once per root, and again
-# after a provider changes.
-tofu -chdir=roots/services-vms init
-
-# plan: preview the changes. Nothing is modified.
+tofu -chdir=roots/services-vms init     # once, and after a provider changes
 tofu -chdir=roots/services-vms plan
-
-# apply: shows the plan again, then asks you to type "yes" before changing anything.
 tofu -chdir=roots/services-vms apply
 ```
 
-`-chdir=roots/<name>` runs `tofu` as if you had `cd`'d into that folder. The
-root's linked secret file (here `proxmox.secret.auto.tfvars`) supplies the
-credentials. If you keep everything in one file instead, put
-`tooling/with-secrets` in front of each command; see
-[Secrets](../inventory/README.md#secrets).
+Linked secret files load automatically. With a single central secrets file instead, prefix
+commands with `tooling/with-secrets` ([Secrets](../inventory/README.md#secrets)).
 
 ## State
 
-- **Where it lives.** Each root keeps `terraform.tfstate` in its own folder, and
-  OpenTofu keeps the previous version as `terraform.tfstate.backup`. Git ignores
-  both.
-- **It's sensitive.** State holds secrets, such as the generated passwords in
-  `monitoring-config`, in plain text. The `certs` and `services-config` states and
-  plans are encrypted with the passphrase in `state.secret.auto.tfvars`; without
-  it they can't be read, so keep a copy of the passphrase as well. Keep state
-  private, and copy it somewhere safe regularly.
-- **If you lose it,** OpenTofu no longer knows it manages those objects. It
-  won't delete them, but the next apply will try to create them again, which
-  usually fails or makes duplicates. You recover with `tofu import`.
-- **One owner per object.** Every real object should be managed by exactly one
-  state. To move one between roots, run `tofu state rm` in the old root (this
-  only makes OpenTofu forget the object; it doesn't delete it), then `tofu import`
-  in the new root. [proxmox-download-files](proxmox-download-files/README.md#moving-the-image-from-an-older-services-vms-state)
-  has a worked example.
+- `terraform.tfstate` (+ `.backup`) lives in each root folder, git-ignored.
+- It holds secrets in plain text (e.g. generated passwords in monitoring-config). certs and
+  services-config state and plans are encrypted with the passphrase in
+  `state.secret.auto.tfvars`: keep a copy of the passphrase, or that state is unreadable.
+- Lost state: OpenTofu doesn't delete anything, but the next apply tries to create it again.
+  Recover with `tofu import`.
+- One state per real object. To move one between roots: `tofu state rm` in the old root (forgets,
+  doesn't delete), then `tofu import` in the new one.
 
 ## Unfinished roots
 
-One root isn't usable yet, and the runner refuses to run it:
-
-| Root | State |
-| --- | --- |
-| `proxmox-virtual-hosts` | An empty `main.tf` |
+`proxmox-virtual-hosts`: an empty `main.tf`. walk-roots.sh excludes it.

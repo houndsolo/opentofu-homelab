@@ -1,365 +1,223 @@
 # services-config
 
-This root sets up the software on the VMs that
-[services-vms](../services-vms/README.md) created: BIND 9 and its keepalived
-VIPs on the DNS VMs, the DNS records, the DHCP high-availability pair, NetBox
-(two nodes) with its Valkey/Sentinel trio, the nginx reverse proxy pair, the
-dark-triage helpdesk, and node_exporter and Alloy on all of them.
+Software on the VMs from [services-vms](../services-vms/README.md): BIND 9 + keepalived on
+dns01/02, the `lylat.space` and `10.in-addr.arpa` records, the Kea DHCP HA pair (dhcp01/02, VyOS),
+NetBox (two nodes) with its Valkey/Sentinel trio, the nginx reverse proxy pair, the dark-triage
+helpdesk, and node_exporter, role exporters and Alloy on all of them. DNS and DHCP are documented
+here; NetBox, Valkey, the proxy and dark-triage in the header comment of their `.tf` file.
+State and plans are encrypted (`state_passphrase`).
 
-This README covers DNS and DHCP in detail. NetBox, Valkey, the proxy and
-dark-triage are documented in the header comment of their `.tf` file.
-
-| File | What it does |
+| File | What |
 | --- | --- |
-| `main.tf` | Deploys BIND 9 on each DNS VM over SSH (Podman + Quadlet), and generates the TSIG key |
-| `dns-records.tf` | Builds the generated record names (taking the leaf list from `modules/fabric/leaves`), and manages records in `lylat.space` with signed RFC 2136 dynamic updates (the `hashicorp/dns` provider) |
-| `dns-keepalived.tf` | keepalived on the DNS pair: the DNS VIPs (see [The DNS VIP](#the-dns-vip)) |
-| `dns-node-exporter.tf`, `dns-bind-exporter.tf` | node_exporter and bind_exporter on the DNS VMs |
-| `dhcp.tf` | Works out the DHCP HA pair and calls [modules/services/dhcp](../../modules/README.md#servicesdhcp) for each DHCP VM (VyOS API) |
-| `netbox.tf` | NetBox and its worker (Podman Quadlets), the CephFS mount and keepalived on the `netbox` VMs, canary first |
-| `valkey.tf` | Valkey + Sentinel (NetBox's cache and task queue) on the `valkey` VMs |
-| `proxy.tf` | The nginx reverse proxy, its nftables rules and keepalived on the `proxy` VMs; needs the certificate from [certs](../certs/README.md) |
-| `ticketing.tf` | The dark-triage helpdesk (built from a pinned commit, Podman Quadlet) and keepalived on the `ticketing` VMs |
-| `netbox-monitoring.tf`, `valkey-monitoring.tf`, `proxy-monitoring.tf`, `ticketing-monitoring.tf` | node_exporter, the role's own exporters and Alloy on those VMs, separate from the service's deploy |
-| `alloy.tf` | The Grafana Alloy install script every service VM gets (see [Logs to Loki](#logs-to-loki)) |
-| `telemetry.tf` | Each VM's lylat-telemetry address (`scrape_ip`), where the exporters listen |
-| `variables.tf` | This root's own settings (see [Inputs](#inputs)) |
-| `providers.tf` | Provider requirements: `vyoscmd` (built locally), `hashicorp/dns`, `hashicorp/random` |
-| `templates/` | `named.conf`, the seed zone, the TSIG key file, the Quadlet units, the keepalived and nginx configs and the deploy scripts |
-| `tests/` | A `tofu test` suite with mocked providers |
+| `main.tf` | BIND 9 on each DNS VM over SSH (Podman Quadlet), the TSIG key |
+| `dns-records.tf` | generated record names (leaf list from `modules/fabric/leaves`) and every record in `lylat.space` / `10.in-addr.arpa`, via signed RFC 2136 updates (`hashicorp/dns`) |
+| `dns-keepalived.tf` | keepalived on the DNS pair ([The DNS VIP](#the-dns-vip)) |
+| `dns-node-exporter.tf`, `dns-bind-exporter.tf` | node_exporter (:9100) and bind_exporter (:9119) on the DNS VMs |
+| `dhcp.tf` | the DHCP HA pair, [modules/services/dhcp](../../modules/README.md#servicesdhcp) per VM (VyOS API) |
+| `netbox.tf`, `valkey.tf`, `proxy.tf`, `ticketing.tf` | the services (table below) |
+| `*-monitoring.tf` (netbox, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, separate from the service deploy |
+| `alloy.tf` | the Alloy install every Linux service VM gets ([Logs to Loki](#logs-to-loki)) |
+| `telemetry.tf` | each VM's lylat-telemetry address (`scrape_ip`), where every exporter and Alloy listens |
+| `templates/` | `named.conf`, seed zones, TSIG key, Quadlet units, keepalived/nginx/Valkey configs, deploy scripts |
+| `tests/dns.tftest.hcl` | `tofu test` with mocked providers: records, DHCP commands (fixture `tests/fixtures/dhcp-pools.set`), VRRP, Alloy, exporters |
 
-## Contents
+| Service | VMs | Address | Notes |
+| --- | --- | --- | --- |
+| NetBox | netbox01/02 | `netbox-vip` 10.52.12.106 (lylat-app) | netbox + netbox-worker Quadlets, DB on Patroni, cache/queue in Valkey via Sentinel, media on CephFS `/netbox`; canary-first |
+| Valkey + Sentinel | valkey01-03 | none: clients ask the Sentinels (:26379) | Debian packages; Sentinels own the topology after the first deploy; nftables limits 6379/26379 |
+| nginx proxy | proxy01/02 | `proxy-vip` 10.2.11.107 (VLAN 2) | TLS with the [certs](../certs/README.md) wildcard, forwards to each service's `<name>-vip`; every published name is a generated CNAME to `proxy-vip` |
+| dark-triage | triage01/02 | `dark-triage-vip` 10.52.13.105 (lylat-app) | built from a pinned commit, DB on Patroni; canary-first |
 
-- [Requirements](#requirements)
-- [Inputs](#inputs)
-- [First deployment: bootstrap first](#first-deployment-bootstrap-first)
-- [How BIND is deployed](#how-bind-is-deployed)
-- [DNS records](#dns-records)
-- [The TSIG key](#the-tsig-key)
-- [DHCP](#dhcp)
-- [Logs to Loki](#logs-to-loki)
-- [Checking that it works](#checking-that-it-works)
-- [Tests](#tests)
-- [The DNS VIP](#the-dns-vip)
+Container images and versions (BIND by digest, exporters, Alloy, nginx, NetBox) come from
+[`software-versions.auto.tfvars`](../../inventory/auto.tfvars/software-versions.auto.tfvars) (`containers`),
+shared with monitoring-config. A bump redeploys every VM running that container: apply pairs with
+`-parallelism=1`.
 
 ## Requirements
 
-**On the DNS VMs:**
-
-- Podman with Quadlet support, and systemd
-- SSH login as `config.ssh_username` with the key in `ssh_private_key_path`,
-  and **passwordless sudo** for that user (the deploy runs `sudo -n`)
-- Access to `docker.io`, to pull the BIND image
-
-**On the DHCP VMs:** the VyOS HTTPS API on the management address, using the
-key in `vyos_api_key`.
-
-**From the machine running OpenTofu:**
-
-| To | Port | Why |
-| --- | --- | --- |
-| DNS VMs' management addresses (`10.20.53.1`, `.2`) | TCP 22 | SSH, to deploy BIND |
-| Primary DNS service address (`10.8.53.1`) | TCP 53 | RFC 2136 record updates (the provider uses TCP) |
-| DHCP VMs' management addresses (`10.20.67.1`, `.2`) | TCP 443 | VyOS HTTPS API |
-| The OpenTofu registry | TCP 443 | `tofu init` downloads `hashicorp/dns` and `hashicorp/random` |
-
-**Between the DNS VMs:** TCP and UDP 53, for change notifications and zone
-transfers.
+- **DNS VMs:** Podman with Quadlet, systemd; SSH as `config.ssh_username` with `ssh_private_key_path`
+  and passwordless sudo (`sudo -n`); internet (docker.io) to pull images.
+- **DHCP VMs:** the VyOS HTTPS API on the management address with the key in `vyos_api_key`.
+- **From the machine running OpenTofu:** TCP 22 to every deployed VM's management address
+  (`10.20.53.1/.2`, `10.20.11.x`), TCP 53 to the primary's service address `10.8.53.1` (record
+  updates over TCP), TCP 443 to `10.20.67.1/.2` (VyOS API).
+- **Between the DNS VMs:** TCP/UDP 53 (notify, zone transfers).
+- Linked secrets: `vyos`, `app-db` (Postgres passwords of NetBox/dark-triage), `netbox` (CephFS key),
+  `state`; see [Secrets](../../inventory/README.md#secrets).
 
 ## Inputs
 
-| Variable | Default | What it does |
+| Variable | Default | What |
 | --- | --- | --- |
-| `ssh_private_key_path` | `~/.ssh/id_rsa` | Private key used to SSH into every VM this root deploys (DNS, NetBox, Valkey, proxy, ticketing) |
-| `containers` | [`software-versions.auto.tfvars`](../../inventory/auto.tfvars/software-versions.auto.tfvars) | Every container image and version (BIND, exporters, Alloy, nginx, NetBox), shared with monitoring-config: change a `version` there (the same file's `packages` are monitoring-config's) |
-| `vyos_api_key` | `null` (then `VYOS_API_KEY` is used) | API key for the DHCP VMs |
-| `dns_primary` | `dns01` | Which DNS VM is the writable primary. The others are secondaries. |
-| `dns_allowed_clients` | `["127.0.0.1/32", "10.0.0.0/8"]` | Networks allowed to query and to use recursion |
-| `dns_deploy_revision` | `"1"` | Change it to force a redeploy, for example after rebuilding a DNS VM that kept its address and ID |
-| `dns_tsig_secret` | `null` (generate one) | Supply an existing TSIG key; see [The TSIG key](#the-tsig-key) |
-| `dhcp_prometheus_exporters` | `{ vrf = "mgmt" }` | VyOS node-exporter (:9100) and frr-exporter (:9342) on each DHCP VM's management address, in that VRF; scraped by [monitoring-config](../monitoring-config/README.md). `null` leaves them unmanaged. |
-| `dhcp_syslog` | `{ hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }` | Remote syslog from each DHCP VM (TCP 514, RFC 5424, octet-counted) to every logging VM's own management address ([monitoring-config](../monitoring-config/README.md); no VIP on mgmt), sent from that VRF. Also takes `port`, `protocol` (`tcp`/`udp`), `facility`, `level` (defaults `all`/`info`). `null` leaves it unmanaged. |
-| `dns_node_exporter` | `{}` (port 9100) | node_exporter on each DNS VM ([`dns-node-exporter.tf`](dns-node-exporter.tf)): a Podman Quadlet with host networking, listening on the VM's lylat-telemetry address `:9100` (`telemetry.tf` `scrape_ip`; the management address without a telemetry NIC), where monitoring-config's `node` job scrapes it. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it. |
-| `dns_bind_exporter` | `{}` | bind_exporter on each DNS VM ([`dns-bind-exporter.tf`](dns-bind-exporter.tf)): a Podman Quadlet with host networking, reading BIND's statistics channel (`127.0.0.1:8053`, loopback only, in `named.conf`) and listening on the VM's lylat-telemetry address `:9119` (like node_exporter), where monitoring-config's `bind` job scrapes it. Its deploy fails unless it reports `bind_up 1`. Separate from BIND's deploy, so changing it never restarts BIND. `null` skips it (the statistics channel stays on). |
-| `alloy` | `{}` (port 12345) | Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs ([`alloy.tf`](alloy.tf)). Every VM pushes from its lylat-telemetry NIC (VLAN 1501, `telemetry.tf`) to `loki_url` (`http://10.55.18.101:3100`, Loki's telemetry VIP); a check warns about Alloy VMs without that NIC. Also takes `max_age` (`12h`). `null` skips it. See [Logs to Loki](#logs-to-loki). |
-| `ticketing_monitoring` | `{}` | node_exporter on the triage VMs ([`ticketing-monitoring.tf`](ticketing-monitoring.tf)), next to their Alloy; separate from the app's deploy. `null` skips both. |
-| `netbox_monitoring`, `valkey_monitoring`, `proxy_monitoring` | `{}` | The same for the NetBox, Valkey (plus the Valkey and Sentinel exporters) and proxy (plus nginx-prometheus-exporter) VMs. `null` skips them. |
-| `netbox` | see [`netbox.tf`](netbox.tf) | NetBox image, database, superuser and VIP. `null` = don't deploy. |
-| `valkey` | see [`valkey.tf`](valkey.tf) | Valkey + Sentinel for NetBox. `null` = don't deploy. |
-| `proxy` | see [`proxy.tf`](proxy.tf) | The reverse proxy: published hosts and where they forward to, certificate path, VIP. `null` = don't deploy. |
-| `ticketing` | see [`ticketing.tf`](ticketing.tf) | dark-triage source (pinned commit), ports, database and VIP. `null` = don't deploy. |
-| `telemetry_vlan_id` | `1501` | VLAN of lylat-telemetry, every service VM's scrape and log-push NIC |
-| `app_db_passwords` | from `app-db.secret.auto.tfvars` | Postgres passwords of the app databases (NetBox, dark-triage) on the Patroni cluster, shared with monitoring-config |
-| `netbox_cephfs_key` | `null` (from `netbox.secret.auto.tfvars`) | CephFS key for NetBox's media mount. `null` keeps media local to each VM. |
-| `dns_vrrp` | `{ vip = "10.8.53.53/16", zone_vip = "10.53.53.53/16", router_id = 53 }` | keepalived VIPs for the DNS pair: `vip` on BIND's service NIC (VLAN 8), `zone_vip` on the lylat-dns NIC (`zone_vlan_id` 1301), one VRRP instance, adverts unicast over the `ha_dns` L2VNI. BIND listens on both; DHCP hands out only `vip`. `null` skips it. See [The DNS VIP](#the-dns-vip). |
-| `dns_hosts`, `dns_records` | empty | Your records, from [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars) |
+| `ssh_private_key_path` | `~/.ssh/id_rsa` | key for every SSH deploy (DNS, NetBox, Valkey, proxy, ticketing) |
+| `containers` | `software-versions.auto.tfvars` | images and versions (see above) |
+| `vyos_api_key` | `null` → `VYOS_API_KEY` | DHCP VMs' API key |
+| `dns_primary` | `dns01` | the writable primary; the others are secondaries |
+| `dns_allowed_clients` | `["127.0.0.1/32", "10.0.0.0/8"]` | may query and recurse |
+| `dns_deploy_revision` | `"1"` | change to force a redeploy (e.g. a DNS VM rebuilt with the same address and ID) |
+| `dns_tsig_secret` | `null` (generated) | bring your own key ([The TSIG key](#the-tsig-key)) |
+| `dns_vrrp` | `{ vip = "10.8.53.53/16", zone_vip = "10.53.53.53/16" }`, `router_id` 53, `zone_vlan_id` 1301 | the DNS VIPs ([The DNS VIP](#the-dns-vip)); `null` = none |
+| `dns_node_exporter`, `dns_bind_exporter` | `{}` | exporters on the DNS VMs; bind_exporter reads BIND's statistics channel `127.0.0.1:8053` and its deploy fails unless `bind_up 1`. Neither restarts BIND. `null` skips |
+| `dhcp_prometheus_exporters` | `{ vrf = "mgmt" }` | VyOS node-exporter (:9100) and frr-exporter (:9342) on the DHCP VMs' mgmt address |
+| `dhcp_syslog` | `{ hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }` | VyOS remote syslog (TCP 514, RFC 5424) to loki01-03's own mgmt addresses (no VIP on mgmt); also `port`, `protocol`, `facility`, `level` |
+| `alloy` | `{}`: port 12345, `loki_url = "http://10.55.18.101:3100"`, `max_age = "12h"` | [Logs to Loki](#logs-to-loki); `null` skips |
+| `netbox_monitoring`, `valkey_monitoring`, `proxy_monitoring`, `ticketing_monitoring` | `{}` | node_exporter + role exporters + Alloy on those VMs; `null` skips |
+| `netbox`, `valkey`, `proxy`, `ticketing` | see the `.tf` file | the services; `null` = don't deploy |
+| `netbox_cephfs_key` | from `netbox.secret.auto.tfvars` | `null` keeps NetBox media local per VM |
+| `app_db_passwords` | from `app-db.secret.auto.tfvars` | app DB passwords on Patroni, shared with monitoring-config |
+| `telemetry_vlan_id` | `1501` | lylat-telemetry VLAN |
+| `dns_hosts`, `dns_records` | from `dns-records.auto.tfvars` | your records |
 
-The root also reads `vms`, `vnis`, `l2vnis`, `vips`, `nodes` and `fabric` from the
-inventory. `vyos_api_key` comes from `vyos.secret.auto.tfvars`, linked into this
-root like the `app-db`, `netbox` and `state` secret files (see
-[Secrets](../../inventory/README.md#secrets)). The state and plans of this root are
-encrypted with `state_passphrase`.
+Also read from the inventory: `vms`, `vnis`, `l2vnis`, `vips`, `nodes`, `fabric`.
 
 ## First deployment: bootstrap first
 
-**Why a bootstrap is needed.** The DNS provider signs every update with the
-TSIG key and sends it to BIND on the primary. On a brand-new deployment, neither
-exists yet: the key is generated in this same root, and BIND isn't running. So
-the very first run is a *targeted* apply. It only generates the key and deploys
-BIND (`-target=terraform_data.bind9`). After that, a normal apply can manage the
-records and DHCP.
-
-With the guided runner:
+The DNS provider signs updates with the TSIG key and sends them to BIND, but on a fresh deployment
+the key (generated in this root) and BIND don't exist yet. So the first apply targets only
+`terraform_data.bind9` (and its key); after that, normal applies.
 
 ```sh
 TF_VAR_ssh_private_key_path=~/.ssh/id_ed25519 tooling/walk-roots.sh services-config
-#   choose  b   -> bootstrap: plans only terraform_data.bind9 and its key; type "yes" to apply
-#   choose  a   -> normal plan and apply: DNS records and DHCP; type "yes" to apply
+#   b -> bootstrap (only terraform_data.bind9 and its key), then  a -> normal plan and apply
+# by hand:
+tofu -chdir=roots/services-config apply -target=terraform_data.bind9
+tofu -chdir=roots/services-config apply
 ```
-
-By hand:
-
-```sh
-tofu -chdir=roots/services-config init
-tofu -chdir=roots/services-config apply -target=terraform_data.bind9   # bootstrap
-tofu -chdir=roots/services-config apply                                # everything else
-```
-
-OpenTofu warns that `-target` is meant for exceptional cases. That's expected
-here. After the first deployment, normal applies are all you need.
 
 ## How BIND is deployed
 
-There's one `terraform_data.bind9` resource per DNS VM (every `vms` entry with
-`role = "dns"`). It connects over SSH,
-uploads a generated `deploy.sh` into a private `/tmp/tofu-bind9-<id>/`
-directory, runs it with `sudo -n`, and then deletes the directory. The script
-(`templates/deploy.sh.tftpl`) does this:
+One `terraform_data.bind9` per `role = "dns"` VM: SSH in, upload `deploy.sh`
+(`templates/deploy.sh.tftpl`) to a private `/tmp/tofu-bind9-<id>/`, run it with `sudo -n`, delete it.
+The script:
 
-1. Checks that Podman is installed, and unpacks the embedded files into a private
-   temporary directory: `named.conf`, the seed zone, the TSIG key and the Quadlet
-   unit.
-2. Pulls the BIND image.
-3. **Validates** `named.conf` (`named-checkconf`) and the seed zone
-   (`named-checkzone`) in throwaway containers that have no network. A broken
-   config never reaches the running server.
-4. Looks up the `bind` user's UID and GID inside the image, and creates the
-   directories with the right ownership.
-5. **On the primary only**, installs the seed zone, but only if no zone file
-   exists yet. A zone that has already received RFC 2136 updates, and its
-   journal, are never overwritten.
-6. Installs `named.conf`, the key file (mode `0640`, `root:bind`) and the Quadlet
-   unit, reloads systemd and checks that `bind9.service` is active. It **restarts**
-   BIND only when the unit or the image changed (or it isn't running). A change
-   to `named.conf` or the key alone is a **reload** (SIGHUP, the same as `rndc
-   reload`; there's no rndc channel): the cache survives and no query is dropped.
-   The deploy fails if named logs `reloading configuration failed` (named keeps
-   running on the old config then).
+1. unpacks `named.conf`, both seed zones, the TSIG key and the Quadlet unit; pulls the image;
+2. validates `named.conf` (`named-checkconf`) and both seed zones (`named-checkzone`) in throwaway
+   containers without network: a broken config never reaches the server;
+3. on the primary only, installs a seed zone (`lylat.space`, `10.in-addr.arpa`) only if no zone
+   file exists: zones with RFC 2136 updates and their journals are never overwritten;
+4. installs `named.conf`, the key (0640 `root:bind`) and the unit; **restarts** BIND only when the
+   unit or image changed (or it isn't running), otherwise **reloads** it (SIGHUP; no rndc channel),
+   so the cache survives. It fails if named logs `reloading configuration failed` (named keeps the
+   old config).
 
-What ends up on each DNS VM:
-
-| Path on the VM | Seen inside the container as | What it is |
+| On the VM | In the container | What |
 | --- | --- | --- |
-| `/etc/bind9-container/named.conf` | `/etc/bind/named.conf` (read-only) | The BIND config |
-| `/etc/bind9-container/tsig.key` | `/etc/bind/tsig.key` (read-only) | The TSIG key |
-| `/var/lib/bind9-container/primary/` | `/var/lib/bind/primary/` | The zone file and its journal (primary) |
-| `/var/lib/bind9-container/secondary/` | `/var/lib/bind/secondary/` | The transferred copy (secondary) |
-| `/etc/containers/systemd/bind9.container` | | The Quadlet unit |
+| `/etc/bind9-container/named.conf`, `tsig.key` | `/etc/bind/` (read-only) | config, key |
+| `/var/lib/bind9-container/primary/` | `/var/lib/bind/primary/` | zones + journals (primary) |
+| `/var/lib/bind9-container/secondary/` | `/var/lib/bind/secondary/` | transferred copies |
+| `/etc/containers/systemd/bind9.container` | | Quadlet unit → `bind9.service` (host network, restart on failure, `named -f`, logs to the journal with category/severity) |
 
-**What's Quadlet?** It's Podman's systemd integration. You drop a `.container`
-file into `/etc/containers/systemd/`, and systemd turns it into a normal service.
-Here, that's `bind9.service`. It uses host networking, restarts on failure, and
-starts at boot. BIND runs in the foreground (`-f`) and logs to stderr through `named.conf`'s
-`logging` channel, so its logs go to the journal with category and severity.
+Redeploys on a change of any rendered file or the image, the VM's management address, VM ID or
+`ssh_username`, or `dns_deploy_revision`. Record edits never touch BIND.
 
-**When it redeploys.** The script runs again whenever any of these change:
+`templates/named.conf.tftpl`:
 
-- a rendered file (`named.conf`, seed zone, key, unit) or the image
-- the VM's management address, VM ID or `ssh_username`
-- `dns_deploy_revision`
-
-Editing DNS records never redeploys or restarts BIND.
-
-### What BIND is set up to do
-
-From `templates/named.conf.tftpl`:
-
-- **Listening.** BIND listens on port 53 over IPv4 on the DNS service address (each DNS VM's one NIC
-  with an `ipv4_address` and a gateway: `10.8.53.1` and `10.8.53.2` on VLAN 8), the VIP `10.8.53.53`,
-  and in lylat-dns on the VM's own address (`10.53.53.51`/`.52`) and the zone VIP `10.53.53.53`.
-  IPv6 is off.
-- **Who may use it.** Queries and recursion are allowed from
-  `dns_allowed_clients` and from the DNS servers themselves. Anyone presenting
-  the TSIG key may also query.
-- **Recursion.** Everything outside its own zones is forwarded to `1.1.1.1` and
-  `1.0.0.1` (forward only), with DNSSEC validation on (`auto`).
-- **`lylat.space`.** `dns01` is the primary. It accepts updates signed with the
-  key, and notifies the secondaries using the key. `dns02` is a secondary and
-  transfers the zone from the primary using the key. Zone transfers always
-  require the key.
-- **`haylett.lan`.** This zone is forwarded to `10.0.1.110`. That address is
-  hard-coded in the template.
-- **The local zone hides the public one.** Because these servers are
-  authoritative for `lylat.space`, any name that exists only in a public
-  `lylat.space` zone gets "no such name" here.
+- Listens on UDP/TCP 53, IPv4 only: the service address (`10.8.53.1`/`.2`, VLAN 8), the VIP
+  `10.8.53.53`, and in lylat-dns the VM's own address (`10.53.53.51`/`.52`) and the zone VIP
+  `10.53.53.53`.
+- Queries and recursion from `dns_allowed_clients`, the DNS servers and TSIG-signed clients.
+- Everything else is forwarded (forward only) to `1.1.1.1`/`1.0.0.1`, DNSSEC validation `auto`.
+- `lylat.space` and `10.in-addr.arpa`: dns01 primary (accepts signed updates, notifies with the
+  key), dns02 secondary; transfers always need the key.
+- `haylett.lan` is forwarded to `10.0.1.110` (hard-coded) and exempt from DNSSEC validation.
+- Being authoritative for `lylat.space`, the servers answer NXDOMAIN for names that exist only in
+  the public `lylat.space` zone.
 
 ## DNS records
 
 ### Generated records
 
-These are created automatically from the inventory. You don't need to list them:
-
 | Name | Points to | Example |
 | --- | --- | --- |
-| `<vm>`, for every service and workload VM | the NIC with the default gateway (the zone segment for most service VMs); a VM without one gets its management address | `netbox01` → `10.52.12.45`, `dhcp01` → `10.20.67.1` |
-| `<vm>.mgmt` | the VM's `management_address` | `netbox01.mgmt` → `10.20.11.45` |
-| `<vip>`, every VIP in [`vips.auto.tfvars`](../../inventory/auto.tfvars/vips.auto.tfvars) | the VIP | `netbox-vip` → `10.52.12.106`, `postgres-vip` → `10.56.14.104` |
-| each Proxmox host (cluster and standalone), and `<host>.mgmt` | `cidrhost(nodes.management_prefix, ID)` | `venom` and `venom.mgmt` → `10.20.7.17` |
-| `leaf-<ID>` and `leaf-<ID>.mgmt`, for every physical leaf and every Proxmox host | `cidrhost(fabric.settings.management_prefix, ID)` | `leaf-17` → `10.20.10.17`, `leaf-20` → `10.20.10.20` |
-| `spine-<ID>` and `spine-<ID>.mgmt` | the spine's `management_ip` | `spine-1` → `10.20.0.5` |
-| `dns01`, `dns02`, plus the SOA and apex NS records | the DNS service address | created by the seed zone (bootstrap), not by the DNS provider (`dns01.mgmt` is generated) |
+| `<vm>`, every service and workload VM | the NIC with the default gateway (the zone segment for most); no such NIC: the management address | `netbox01` → `10.52.12.45`, `dhcp01` → `10.20.67.1` |
+| `<vm>.mgmt` | `management_address` | `netbox01.mgmt` → `10.20.11.45` |
+| `<vip>`, every entry in [`vips.auto.tfvars`](../../inventory/auto.tfvars/vips.auto.tfvars) | the VIP | `netbox-vip` → `10.52.12.106`, `postgres-vip` → `10.56.14.104` |
+| each Proxmox host and `<host>.mgmt` | `cidrhost(nodes.management_prefix, ID)` | `venom` → `10.20.7.17` |
+| `leaf-<ID>`(`.mgmt`), physical leaves and every Proxmox host | `cidrhost(fabric.settings.management_prefix, ID)` | `leaf-20` → `10.20.10.20` |
+| `spine-<ID>`(`.mgmt`) | the spine's `management_ip` | `spine-1` → `10.20.0.5` |
+| every proxy host name and alias (`var.proxy`) and the landing page | CNAME `proxy-vip.lylat.space.` | `grafana` |
+| `dns01`, `dns02`, SOA, apex NS | service address | from the seed zone, not the provider (`dns01.mgmt` is generated) |
 
-Every management address has a name under `mgmt.lylat.space`, so `search mgmt.lylat.space` on an
-admin box makes plain names (`ssh netbox01`) reach the management network. PTRs follow: a VM's
-management address resolves to `<vm>.mgmt.lylat.space`, its service address to `<vm>.lylat.space`
-(when several names share an address, the shortest wins, so hosts keep `venom.lylat.space`).
-The fabric VMs (vteps) have no `<vm>` names; they are the `leaf-<ID>` names.
+- Every management address has a name under `mgmt.lylat.space`, so `search mgmt.lylat.space` on an
+  admin box makes `ssh netbox01` reach the management network. Fabric VMs have no `<vm>` name (they
+  are `leaf-<ID>`).
+- PTRs (`dns_ptr_record.reverse` in `10.in-addr.arpa`) for every `10.x` address in an A record;
+  several names on one address: the shortest wins (`venom.lylat.space`, `netbox01.mgmt.lylat.space`).
+  A `PTR` you write yourself lands in `lylat.space`, not the reverse zone.
+- Checks fail the plan when a proxy name clashes with a generated name (`proxy_names_unique`) or a
+  service VIP in this root differs from `vips.auto.tfvars` (`vips_match_services_config`).
 
 ### Your records
 
-Put them in [`inventory/auto.tfvars/dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars).
-Names are relative to `lylat.space`.
+In [`dns-records.auto.tfvars`](../../inventory/auto.tfvars/dns-records.auto.tfvars), names relative to
+`lylat.space`:
 
 ```hcl
-# dns_hosts: owner => { TYPE = "value" }. One value per type, TTL 300.
-dns_hosts = {
+dns_hosts = {                                           # owner => { TYPE = "value" }, TTL 300
   torrent     = { A = "10.8.7.7" }
-  www         = { CNAME = "torrent.lylat.space." }     # absolute names end with a dot
-  "@"         = { TXT = "v=spf1 -all",                 # "@" is the zone apex, lylat.space itself
-                  MX  = "10 mail.lylat.space." }       # MX:  "<preference> <mail server>."
-  "_dns._udp" = { SRV = "0 5 53 dns01.lylat.space." }  # SRV: "<priority> <weight> <port> <target>."
+  www         = { CNAME = "torrent.lylat.space." }      # absolute names end with a dot
+  "@"         = { TXT = "v=spf1 -all",                  # "@" = the apex
+                  MX  = "10 mail.lylat.space." }        # "<preference> <server>."
+  "_dns._udp" = { SRV = "0 5 53 dns01.lylat.space." }   # "<priority> <weight> <port> <target>."
 }
-
-# dns_records: a list, for several values of one type or a custom TTL.
-dns_records = [
+dns_records = [                                         # several values per type, or another TTL
   { name = "app", type = "A", data = "10.8.10.1", ttl = 60 },
-  { name = "app", type = "A", data = "10.8.10.2", ttl = 60 }, # same owner and type -> one set with two addresses
+  { name = "app", type = "A", data = "10.8.10.2", ttl = 60 },
 ]
 ```
 
-The format rules, all checked during `plan`:
-
-- **Types.** `A`, `AAAA`, `CNAME`, `TXT`, `MX`, `NS`, `PTR` or `SRV`, in
-  uppercase.
-- **Names.** Relative names, with `@` for the apex.
-- **Values.** One line each, not empty. TXT is plain text with no quotes. MX and
-  SRV use the space-separated formats shown above, and their targets end with a
-  dot.
-- **TTL.** All values for one owner and type share one TTL. Generated records
-  and `dns_hosts` use 300, so a `dns_records` entry that adds to them must use
-  300 too. A CNAME or PTR has exactly one target.
-- **Reserved.** You can't create NS records at the apex, or A records for the DNS
-  VMs' own names. The bootstrap owns those.
+Checked at plan: types `A AAAA CNAME TXT MX NS PTR SRV` (uppercase); one-line, non-empty values, TXT
+without quotes; one TTL per owner+type (generated and `dns_hosts` use 300); one target for CNAME/PTR;
+no apex NS and no A for the DNS VMs' names (the seed zone owns them).
 
 ### When your names match generated ones
 
-A `dns_hosts` entry can **add other record types** to a generated name, but it
-**can't redefine a generated type**: change the inventory instead (the VM's NICs,
-or `vips.auto.tfvars`). The `dns_hosts_not_generated` check fails the plan
-otherwise. For example, `greatfox` is generated with an A record:
+A `dns_hosts` entry may add other types to a generated name but not redefine a generated type
+(`dns_hosts_not_generated` fails the plan; change the inventory instead). `dns_records` only adds
+values to a set, never replaces.
 
 ```hcl
-# Adds an AAAA next to the generated A.
-dns_hosts = { greatfox = { AAAA = "fd69:20::20" } }
-
-# Rejected: greatfox's A is generated.
-dns_hosts = { greatfox = { A = "10.20.7.99" } }
-
-# Or add to the generated record with dns_records:
-dns_records = [
-  { name = "greatfox", type = "AAAA", data = "fd69:20::20" }, # TTL defaults to 300
-]
+dns_hosts   = { greatfox = { AAAA = "fd69:20::20" } }   # OK: AAAA next to the generated A
+dns_hosts   = { greatfox = { A = "10.20.7.99" } }       # rejected: A is generated
+dns_records = [{ name = "greatfox", type = "AAAA", data = "fd69:20::20" }]   # OK, TTL 300
 ```
-
-`dns_records` never replaces anything. Its values are added to whatever set
-already exists for that name and type.
 
 ### How records are applied
 
-- **One resource per RRset.** Each owner + type pair becomes one resource
-  managing one record set, for example `dns_a_record_set.records["app|A"]`.
-- **OpenTofu owns the whole set.** Values you add to a managed set by hand are
-  removed on the next apply. Removing a set from the inventory deletes it from
-  DNS.
-- **Updates go to the primary.** They're sent over TCP to the primary
-  (`10.8.53.1`) and signed with the TSIG key. The primary notifies `dns02`, which
-  then transfers the change.
-- **Reverse zone.** BIND also serves `10.in-addr.arpa` (dns01 primary, dns02 secondary). Every
-  `10.x` address in an A record managed here gets a PTR there (`dns_ptr_record.reverse`;
-  when several names share an address the shortest wins). A `PTR` you write in `dns_hosts` or
-  `dns_records` lives in `lylat.space`, not in the reverse zone.
-
-To **adopt records that already exist**, import each record set before the first
-apply. The import ID is the full name with a trailing dot:
+One resource per owner+type set (`dns_a_record_set.records["app|A"]`), owned entirely by OpenTofu:
+values added by hand are removed, a set removed from the inventory is deleted. Updates go over TCP
+to the primary (`10.8.53.1`), signed; dns02 follows by notify + transfer (can lag ~20 s: compare
+SOA serials). Adopt existing records by import (full name, trailing dot):
 
 ```sh
-tofu -chdir=roots/services-config import \
-  'dns_a_record_set.records["torrent|A"]' torrent.lylat.space.
+tofu -chdir=roots/services-config import 'dns_a_record_set.records["torrent|A"]' torrent.lylat.space.
 ```
 
 ## The TSIG key
 
-The key is called `tofu-lylat` and uses HMAC-SHA256. It signs the record
-updates, the change notifications and the zone transfers between `dns01` and
-`dns02`.
+`tofu-lylat`, HMAC-SHA256: signs updates, notifies and transfers.
 
-- **By default, it's generated once:** 32 random bytes (`random_bytes.dns_tsig`),
-  kept in this root's state. That means **the state contains the key**, so back
-  up the state. Also back up `/var/lib/bind9-container` on the primary, which
-  holds the live zone and its journal.
-- **To use your own key,** set `dns_tsig_secret` to the base64 form of 32 random
-  bytes, for example the output of `openssl rand -base64 32`.
-- **To rotate the key,** BIND has to receive the new key before the DNS provider
-  starts using it. Otherwise the provider's refresh of the existing records fails.
-  So run a bootstrap apply first (`b` in the runner, or
-  `apply -target=terraform_data.bind9`), then a normal apply.
+- Generated once by default (`random_bytes.dns_tsig`, 32 bytes) and kept in the (encrypted) state:
+  back up the state and the passphrase, and `/var/lib/bind9-container` on the primary (live zones
+  and journals).
+- Own key: `dns_tsig_secret` = base64 of 32 random bytes (`openssl rand -base64 32`).
+- Rotation: BIND must have the new key before the provider uses it, so bootstrap apply first
+  (`b`, or `-target=terraform_data.bind9`), then a normal apply.
 
 ## DHCP
 
-### The HA pair
-
-- **Roles come from VM IDs.** The two DHCP VMs are sorted by VM ID; the names
-  don't matter. The lower ID (`dhcp01`, 6701) is the **primary** in slot 1, and
-  the higher (`dhcp02`, 6702) is the **secondary** in slot 2.
-- **Mode.** The pair runs **active-passive**.
-- **HA link.** The two servers talk over their own standalone L2VNI,
-  `l2vnis.ha_dhcp` (VNI 5009 / VLAN 1009, `10.50.9.0/24`), using its `.1` and `.2`.
-  That NIC is always the last one (after the data NICs), has the MAC
-  `02:00:00:67:<VM ID % 100>:ff`, and Kea doesn't listen for clients on it.
-- **Only pairs.** Nothing is configured unless there are exactly two DHCP VMs.
-
-### What each DHCP VM gets
-
-Each DHCP VM gets one `vyoscmd_commands` resource (`<name>-dhcp`), with
-`save = true`, so the config is written to the boot config:
-
-1. **System.** The hostname, and `set system ip disable-forwarding`, because
-   this is a server, not a router.
-2. **Interfaces.** Each data NIC is bound to its MAC (from the same calculator as
-   services-vms) and gets the address `10.<VLAN>.67.<slot>/<VLAN prefix length>`.
-3. **HA.** The settings described above. The HA `name` is the **peer's real
-   hostname**: `dhcp02` on `dhcp01`, and `dhcp01` on `dhcp02`. Kea matches it
-   against the peer's own host name, and if they don't match, both servers fall
-   into partner-down.
-4. **Listening.** The server listens on every data interface. Management (`eth0`)
-   is never touched.
-5. **Pools.** One pool for each VLAN with a `dhcp.scope`. Each pool sets the
-   default router (the anycast gateway), domain name, search list, name servers
-   (only the DNS VIP; the DNS service addresses if `dns_vrrp` is null), lease time, ranges and `subnet-id` (the VNI). By
-   default it also marks the pool authoritative. The defaults are listed in
-   [inventory](../../inventory/README.md#vnisautotfvars-vrfs-vlans-and-dhcp-scopes).
-
-For VLAN 8 on `dhcp01`, that comes out as (excerpt):
+- **Roles from VM IDs**: sorted by ID, the lower (`dhcp01`, 6701) is primary/slot 1, the higher
+  secondary/slot 2. Only exactly two DHCP VMs get any config.
+- **Kea HA, active-passive**, over `l2vnis.ha_dhcp` (VNI 5009 / VLAN 1009, `10.50.9.0/24`, `.1`/`.2`):
+  the last NIC, MAC `02:00:00:67:<VM ID % 100>:ff`, no client listening. The HA `name` is the
+  **peer's real hostname** (Kea matches it; a mismatch puts both into partner-down).
+- One `vyoscmd_commands` per VM (`<name>-dhcp`, `save = true`): hostname, `system ip
+  disable-forwarding`, each data NIC bound to its MAC with `10.<VLAN>.67.<slot>/<prefix>`, listen on
+  every data NIC (eth0 untouched), one pool per VLAN with `dhcp.scope`: default router (anycast
+  gateway), domain name/search, name server = the DNS VIP only (the service addresses if `dns_vrrp`
+  is null), lease, ranges, `subnet-id` = VNI, authoritative by default (defaults in
+  [inventory](../../inventory/README.md#vnisautotfvars-vrfs-vlans-and-dhcp-scopes)), plus the
+  exporters and syslog above.
 
 ```text
 set interfaces ethernet eth2 hw-id 02:00:00:67:01:08
@@ -378,106 +236,65 @@ set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 range 0
 set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 subnet-id '9008'
 ```
 
-`tests/fixtures/dhcp-pools.set` has the full list of pool and listen commands
-for today's inventory.
-
 ### Things to know
 
-- **`set` commands don't remove old values.** If you renumber VLANs or change a
-  VM ID, old addresses can stay on the interfaces. Check with
-  `show configuration commands | match address`, and delete leftovers by hand.
-- **Keep the DHCP VM IDs stable.** They decide the MACs, the HA roles and the
-  addresses.
-- **Subnets must fit the address scheme.** Every DHCP VLAN's subnet must contain
-  `10.<VLAN>.67.1` and `.2`.
+- `set` commands don't remove old values: after renumbering VLANs or changing a VM ID, check
+  `show configuration commands | grep address` and delete leftovers by hand.
+- Keep the DHCP VM IDs stable: they decide MACs, HA roles and addresses.
+- Every DHCP VLAN's subnet must contain `10.<VLAN>.67.1` and `.2`.
+- Rebuilt dhcp01/02 have new SSH host keys (`ssh-keygen -R <ip>`).
 
 ## Logs to Loki
 
-- **Linux service VMs** (DNS, NetBox, proxy, Valkey, ticketing): **Grafana Alloy** ships the
-  journal to Loki, like on monitoring-config's VMs: labels `source="journal"`, `host` (VM name),
-  `unit`, `container` (Podman's journald driver: every Quadlet container), `app` (the syslog
-  identifier: `bind9`, `nginx`, `netbox`, `Keepalived_vrrp`, ...) and `level`.
-  [`alloy.tf`](alloy.tf) renders `templates/alloy.{container,config.alloy,sh}.tftpl`; the DNS VMs
-  get it from `terraform_data.dns_alloy`, the others from their `<role>-monitoring.tf` resource,
-  so a change never restarts the service itself. `alloy.sh` validates the config in a throwaway
-  container first, restarts Alloy when the unit changed and only reloads it (SIGHUP) when the
-  config did, then waits for `/-/ready`.
-  - Where it pushes: every VM pushes from its lylat-telemetry NIC (VLAN 1501, 10.55.0.0/16) to Loki's
-    telemetry VIP `10.55.18.101:3100` (`alloy.loki_url`); a check warns about Alloy VMs without that NIC.
-  - Alloy's HTTP listener (`/metrics`, `/-/ready`) is on the telemetry address `:12345` (`telemetry.tf`
-    `scrape_ip`), scraped by monitoring-config's `alloy` job.
-  - Until 2026-11 these VMs forwarded the journal with rsyslog (`source="syslog"`). On its first run
-    `alloy.sh` stops and disables rsyslog (and `syslog.socket`), removes `/etc/rsyslog.d/50-loki.conf`
-    and its queue files, and writes Alloy's journal position (`/var/lib/alloy/data/loki.source.journal.host/positions.yml`)
-    as the newest journal entry, so Alloy's first start begins right after it: the switch neither
-    repeats nor loses lines. Without that, Alloy would re-read 12 h (`max_age`) of journal as
-    `source="journal"` copies of lines Loki already has as `source="syslog"`. (Alloy's own
-    `legacy_position` conversion doesn't work for the journal source in v1.21.3: it writes the entry
-    with labels `{}`, which the journal source doesn't look up.) The rsyslog package stays installed,
-    disabled. The triage VMs never had rsyslog: their Alloy reads back 12 h on the first start.
-- **DHCP VMs** (`dhcp_syslog`): VyOS `system syslog remote` to loki01-03's mgmt addresses from the
-  `mgmt` VRF, the same commands as the leaves (`fabric.settings.leaf_syslog`).
+- **Linux service VMs** (DNS, NetBox, proxy, Valkey, ticketing): Grafana Alloy ships the journal
+  (every Quadlet container included) to Loki with labels `source="journal"`, `host`, `unit`,
+  `container`, `app` (syslog identifier: `bind9`, `nginx`, `Keepalived_vrrp`, ...) and `level`, like
+  monitoring-config's VMs. [`alloy.tf`](alloy.tf) renders `templates/alloy.*.tftpl`; the DNS VMs get
+  it from `terraform_data.dns_alloy`, the others from their `<role>-monitoring.tf`, so it never
+  restarts a service. `alloy.sh` validates the config in a throwaway container, restarts Alloy on a
+  unit change, reloads (SIGHUP) on a config change, then waits for `/-/ready`.
+- Push path: from the lylat-telemetry NIC to Loki's telemetry VIP `10.55.18.101:3100`; the
+  `alloy_telemetry_nic` check warns about Alloy VMs without that NIC (lylat-telemetry is isolated, no
+  other route). Alloy's `/metrics` is on the telemetry address `:12345` (monitoring-config job `alloy`).
+- **DHCP VMs** (`dhcp_syslog`): VyOS remote syslog to loki01-03's mgmt addresses from VRF `mgmt`,
+  the same commands as the leaves.
 
-Check from a VM: `systemctl status alloy`, `curl -s http://<telemetry address>:12345/-/ready`, and
-`logger -t test hello`, which should show up in Grafana Explore as
-`{host="dns01", source="journal", app="test"}`.
+Check from a VM: `systemctl status alloy`, `curl -s http://<telemetry address>:12345/-/ready`,
+`logger -t test hello` → Grafana Explore `{host="dns01", source="journal", app="test"}`.
 
 ## Checking that it works
 
-From a machine inside `dns_allowed_clients`:
-
 ```sh
-# Both servers should answer, with the same address.
-dig @10.8.53.1 venom.lylat.space A +short
+dig @10.8.53.1 venom.lylat.space A +short     # both servers, same answer
 dig @10.8.53.2 venom.lylat.space A +short
-
-# The SOA serial goes up with every update. Both servers should show the same number.
-dig @10.8.53.1 lylat.space SOA +short
-dig @10.8.53.2 lylat.space SOA +short
-
-# Recursion through the forwarders:
-dig @10.8.53.1 debian.org A +short
+dig @10.8.53.1 lylat.space SOA +short         # serials equal on both
+dig @10.8.53.1 -x 10.20.7.17 +short           # PTR
+dig @10.8.53.1 debian.org A +short            # recursion
 ```
 
-On a DNS VM:
+On a DNS VM: `systemctl status bind9.service`, `journalctl -u bind9.service -f`, `sudo podman ps`.
+Don't ssh to the service IPs (10.8.53.x); use the management addresses. On a DHCP VM:
+`show dhcp server leases`, `show configuration commands | grep dhcp-server`.
 
-```sh
-systemctl status bind9.service     # is the service running?
-journalctl -u bind9.service -f     # follow BIND's log
-sudo podman ps                     # the bind9 container
-```
-
-On a DHCP VM (VyOS operational mode):
-
-```text
-show dhcp server leases
-show configuration commands | match dhcp-server
-```
-
-## Tests
-
-`tests/dns.tftest.hcl` mocks the `vyoscmd`, `dns` and `random` providers, so it
-never contacts the VMs. `tofu init` still needs all three providers installed,
-though: `vyoscmd` from the local mirror, the other two from the registry.
-
-```sh
-tofu -chdir=roots/services-config init
-tofu -chdir=roots/services-config test
-```
+Tests: `tofu -chdir=roots/services-config test` (mocks `vyoscmd`, `dns`, `random`; init still
+needs all three installed).
 
 ## The DNS VIP
 
-`dns-keepalived.tf` runs keepalived on both DNS VMs (separate from BIND, so changing it never
-restarts BIND; redeploys reload keepalived, which keeps the current MASTER):
+`dns-keepalived.tf`, separate from BIND (a change never restarts BIND; a redeploy reloads keepalived,
+which keeps the current MASTER):
 
-- **VIPs** `dns_vrrp.vip` (10.8.53.53/16) on BIND's service NIC (VLAN 8, the one with the gateway; with
-  `use_vmac`) and `dns_vrrp.zone_vip` (10.53.53.53/16) on the lylat-dns NIC (without `use_vmac`), in the same
-  instance. BIND's `listen-on` includes both; BIND binds them as soon as keepalived adds them.
-- **Adverts** go unicast over the NIC on `l2vnis.ha_dns` (VNI 5053 / VLAN 1053), VRRPv3 over IPv6
-  (`fd69:5053::51`/`::52`, derived from 10.50.53.51/.52), vrid 53, no authentication.
-- **Election.** Both start BACKUP with `nopreempt`; `dns_primary` gets priority 150 for the first
-  election only. A failed check (`dig` for the lylat.space SOA on the VM's own address) puts the node
-  in FAULT and releases the VIP.
-- **DHCP** hands out only the VIP (DT-051). The vyoscmd provider sorts multi-value nodes as text, so a
-  list with the service addresses would put .1/.2 ahead of the VIP, and the VIP already moves to the healthy node.
-
+- One VRRP instance: `dns_vrrp.vip` 10.8.53.53/16 on BIND's service NIC (VLAN 8, with `use_vmac`,
+  MAC 00:00:5e:00:01:35) and `zone_vip` 10.53.53.53/16 on the lylat-dns NIC (no VMAC). BIND listens
+  on both and binds them when keepalived adds them.
+- VRRPv3 over IPv6, unicast over the `ha_dns` NIC (VNI 5053 / VLAN 1053, `fd69:5053::51`/`::52`,
+  derived from 10.50.53.51/.52), VRID 53, no authentication.
+- Both start BACKUP with `nopreempt`; `dns_primary` gets priority 150 for the first election only. A
+  failing check (`dig` of the `lylat.space` SOA on the VM's own address) puts the node in FAULT,
+  releasing the VIP.
+- DHCP hands out only the VIP (DT-051): vyoscmd sorts multi-value nodes as text, so a list with the
+  server addresses would put .1/.2 ahead of the VIP. Clients configured by hand should use
+  `10.8.53.1` + `10.8.53.2`.
+- Never reboot both DNS VMs at once: both claim the VMAC and EVPN duplicate-address detection
+  freezes it (`vtysh -c 'show evpn mac vni all duplicate'`, clear with
+  `clear evpn dup-addr vni all` on every leaf).

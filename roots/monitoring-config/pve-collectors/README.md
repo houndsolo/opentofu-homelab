@@ -1,15 +1,13 @@
 # PVE-node collectors (installed by hand, not by OpenTofu)
 
-OpenTofu doesn't manage files on the Proxmox nodes (like [log-senders](../log-senders/README.md)),
-so these are copied and installed with a script. Prometheus picks their output up through the
-node's own node_exporter (Debian `prometheus-node-exporter`, job `node`, role `proxmox`), whose
-textfile collector reads `/var/lib/prometheus/node-exporter/*.prom`.
+OpenTofu doesn't manage files on the Proxmox nodes (same as [log-senders](../log-senders/README.md)), so these are
+copied and installed with a script. Prometheus reads their output through the node's own node_exporter (Debian
+`prometheus-node-exporter`, job `node`, role `proxmox`), textfile directory `/var/lib/prometheus/node-exporter/`.
 
 ## rgw-bucket-stats: per-bucket Ceph RGW usage
 
-[`rgw-bucket-stats.py`](rgw-bucket-stats.py) runs `radosgw-admin bucket stats` (plus
-`user info` for each bucket owner, for user quotas) every 5 minutes
-([`rgw-bucket-stats.timer`](rgw-bucket-stats.timer)) and writes
+[`rgw-bucket-stats.py`](rgw-bucket-stats.py) runs `radosgw-admin bucket stats` (plus `user info` per bucket owner,
+for user quotas) every 5 minutes ([`rgw-bucket-stats.timer`](rgw-bucket-stats.timer)) and writes
 `ceph_rgw_buckets.prom` atomically:
 
 | Metric | Labels | |
@@ -22,19 +20,17 @@ textfile collector reads `/var/lib/prometheus/node-exporter/*.prom`.
 | `ceph_rgw_user_quota_max_size_bytes` / `_max_objects` | owner | only when the user quota is enabled with that limit |
 | `ceph_rgw_bucket_stats_success`, `_last_run_timestamp_seconds`, `_last_success_timestamp_seconds`, `_duration_seconds` | | the collector itself |
 
-A failed run writes only the collector metrics (success 0, the previous success time), so no
-stale bucket values are reported. It runs on the three RGW nodes (macbeth, titania, venom) for
-redundancy; each reports the same buckets with its own `host` label, so the dashboard and the
-alerts take `max by (bucket, owner)`. Any node of the lylat cluster works: all have
-`radosgw-admin` and the admin keyring (`/etc/pve/priv`). One run takes about 1.5 s.
+A failed run writes only the collector metrics (success 0, previous success time), so no stale bucket values.
+Installed on the three RGW nodes (macbeth, titania, venom) for redundancy; each reports the same buckets with its
+own `host`, so the dashboard and alerts use `max by (bucket, owner)`. Any lylat cluster node would work (all have
+`radosgw-admin` and the admin keyring in `/etc/pve/priv`). A run takes ~1.5 s.
 
-Dashboard: **Storage → Ceph RGW buckets** (`dashboards/rgw.py`). Alerts (module `rgw.tf`,
-thresholds in `rgw_bucket_alerts`): `CephRGWBucketStatsStale` (no successful collection for
-30 min: fires until this is installed), `CephRGWBucketFastGrowth` (10 GiB in 1 h),
-`CephRGWBucketGrowth24h` (100 GiB in 24 h), `CephRGWBucketNearQuota` / `CephRGWUserNearQuota`
-(85 %), `CephRGWBucketQuotaFullSoon` (24 h trend reaches the size quota within 7 days).
+Dashboard: **Storage -> Ceph RGW buckets** (`dashboards/rgw.py`). Alerts (module `rgw.tf`, thresholds in
+`rgw_bucket_alerts`): `CephRGWBucketStatsStale` (no successful collection on any node for 30 min),
+`CephRGWBucketFastGrowth` (10 GiB in 1 h), `CephRGWBucketGrowth24h` (100 GiB in 24 h), `CephRGWBucketNearQuota` /
+`CephRGWUserNearQuota` (85 %), `CephRGWBucketQuotaFullSoon` (24 h trend reaches the size quota within 7 days).
 
-Install or update (idempotent; it runs one collection and fails if that fails):
+Install or update (idempotent; runs one collection and fails if it fails):
 
 ```sh
 cd roots/monitoring-config/pve-collectors
