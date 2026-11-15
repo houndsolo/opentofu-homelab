@@ -19,8 +19,13 @@ output "generated_passwords" {
 
 output "client_secrets" {
   description = "client => RADIUS shared secret, for the device side (VyOS system login radius ... key, etc.)."
-  value       = { for n in keys(var.clients) : n => random_password.client[n].result }
+  value       = { for n in keys(local.all_clients) : n => random_password.client[n].result }
   sensitive   = true
+}
+
+output "clients" {
+  description = "RADIUS clients in clients.conf (besides localhost): name => address."
+  value       = { for n, c in local.all_clients : n => c.address }
 }
 
 output "servers" {

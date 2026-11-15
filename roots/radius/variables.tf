@@ -85,6 +85,14 @@ variable "clients" {
   }
 }
 
+variable "inventory_clients" {
+  description = "RADIUS clients generated from the inventory (added to var.clients; a manual entry with the same name wins). vyos_leaves: every fabric leaf as leaf-<id> at its mgmt address."
+  type = object({
+    vyos_leaves = optional(bool, false)
+  })
+  default = {}
+}
+
 variable "database" {
   description = "The radius database (same values as services-config var.radius.database). Its password comes from /etc/radius/radius.env on the VM."
   type = object({

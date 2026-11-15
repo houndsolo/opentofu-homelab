@@ -17,6 +17,8 @@ fabric = {
     # monitoring-config). No VIP on mgmt: each Alloy forwards to Loki, which drops the
     # identical copies (same stream, timestamp and line).
     leaf_syslog = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }
+    # RADIUS login on the leaves (rad01/rad02 mgmt addresses, secrets from roots/radius), from the mgmt VRF.
+    leaf_radius = { vrf = "mgmt" }
     # Spines: UDP 514 (RFC 3164) to the Loki/Alloy VIP on the monitoring network, sent
     # from their VLAN 5 address (10.5.0.<n>).
     spine_syslog = { host = "10.5.11.101" }

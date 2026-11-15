@@ -2,7 +2,7 @@
 variables {
   ssh_private_key_path = "/dev/null"
   password_hashes      = { houndsolo = "$6$saltsalt$abcdefghijklmnopqrstuvwxyz./ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopq" }
-  clients              = { "leaf-11" = { address = "10.20.10.11" } }
+  clients              = { "wlc-1" = { address = "10.20.1.1", nas_type = "cisco" } }
 }
 
 run "sql_and_clients_render" {
@@ -23,6 +23,14 @@ run "sql_and_clients_render" {
   assert {
     condition     = length(local.users_without_password) == 0
     error_message = "no user should be skipped when houndsolo has a hash"
+  }
+  assert {
+    condition     = local.all_clients["leaf-11"].address == "10.20.10.11" && local.all_clients["leaf-42"].address == "10.20.10.42" && local.all_clients["wlc-1"].nas_type == "cisco"
+    error_message = "inventory leaves (leaf-<id> at 10.20.10.<id>) and manual clients should both be in all_clients"
+  }
+  assert {
+    condition     = length(local.leaf_clients) == 11
+    error_message = "expected 11 VyOS leaves from the inventory (3 physical + 8 Proxmox)"
   }
   assert {
     condition     = local.expected_counts == "2|0|2|0|4"

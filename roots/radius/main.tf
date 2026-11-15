@@ -21,7 +21,19 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.7"
     }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.5"
+    }
   }
+}
+
+# Every fabric leaf from the inventory (physical fabric.leaves + one VyOS VM per Proxmox node), same module
+# the fabric roots use; management address = cidrhost(fabric.settings.management_prefix, id).
+module "leaves" {
+  source = "../../modules/fabric/leaves"
+  fabric = var.fabric
+  nodes  = var.nodes
 }
 
 locals {

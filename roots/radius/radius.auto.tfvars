@@ -25,8 +25,13 @@ users = {
   test = { groups = ["net-readonly"], generate_password = true }
 }
 
-# Devices allowed to ask the servers (their MGMT address). Each gets a generated secret (output client_secrets);
-# the device side (e.g. fabric-leaves for the VyOS leaves) still has to be configured with it.
+# Devices generated from the inventory: every VyOS fabric leaf as leaf-<id> (mgmt 10.20.10.<id>). fabric-leaves
+# configures the leaf side from the generated radius-clients.secret.auto.tfvars.
+inventory_clients = {
+  vyos_leaves = true
+}
+
+# Other devices allowed to ask the servers (their MGMT address), each with a generated secret (output
+# client_secrets); a name here overrides a generated one.
 clients = {
-  # "leaf-11" = { address = "10.20.10.11" }
 }

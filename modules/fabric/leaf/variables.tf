@@ -10,6 +10,16 @@ variable "leaf" {
   })
 }
 
+variable "radius" {
+  description = "RADIUS login for this leaf: servers + this leaf's shared secret (from roots/radius). null = not managed."
+  type = object({
+    servers = list(string)
+    secret  = string
+  })
+  sensitive = true
+  default   = null
+}
+
 variable "fabric_macs" {
   description = "Shared ethN -> MAC mappings used to bind guest interfaces to VM NICs."
   type        = map(string)

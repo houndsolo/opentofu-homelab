@@ -30,6 +30,13 @@ variable "fabric" {
         facility = optional(string, "all")
         level    = optional(string, "info")
       }))
+      # RADIUS login on every VyOS leaf (`system login radius`), against the FreeRADIUS pair. The servers and
+      # each leaf's secret come from roots/radius (its generated radius-clients.secret.auto.tfvars); a leaf
+      # without a secret there is left alone. VyOS keeps local users working (pam radius "optional" mode).
+      # null = don't manage it.
+      leaf_radius = optional(object({
+        vrf = optional(string) # VRF the leaf reaches the servers from; null = default VRF
+      }))
       # Remote syslog on the RouterOS spines: the built-in "remote" logging action
       # (BSD/RFC 3164 over UDP, source address picked by the route) plus one logging
       # rule per topic. null = don't manage it.
