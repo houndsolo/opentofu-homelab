@@ -1,7 +1,7 @@
 # services/monitoring
 
-Renders the monitoring stack for the backend VMs (a primary with Postgres and replicas), any number of Grafana VMs and
-the logging VMs (Loki HA), and outputs one self-contained `deploy.sh` per VM. It has no providers and
+Renders the monitoring stack for the backend VMs (a Prometheus/Alertmanager HA pair), any number of Grafana VMs,
+the logging VMs (Loki HA), the Mimir VMs and the Patroni Postgres cluster, and outputs one self-contained `deploy.sh` per VM. It has no providers and
 changes nothing itself. The [monitoring-config](../../../roots/monitoring-config/README.md)
 root runs the scripts over SSH and documents the behaviour.
 
@@ -31,8 +31,18 @@ root runs the scripts over SSH and documents the behaviour.
 - `backends.tf`: backend HA (`var.backends`, `primary_backend`): the Alertmanager cluster (gossip on the
   HA VLAN), keepalived and its VIPs (`backend_vrrp`, with `ip_nonlocal_bind` so containers publish on the
   VIPs) and the `monitoring-ha` alert group. `main.tf` renders every backend's units and
-  `deploy.sh` (Postgres on the primary only) and one `prometheus.yml` per backend (`__replica__`).
+  `deploy.sh` and one `prometheus.yml` per backend (`__replica__`).
 - `templates/monitoring-keepalived.conf.tftpl`: the backends' VRRP instance.
+- `grafana-ha.tf`: Grafana HA (`grafana_vrrp`): unified alerting's gossip and keepalived on the
+  Grafana HA VLAN, the VIP on the UI NIC (`templates/grafana-keepalived.conf.tftpl`).
+- `pvestatd.tf`: a second Telegraf on each backend (`var.pvestatd`; null leaves it out) that takes
+  the PVE nodes' pvestatd pushes (InfluxDB line protocol) and serves them to Prometheus (job `pvestatd`).
+- `bind.tf`, `nginx.tf`, `valkey.tf`: scrape jobs and alert groups for services deployed by
+  services-config (bind_exporter, nginx-prometheus-exporter, the Valkey/Sentinel redis_exporters).
+- `infra-alerts.tf`: alert rules for the network, the hosts and their hardware (routing, VPN,
+  SMART, PSU, systemd, reboots, etcd).
+- `instance-labels.tf`: relabels `instance` to `<host>:<port>` for the VM-hosted jobs, so a scrape
+  address change doesn't start new series.
 - `telemetry.tf`: Telegraf on the backends (`var.wlc_telemetry`; null leaves it out): the
   C9800 WLCs' model-driven telemetry (gRPC dial-out) reshaped into `wlc_*` series for Prometheus
   (`telegraf/wlc.star`, served on :9275, job `wlc`), its unit, `telegraf.conf`, config check,
@@ -44,7 +54,8 @@ root runs the scripts over SSH and documents the behaviour.
 - `templates/config.alloy.tftpl`, `keepalived.conf.tftpl`, `haproxy.cfg.tftpl`,
   `logging-guard.nft.tftpl`, `logging-guard.service`: the logging configs (`haproxy.cfg.tftpl` is
   shared with the Mimir VMs); `metrics-keepalived.conf.tftpl`, `metrics-guard.nft.tftpl`,
-  `metrics-guard.service`: the Mimir VMs' configs.
+  `metrics-guard.service`: the Mimir VMs' configs; the `postgres-*`, `pg-*`, `patroni-dropin.conf`,
+  `etcd-dropin.conf` and `pgdg.asc` files: the Patroni members' configs, scripts and units.
 - `templates/monitoring.network`: the backend's Podman bridge network.
 - `templates/deploy.sh.tftpl`: unpack, pull, validate, install changed files,
   prune files that are no longer managed (dashboards), restart/start/reload
@@ -55,10 +66,10 @@ root runs the scripts over SSH and documents the behaviour.
   checks the JSON, and installed on every Grafana VM under
   `provisioning/dashboards/files`, with a file provider (`dashboards.yml`) that
   makes each subdirectory a folder. `dashboards/update.py` downloads the pinned
-  grafana.com revisions and adapts them to the provisioned datasource;
-  `dashboards/custom.py` generates the custom ones (overview, FRR/EVPN, probes,
-  monitoring stack, Ceph, and through `pve.py`, `fwwan.py`, `logs.py` and `wireless.py` the
-  Proxmox, fw-wan, log and C9800 wireless dashboards). `Overview/overview.json` is set as Grafana's home dashboard.
+  community dashboards (grafana.com revisions and the ceph-mixin at a pinned commit) and adapts
+  them to the provisioned datasource; `dashboards/custom.py` generates the custom ones (overview,
+  FRR/EVPN, probes, monitoring stack, Ceph, and through the builder modules its `main()` imports
+  the Proxmox, fw-wan, log, wireless, database and service dashboards). `Overview/overview.json` is set as Grafana's home dashboard.
   See the root README's [Dashboards](../../../roots/monitoring-config/README.md#dashboards).
 
 Outputs: `backend_deployments`, `grafana_deployments` and `logging_deployments`
@@ -67,4 +78,6 @@ Outputs: `backend_deployments`, `grafana_deployments` and `logging_deployments`
 `backend_keepalived_configs` (sensitive), `wlc_telegraf_configs`, `wlc_receiver`, `alertmanager_targets`, `datasources_config`, `dashboard_providers_config`, `dashboards`, `units`,
 `backend_services`, `loki_configs`, `alloy_configs`, `haproxy_configs` and `loki_url`
 for review and tests. Mimir: `metrics_deployments` and `mimir_keepalived_configs` (sensitive),
-`mimir_configs`, `mimir_haproxy_configs`, `mimir_url`.
+`mimir_configs`, `mimir_haproxy_configs`, `mimir_url`. Postgres: `postgres_deployments` and
+`postgres_keepalived_configs` (sensitive), `postgres_vip`, `grafana_db_host`, and more; `outputs.tf`
+has the full list.

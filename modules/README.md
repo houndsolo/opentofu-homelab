@@ -13,7 +13,7 @@ The only exception is tests (see [Tests](#tests)).
 | [proxmox/vm](#proxmoxvm) | fabric-vms, services-vms, workloads | One VM | proxmox |
 | [fabric/leaf](#fabricleaf) | fabric-leaves | One list of VyOS commands per leaf | vyoscmd |
 | [fabric/spines](#fabricspines) | fabric-spines | BGP, BFD and EVPN objects on one RouterOS spine | routeros |
-| [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, services-config | Nothing; it builds the shared list of leaves | none |
+| [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, services-config, monitoring-config | Nothing; it builds the shared list of leaves | none |
 | [fabric/macs](fabric/macs/README.md) | fabric-vms, fabric-leaves | Nothing; it's a calculator | none |
 | [services/dhcp](#servicesdhcp) | services-config | One list of VyOS commands per DHCP VM | vyoscmd |
 | [services/dhcp/macs](services/dhcp/macs/README.md) | services-vms, services-config | Nothing; it's a calculator | none |
@@ -70,9 +70,10 @@ Builds one Proxmox VM from a cloud image.
   - `ssh_pubkeys`: the key registry
   - `configure_data_ips` (default `true`)
   - `vendor_data_file_id` (optional; no root sets it today)
-- **Creates:** one `proxmox_virtual_environment_vm`.
+- **Creates:** one `proxmox_virtual_environment_vm`, plus one `proxmox_haresource`
+  when `vm.ha` is set (`ha.tf`).
 - **Outputs:** `vm_id`, `node_name`, `name`, `management_address` (`null` when
-  cloud-init is off) and `network_devices`.
+  cloud-init is off), `network_devices` and `ha_resource_id` (`null` without `vm.ha`).
 
 How the VM is put together (`main.tf`):
 
@@ -83,8 +84,8 @@ How the VM is put together (`main.tf`):
   10 GB by default).
 - **Cloud-init** (if enabled). A cloud-init drive on `scsi0` with:
   - the management address and gateway for net0
-  - the address of each data NIC that has an `ipv4_address`, if
-    `configure_data_ips` is `true` (NICs without one get no address config)
+  - the address of each data NIC that has an `ipv4_address` or an `ipv6_address`,
+    if `configure_data_ips` is `true` (NICs without one get no address config)
   - a user with the selected SSH keys, if `config.ssh_pubkeys` isn't empty
   - an optional custom `user_data_file_id` snippet
 
@@ -108,7 +109,7 @@ Turns one leaf's inventory into its full VyOS configuration.
 - **Inputs:** `name`, `leaf` (`role`, `id`, `access_interface`, `standalone`),
   `fabric`, `vnis`, `l2vnis`, `fabric_macs`, `router_advert_routes`.
 - **Creates:** one `vyoscmd_commands` resource called `<name>-system`, sent to
-  `https://<management IP>`, with `save = false`.
+  `https://<management IP>`, with `save = true` (the config survives a leaf reboot).
 
 | File | Builds |
 | --- | --- |
@@ -116,16 +117,17 @@ Turns one leaf's inventory into its full VyOS configuration.
 | `vnis.tf` | Which VRFs and VLANs this leaf gets, based on its role |
 | `interface.tf` | The `hw-id` bindings, spine links, loopback and access port |
 | `bgp.tf` | Global BGP (including `log-neighbor-changes`), EVPN, the neighbors and the two peer groups |
-| `vxlan.tf` | `vxlan0`, `br0`, VLAN-to-VNI mappings and the anycast gateways |
+| `vxlan.tf` | `vxlan0`, `br0`, VLAN-to-VNI mappings, the anycast gateways (IPv4, and IPv6 with router advertisements where set) and the standalone HA L2VNIs |
 | `vrf.tf` | VRF tables and VNIs, per-VRF BGP, and the route-targets |
 | `policy.tf` | Prefix lists and route-maps |
 | `system.tf` | Hostname, domain, multipath settings, and NTP (see below) |
 | `monitoring.tf` | node-exporter and frr-exporter on the management address and VRF, when `fabric.settings.leaf_prometheus_exporters` is set |
 | `logging.tf` | Remote syslog (RFC 5424, TCP with octet-counted framing by default) from the given VRF, when `fabric.settings.leaf_syslog` is set |
+| `external.tf` | On `external_l3` leaves: the VLAN sub-interface and unnumbered BGP session to the external router, for VRFs with `ext_l3_peer` |
 | `main.tf` | Combines everything into the one resource |
 
-If the leaf's role gets no VRFs, everything except the `hw-id` bindings and the
-system settings is skipped. [roots/fabric-leaves](../roots/fabric-leaves/README.md)
+If the leaf's role gets no VRFs, everything except the `hw-id` bindings, the
+system settings, the exporters and syslog is skipped. [roots/fabric-leaves](../roots/fabric-leaves/README.md)
 walks through the generated commands.
 
 **NTP on the leaves.** `system.tf` adds a `set service ntp server` command for
@@ -176,10 +178,11 @@ Builds the one list of leaves that every fabric-aware root uses.
 - **Inputs:** `fabric`, `nodes`.
 - **Output:** `leaves`, which is `fabric.leaves` (the physical leaves) merged with
   one generated leaf per host in `nodes.proxmox`. A generated leaf is
-  `{ role = "proxmox", proxmox_node = <name>, id = <node ID>,
-  access_interface = "eth<number of spines + 1>", spine_uplink = null }`.
+  `{ role = "proxmox", proxmox_node = <name>, standalone = <node's standalone flag>,
+  id = <node ID>, access_interface = "eth<number of spines + 1>", spine_uplink = null }`.
 - **Called by:** fabric-spines (sessions per leaf), fabric-leaves (config per
-  leaf), and services-config (the `leaf-<ID>` DNS records).
+  leaf), services-config (the `leaf-<ID>` DNS records) and monitoring-config
+  (the leaves as scrape targets).
 
 ### fabric/macs
 
@@ -194,9 +197,10 @@ configuration.
 - **Inputs:**
   - `name`, `management_ip`
   - `interface_macs` (ethN → MAC), `interface_addresses` (ethN → CIDR)
-  - `ha` (role, slots, peer), `ha_prefix`
+  - `ha` (role, slots, peer), `ha_prefix`, `ha_interface`
   - `vnis`
   - `default_name_servers`, `default_domain` (`lylat.space`)
+  - `prometheus_exporters`, `syslog` (both optional)
 - **Creates:** one `vyoscmd_commands` resource called `<name>-dhcp`, with
   `save = true`.
 - **Outputs:** `commands`, the full list (used by the tests).
@@ -227,7 +231,9 @@ See [its README](services/dhcp/macs/README.md).
 | `proxmox/vm/tests/vm.tftest.hcl` | yes: `proxmox` (mocked) |
 | `services/dhcp/tests/commands.tftest.hcl` | yes: `vyoscmd` (mocked) |
 | `roots/services-config/tests/dns.tftest.hcl` | yes: `vyoscmd`, plus `dns` and `random` from the registry (all mocked) |
-| `roots/monitoring-config/tests/monitoring.tftest.hcl` | yes: `random` from the registry (mocked) |
+| `roots/monitoring-config/tests/{monitoring,metrics,postgres,rgw}.tftest.hcl` | yes: `proxmox`, plus `random` from the registry (all mocked) |
+| `roots/services-vms/tests/ha.tftest.hcl` | yes: `proxmox` (mocked) |
+| `roots/proxmox-settings/tests/settings.tftest.hcl` | yes: `proxmox` (mocked) |
 
 A mocked provider never contacts anything, but `tofu init` still has to install
 it. The tests marked "yes" therefore need `tooling/build-all` and

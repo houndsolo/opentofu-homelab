@@ -26,7 +26,7 @@ that has a `dhcp` block. There's one NIC per DHCP-enabled VLAN:
 - **No addresses.** This module assigns no IP addresses.
 - **No management NIC.** `eth0` is created separately and isn't included here.
 
-With today's DHCP VLANs (2, 8, 9, 10, 12) and the Kea HA NIC (`ha_vlan_id` 211):
+With today's DHCP VLANs (2, 8, 9, 10, 12) and the Kea HA NIC (`ha_vlan_id` 1009):
 
 | Interface | VLAN | `dhcp01` (VM 6701) | `dhcp02` (VM 6702) |
 | --- | --- | --- | --- |
@@ -35,7 +35,7 @@ With today's DHCP VLANs (2, 8, 9, 10, 12) and the Kea HA NIC (`ha_vlan_id` 211):
 | eth3 | 9 | `02:00:00:67:01:09` | `02:00:00:67:02:09` |
 | eth4 | 10 | `02:00:00:67:01:10` | `02:00:00:67:02:10` |
 | eth5 | 12 | `02:00:00:67:01:12` | `02:00:00:67:02:12` |
-| eth6 | 211 (Kea HA) | `02:00:00:67:01:ff` | `02:00:00:67:02:ff` |
+| eth6 | 1009 (Kea HA) | `02:00:00:67:01:ff` | `02:00:00:67:02:ff` |
 
 The Kea HA NIC (`ha_vlan_id`, from `l2vnis.ha_dhcp`) always comes last, with the
 MAC last octet `ff`. Outputs: `network_devices` (all NICs, for services-vms),
@@ -66,7 +66,7 @@ module "dhcp_macs" {
 
 # Outputs, for dhcp01:
 #   network_devices["dhcp01"][0] = { bridge = "vmbr4000", vlan_id = 2, mac_address = "02:00:00:67:01:02" }
-#   interface_macs["dhcp01"]     = { eth1 = "02:00:00:67:01:02", eth2 = "02:00:00:67:01:06", ... }
+#   interface_macs["dhcp01"]     = { eth1 = "02:00:00:67:01:02", eth2 = "02:00:00:67:01:08", ... }
 ```
 
 ## Adding or removing a VLAN
@@ -83,12 +83,14 @@ The HA settings and the pools aren't in this module. They live in the parent
 
 ## Tests
 
-`tests/macs.tftest.hcl` checks four things:
+`tests/macs.tftest.hcl` checks six things:
 
 - The VLANs are sorted, each peer gets a distinct octet, and `eth0` is excluded.
 - A new VLAN doesn't change an existing VLAN's MAC.
 - VLAN 100 is rejected.
 - Duplicate VM IDs are rejected.
+- The HA NIC comes last, with MAC octet `ff`, and moves no data NIC.
+- An HA VLAN that also serves DHCP is rejected.
 
 No providers are needed:
 
