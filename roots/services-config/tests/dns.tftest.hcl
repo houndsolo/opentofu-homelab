@@ -271,7 +271,7 @@ run "alloy_journal_to_loki" {
       }))) &&
       # The HTTP listener (scraped by monitoring-config's alloy job) on the telemetry address.
       strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.container.tftpl", {
-        image = "docker.io/grafana/alloy:v1.21.3", listen = "10.55.53.51:12345"
+        image = local.container_images.alloy, listen = "10.55.53.51:12345"
       }))) &&
       strcontains(local.alloy_scripts.valkey03, "http://10.55.15.49:12345/-/ready")
     )
@@ -334,7 +334,7 @@ run "dns_node_exporter" {
   assert {
     condition = (
       length(terraform_data.dns_node_exporter) == 2 &&
-      strcontains(local.dns_node_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "docker.io/prom/node-exporter:v1.12.1", listen = "10.55.53.51:9100" }))) &&
+      strcontains(local.dns_node_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = local.container_images.node_exporter, listen = "10.55.53.51:9100" }))) &&
       strcontains(local.dns_node_exporter_script.dns02, "http://10.55.53.52:9100/metrics") &&
       # The collectors of monitoring-config's VMs, and the D-Bus socket the systemd one needs.
       strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.55.53.51:9100" }), "\nExec=--path.rootfs=/host --web.listen-address=10.55.53.51:9100 --collector.netdev.address-info --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
@@ -358,7 +358,7 @@ run "dns_bind_exporter" {
   assert {
     condition = (
       length(terraform_data.dns_bind_exporter) == 2 &&
-      strcontains(local.dns_bind_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "docker.io/prometheuscommunity/bind-exporter:v0.8.0", stats_port = 8053, listen = "10.55.53.51:9119" }))) &&
+      strcontains(local.dns_bind_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = local.container_images.bind_exporter, stats_port = 8053, listen = "10.55.53.51:9119" }))) &&
       strcontains(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "i", stats_port = 8053, listen = "10.55.53.51:9119" }), "\nExec=--bind.stats-url=http://127.0.0.1:8053 --web.listen-address=10.55.53.51:9119 --bind.pid-file=\n") &&
       strcontains(local.dns_bind_exporter_script.dns02, "http://10.55.53.52:9119/metrics") &&
       # The statistics channel it reads, loopback only, and a named.conf change is a reload, not a restart.

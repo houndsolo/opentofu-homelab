@@ -14,18 +14,18 @@
 # generated env, its own cron/WAL-G, several Postgres majors in ~1.5 GB). etcd (3.5) comes
 # from Debian 13; PostgreSQL 18, Patroni 4.1 and pgBackRest 2.60 from the PGDG repository
 # (apt.postgresql.org; Debian 13 has PostgreSQL 17 only), pinned to exactly those packages
-# (pgdg.pref). postgres_settings.package_versions pins the series (the deploy upgrades a
-# package outside it to the apt candidate and fails if that doesn't match either) and
-# unattended-upgrades leaves them alone (rolling minor upgrades).
+# (pgdg.pref). The versions come from packages in inventory/auto.tfvars/software-versions.auto.tfvars
+# (postgres_settings.package_versions): a package missing or outside its pin is installed at the
+# newest apt version matching it, the deploy fails if none does, and unattended-upgrades leaves
+# the stack alone. Running services keep the old binaries until restarted (rolling minor upgrade).
 #
-# A new major (postgres_settings.pg_major) is a rebuild: its own Patroni scope and pgBackRest
+# A new major (the major of packages.postgresql -> postgres_settings.pg_major) is a rebuild: its own Patroni scope and pgBackRest
 # stanza ("<cluster_name><pg_major>", e.g. lylat-pg18) and data dir, so the old cluster's etcd
 # keys, backups and data stay untouched for a rollback; the data moves by dump/restore
 # (17 -> 18: DT-046). etcd keeps cluster_name (its data dir and cluster token).
 #
-# Grafana switches to the VIP only when postgres_settings.grafana_on_cluster is true (after
-# the dump/restore of the runbook); mon01's Postgres container stays until
-# legacy_on_primary is set to false (a separate, later apply; its data dir is kept).
+# Grafana's database is on this cluster (the VIP, TLS required). mon01's old Postgres container
+# (Grafana's database until the 2026-11-10 cutover) was removed from the code on 2026-11-14.
 
 locals {
   pg_conf     = "/etc/postgres-ha"
@@ -47,10 +47,8 @@ locals {
 
   # Grafana (main.tf): the VIP once cut over, mon01's Postgres until then. mon01's container
   # is never dropped while Grafana still uses it.
-  grafana_on_cluster = local.postgres_enabled && local.pgs.grafana_on_cluster
-  legacy_postgres    = local.pgs.legacy_on_primary || !local.grafana_on_cluster
-  grafana_db_host    = local.grafana_on_cluster ? "${local.pg_vip}:5432" : "${local.back}:5432"
-  grafana_db_env     = local.grafana_on_cluster ? { GF_DATABASE_SSL_MODE = "require" } : {}
+  grafana_db_host = "${local.pg_vip}:5432"
+  grafana_db_env  = { GF_DATABASE_SSL_MODE = "require" }
 
   pg_priority = { for i, name in local.pg_names : name => max(150 - 50 * i, 10) }
   pg_members  = [for name in local.pg_names : var.postgres[name].ha_address]
@@ -357,8 +355,8 @@ locals {
   }
 
   pg_packages = ["keepalived", "jq", "postgresql-${local.pg_major}", "patroni", "python3-etcd", "etcd-server", "etcd-client", "pgbackrest"]
-  # postgresql-<major> = "<major>.*" unless package_versions says otherwise.
-  pg_package_versions = merge({ "postgresql-${local.pg_major}" = "${local.pg_major}.*" }, local.pgs.package_versions)
+  # Debian package => dpkg glob, from software-versions.auto.tfvars (the root maps names to packages).
+  pg_package_versions = local.pgs.package_versions
 
   # PGDG (apt.postgresql.org): only the Patroni stack comes from it (priority 600); every other
   # PGDG package stays below Debian's (100), so it never replaces a Debian package by accident.
@@ -408,7 +406,7 @@ locals {
 
   pg_version_checks = [
     for pkg, pattern in local.pg_package_versions :
-    "if v=$(dpkg-query -W -f='$${Version}' ${pkg} 2>/dev/null); then case $v in ${pattern}) ;; *) echo \"${pkg} $v is not ${pattern} (postgres_settings.package_versions)\" >&2; exit 1 ;; esac; fi"
+    "if v=$(dpkg-query -W -f='$${Version}' ${pkg} 2>/dev/null); then case $v in ${pattern}) ;; *) echo \"${pkg} $v is not ${pattern} (software-versions.auto.tfvars)\" >&2; exit 1 ;; esac; fi"
   ]
 
   postgres_deployments = local.postgres_enabled ? {

@@ -430,12 +430,12 @@ locals {
 
   # One container unit per service and backend. "reload" adds ExecReload (SIGHUP) for
   # config-only changes. A {for} expression keeps the per-service object shapes (merge
-  # with a conditional {} would need identical types). Postgres runs on the primary only;
-  # Telegraf (WLC telemetry) where wlc_telemetry.backends lists the backend.
+  # with a conditional {} would need identical types). Telegraf (WLC telemetry) where
+  # wlc_telemetry.backends lists the backend.
   backend_containers = {
     for host in local.backend_names : host => {
       for name, c in merge(local.backend_container_defs[host], local.wlc_container[host], local.pvestatd_container[host]) : name => c # telemetry.tf, pvestatd.tf
-      if(name != "pve-exporter" || local.pve_enabled) && (name != "telegraf" || contains(local.wlc_backends, host)) && (name != "pvestatd" || local.pvestatd_enabled) && (name != "postgres" || (host == local.primary && local.legacy_postgres))
+      if(name != "pve-exporter" || local.pve_enabled) && (name != "telegraf" || contains(local.wlc_backends, host)) && (name != "pvestatd" || local.pvestatd_enabled)
     }
   }
   backend_container_defs = {
@@ -492,14 +492,6 @@ locals {
         caps   = ["CAP_NET_RAW"]
         reload = true
       }
-      postgres = {
-        description = "PostgreSQL for the shared Grafana database"
-        image       = var.images.postgres
-        publish     = ["${b.backend_address}:5432:5432"]
-        volumes     = ["${local.backend_data}/postgres:/var/lib/postgresql/data"]
-        env         = { POSTGRES_USER = "grafana", POSTGRES_DB = "grafana" }
-        env_files   = ["${local.backend_conf}/postgres.env"]
-      }
       node-exporter = {
         description = "Prometheus node exporter"
         image       = var.images.node_exporter
@@ -520,7 +512,7 @@ locals {
   # Restart and health order on each backend.
   backend_order = {
     for host in local.backend_names : host => [
-      for name in ["postgres", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
+      for name in ["telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "pve-exporter", "alertmanager", "prometheus", "node-exporter"] : name
       if contains(keys(local.backend_containers[host]), name)
     ]
   }
@@ -573,14 +565,6 @@ locals {
       local.ceph_alerts_enabled ? [
         { path = "${local.backend_conf}/prometheus/rules/ceph.yml", mode = "0644", owner = "root", content = local.ceph_alerts_yml, restart = [], reload = ["prometheus"] },
       ] : [],
-      host == local.primary && local.legacy_postgres ? [{ # postgres.tf
-        path    = "${local.backend_conf}/postgres.env"
-        mode    = "0600"
-        owner   = "root"
-        content = "POSTGRES_PASSWORD=${var.secrets.grafana_db_password}\n"
-        restart = ["postgres"]
-        reload  = []
-      }] : [],
       local.pve_enabled ? [{
         # Readable by the exporter's runtime user only.
         path    = "${local.backend_conf}/pve-exporter/pve.yml"
@@ -627,10 +611,6 @@ locals {
         { path = "${local.backend_data}/prometheus", mode = "0750", owner = "runtime|${var.images.prometheus}" },
         { path = "${local.backend_data}/alertmanager", mode = "0750", owner = "runtime|${var.images.alertmanager}" },
       ],
-      # The Postgres image starts as root and drops to a service user. Its data dir must stay
-      # owned by that user: the entrypoint chowns only at container start, so forcing root here
-      # would lock out a server that this deployment doesn't restart.
-      host == local.primary ? [{ path = "${local.backend_data}/postgres", mode = "0700", owner = "user|${var.images.postgres}|postgres" }] : [],
       local.pve_enabled ? [{ path = "${local.backend_conf}/pve-exporter", mode = "0755", owner = "root" }] : [],
       [{ path = local.snmp_conf, mode = "0755", owner = "root" }],
       local.alloy_dirs,
@@ -661,7 +641,6 @@ locals {
         "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9090/-/ready",
         "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9093/-/ready",
       ],
-      host == local.primary && local.legacy_postgres ? ["podman exec postgres pg_isready -q -U grafana -d grafana"] : [], # postgres.tf
       [local.alloy_health[host]],
       local.wlc_health[host],      # telemetry.tf
       local.pvestatd_health[host], # pvestatd.tf
@@ -708,7 +687,7 @@ locals {
           GF_SERVER_ROOT_URL                       = var.settings.grafana_root_url
           GF_SECURITY_ADMIN_USER                   = "admin"
           GF_DATABASE_TYPE                         = "postgres"
-          GF_DATABASE_HOST                         = local.grafana_db_host # postgres.tf: the Patroni VIP after the cutover
+          GF_DATABASE_HOST                         = local.grafana_db_host # postgres.tf: the Patroni VIP
           GF_DATABASE_NAME                         = "grafana"
           GF_DATABASE_USER                         = "grafana"
           GF_UNIFIED_ALERTING_HA_LISTEN_ADDRESS    = "0.0.0.0:9094"

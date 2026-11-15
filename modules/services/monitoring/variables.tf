@@ -69,7 +69,7 @@ variable "grafana_vrrp" {
 }
 
 variable "images" {
-  description = "Container images. Pin exact tags (or digests) for reproducible deployments."
+  description = "Container images (full references) for every container the module deploys. The roots pass them from inventory/auto.tfvars/software-versions.auto.tfvars."
   type = object({
     prometheus        = string
     alertmanager      = string
@@ -77,14 +77,13 @@ variable "images" {
     snmp_exporter     = string
     blackbox_exporter = string
     pve_exporter      = string
-    postgres          = string
     grafana           = string
     loki              = string
     alloy             = string
     haproxy           = string
     telegraf          = string
-    mimir             = optional(string, "docker.io/grafana/mimir:3.2.4")
-    postgres_exporter = optional(string, "quay.io/prometheuscommunity/postgres-exporter:v0.20.1")
+    mimir             = string
+    postgres_exporter = string
   })
   validation {
     condition     = alltrue([for image in values(var.images) : can(regex("^[A-Za-z0-9][A-Za-z0-9._/:@-]*$", image))])
@@ -331,7 +330,7 @@ variable "postgres_settings" {
     # rebuild, not an in-place upgrade: the new major gets its own Patroni scope and pgBackRest
     # stanza ("<cluster_name><pg_major>") and data dir, so the old cluster's are left untouched
     # (dump/restore; 17 -> 18: DT-046).
-    pg_major                   = optional(number, 18)
+    pg_major                   = number # from packages.postgresql (software-versions.auto.tfvars)
     rgw_endpoints              = optional(list(string), ["10.27.0.12:7480", "10.27.0.13:7480", "10.27.0.17:7480"])
     retention_days             = optional(number, 14)               # PITR window (pgBackRest time-based full retention)
     backup_schedule            = optional(string, "*-*-* 01:30:00") # systemd OnCalendar: daily full backup on the leader
@@ -342,19 +341,13 @@ variable "postgres_settings" {
     etcd_initial_cluster_state = optional(string, "new")            # "existing" when a rebuilt member rejoins (README)
     etcd_heartbeat_interval    = optional(number, 300)              # ms (etcd default 100): Ceph RBD fsync p99 is 125-355 ms (DT-017)
     etcd_election_timeout      = optional(number, 3000)             # ms (etcd default 1000): ~10x the heartbeat, per the etcd tuning guide
-    grafana_on_cluster         = optional(bool, false)              # Grafana uses the VIP (after the runbook's dump/restore)
-    legacy_on_primary          = optional(bool, true)               # keep the primary backend's Postgres container
     bootstrap_from_backup      = optional(bool, false)              # disaster recovery: bootstrap a fresh cluster from pgBackRest (README)
     restore_target_time        = optional(string)                   # with bootstrap_from_backup: PITR target, e.g. "2026-11-20 12:00:00+00"
-    # Package => accepted version (shell glob). postgresql-<pg_major> = "<pg_major>.*" is added
-    # unless set here. An installed package outside its series is upgraded to the apt candidate.
-    package_versions = optional(map(string), {
-      "patroni"     = "4.1.*"  # PGDG (PostgreSQL 18 needs Patroni >= 4.1)
-      "etcd-server" = "3.5.*"  # Debian
-      "pgbackrest"  = "2.60.*" # PGDG
-    })
+    # Debian package => accepted version (dpkg glob), from packages in software-versions.auto.tfvars.
+    # A package that is missing or outside its pattern is installed at the newest apt version that
+    # matches; the deploy fails if none does.
+    package_versions = map(string)
   })
-  default = {}
   validation {
     condition = (
       can(cidrhost(var.postgres_settings.vip, 0)) && var.postgres_settings.vrrp_router_id >= 1 && var.postgres_settings.vrrp_router_id <= 255 &&

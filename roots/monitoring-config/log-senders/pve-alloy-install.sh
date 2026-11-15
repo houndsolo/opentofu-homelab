@@ -18,6 +18,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Keep in step with containers.alloy in inventory/auto.tfvars/software-versions.auto.tfvars (the VMs' Alloy);
+# a version bump also needs the new .deb's SHA256 below.
 ALLOY_VERSION=1.21.3
 ALLOY_DEB="alloy-${ALLOY_VERSION}-1.amd64.deb"
 ALLOY_SHA256=dbbd705de8ab37dec0cbd6361a3fc7e754d6b2854b57ce672a83e6366199ba73

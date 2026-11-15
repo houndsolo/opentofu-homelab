@@ -4,16 +4,6 @@ variable "ssh_private_key_path" {
   default     = "~/.ssh/id_rsa"
 }
 
-variable "bind9_image" {
-  description = "ISC BIND9 image. Pin a digest here for reproducible deployments."
-  type        = string
-  default     = "docker.io/internetsystemsconsortium/bind9:9.20"
-  validation {
-    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._/:@-]*$", var.bind9_image))
-    error_message = "Use a container image reference without whitespace or shell characters."
-  }
-}
-
 variable "dns_allowed_clients" {
   description = "IPv4 client networks permitted to query and use recursion."
   type        = list(string)

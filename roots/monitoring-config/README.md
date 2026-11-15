@@ -18,7 +18,6 @@ generates the secrets and does the SSH deployment.
 | VM | Services (systemd units) | Listens on |
 | --- | --- | --- |
 | backends (mon01 primary, mon02 replica; [Backend HA](#backend-ha-mon01--mon02)) | `prometheus`, `alertmanager` | monitoring network (`10.5.11.30`/`.31`) and the backend NIC in lylat-obs (`10.54.16.30`/`.31`): 9090, 9093; Alertmanager also on the backend VIP `10.54.16.102`; Alertmanager gossip 9094 on the ha_monitor segment (VLAN 1016, `10.50.16.30`/`.31`) |
-| | `postgres` (Grafana's old database), **mon01 only** | removed since the Patroni cutover (`postgres_settings.legacy_on_primary = false`); was backend address `:5432` |
 | | `snmp-exporter`, `blackbox-exporter`, `pve-exporter` | not published; Prometheus reaches them by name on the `monitoring` Podman network |
 | | `telegraf` ([C9800 telemetry](#c9800-telemetry-model-driven-dial-out), `wlc_telemetry`) | gRPC MDT receiver on the monitoring network only: `10.5.11.30:57500` (mon02: `.31`) and the monitoring VIP `10.5.11.102:57500` (`wlc-telemetry-vip`, where the WLCs send); its own metrics on the backend address, 9273; the `wlc_*` series on 9275 (all addresses) |
 | | `keepalived` (Debian package) | VRRPv3 (router id 102) unicast over IPv6 on the ha_monitor segment (`fd69:5016::30`/`::31`); VIPs `10.5.11.102/16` (vmbr100 NIC, eth2) and `10.54.16.102/16` (lylat-obs NIC, eth1) |
@@ -538,7 +537,8 @@ per-replica bits below. The rendering is in the module's `backends.tf`.
   the VIP holder's Telegraf receives (alert `WlcTelemetryStopped` sums over both). A second named receiver per
   subscription doesn't work: IOS XE keeps only one receiver of a subscription active, the rest are standbys.
 - **Grafana's database** is the Patroni cluster on pg01-03 (VIP 10.56.14.104) since 2026-11-10; mon01's
-  Postgres container is gone (`postgres.auto.tfvars`). See [Postgres HA: Patroni](#postgres-ha-patroni).
+  Postgres container was removed (its data dir `/var/lib/monitoring/postgres` stays until deleted by hand). See
+  [Postgres HA: Patroni](#postgres-ha-patroni).
 
 ## Logging (Loki HA)
 
@@ -825,15 +825,17 @@ graf01/02 --sslmode=require--> VIP 10.56.14.104:5432 (keepalived on the Patroni 
 
 - **Packages, not containers**, for the database: Patroni starts/stops Postgres itself and
   `archive_command` needs pgBackRest next to it; the only image with all of it is Spilo (Kubernetes-oriented,
-  env-generated config, its own WAL-G cron). PostgreSQL 18 (`postgres_settings.pg_major`), Patroni 4.1 and
+  env-generated config, its own WAL-G cron). PostgreSQL 18, Patroni 4.1 and
   pgBackRest 2.60 come from the PGDG repository (`apt.postgresql.org`, `trixie-pgdg`; Debian 13 has 17 only),
   etcd 3.5 from Debian. The deploy installs the PGDG source, key and an apt pin (only the Patroni stack from
-  PGDG) before any package. `postgres_settings.package_versions` pins the series: a package outside it is
-  upgraded to the apt candidate, and the deploy fails if that doesn't match either. Package scripts can't
-  start or restart services during the deploy (`policy-rc.d`), unattended-upgrades skips the stack; upgrade
-  minors rolling (runbook). haproxy, postgres_exporter, node_exporter and Alloy are Quadlet containers as
+  PGDG) before any package. The versions are `packages` in
+  [`software-versions.auto.tfvars`](../../inventory/auto.tfvars/software-versions.auto.tfvars)
+  (`postgresql = "18.6"` = any Debian revision of 18.6; a full Debian version pins exactly): a package missing
+  or outside its pin is installed at the newest apt version matching it, and the deploy fails if none does.
+  Package scripts can't start or restart services during the deploy (`policy-rc.d`), unattended-upgrades
+  skips the stack, so a new pin ends with a rolling restart (see [minor upgrade](#minor-upgrade-postgresql-patroni-etcd-pgbackrest)). haproxy, postgres_exporter, node_exporter and Alloy are Quadlet containers as
   everywhere else.
-- **A new Postgres major is a rebuild**, not pg_upgrade: `pg_major` gives it its own Patroni scope and
+- **A new Postgres major is a rebuild**, not pg_upgrade: the major of `packages.postgresql` gives it its own Patroni scope and
   pgBackRest stanza (`<cluster_name><pg_major>`, now `lylat-pg18`) and data dir
   (`/var/lib/postgresql/patroni/<major>`); etcd keeps `cluster_name`. The data moves by dump/restore. The
   17 -> 18 run (2026-11-12): DT-046 (steps and rollback recipe in its description).
@@ -846,10 +848,9 @@ graf01/02 --sslmode=require--> VIP 10.56.14.104:5432 (keepalived on the Patroni 
 - **Deploys never restart Patroni** (it would stop Postgres, and fail over on the leader): its config is
   SIGHUP-reloaded; env/unit changes need a rolling restart. The first deploy must run all members together
   (etcd/Patroni bootstrap); later changes with `-parallelism=1`. `sudo pgctl ...` on a member wraps patronictl.
-- **Cutover switches** (`postgres_settings`): `grafana_on_cluster = true` points both Grafanas at the VIP
-  (after the runbook's dump/restore); `legacy_on_primary = false` (a separate apply after it) removes mon01's
-  container (its data dir stays). A plan-time guard (`terraform_data.postgres_cutover`) refuses removing the
-  container Grafana still uses. `bootstrap_from_backup` (+ `restore_target_time`) rebuilds a lost cluster
+- **Grafana always uses the cluster** (the VIP, TLS required); `terraform_data.grafana` fails its precondition
+  without the cluster (no `postgres` VMs or no `postgres_s3`). The cutover switches (`grafana_on_cluster`,
+  `legacy_on_primary`) and mon01's Postgres container were removed on 2026-11-14. `bootstrap_from_backup` (+ `restore_target_time`) rebuilds a lost cluster
   from the repository.
 - **Monitoring**: jobs `patroni`, `etcd`, `postgres`, `haproxy-postgres` (both Prometheus replicas), node
   targets `role=postgres` (pgBackRest results through the textfile collector), alert group `postgres`
@@ -857,6 +858,23 @@ graf01/02 --sslmode=require--> VIP 10.56.14.104:5432 (keepalived on the Patroni 
   backup failed/too old, etcd no leader/quorum lost/members missing, RGW down, VIP not held once), and the
   "Postgres (Patroni, Grafana's database)" row on the Monitoring stack dashboard. Alloy ships the journal
   (Patroni and Postgres log there) to Loki.
+
+### Minor upgrade (PostgreSQL, Patroni, etcd, pgBackRest)
+
+A new minor or point release of the Patroni stack is a version change in
+[`software-versions.auto.tfvars`](../../inventory/auto.tfvars/software-versions.auto.tfvars) plus a rolling
+restart. What apt offers: `apt-cache madison postgresql-18 patroni etcd-server pgbackrest` on a member.
+
+1. Set the new version in `packages` (e.g. `postgresql = "18.7"`) and check the plan: only
+   `terraform_data.postgres["pg0N"]` (the deploy script) changes.
+2. Apply with `-parallelism=1`. Each member installs exactly the newest apt version matching the pin; nothing
+   restarts (`policy-rc.d`), so Postgres, Patroni and etcd keep running the old binaries.
+3. Rolling restart, replicas first: per replica `sudo systemctl restart etcd` (only after an etcd change),
+   `sudo systemctl restart patroni` (a new Patroni) or `sudo pgctl restart lylat-pg18 <member>` (a new
+   PostgreSQL only), wait until `sudo pgctl list` shows it `streaming` again. Then `sudo pgctl switchover`
+   and do the old leader the same way. pgBackRest needs no restart.
+
+A new major (`postgresql = "19.x"`) is not this: it builds a new cluster (see above).
 
 ## Inputs
 
@@ -879,7 +897,7 @@ graf01/02 --sslmode=require--> VIP 10.56.14.104:5432 (keepalived on the Patroni 
 | `monitoring_ha_vlan_id` | `1016` | HA VLAN of the backends (L2VNI `ha_monitor`): keepalived adverts, Alertmanager gossip; each backend needs one addressed NIC on it |
 | `backend_vrrp` | VIPs `10.5.11.102/16`, `10.54.16.102/16`, router id 102 | keepalived on the backends; `null` = no VIPs, Grafana uses the primary |
 | `pve_monitoring_bridge` | `"100"` | `pve_network.bridges` key for the Proxmox nodes' scrape addresses |
-| `images` | pinned tags | Container images; override one key at a time |
+| `containers`, `packages` | [`software-versions.auto.tfvars`](../../inventory/auto.tfvars/software-versions.auto.tfvars) | Every container image and Debian package version, shared with services-config: change a `version` there |
 | `settings` | see `variables.tf` | Prometheus local retention (7d / 20GB; Mimir keeps the long-term copy), Grafana root URL, DNS probe zone, Ceph cluster label |
 | `pve_api_token`, `greatfox_api_token` | required | Proxmox API tokens for the metric servers, from the linked `proxmox.secret.auto.tfvars` |
 | `pve_api_node` | `null` (`nodes.cluster_api_node`) | Cluster node whose API manages the cluster's metric server; set another node if that one is unreachable |
@@ -928,9 +946,6 @@ pve_exporter_token = { user = "prometheus@pve", token_name = "exporter", value =
 
 ## Things to know
 
-- **mon01's legacy Postgres (only with `legacy_on_primary = true`) reads its credentials only on first start**, when its data
-  directory is empty. The generated values never change, but if you replace the
-  `random_password` resources, wipe the data directory too.
 - **Alertmanager routes everything to a `null` receiver.** Alerts are visible in
   Alertmanager and Grafana but not sent anywhere until you add a receiver.
 - **Postgres (the Patroni VIP 10.56.14.104) is in lylat-data**, which only lylat-app, lylat-dns and lylat-external import (pg_hba and `postgres_guard` limit the clients further).

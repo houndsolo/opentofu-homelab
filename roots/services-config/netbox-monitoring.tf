@@ -7,7 +7,6 @@
 variable "netbox_monitoring" {
   description = "node_exporter and Alloy (journal to Loki, alloy.tf) on the role = \"netbox\" VMs. null = don't install them."
   type = object({
-    node_exporter_image = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
   })
   default = {}
 }
@@ -17,7 +16,7 @@ locals {
     for name, vm in local.netbox_vms : name => {
       node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
         unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-          image  = var.netbox_monitoring.node_exporter_image
+          image  = local.container_images.node_exporter
           listen = "${local.scrape_ip[name]}:9100"
         }))
         listen = "${local.scrape_ip[name]}:9100"

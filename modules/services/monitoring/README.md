@@ -24,8 +24,8 @@ root runs the scripts over SSH and documents the behaviour.
   `/primary` (VIP), the nftables guard (`postgres-guard`), the leader-setup and backup scripts/units, their
   `deploy.sh` (Debian packages for Postgres/Patroni/etcd/pgBackRest, containers for the exporters); the
   `patroni`/`etcd`/`postgres`/`haproxy-postgres` scrape jobs and the `postgres` alert group, and
-  `grafana_db_host`/`grafana_db_env`/`legacy_postgres`, which `main.tf` uses for Grafana's database and
-  mon01's Postgres container (`postgres_settings.grafana_on_cluster` / `legacy_on_primary`).
+  `grafana_db_host`/`grafana_db_env`, which `main.tf` uses for Grafana's database (the Patroni VIP). The
+  package pins (`postgres_settings.package_versions`, `pg_major`) come from the root (software-versions.auto.tfvars).
 - `rgw.tf`: the `ceph-rgw-buckets` alert group (`var.rgw_bucket_alerts`; only with `targets.ceph`) on the
   per-bucket RGW metrics from `roots/monitoring-config/pve-collectors` (dashboard `dashboards/rgw.py`).
 - `backends.tf`: backend HA (`var.backends`, `primary_backend`): the Alertmanager cluster (gossip on the

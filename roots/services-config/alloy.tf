@@ -8,10 +8,9 @@
 variable "alloy" {
   description = "Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs, pushing to loki_url (Loki's telemetry VIP) from the VM's lylat-telemetry NIC. null = don't install it (and leave rsyslog alone)."
   type = object({
-    image    = optional(string, "docker.io/grafana/alloy:v1.21.3") # keep in step with monitoring-config images.alloy
-    port     = optional(number, 12345)                             # keep in step with modules/services/monitoring logging.tf
-    loki_url = optional(string, "http://10.55.18.101:3100")        # Loki's telemetry VIP (monitoring-config logging_settings.vips.telemetry)
-    max_age  = optional(string, "12h")                             # journal backlog read after an outage, as on monitoring-config's VMs
+    port     = optional(number, 12345)                      # keep in step with modules/services/monitoring logging.tf
+    loki_url = optional(string, "http://10.55.18.101:3100") # Loki's telemetry VIP (monitoring-config logging_settings.vips.telemetry)
+    max_age  = optional(string, "12h")                      # journal backlog read after an outage, as on monitoring-config's VMs
   })
   default = {}
   validation {
@@ -34,10 +33,10 @@ locals {
   # VM name => the install script (templates/alloy.sh.tftpl); empty when var.alloy is null.
   alloy_scripts = var.alloy == null ? {} : {
     for name, vm in local.alloy_vms : name => templatefile("${path.module}/templates/alloy.sh.tftpl", {
-      image  = var.alloy.image
+      image  = local.container_images.alloy
       listen = "${local.scrape_ip[name]}:${var.alloy.port}"
       unit_b64 = base64encode(templatefile("${path.module}/templates/alloy.container.tftpl", {
-        image  = var.alloy.image
+        image  = local.container_images.alloy
         listen = "${local.scrape_ip[name]}:${var.alloy.port}"
       }))
       config_b64 = base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {

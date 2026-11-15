@@ -18,9 +18,8 @@
 variable "proxy" {
   description = "Reverse proxy: published hosts (<key>.<domain> plus aliases) and the VIP + port they forward to, certificate path, proxy VIP. null = don't deploy."
   type = object({
-    image    = optional(string, "docker.io/library/nginx:1.30.6") # nginx stable; bump the tag to upgrade
-    domain   = optional(string, "lylat.space")                    # the zone; the certificate is *.<domain>
-    cert_dir = optional(string, "/etc/ssl/svc")                   # = roots/certs var.certificate.directory
+    domain   = optional(string, "lylat.space")  # the zone; the certificate is *.<domain>
+    cert_dir = optional(string, "/etc/ssl/svc") # = roots/certs var.certificate.directory
     hosts = optional(map(object({
       vip        = string                     # key in vips.auto.tfvars: nginx forwards to its address
       port       = number                     # the service's port on that VIP
@@ -161,13 +160,13 @@ locals {
     for name, vm in local.proxy_vms : name => templatefile("${path.module}/templates/proxy-deploy.sh.tftpl", {
       cert_dir    = var.proxy.cert_dir
       conf_dir    = local.proxy_conf_dir
-      image       = var.proxy.image
+      image       = local.container_images.nginx
       config_id   = local.proxy_config_id
       listen      = local.proxy_nics[name].service.address
       vip_address = local.proxy_vip
       peers       = [for peer, n in local.proxy_nics : n.service.address if peer != name]
       unit_b64 = base64encode(templatefile("${path.module}/templates/proxy-nginx.container.tftpl", {
-        image    = var.proxy.image
+        image    = local.container_images.nginx
         conf_dir = local.proxy_conf_dir
         cert_dir = var.proxy.cert_dir
       }))

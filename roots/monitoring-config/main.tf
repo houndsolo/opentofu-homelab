@@ -222,7 +222,11 @@ module "monitoring" {
     vip       = var.grafana_vrrp.vip
     router_id = var.grafana_vrrp.router_id
   }
-  images   = var.images
+  # From inventory/auto.tfvars/software-versions.auto.tfvars (the module needs exactly these keys).
+  images = { for k in [
+    "prometheus", "alertmanager", "node_exporter", "snmp_exporter", "blackbox_exporter", "pve_exporter",
+    "grafana", "loki", "alloy", "haproxy", "telegraf", "mimir", "postgres_exporter",
+  ] : k => local.container_images[k] }
   targets  = local.targets
   settings = var.settings
   secrets = {
@@ -296,7 +300,8 @@ module "monitoring" {
       interfaces        = { ha = try(n.ha.interface, "none"), backend = try(n.backend.interface, "none") }
     }
   }
-  postgres_settings = var.postgres_settings
+  # pg_major and the package pins come from packages in software-versions.auto.tfvars (postgres.tf).
+  postgres_settings = merge(var.postgres_settings, { pg_major = local.pg_major, package_versions = local.pg_package_versions })
   # Application databases (role = database = key): dark-triage (role "ticketing" VMs) and NetBox
   # (role "netbox" VMs) connect from their backend VLAN addresses with the shared passwords from
   # app-db.secret.auto.tfvars.
@@ -381,7 +386,7 @@ resource "terraform_data" "backend" {
 resource "terraform_data" "grafana" {
   for_each = local.grafana_vms
 
-  # Grafana needs Postgres (mon01's, or the Patroni cluster after the cutover) and the datasources on the backend.
+  # Grafana needs Postgres (the Patroni cluster) and the datasources on the backend.
   # Its "prometheus" datasource points at Mimir once mimir_s3 is set: wait for a healthy Mimir (metrics.tf).
   depends_on = [terraform_data.backend, terraform_data.postgres, terraform_data.metrics]
 
@@ -397,6 +402,10 @@ resource "terraform_data" "grafana" {
     precondition {
       condition     = local.backend_address[each.key] != null
       error_message = "${each.key} needs one addressed NIC on VLAN ${join("/", var.backend_vlan_ids)}."
+    }
+    precondition {
+      condition     = local.postgres_enabled
+      error_message = "Grafana's database is the Patroni cluster: it needs the role = \"postgres\" VMs and postgres_s3."
     }
     precondition {
       condition     = var.grafana_vrrp == null || (local.grafana_nic[each.key].ha != null && local.grafana_nic[each.key].ui != null)

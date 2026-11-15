@@ -14,7 +14,7 @@ variables {
   ssh_private_key_path = "/dev/null"
   pve_api_token        = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
   greatfox_api_token   = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
-  postgres_settings    = {} # the default; postgres.auto.tfvars (the live cutover) would leak in
+  postgres_settings    = {} # the defaults
   loki_s3              = { bucket = "loki", access_key = "MOCKACCESSKEY", secret_key = "mocksecretkeymocksecretkey" }
   mimir_s3             = { bucket = "mimir", access_key = "MOCKMIMIRKEY", secret_key = "mockmimirsecretmockmimirsecret" } # metrics.tftest.hcl
   postgres_s3          = { bucket = "postgres", access_key = "MOCKPGKEY", secret_key = "mockpgsecretmockpgsecret" }       # postgres.tftest.hcl
@@ -59,16 +59,15 @@ run "inventory_targets" {
   assert {
     condition = (
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "promtool") &&
-      strcontains(module.monitoring.units.mon01.postgres, "PublishPort=10.54.16.30:5432:5432\n") &&
-      !strcontains(module.monitoring.units.mon01.postgres, "10.5.11.30") &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_UNIFIED_ALERTING_HA_PEERS=10.50.11.32:9094,10.50.11.33:9094") &&
       strcontains(module.monitoring.units.graf02["node-exporter"], "--web.listen-address=10.55.11.33:9100") &&
       strcontains(module.monitoring.units.mon01.prometheus, "ExecReload=/usr/bin/podman kill --signal HUP prometheus") &&
-      # The data dir of an image that drops from root to a service user stays owned by that user,
-      # so a redeploy that doesn't restart Postgres can't lock it out.
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "ensure_dir '/var/lib/monitoring/postgres' '0700' 'user|docker.io/library/postgres:17|postgres'")
+      # mon01's old Postgres container (Grafana's database before the Patroni cutover) is gone from the code.
+      !contains(keys(module.monitoring.units.mon01), "postgres") &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "/var/lib/monitoring/postgres") &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "postgres.env")
     )
-    error_message = "Validate before install, bind Postgres to the backend VLAN only, and peer Grafana over it."
+    error_message = "Validate before install, peer Grafana over the HA VLAN, and no Postgres container on mon01."
   }
 
   assert {
@@ -604,9 +603,9 @@ run "wlc_telemetry" {
   assert {
     condition = (
       output.wlc_telemetry_receiver == { address = "10.5.11.102", receivers = { mon01 = "10.5.11.30", mon02 = "10.5.11.31" }, port = 57500 } &&
-      module.monitoring.backend_services == ["monitoring-network", "postgres", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
+      module.monitoring.backend_services == ["monitoring-network", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"]
     )
-    error_message = "The WLCs send to the monitoring VIP; Telegraf runs on both backends and starts first after Postgres."
+    error_message = "The WLCs send to the monitoring VIP; Telegraf runs on both backends and starts first."
   }
 
   assert {
@@ -830,7 +829,7 @@ run "logging" {
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "haproxy -c") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "for pkg in keepalived; do") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/logging/loki.env' '0600' 'root' 'loki' ''") &&
-      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "ensure_dir '/var/lib/logging/loki' '0750' 'runtime|docker.io/grafana/loki:3.7.9'")
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "ensure_dir '/var/lib/logging/loki' '0750' 'runtime|${local.container_images.loki}'")
     )])
     error_message = "Each logging deploy.sh validates Loki/Alloy/haproxy/nftables first, installs keepalived, and keeps the S3 keys in a 0600 env file."
   }
@@ -956,9 +955,9 @@ run "backend_ha" {
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "/var/lib/monitoring/postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "pg_isready") &&
       module.monitoring.backend_services_by_host.mon02 == ["monitoring-network", "telegraf", "pvestatd", "snmp-exporter", "blackbox-exporter", "alertmanager", "prometheus", "node-exporter", "alloy", "keepalived"] &&
-      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.54.16.30:5432")
+      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.56.14.104:5432")
     )
-    error_message = "Postgres stays on mon01 (Grafana's database); mon02 gets the rest, keepalived last."
+    error_message = "No Postgres on the backends (Grafana uses the Patroni VIP); mon02 gets the rest, keepalived last."
   }
 
   assert {

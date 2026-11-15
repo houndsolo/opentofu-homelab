@@ -26,7 +26,7 @@ locals {
   })
   deployments = {
     for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/deploy.sh.tftpl", {
-      image_b64 = base64encode(var.bind9_image)
+      image_b64 = base64encode(local.container_images.bind9)
       config_b64 = base64encode(templatefile("${path.module}/templates/named.conf.tftpl", {
         address             = local.dns_addresses[name]
         vip                 = local.dns_vip                                                                                                                     # keepalived VIP; BIND binds it when it appears
@@ -44,7 +44,7 @@ locals {
         secret = local.dns_tsig_secret
       }))
       quadlet_b64 = base64encode(templatefile("${path.module}/templates/bind9.container.tftpl", {
-        image = var.bind9_image
+        image = local.container_images.bind9
       }))
     })
   }

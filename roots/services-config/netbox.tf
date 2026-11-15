@@ -16,7 +16,6 @@
 variable "netbox" {
   description = "NetBox image, database, superuser and VIP. null = don't deploy."
   type = object({
-    image = optional(string, "docker.io/netboxcommunity/netbox:v4.7-5.1.1")
     database = optional(object({
       host = optional(string, "10.56.14.104") # Patroni VIP (lylat-data)
       port = optional(number, 5432)
@@ -128,7 +127,7 @@ locals {
 
   netbox_script = !local.netbox_enabled ? {} : {
     for name, vm in local.netbox_vms : name => templatefile("${path.module}/templates/netbox-deploy.sh.tftpl", {
-      image  = var.netbox.image
+      image  = local.container_images.netbox
       listen = local.netbox_nics[name].service.address
       ha     = local.netbox_ha
       cephfs = local.netbox_cephfs
@@ -140,12 +139,12 @@ locals {
       }))
       env_b64 = base64encode(local.netbox_env)
       unit_b64 = base64encode(templatefile("${path.module}/templates/netbox.container.tftpl", {
-        image     = var.netbox.image
+        image     = local.container_images.netbox
         addresses = compact([local.netbox_nics[name].service.address, local.netbox_vip])
         ports     = var.netbox.ports
       }))
       worker_b64 = base64encode(templatefile("${path.module}/templates/netbox-worker.container.tftpl", {
-        image = var.netbox.image
+        image = local.container_images.netbox
       }))
       keepalived_b64 = !local.netbox_ha ? "" : base64encode(templatefile("${path.module}/templates/netbox-keepalived.conf.tftpl", {
         host         = name

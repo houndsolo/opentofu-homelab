@@ -16,7 +16,7 @@ variables {
   ssh_private_key_path = "/dev/null"
   pve_api_token        = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
   greatfox_api_token   = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
-  postgres_settings    = {} # the default; postgres.auto.tfvars (the live cutover) would leak in
+  postgres_settings    = {} # the defaults
   loki_s3              = { bucket = "loki", access_key = "MOCKACCESSKEY", secret_key = "mocksecretkeymocksecretkey" }
   mimir_s3             = { bucket = "mimir", access_key = "MOCKMIMIRKEY", secret_key = "mockmimirsecretmockmimirsecret" }
   postgres_s3          = { bucket = "postgres", access_key = "MOCKPGKEY", secret_key = "mockpgsecretmockpgsecret" }
@@ -129,9 +129,9 @@ run "postgres_cluster" {
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for svc in postgres-guard haproxy etcd patroni pg-leader-setup postgres-exporter alloy node-exporter keepalived; do") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/patroni/config.yml' '0644' 'root' '' 'patroni'") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "pg_dropcluster --stop 18 main") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 18.*)") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 4.1.*)") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 2.60.*)") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 18.6-*)") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 4.1.5-*)") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 2.60.0-*)") &&
       !strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "postgresql-17") &&
       !strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "/17/")
     )
@@ -145,7 +145,10 @@ run "postgres_cluster" {
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), base64encode(file("../../modules/services/monitoring/templates/pgdg.asc"))) &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/apt/sources.list.d/pgdg.sources' '0644' 'root' '' ''") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for f in /etc/apt/keyrings/pgdg.asc /etc/apt/preferences.d/pgdg.pref /etc/apt/sources.list.d/pgdg.sources; do") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for spec in 'etcd-server=3.5.*' 'patroni=4.1.*' 'pgbackrest=2.60.*' 'postgresql-18=18.*'; do") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for spec in 'etcd-client=3.5.16-*' 'etcd-server=3.5.16-*' 'patroni=4.1.5-*' 'pgbackrest=2.60.0-*' 'postgresql-18=18.6-*' 'postgresql-client-18=18.6-*'; do") &&
+      # A missing or off-pin package installs exactly the newest apt version matching its pin.
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "'postgresql-18') echo '18.6-*' ;;") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "targets+=\" $pkg=$ver\"") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "printf '#!/bin/sh\\nexit 101\\n' > \"$policy_rc\"") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), base64encode(<<-EOT
         # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
@@ -184,61 +187,16 @@ run "postgres_cluster" {
   }
 
   assert {
-    # Until the cutover nothing changes for Grafana or mon01.
-    condition = (
-      output.grafana_db_host == "${local.backend_address.mon01}:5432" &&
-      strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=${local.backend_address.mon01}:5432") &&
-      !strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_SSL_MODE") &&
-      contains(keys(module.monitoring.units.mon01), "postgres")
-    )
-    error_message = "Before grafana_on_cluster, Grafana stays on mon01's Postgres and mon01 keeps its container."
-  }
-}
-
-run "postgres_grafana_cutover" {
-  command = plan
-
-  variables {
-    postgres_settings = { grafana_on_cluster = true }
-  }
-
-  assert {
     condition = (
       output.grafana_db_host == "10.56.14.104:5432" &&
       strcontains(module.monitoring.units.graf01.grafana, "GF_DATABASE_HOST=10.56.14.104:5432") &&
       strcontains(module.monitoring.units.graf02.grafana, "GF_DATABASE_SSL_MODE=require") &&
-      contains(keys(module.monitoring.units.mon01), "postgres") # rollback stays possible
-    )
-    error_message = "grafana_on_cluster points both Grafanas at the VIP (TLS required) and keeps mon01's Postgres."
-  }
-}
-
-run "postgres_legacy_removed" {
-  command = plan
-
-  variables {
-    postgres_settings = { grafana_on_cluster = true, legacy_on_primary = false }
-  }
-
-  assert {
-    condition = (
       !contains(keys(module.monitoring.units.mon01), "postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "pg_isready") &&
-      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "/etc/monitoring/postgres.env") &&
       !contains(module.monitoring.backend_services_by_host.mon01, "postgres")
     )
-    error_message = "legacy_on_primary = false drops mon01's Postgres container (its data dir stays)."
+    error_message = "Grafana's database is the Patroni VIP (TLS required); mon01 runs no Postgres."
   }
-}
-
-run "postgres_legacy_needs_cutover" {
-  command = plan
-
-  variables {
-    postgres_settings = { legacy_on_primary = false }
-  }
-
-  expect_failures = [terraform_data.postgres_cutover]
 }
 
 run "postgres_needs_s3_keys" {
@@ -252,24 +210,13 @@ run "postgres_needs_s3_keys" {
     condition = (
       length(terraform_data.postgres) == 0 &&
       output.postgres_vip == null &&
-      !strcontains(module.monitoring.prometheus_config, "job_name: patroni") &&
-      output.grafana_db_host == "${local.backend_address.mon01}:5432"
+      !strcontains(module.monitoring.prometheus_config, "job_name: patroni")
     )
-    error_message = "Without postgres_s3 the cluster is left out and Grafana stays on mon01."
+    error_message = "Without postgres_s3 the cluster is left out."
   }
 
-  expect_failures = [check.postgres_s3]
-}
-
-run "postgres_cutover_needs_cluster" {
-  command = plan
-
-  variables {
-    postgres_s3       = null
-    postgres_settings = { grafana_on_cluster = true }
-  }
-
-  expect_failures = [terraform_data.postgres_cutover, check.postgres_s3]
+  # Grafana has no database without the cluster.
+  expect_failures = [check.postgres_s3, terraform_data.grafana]
 }
 
 run "postgres_bootstrap_from_backup" {
@@ -303,7 +250,7 @@ run "postgres_major_override" {
   command = plan
 
   variables {
-    postgres_settings = { pg_major = 19, package_versions = { patroni = "4.2.*" } }
+    packages = { postgresql = "19.1", patroni = "4.2.0", etcd = "3.5.16", pgbackrest = "2.61.0-1.pgdg13+1" }
   }
 
   assert {
@@ -311,9 +258,10 @@ run "postgres_major_override" {
       yamldecode(module.monitoring.patroni_configs.pg01).scope == "lylat-pg19" &&
       yamldecode(module.monitoring.patroni_configs.pg01).postgresql.data_dir == "/var/lib/postgresql/patroni/19" &&
       yamldecode(module.monitoring.etcd_configs.pg01).data-dir == "/var/lib/etcd/lylat-pg" &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for spec in 'patroni=4.2.*' 'postgresql-19=19.*'; do")
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "'patroni=4.2.0-*' 'pgbackrest=2.61.0-1.pgdg13+1' 'postgresql-19=19.1-*' 'postgresql-client-19=19.1-*'; do") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "'etcd-server') echo '3.5.16-*' ;;")
     )
-    error_message = "pg_major selects the packages, data dir, Patroni scope and stanza; package_versions replaces the default series (postgresql-<major> is added)."
+    error_message = "packages.postgresql's major selects the packages, data dir, Patroni scope and stanza; an upstream version accepts any Debian revision, a full version only itself."
   }
 }
 
@@ -321,8 +269,8 @@ run "postgres_major_invalid" {
   command = plan
 
   variables {
-    postgres_settings = { pg_major = 16.5 }
+    packages = { postgresql = "16.5", patroni = "4.1.5", etcd = "3.5.16", pgbackrest = "2.60.0" }
   }
 
-  expect_failures = [var.postgres_settings]
+  expect_failures = [var.packages]
 }

@@ -6,7 +6,6 @@
 variable "dns_bind_exporter" {
   description = "bind_exporter on each DNS VM (Podman Quadlet, host network, listening on <mgmt address>:9119). null = don't install it."
   type = object({
-    image = optional(string, "docker.io/prometheuscommunity/bind-exporter:v0.8.0")
   })
   default = {}
 }
@@ -18,7 +17,7 @@ locals {
   dns_bind_exporter_script = {
     for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/bind-exporter.sh.tftpl", {
       unit_b64 = base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", {
-        image      = var.dns_bind_exporter.image
+        image      = local.container_images.bind_exporter
         stats_port = local.dns_stats_port
         listen     = "${local.scrape_ip[name]}:9119"
       }))

@@ -1,10 +1,21 @@
 # Postgres HA for Grafana: the Patroni cluster on the role = "postgres" VMs (pg01-03). See
 # modules/services/monitoring/postgres.tf, the README (Postgres HA: Patroni) and
 # ~/network_automation/mon-ha/runbook-postgres.md. Deployed only once postgres_s3 (the
-# pgBackRest RGW user's keys, postgres.secret.auto.tfvars) is set. Grafana moves to the VIP
-# with postgres_settings.grafana_on_cluster; mon01's container goes with legacy_on_primary.
+# pgBackRest RGW user's keys, postgres.secret.auto.tfvars) is set. Grafana's database is on the VIP.
+# Package versions (and with postgresql's major the cluster name): software-versions.auto.tfvars.
 
 locals {
+  # software-versions.auto.tfvars packages -> the Debian packages of the Patroni stack (dpkg globs).
+  pg_major = tonumber(split(".", var.packages.postgresql)[0])
+  pg_package_versions = {
+    "postgresql-${local.pg_major}"        = local.package_patterns.postgresql
+    "postgresql-client-${local.pg_major}" = local.package_patterns.postgresql
+    "patroni"                             = local.package_patterns.patroni
+    "etcd-server"                         = local.package_patterns.etcd
+    "etcd-client"                         = local.package_patterns.etcd
+    "pgbackrest"                          = local.package_patterns.pgbackrest
+  }
+
   postgres_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "postgres" }
   postgres_enabled = length(local.postgres_vms) > 0 && nonsensitive(var.postgres_s3 != null)
 
@@ -78,25 +89,6 @@ check "postgres_s3" {
   }
 }
 
-# Cutover guard: plan-time errors for switch combinations the module would silently ignore.
-resource "terraform_data" "postgres_cutover" {
-  input = {
-    grafana_on_cluster = var.postgres_settings.grafana_on_cluster
-    legacy_on_primary  = var.postgres_settings.legacy_on_primary
-  }
-
-  lifecycle {
-    precondition {
-      condition     = !var.postgres_settings.grafana_on_cluster || local.postgres_enabled
-      error_message = "postgres_settings.grafana_on_cluster needs the Patroni cluster (role = \"postgres\" VMs and postgres_s3)."
-    }
-    precondition {
-      condition     = var.postgres_settings.legacy_on_primary || var.postgres_settings.grafana_on_cluster
-      error_message = "postgres_settings.legacy_on_primary = false would remove the Postgres Grafana still uses: set grafana_on_cluster = true first (runbook-postgres.md)."
-    }
-  }
-}
-
 # One per Patroni member. The first deploy must run all members together (default
 # parallelism): etcd and Patroni bootstrap only with a quorum. Later changes: -parallelism=1
 # for a rolling deploy (etcd restarts one at a time; Patroni is only ever reloaded).
@@ -156,7 +148,7 @@ output "postgres_vip" {
 }
 
 output "grafana_db_host" {
-  description = "Where Grafana's database is now: the Patroni VIP after the cutover (postgres_settings.grafana_on_cluster), mon01's Postgres before."
+  description = "Grafana's database: the Patroni VIP."
   value       = module.monitoring.grafana_db_host
 }
 

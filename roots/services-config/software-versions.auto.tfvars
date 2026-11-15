@@ -1,0 +1,1 @@
+../../inventory/auto.tfvars/software-versions.auto.tfvars

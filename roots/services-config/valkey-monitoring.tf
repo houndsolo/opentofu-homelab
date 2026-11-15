@@ -8,8 +8,6 @@
 variable "valkey_monitoring" {
   description = "node_exporter, Valkey/Sentinel exporters and Alloy (journal to Loki, alloy.tf) on the role = \"valkey\" VMs. null = don't install them."
   type = object({
-    node_exporter_image  = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
-    redis_exporter_image = optional(string, "docker.io/oliver006/redis_exporter:v1.97.0")
   })
   default = {}
 }
@@ -21,7 +19,7 @@ locals {
     for name, vm in local.valkey_vms : name => {
       node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
         unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-          image  = var.valkey_monitoring.node_exporter_image
+          image  = local.container_images.node_exporter
           listen = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.node}"
         }))
         listen = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.node}"
@@ -32,7 +30,7 @@ locals {
           name        = "valkey-exporter"
           description = "Prometheus exporter for Valkey"
           after       = "valkey-server.service"
-          image       = var.valkey_monitoring.redis_exporter_image
+          image       = local.container_images.redis_exporter
           addr        = "redis://127.0.0.1:6379"
           listen      = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.valkey}"
           env_file    = "/etc/valkey-exporter.env"
@@ -45,7 +43,7 @@ locals {
           name              = "sentinel-exporter"
           description       = "Prometheus exporter for Valkey Sentinel"
           after             = "valkey-sentinel.service"
-          image             = var.valkey_monitoring.redis_exporter_image
+          image             = local.container_images.redis_exporter
           addr              = "redis://127.0.0.1:26379"
           listen            = "${local.scrape_ip[name]}:${local.valkey_monitoring_ports.sentinel}"
           env_file          = ""

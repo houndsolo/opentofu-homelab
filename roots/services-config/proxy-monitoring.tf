@@ -8,8 +8,6 @@
 variable "proxy_monitoring" {
   description = "node_exporter, nginx-prometheus-exporter and Alloy (journal to Loki, alloy.tf) on the role = \"proxy\" VMs. null = don't install them."
   type = object({
-    node_exporter_image  = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
-    nginx_exporter_image = optional(string, "docker.io/nginx/nginx-prometheus-exporter:1.5.3")
   })
   default = {}
 }
@@ -21,14 +19,14 @@ locals {
     for name, vm in local.proxy_vms : name => {
       node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
         unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-          image  = var.proxy_monitoring.node_exporter_image
+          image  = local.container_images.node_exporter
           listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.node}"
         }))
         listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.node}"
       })
       exporter = templatefile("${path.module}/templates/nginx-exporter.sh.tftpl", {
         unit_b64 = base64encode(templatefile("${path.module}/templates/nginx-exporter.container.tftpl", {
-          image  = var.proxy_monitoring.nginx_exporter_image
+          image  = local.container_images.nginx_exporter
           listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.nginx}"
         }))
         listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.nginx}"

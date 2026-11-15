@@ -4,8 +4,7 @@
 variable "dns_node_exporter" {
   description = "node_exporter on each DNS VM (Podman Quadlet, host network, listening on <mgmt address>:<port>). null = don't install it."
   type = object({
-    image = optional(string, "docker.io/prom/node-exporter:v1.12.1") # keep in step with monitoring-config images.node_exporter
-    port  = optional(number, 9100)
+    port = optional(number, 9100)
   })
   default = {}
 }
@@ -14,7 +13,7 @@ locals {
   dns_node_exporter_script = {
     for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
       unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-        image  = var.dns_node_exporter.image
+        image  = local.container_images.node_exporter
         listen = "${local.scrape_ip[name]}:${var.dns_node_exporter.port}"
       }))
       listen = "${local.scrape_ip[name]}:${var.dns_node_exporter.port}"

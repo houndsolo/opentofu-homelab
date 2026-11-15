@@ -118,7 +118,7 @@ run "mimir" {
     condition = alltrue([for name in ["mim01", "mim02", "mim03"] : (
       strcontains(module.monitoring.mimir_haproxy_configs[name], "S3 for Mimir on ${name}") &&
       strcontains(module.monitoring.mimir_haproxy_configs[name], "server rgw1 10.27.0.12:7480") &&
-      strcontains(module.monitoring.units[name].mimir, "Image=docker.io/grafana/mimir:3.2.4") &&
+      strcontains(module.monitoring.units[name].mimir, "Image=${local.container_images.mimir}") &&
       strcontains(module.monitoring.units[name].mimir, "EnvironmentFile=/etc/metrics/mimir.env") &&
       strcontains(module.monitoring.units[name]["node-exporter"], "--collector.netdev.address-info") &&
       strcontains(module.monitoring.alloy_configs[name], "url = \"http://10.55.18.101:3100/loki/api/v1/push\"") && # the Loki telemetry VIP

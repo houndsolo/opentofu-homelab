@@ -61,6 +61,7 @@ root will silently stop seeing your changes.
 | `l2vnis.auto.tfvars` | `l2vnis` | Standalone L2VNIs for HA peer traffic (no VRF, no gateway, no DHCP), one per HA service `ha_<svc>`: VLAN 10aa / VNI 50aa / `10.50.aa.0/24` (e.g. DHCP 1009/5009, DNS 1053/5053) | fabric-leaves, services-vms, services-config |
 | `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Your own DNS records in `lylat.space` (only what the inventory doesn't generate) | services-config |
 | `vips.auto.tfvars` | `vips` | Every keepalived VIP: DNS name, address, VRID, role | services-config (DNS), monitoring-config (checks) |
+| `software-versions.auto.tfvars` | `containers`, `packages` | Every pinned software version: container images (`{ image, version[, digest] }`; version = tag or `sha256:` digest, digest pins a moving tag) and Debian packages (`name = version`, today the Patroni stack). Bump one version to upgrade it everywhere | services-config, monitoring-config |
 
 
 ### nodes.auto.tfvars: Proxmox hosts
