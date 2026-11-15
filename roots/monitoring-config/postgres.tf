@@ -19,21 +19,14 @@ locals {
   postgres_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "postgres" }
   postgres_enabled = length(local.postgres_vms) > 0 && nonsensitive(var.postgres_s3 != null)
 
-  # Address and interface name on the backend VLAN (VIP) and the Postgres HA VLAN; the
-  # management NIC is eth0 and network_devices[i] is eth<i+1>.
   # Backend-VLAN addresses of the VMs of each app database (see module "monitoring" postgres_apps).
+  postgres_app_roles = { triage = "ticketing", netbox = "netbox" } # app database => role of its client VMs
   postgres_app_clients = {
-    triage = sort(flatten([
-      for name, vm in var.vms : [
+    for app, role in local.postgres_app_roles : app => sort(flatten([
+      for vm in values(var.vms) : [
         for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
         if contains(var.backend_vlan_ids, coalesce(nic.vlan_id, -1)) && nic.ipv4_address != null
-      ] if vm.role == "ticketing"
-    ]))
-    netbox = sort(flatten([
-      for name, vm in var.vms : [
-        for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
-        if contains(var.backend_vlan_ids, coalesce(nic.vlan_id, -1)) && nic.ipv4_address != null
-      ] if vm.role == "netbox"
+      ] if vm.role == role
     ]))
   }
 
@@ -47,6 +40,8 @@ locals {
     ]
   }
 
+  # Address and interface name on the backend VLAN (VIP) and the Postgres HA VLAN; the
+  # management NIC is eth0 and network_devices[i] is eth<i+1>.
   postgres_nic = {
     for name in keys(local.postgres_vms) : name => {
       ha = try(one([

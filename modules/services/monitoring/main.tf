@@ -127,11 +127,6 @@ locals {
         static_configs = [for t in var.targets.grafana : { targets = ["${t.address}:3000"], labels = { host = t.host } }]
       },
     ],
-    # Only the active mgr serves metrics; standbys answer with an empty 200. Every
-    # mgr host is listed so a failover needs no config change. The mgr's own
-    # instance labels (OSD hostnames on ceph_disk_occupation etc.) are kept, and
-    # the rest get instance="ceph_cluster" with no host label, so series don't
-    # change identity when the active mgr moves. up{job="ceph"} keeps per-host labels.
     # Telegraf on VyOS (firewall rule counters, interfaces, services, conntrack...).
     # Its metrics already carry host=<router>, the same as the target label.
     length(var.targets.telegraf) == 0 ? [] : [{
@@ -142,6 +137,11 @@ locals {
       # line); the router logs are read from Loki instead.
       metric_relabel_configs = [{ source_labels = ["__name__"], regex = "syslog_.*", action = "drop" }]
     }],
+    # Only the active mgr serves metrics; standbys answer with an empty 200. Every
+    # mgr host is listed so a failover needs no config change. The mgr's own
+    # instance labels (OSD hostnames on ceph_disk_occupation etc.) are kept, and
+    # the rest get instance="ceph_cluster" with no host label, so series don't
+    # change identity when the active mgr moves. up{job="ceph"} keeps per-host labels.
     length(var.targets.ceph) == 0 ? [] : [{
       job_name        = "ceph"
       honor_labels    = true
