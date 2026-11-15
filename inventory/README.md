@@ -410,7 +410,6 @@ vnis = [
         vni             = 9008               # L2VNI (unique across every L2 and L3 VNI)
         vlan_id         = 8                  # the VLAN tag VMs use on vmbr4000 (unique)
         anycast_gw_ip   = "10.8.0.1"         # gateway IP, the same on every leaf
-        legacy_gw_ips   = ["10.8.0.5"]       # optional: old gateway kept on the same peth while clients move
         anycast_gw_cidr = 16                 # prefix length (a number) -> subnet 10.8.0.0/16
         anycast_mac     = "02:00:00:00:08:01" # gateway MAC, the same on every leaf
         anycast_gw_ipv6 = "fd69:9008::1/64"  # optional IPv6 anycast gateway
@@ -427,10 +426,8 @@ vnis = [
 
 The live inventory follows a few conventions, which you can see in the example:
 
-- Legacy VLANs (2, 8-12): L2VNI = 9000 + VLAN, gateway `.0.1` (`.0.5` until 2026-11-14, DT-092; kept as a
-  `legacy_gw_ips` second address until the last static clients move), gateway MAC
-  `02:00:00:00:<VLAN>:01` (the VLAN written as decimal digits). `legacy_gw_ips` renumbers a gateway without an
-  outage: the leaves answer on both addresses with the same MAC, DHCP hands out only `anycast_gw_ip`.
+- Legacy VLANs (2, 8-12): L2VNI = 9000 + VLAN, gateway `.0.1` (`.0.5` until 2026-11-14, DT-092), gateway MAC
+  `02:00:00:00:<VLAN>:01` (the VLAN written as decimal digits).
 - Zone VRFs (DT-090: lylat-edge/-app/-dns/-obs/-telemetry/-data = 51..56): L3VNI and table `Z00`, L3
   VLAN `Z00 - 4000`, one flat segment L2VNI `Z01` / VLAN `Z01 - 4000` / `10.Z.0.0/16` with gateway
   `10.Z.0.1` and `fd69:Z01::1/64` (`router_advert = true`: RAs without SLAAC, router lifetime 0, route

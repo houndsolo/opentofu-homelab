@@ -56,13 +56,6 @@ locals {
         "set interfaces pseudo-ethernet peth${vni.vni} vrf '${vni.vrf}'",
       ]
     ]),
-    # Old gateway addresses kept during a renumbering (legacy_gw_ips): same peth, same anycast MAC.
-    flatten([
-      for vni in local.l2vnis : [
-        for ip in try(vni.legacy_gw_ips, []) :
-        "set interfaces pseudo-ethernet peth${vni.vni} address '${ip}/${vni.anycast_gw_cidr}'"
-      ]
-    ]),
     # IPv6 anycast gateway: the same address (and the same link-local, from the shared anycast MAC) on every
     # leaf, so duplicate address detection must be off or the leaves flag each other's copy as a duplicate.
     flatten([

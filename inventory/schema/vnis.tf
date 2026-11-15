@@ -29,14 +29,10 @@ variable "vnis" {
       static    = optional(object({}), null)
     }))
     l2 = optional(map(object({
-      vni             = number
-      vlan_id         = number
-      anycast_gw_ip   = string
-      anycast_gw_cidr = number
-      # Extra IPv4 addresses on the same anycast gateway (same prefix length), for renumbering the gateway without
-      # an outage: clients still pointing at an old address keep working until they move. DHCP hands out
-      # anycast_gw_ip only. Empty by default.
-      legacy_gw_ips        = optional(list(string), [])
+      vni                  = number
+      vlan_id              = number
+      anycast_gw_ip        = string
+      anycast_gw_cidr      = number
       anycast_mac          = string
       advertise_default_gw = optional(bool, false)
       advertise_svi_ip     = optional(bool, false)
@@ -88,20 +84,6 @@ variable "vnis" {
       )
     ]))
     error_message = "VNIs must be 1..16777215, tables 1..4294967295, VRF names non-empty, VLANs 1..4094, and every L2 gateway/MAC must be valid IPv4/CIDR and six-octet MAC syntax."
-  }
-
-  validation {
-    condition = alltrue(flatten([
-      for l3 in var.vnis : [
-        for l2 in values(l3.l2) : [
-          for ip in l2.legacy_gw_ips :
-          ip != l2.anycast_gw_ip && !strcontains(ip, ":") &&
-          can(cidrhost("${ip}/${l2.anycast_gw_cidr}", 0)) &&
-          cidrhost("${ip}/${l2.anycast_gw_cidr}", 0) == cidrhost("${l2.anycast_gw_ip}/${l2.anycast_gw_cidr}", 0)
-        ]
-      ]
-    ]))
-    error_message = "legacy_gw_ips must be IPv4 addresses in the same subnet as anycast_gw_ip, and not anycast_gw_ip itself."
   }
 
   validation {
