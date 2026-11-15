@@ -16,7 +16,7 @@ variables {
   ssh_private_key_path = "/dev/null"
   pve_api_token        = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
   greatfox_api_token   = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
-  postgres_settings    = {} # the default; postgres.auto.tfvars (the live cutover) would leak in
+  postgres_settings    = {} # the defaults
   loki_s3              = { bucket = "loki", access_key = "MOCKACCESSKEY", secret_key = "mocksecretkeymocksecretkey" }
   mimir_s3             = { bucket = "mimir", access_key = "MOCKMIMIRKEY", secret_key = "mockmimirsecretmockmimirsecret" }
   postgres_s3          = { bucket = "postgres", access_key = "MOCKPGKEY", secret_key = "mockpgsecretmockpgsecret" }

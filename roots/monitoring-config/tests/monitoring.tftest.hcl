@@ -848,7 +848,7 @@ run "logging_needs_s3_keys" {
 run "logging_ha_nic_required" {
   command = plan
 
-  # The logging VMs without their HA VLAN (214) NIC.
+  # The logging VMs without their HA VLAN (1018) NIC.
   variables {
     vms = merge(
       {
@@ -885,7 +885,7 @@ run "grafana_ha" {
   command = plan
 
   assert {
-    # Alerting gossip on the Grafana HA VLAN (213), published only there.
+    # Alerting gossip on the Grafana HA VLAN (1011), published only there.
     condition = alltrue([for name, i in { graf01 = 32, graf02 = 33 } : (
       strcontains(module.monitoring.units[name].grafana, "GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS=10.50.11.${i}:9094") &&
       strcontains(module.monitoring.units[name].grafana, "PublishPort=10.50.11.${i}:9094:9094/udp") &&
@@ -919,8 +919,8 @@ run "grafana_vrrp_disabled" {
   }
 }
 
-# Backend HA (backends.tf): mon01 (primary, Postgres) + mon02, Alertmanager cluster and
-# keepalived over the ha_monitor VLAN 215, VIPs 10.5.11.102 / 10.54.16.102.
+# Backend HA (backends.tf): mon01 (primary) + mon02, Alertmanager cluster and
+# keepalived over the ha_monitor VLAN 1016, VIPs 10.5.11.102 / 10.54.16.102.
 run "backend_ha" {
   command = plan
 
@@ -949,7 +949,7 @@ run "backend_ha" {
   }
 
   assert {
-    # Postgres only on the primary; mon02 runs everything else.
+    # No Postgres on either backend; mon02 runs everything mon01 does.
     condition = (
       !contains(keys(module.monitoring.units.mon02), "postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon02), "/var/lib/monitoring/postgres") &&
@@ -974,7 +974,7 @@ run "backend_ha" {
   }
 
   assert {
-    # VIPs on eth2 (vmbr100) and eth1 (VLAN 1401 lylat-obs), adverts unicast on eth3 (VLAN 215), router id 102.
+    # VIPs on eth2 (vmbr100) and eth1 (VLAN 1401 lylat-obs), adverts unicast on eth3 (VLAN 1016), router id 102.
     condition = (
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.5.11.102/16 dev eth2") &&
       strcontains(nonsensitive(module.monitoring.backend_keepalived_configs.mon01), "10.54.16.102/16 dev eth1") &&
@@ -1044,7 +1044,7 @@ run "backend_vrrp_disabled" {
 run "backend_ha_nic_required" {
   command = plan
 
-  # Two backends with backend_vrrp on, but mon02 has no ha_monitor (215) NIC.
+  # Two backends with backend_vrrp on, but mon02 has no ha_monitor (1016) NIC.
   variables {
     vms = { for name, i in { mon01 = 30, mon02 = 31 } : name => {
       owner              = "services-vms"

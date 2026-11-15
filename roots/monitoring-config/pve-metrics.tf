@@ -3,8 +3,7 @@
 # Since 2026-11-13 pvestatd writes only to the pvestatd Telegraf on each monitoring backend, which
 # serves the data to Prometheus (below and modules/services/monitoring/pvestatd.tf). The InfluxDB
 # metric servers, their write-only tokens and InfluxDB itself are retired (2026-11-13/14); the
-# history from 2026-11-09 is backfilled into Mimir. influxdb.tf forgets the old buckets without
-# deleting them.
+# history from 2026-11-09 is backfilled into Mimir.
 
 locals {
   # PVE requires an organization and bucket on an "influxdb" metric server; the pvestatd Telegraf

@@ -29,7 +29,7 @@ variable "grafana_ha_vlan_id" {
 }
 
 variable "grafana_vrrp" {
-  description = "Grafana keepalived VIP (CIDR on the UI NIC, the one with the default gateway) and VRRP router id. The PASS password is generated. null = no keepalived/VIP."
+  description = "Grafana keepalived VIP (CIDR on the UI NIC, the one with the default gateway) and VRRP router id. null = no keepalived/VIP."
   type = object({
     vip       = string
     router_id = optional(number, 100)
@@ -40,7 +40,7 @@ variable "grafana_vrrp" {
 }
 
 variable "monitoring_primary" {
-  description = "The role = \"monitoring\" VM that runs Postgres (Grafana's database) and whose Prometheus Grafana falls back to without Mimir. The other one (at most one more) is the replica."
+  description = "The role = \"monitoring\" VM whose Prometheus Grafana falls back to without Mimir and which gets the first VRRP priority. The other one (at most one more) is the replica."
   type        = string
   default     = "mon01"
 }
@@ -52,7 +52,7 @@ variable "monitoring_ha_vlan_id" {
 }
 
 variable "backend_vrrp" {
-  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (wlc-telemetry-vip: the C9800s' telemetry receiver) and the backend VLAN (monitoring-vip: Grafana's Alertmanager datasource, the wlc scrape), VRRP router id. The PASS password is generated. null = no keepalived; datasources stay on the primary."
+  description = "keepalived on the backends: VIPs (CIDR) on the monitoring network (wlc-telemetry-vip: the C9800s' telemetry receiver) and the backend VLAN (monitoring-vip: Grafana's Alertmanager datasource, the wlc scrape), VRRP router id. null = no keepalived; datasources stay on the primary."
   type = object({
     vips = optional(object({
       monitoring = optional(string, "10.5.11.102/16")
@@ -64,7 +64,7 @@ variable "backend_vrrp" {
 }
 
 variable "monitoring_bridge" {
-  description = "Bridge of the monitoring network NIC on the role = \"monitoring\" VM (UIs, PVE metric pushes, node_exporter)."
+  description = "Bridge of the monitoring network NIC on the role = \"monitoring\" VM (UIs, PVE metric pushes, WLC telemetry)."
   type        = string
   default     = "vmbr100"
 }

@@ -53,12 +53,12 @@ output "wlc_telemetry_receiver" {
 }
 
 output "loki_url" {
-  description = "Loki on the backend VIP (Grafana's Loki datasource; Alloy on mon01/graf pushes here)."
+  description = "Loki on the backend VIP (Grafana's Loki datasource). Alloy on the VMs pushes to the telemetry VIP (logging_vips.telemetry)."
   value       = module.monitoring.loki_url
 }
 
 output "logging_vips" {
-  description = "Logging VIPs per network (VRRP, all held by the same logging VM). Syslog senders use monitoring/mgmt (UDP 514 RFC 3164, TCP 514 RFC 5424)."
+  description = "Logging VIPs per network (VRRP, all held by the same logging VM). Syslog senders use monitoring (UDP 514 RFC 3164, TCP 514 RFC 5424)."
   value       = var.logging_settings.vips
 }
 

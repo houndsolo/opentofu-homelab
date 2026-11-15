@@ -27,7 +27,7 @@
 # source as host, and keeps its numeric fields; the string fields (names, SSIDs, states, IPs) become
 # labels of a wlc_<short>_info series (value 1), except per-push timestamps; the client's
 # current_rate becomes current_rate_mcs/_ss (or _mbps). The clones are served on
-# :${local.wlc_prom_port} (prometheus_client); the YANG originals (named after their encoding paths)
+# :9275 (wlc_prom_port, prometheus_client); the YANG originals (named after their encoding paths)
 # match no output any more and are dropped. The clone is kept so the wlc_* series stay exactly what
 # the Mimir backfill replayed through this pipeline. Only the VIP holder receives, so both Prometheus
 # replicas scrape the backend VIP (job "wlc"); the port is published on all local addresses, so a

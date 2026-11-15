@@ -192,7 +192,7 @@ resource "random_password" "grafana_secret_key" {
 module "monitoring" {
   source = "../../modules/services/monitoring"
 
-  # Every role = "monitoring" VM; Postgres on monitoring_primary.
+  # Every role = "monitoring" VM.
   backends = {
     for name, n in local.monitoring_nic : name => {
       monitoring_address = coalesce(local.monitoring_address[name], "0.0.0.0")

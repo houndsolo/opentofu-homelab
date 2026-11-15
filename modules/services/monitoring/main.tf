@@ -5,8 +5,8 @@ locals {
   grafana_data = "/var/lib/grafana-container"
   quadlet_dir  = "/etc/containers/systemd"
 
-  # Backends (backends.tf has the HA pieces). mon/back are the primary's addresses:
-  # Postgres, and anything that has to name one backend.
+  # Backends (backends.tf has the HA pieces). mon/back are the primary's addresses, for
+  # anything that has to name one backend (Grafana's datasources without a VIP or Mimir).
   backend_names = sort(keys(var.backends))
   primary       = var.primary_backend
   mon           = try(var.backends[local.primary].monitoring_address, "0.0.0.0")

@@ -61,7 +61,7 @@ output "backend_vips" {
 }
 
 output "backend_keepalived_configs" {
-  description = "Rendered keepalived.conf per backend (null when backend_vrrp is off). Contains the VRRP password."
+  description = "Rendered keepalived.conf per backend (null when backend_vrrp is off)."
   value       = local.backend_keepalived_conf
   sensitive   = true
 }
@@ -107,7 +107,7 @@ output "dashboards" {
 }
 
 output "logging_deployments" {
-  description = "Logging VM name => deploy.sh. Contains secrets (S3 keys, VRRP password)."
+  description = "Logging VM name => deploy.sh. Contains secrets (the S3 keys)."
   value       = local.logging_deployments
   sensitive   = true
 }
@@ -128,12 +128,12 @@ output "haproxy_configs" {
 }
 
 output "loki_url" {
-  description = "Loki on the backend VIP (Grafana datasource, Alloy pushes)."
+  description = "Loki on the backend VIP (Grafana's datasource). Alloy on the VMs pushes to the telemetry VIP when there is one."
   value       = local.loki_url
 }
 
 output "logging_keepalived_configs" {
-  description = "Rendered keepalived.conf per logging VM. Contains the VRRP password."
+  description = "Rendered keepalived.conf per logging VM."
   value       = local.keepalived_conf
   sensitive   = true
 }
@@ -144,13 +144,13 @@ output "logging_guard_config" {
 }
 
 output "grafana_keepalived_configs" {
-  description = "Rendered keepalived.conf per Grafana VM (null when grafana_vrrp is off). Contains the VRRP password."
+  description = "Rendered keepalived.conf per Grafana VM (null when grafana_vrrp is off)."
   value       = local.grafana_keepalived_conf
   sensitive   = true
 }
 
 output "metrics_deployments" {
-  description = "Mimir VM name => deploy.sh (empty when Mimir is off). Contains secrets (S3 keys, VRRP password)."
+  description = "Mimir VM name => deploy.sh (empty when Mimir is off). Contains secrets (the S3 keys)."
   value       = local.metrics_deployments
   sensitive   = true
 }
@@ -166,7 +166,7 @@ output "mimir_haproxy_configs" {
 }
 
 output "mimir_keepalived_configs" {
-  description = "Mimir VM name => rendered keepalived.conf (empty when Mimir is off). Contains the VRRP password."
+  description = "Mimir VM name => rendered keepalived.conf (empty when Mimir is off)."
   value       = local.mimir_enabled ? local.metrics_keepalived_conf : {}
   sensitive   = true
 }
@@ -198,7 +198,7 @@ output "postgres_guard" {
 }
 
 output "postgres_keepalived_configs" {
-  description = "Patroni member name => rendered keepalived.conf (contains the VRRP password)."
+  description = "Patroni member name => rendered keepalived.conf."
   value       = local.postgres_enabled ? local.pg_keepalived_conf : {}
   sensitive   = true
 }
@@ -214,6 +214,6 @@ output "postgres_vip" {
 }
 
 output "grafana_db_host" {
-  description = "Where Grafana's database is: the Patroni VIP after the cutover, the primary backend's Postgres before."
+  description = "Where Grafana's database is: the Patroni VIP (host:port)."
   value       = local.grafana_db_host
 }

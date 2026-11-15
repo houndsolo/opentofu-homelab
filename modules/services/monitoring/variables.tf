@@ -1,8 +1,8 @@
 variable "backends" {
-  description = "Monitoring backend VMs (Prometheus, Alertmanager, exporters, Telegraf), keyed by VM name. Each runs the same scrape config (a Prometheus HA pair, deduplicated by Mimir's HA tracker) and the Alertmanagers form one cluster. primary_backend also runs Postgres (Grafana's database). ha_address/interfaces: the HA VLAN (keepalived adverts, Alertmanager gossip) and NIC names for backend_vrrp."
+  description = "Monitoring backend VMs (Prometheus, Alertmanager, exporters, Telegraf), keyed by VM name. Each runs the same scrape config (a Prometheus HA pair, deduplicated by Mimir's HA tracker) and the Alertmanagers form one cluster. ha_address/interfaces: the HA VLAN (keepalived adverts, Alertmanager gossip) and NIC names for backend_vrrp."
   type = map(object({
-    monitoring_address = string           # Monitoring network (10.5/16): UIs, PVE metric pushes, node_exporter, WLC telemetry.
-    backend_address    = string           # Zone NIC (lylat-app/-obs/-data, DT-090): Grafana -> datasources and Postgres.
+    monitoring_address = string           # Monitoring network (10.5/16): UIs, PVE metric pushes, WLC telemetry (node_exporter too without a telemetry NIC).
+    backend_address    = string           # Zone NIC (lylat-app/-obs/-data, DT-090): Grafana -> datasources.
     telemetry_address  = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
     ha_address         = optional(string) # HA VLAN (ha_monitor): null on any VM keeps gossip on the backend VLAN and keepalived off
     interfaces = optional(object({
@@ -18,7 +18,7 @@ variable "backends" {
 }
 
 variable "primary_backend" {
-  description = "The backend VM that runs Postgres (Grafana's shared database, a single instance) and whose Prometheus Grafana falls back to without Mimir."
+  description = "The backend VM whose Prometheus Grafana falls back to without Mimir, whose address Grafana's Alertmanager datasource uses without backend_vrrp, and which gets the first VRRP priority."
   type        = string
   validation {
     condition     = length(var.primary_backend) > 0
@@ -102,9 +102,9 @@ variable "targets" {
     telegraf = optional(list(object({ host = string, address = string })), [])                       # Telegraf prometheus-client output on VyOS routers, :9273
     valkey   = optional(list(object({ host = string, address = string })), [])                       # Valkey (:9121) and Sentinel (:9355) redis_exporters
     netbox   = optional(list(object({ host = string, address = string })), [])                       # NetBox /metrics on each node's service address, :80
-    nginx    = optional(list(object({ host = string, address = string })), [])                       # nginx-prometheus-exporter on the proxy VMs' mgmt address, :9113
-    bind     = optional(list(object({ host = string, address = string })), [])                       # bind_exporter on the DNS VMs' mgmt address, :9119
-    alloy    = optional(list(object({ host = string, address = string })), [])                       # Alloy on VMs deployed elsewhere (services-config alloy.tf), mgmt address :12345
+    nginx    = optional(list(object({ host = string, address = string })), [])                       # nginx-prometheus-exporter on the proxy VMs' telemetry address, :9113
+    bind     = optional(list(object({ host = string, address = string })), [])                       # bind_exporter on the DNS VMs' telemetry address, :9119
+    alloy    = optional(list(object({ host = string, address = string })), [])                       # Alloy on VMs deployed elsewhere (services-config alloy.tf), telemetry address :12345
     snmp = map(object({                                                                              # job suffix => host => IP
       modules         = list(string)
       auth            = string
@@ -117,7 +117,7 @@ variable "targets" {
 }
 
 variable "secrets" {
-  description = "Generated credentials. Postgres reads its password only when its data directory is first initialised."
+  description = "Generated credentials for Grafana: its database role's password (set on the Patroni leader at every deploy), the admin password and the secret key."
   sensitive   = true
   type = object({
     grafana_db_password    = string
@@ -173,7 +173,7 @@ variable "logging" {
     backend_address    = string           # backend VLAN: Loki HTTP API (Grafana, Alloy pushes), scrapes
     telemetry_address  = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address
     ha_address         = string           # HA VLAN: Loki ring (memberlist, ingester gRPC) and VRRP adverts
-    monitoring_address = string           # monitoring network: syslog from devices and PVE nodes
+    monitoring_address = string           # monitoring network: syslog from devices, Loki pushes from the PVE nodes' Alloy
     interfaces = object({                 # the VM's interface name on each of those networks (VRRP)
       ha         = string
       backend    = string
@@ -189,7 +189,7 @@ variable "logging_settings" {
   type = object({
     vips = optional(object({
       backend    = optional(string, "10.54.18.101/16") # Grafana datasource, Alloy pushes from the other VMs
-      monitoring = optional(string, "10.5.11.101/16")  # syslog from devices and PVE nodes
+      monitoring = optional(string, "10.5.11.101/16")  # syslog from devices, Loki pushes from the PVE nodes' Alloy
       telemetry  = optional(string)                    # Alloy pushes from every VM (lylat-telemetry); null = none
       # No VIP on the management network: the VyOS leaves, DHCP and DNS VMs send syslog to
       # every logging VM's own mgmt address (Loki drops the identical copies).
@@ -280,7 +280,7 @@ variable "metrics_settings" {
     ha_cluster_label           = optional(string, "ha_cluster")
     ha_replica_label           = optional(string, "__replica__")
     drop_labels                = optional(list(string), ["ha_cluster", "site"]) # after HA dedup: the Prometheus external labels
-    max_series                 = optional(number, 300000)                       # ~118k active today (default 150k)
+    max_series                 = optional(number, 300000)                       # Mimir's default is 150k; the root sets the live value
     ingestion_rate             = optional(number, 300000)                       # samples/s, per tenant, split over the healthy distributors (see below)
     ingestion_burst_size       = optional(number, 2000000)                      # per distributor (not split)
     max_label_names_per_series = optional(number, 40)                           # 21 at most today (default 30)
@@ -307,7 +307,7 @@ variable "metrics_secrets" {
 }
 
 variable "postgres" {
-  description = "Patroni members (role = \"postgres\": PostgreSQL (postgres_settings.pg_major, PGDG), Patroni, etcd, pgBackRest, keepalived, haproxy to the RGWs, exporters, Alloy), keyed by VM name. Name order sets the VRRP priority (first election only). Empty, or postgres_secrets = null, leaves the cluster out (Grafana stays on the primary backend's Postgres)."
+  description = "Patroni members (role = \"postgres\": PostgreSQL (postgres_settings.pg_major, PGDG), Patroni, etcd, pgBackRest, keepalived, haproxy to the RGWs, exporters, Alloy), keyed by VM name. Name order sets the VRRP priority (first election only). Empty, or postgres_secrets = null, leaves the cluster out (the root then refuses to deploy Grafana: its database is on this cluster)."
   type = map(object({
     backend_address   = string           # backend VLAN: Grafana -> the VIP, scrapes; holds the VIP
     telemetry_address = optional(string) # lylat-telemetry (VLAN 1501): node_exporter, Alloy and other exporters listen here; null = the old address

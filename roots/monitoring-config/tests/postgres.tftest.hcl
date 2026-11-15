@@ -35,7 +35,7 @@ run "postgres_cluster" {
   }
 
   assert {
-    # Replication, REST and etcd on the Postgres HA VLAN (217); everything listens everywhere for the VIP.
+    # Replication, REST and etcd on the Postgres HA VLAN (1014); everything listens everywhere for the VIP.
     condition = alltrue([for name, i in { pg01 = 40, pg02 = 41, pg03 = 42 } : (
       yamldecode(module.monitoring.patroni_configs[name]).scope == "lylat-pg18" &&
       yamldecode(module.monitoring.patroni_configs[name]).postgresql.data_dir == "/var/lib/postgresql/patroni/18" &&
@@ -95,7 +95,7 @@ run "postgres_cluster" {
   }
 
   assert {
-    # VIP on eth1 (VLAN 1601, lylat-data), adverts unicast on eth3 (VLAN 217), router id 104, check = Patroni /primary.
+    # VIP on eth1 (VLAN 1601, lylat-data), adverts unicast on eth3 (VLAN 1014), router id 104, check = Patroni /primary.
     condition = alltrue([for name, i in { pg01 = 40, pg02 = 41, pg03 = 42 } : (
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "10.56.14.104/16 dev eth1") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "interface eth3") &&
@@ -105,7 +105,7 @@ run "postgres_cluster" {
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "fd69:5014::104/64 dev eth3") &&
       strcontains(nonsensitive(module.monitoring.postgres_keepalived_configs[name]), "vrrp_version 3")
     )])
-    error_message = "keepalived holds 10.56.14.104 on the Patroni leader only (router id 104, adverts over VLAN 217)."
+    error_message = "keepalived holds 10.56.14.104 on the Patroni leader only (router id 104, adverts over VLAN 1014)."
   }
 
   assert {

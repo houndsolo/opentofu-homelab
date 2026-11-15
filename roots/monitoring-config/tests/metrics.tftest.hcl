@@ -16,7 +16,7 @@ variables {
   ssh_private_key_path = "/dev/null"
   pve_api_token        = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
   greatfox_api_token   = "mock@pve!mock=00000000-0000-0000-0000-000000000000"
-  postgres_settings    = {} # the default; postgres.auto.tfvars (the live cutover) would leak in
+  postgres_settings    = {} # the defaults
   loki_s3              = { bucket = "loki", access_key = "MOCKACCESSKEY", secret_key = "mocksecretkeymocksecretkey" }
   mimir_s3             = { bucket = "mimir", access_key = "MOCKMIMIRKEY", secret_key = "mockmimirsecretmockmimirsecret" }
   postgres_s3          = { bucket = "postgres", access_key = "MOCKPGKEY", secret_key = "mockpgsecretmockpgsecret" } # postgres.tftest.hcl
@@ -35,7 +35,7 @@ run "mimir" {
   }
 
   assert {
-    # Classic architecture, ring and gossip on the Mimir HA VLAN (216), S3 through the local haproxy.
+    # Classic architecture, ring and gossip on the Mimir HA VLAN (1017), S3 through the local haproxy.
     condition = alltrue([for name, i in { mim01 = 37, mim02 = 38, mim03 = 39 } : (
       yamldecode(module.monitoring.mimir_configs[name]).target == "all" &&
       yamldecode(module.monitoring.mimir_configs[name]).multitenancy_enabled == false &&
@@ -67,7 +67,7 @@ run "mimir" {
       yamldecode(module.monitoring.mimir_configs.mim01).limits.compactor_blocks_retention_period == "396d" &&
       !yamldecode(module.monitoring.mimir_configs.mim01).limits.compactor_block_upload_enabled
     )
-    error_message = "Mimir: HA tracker (memberlist, ha_cluster/__replica__), drop_labels, 300k series, 396d retention, block upload off."
+    error_message = "Mimir: HA tracker (memberlist, ha_cluster/__replica__), drop_labels, 600k series, 396d retention, block upload off."
   }
 
   assert {
@@ -166,7 +166,7 @@ run "mimir_without_s3_keys" {
 run "mimir_ha_nic_required" {
   command = plan
 
-  # The metrics VMs without their HA VLAN (216) NIC.
+  # The metrics VMs without their HA VLAN (1017) NIC.
   variables {
     vms = merge(
       {

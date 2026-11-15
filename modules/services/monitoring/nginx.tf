@@ -1,5 +1,5 @@
 # nginx reverse proxy (proxy01/02 behind proxy-vip; deployed by services-config proxy.tf).
-# nginx-prometheus-exporter runs on each VM (services-config proxy-monitoring.tf) on the management
+# nginx-prometheus-exporter runs on each VM (services-config proxy-monitoring.tf) on the telemetry
 # address, :9113, reading nginx's stub_status. node_exporter is in the node job.
 locals {
   nginx_scrape_configs = length(var.targets.nginx) == 0 ? [] : [{

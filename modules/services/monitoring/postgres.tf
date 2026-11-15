@@ -45,8 +45,7 @@ locals {
   pg_scope   = "${local.pgs.cluster_name}${local.pg_major}" # Patroni scope, pgBackRest stanza and repo path
   etcd_scope = local.pgs.cluster_name                       # etcd data dir and cluster token: unchanged across majors
 
-  # Grafana (main.tf): the VIP once cut over, mon01's Postgres until then. mon01's container
-  # is never dropped while Grafana still uses it.
+  # Grafana (main.tf): always this cluster's VIP.
   grafana_db_host = "${local.pg_vip}:5432"
   grafana_db_env  = { GF_DATABASE_SSL_MODE = "require" }
 

@@ -6,7 +6,6 @@
 #     VLAN (Grafana's Alertmanager datasource, Prometheus's wlc scrape). The containers publish on
 #     the VIPs too, which needs net.ipv4.ip_nonlocal_bind (the VIP is only on one backend at a time);
 #   - the alert rules for all of that.
-# Postgres (Grafana's database) stays on the primary only: a known single point of failure.
 locals {
   # Name order with the primary first: VRRP priority (first election only, nopreempt).
   backend_order_ha = concat([local.primary], [for name in local.backend_names : name if name != local.primary])
