@@ -1,0 +1,22 @@
+# Managed by OpenTofu (services-config, radius.tf). Local edits are overwritten.
+# FreeRADIUS (official image) on the host network, so it sees the RADIUS clients' real source addresses.
+# The image's default config (clients.conf: localhost only) plus the sql module from tofu.
+[Unit]
+Description=FreeRADIUS
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=radius
+Network=host
+# The image's entrypoint runs "freeradius -f <args>"; log to the journal instead of radius.log.
+Exec=-l stdout
+EnvironmentFile=/etc/radius/radius.env
+Volume=/etc/radius/sql:/etc/freeradius/mods-enabled/sql:ro
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

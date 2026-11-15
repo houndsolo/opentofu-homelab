@@ -20,7 +20,7 @@ locals {
   postgres_enabled = length(local.postgres_vms) > 0 && nonsensitive(var.postgres_s3 != null)
 
   # Backend-VLAN addresses of the VMs of each app database (see module "monitoring" postgres_apps).
-  postgres_app_roles = { triage = "ticketing", netbox = "netbox", nextcloud = "nextcloud" } # app database => role of its client VMs
+  postgres_app_roles = { triage = "ticketing", netbox = "netbox", nextcloud = "nextcloud", radius = "radius" } # app database => role of its client VMs
   postgres_app_clients = {
     for app, role in local.postgres_app_roles : app => sort(flatten([
       for vm in values(var.vms) : [

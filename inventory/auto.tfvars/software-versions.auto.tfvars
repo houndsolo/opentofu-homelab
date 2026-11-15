@@ -39,6 +39,7 @@ containers = {
   bind_exporter  = { image = "docker.io/prometheuscommunity/bind-exporter", version = "v0.8.0" }
   nginx          = { image = "docker.io/library/nginx", version = "1.30.6" } # nginx stable
   nginx_exporter = { image = "docker.io/nginx/nginx-prometheus-exporter", version = "1.5.3" }
+  freeradius     = { image = "docker.io/freeradius/freeradius-server", version = "3.2.10", digest = "sha256:337856ea35b77472f15dad159064ce46219a54b499bef5f6a7cba38aefd39fe9" } # Ubuntu-based; 3.2 = the stable line
   netbox         = { image = "docker.io/netboxcommunity/netbox", version = "v4.7.5-5.1.2" }
   nextcloud      = { image = "docker.io/library/nextcloud", version = "35.0.3-fpm" } # php-fpm variant (Debian trixie, PHP 8.5); one major at a time
   redis_exporter = { image = "docker.io/oliver006/redis_exporter", version = "v1.97.0" }

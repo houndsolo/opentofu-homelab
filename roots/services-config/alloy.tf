@@ -28,7 +28,7 @@ check "alloy_telemetry_nic" {
 }
 
 locals {
-  alloy_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
+  alloy_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
 
   # VM name => the install script (templates/alloy.sh.tftpl); empty when var.alloy is null.
   alloy_scripts = var.alloy == null ? {} : {

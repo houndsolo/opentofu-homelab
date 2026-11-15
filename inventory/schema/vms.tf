@@ -3,7 +3,7 @@ variable "vms" {
   type = map(object({
     image              = optional(string)
     owner              = string           # fabric-vms, services-vms or workloads.
-    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey, proxy or nextcloud.
+    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey, proxy, nextcloud or radius.
     node               = optional(string)
     vm_id              = optional(number)
     management_address = optional(string) # IPv4 CIDR, required (validation below); no DHCP for now
@@ -91,9 +91,9 @@ variable "vms" {
     condition = alltrue([
       for vm in values(var.vms) :
       contains(["fabric-vms", "services-vms", "workloads"], vm.owner) &&
-      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp", "monitoring", "grafana", "logging", "metrics", "postgres", "ticketing", "netbox", "valkey", "proxy", "nextcloud"], vm.role)))
+      (vm.role == null || (vm.owner == "services-vms" && contains(["dns", "dhcp", "monitoring", "grafana", "logging", "metrics", "postgres", "ticketing", "netbox", "valkey", "proxy", "nextcloud", "radius"], vm.role)))
     ])
-    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey, proxy or nextcloud) applies only to services-vms."
+    error_message = "owner must be fabric-vms, services-vms or workloads; role (dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey, proxy, nextcloud or radius) applies only to services-vms."
   }
 
   validation {

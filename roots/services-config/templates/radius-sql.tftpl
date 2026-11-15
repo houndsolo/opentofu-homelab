@@ -1,0 +1,50 @@
+# Managed by OpenTofu (services-config, radius.tf). Local edits are overwritten.
+# rlm_sql against Patroni (postgres-vip), database "${db_name}". The password comes from the
+# container's environment (radius.env, 0600 on the host), not from this file.
+# The default and inner-tunnel sites call it through their optional "-sql" lines (authorize, accounting,
+# session, post-auth), so enabling this module is all it takes.
+sql {
+	dialect = "postgresql"
+	driver = "rlm_sql_postgresql"
+
+	postgresql {
+		send_application_name = yes
+	}
+
+	# libpq connection string: TLS without certificate checks (like the other apps on Patroni).
+	# sslcertmode=disable: no client certificate. Without it libpq looks for ~/.postgresql/postgresql.crt, and
+	# freeradius (user freerad, HOME=/root in the image) gets "Permission denied", which fails the connection.
+	radius_db = "host=${db_host} port=${db_port} dbname=${db_name} user=${db_user} password=$ENV{RADIUS_DB_PASSWORD} sslmode=require sslcertmode=disable connect_timeout=3"
+
+	acct_table1 = "radacct"
+	acct_table2 = "radacct"
+	postauth_table = "radpostauth"
+	authcheck_table = "radcheck"
+	groupcheck_table = "radgroupcheck"
+	authreply_table = "radreply"
+	groupreply_table = "radgroupreply"
+	usergroup_table = "radusergroup"
+	delete_stale_sessions = yes
+
+	# Small pool: two servers share Patroni with the other apps (max_connections 200).
+	# start/min 0: the server starts (and the config check passes) even while Postgres is unreachable;
+	# connections open on demand. retry_delay 5: after a Patroni failover (the VIP moves) retry quickly.
+	pool {
+		start = 0
+		min = 0
+		max = ${pool_max}
+		spare = 2
+		uses = 0
+		retry_delay = 5
+		lifetime = 0
+		idle_timeout = 60
+		max_retries = 5
+	}
+
+	# Clients come from clients.conf (tofu), not from the nas table.
+	read_clients = no
+	client_table = "nas"
+	group_attribute = "SQL-Group"
+
+	$INCLUDE $${modconfdir}/$${.:name}/main/$${dialect}/queries.conf
+}

@@ -482,6 +482,74 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  rad01 = {
+    # FreeRADIUS 3.2 server, pair rad01/rad02 (no VIP: every RADIUS client lists both servers and fails over
+    # itself). Podman Quadlet deployed by services-config (radius.tf); users/accounting in Postgres (Patroni,
+    # database "radius").
+    owner              = "services-vms"
+    role               = "radius"
+    ha                 = { group = "radius" } # Proxmox HA; never on a node with the other radius VM
+    node               = "fichina"
+    vm_id              = 1155
+    image              = "debian13"
+    management_address = "10.20.11.55/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.20.55/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::20:55/64"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.20.55/16"
+        ipv6_address = "fd69:5501::20:55/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "radius"]
+      cpu_cores    = 2
+      memory_mb    = 2048
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  rad02 = {
+    # FreeRADIUS 3.2 server, pair rad01/rad02 (no VIP: every RADIUS client lists both servers). See rad01.
+    owner              = "services-vms"
+    role               = "radius"
+    ha                 = { group = "radius" } # Proxmox HA; never on a node with the other radius VM
+    node               = "fortuna"
+    vm_id              = 1156
+    image              = "debian13"
+    management_address = "10.20.11.56/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.20.56/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::20:56/64"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.20.56/16"
+        ipv6_address = "fd69:5501::20:56/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "radius"]
+      cpu_cores    = 2
+      memory_mb    = 2048
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   valkey01 = {
     # Valkey + Sentinel for NetBox (cache and task queue), trio valkey01-03: valkey01 starts as the
     # primary, the others replicate; the three Sentinels (quorum 2) promote a replica if the primary
