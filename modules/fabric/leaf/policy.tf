@@ -21,10 +21,10 @@ locals {
     #l2vni PLs
     [
       # IPv6 subnets of the L2VNIs that have an IPv6 anycast gateway.
-      for vni in local.l2vnis : [
+      for vni in local.ipv6_l2vnis : [
         "set policy prefix-list6 PL6-${upper(vni.vrf)}-L2VNI-SUBNETS rule ${vni.vlan_id * 10} action 'permit'",
         "set policy prefix-list6 PL6-${upper(vni.vrf)}-L2VNI-SUBNETS rule ${vni.vlan_id * 10} prefix '${cidrsubnet(vni.anycast_gw_ipv6, 0, 0)}'",
-      ] if try(vni.anycast_gw_ipv6, null) != null
+      ]
     ],
     [
       for vni in local.l2vnis : [
@@ -39,8 +39,8 @@ locals {
       # lylat_service re-originated 0.0.0.0/0 with RT 6200/6600 after their VLANs moved out).
       for vrf in local.role_vrfs : [
         "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-EVPN rule 10 action 'permit'",
-        "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-LOCAL-VPN rule 10 action '${length(vrf.l2) > 0 || try(vrf.ext_l3, false) == true ? "permit" : "deny"}'",
-        "set policy route-map RM-${upper(vrf.vrf)}-CONNECTED-TO-BGP rule 10 action '${length(vrf.l2) > 0 || try(vrf.ext_l3, false) == true ? "permit" : "deny"}'",
+        "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-LOCAL-VPN rule 10 action '${length(vrf.l2) > 0 || vrf.ext_l3 ? "permit" : "deny"}'",
+        "set policy route-map RM-${upper(vrf.vrf)}-CONNECTED-TO-BGP rule 10 action '${length(vrf.l2) > 0 || vrf.ext_l3 ? "permit" : "deny"}'",
         "set policy route-map RM-${upper(vrf.vrf)}-CONNECTED-TO-BGP rule 100 action 'deny'",
       ]
     ],
@@ -53,7 +53,7 @@ locals {
         "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-EVPN rule 5 match ip address prefix-list 'PL-DEFAULT-ROUTE'",
         "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-EVPN rule 6 action 'deny'",
         "set policy route-map RM-${upper(vrf.vrf)}-BGP-TO-EVPN rule 6 match ipv6 address prefix-list 'PL6-DEFAULT-ROUTE'",
-      ] if try(vrf.ext_l3, false) != true
+      ] if !vrf.ext_l3
     ],
     [
       # IPv6 (step 8): rule 20 lets the VRF's IPv6 L2VNI subnets through the same route-maps (rule 10 matches
@@ -66,7 +66,7 @@ locals {
         "set policy route-map RM-EVPN-SPINE-EXPORT rule ${vrf.vni + 50} action 'deny'",
         "set policy route-map RM-EVPN-SPINE-EXPORT rule ${vrf.vni + 50} match evpn route-type 'prefix'",
         "set policy route-map RM-EVPN-SPINE-EXPORT rule ${vrf.vni + 50} match ipv6 address prefix-list 'PL6-${upper(vrf.vrf)}-L2VNI-SUBNETS'",
-      ] if length([for l2 in values(try(vrf.l2, {})) : l2 if try(l2.anycast_gw_ipv6, null) != null]) > 0
+      ] if contains(local.ipv6_vrfs, vrf.vrf)
     ],
     [
       for vrf in local.role_vrfs : [

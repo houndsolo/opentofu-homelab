@@ -105,8 +105,8 @@ effective settings. It's tested on its own (`defaults/tests/`).
 
 Turns one leaf's inventory into its full VyOS configuration.
 
-- **Inputs:** `name`, `leaf` (`role`, `id`, `access_interface`, `proxmox_node`),
-  `fabric`, `vnis`, `fabric_macs`.
+- **Inputs:** `name`, `leaf` (`role`, `id`, `access_interface`, `standalone`),
+  `fabric`, `vnis`, `l2vnis`, `fabric_macs`, `router_advert_routes`.
 - **Creates:** one `vyoscmd_commands` resource called `<name>-system`, sent to
   `https://<management IP>`, with `save = false`.
 

@@ -41,7 +41,7 @@ locals {
         "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast import vpn",
         "set vrf name ${vrf.vrf} protocols bgp address-family ipv6-unicast route-target vpn import '${vrf.ipv4_rt_imports}'",
       ] : [],
-    ] if length([for l2 in values(try(vrf.l2, {})) : l2 if try(l2.anycast_gw_ipv6, null) != null]) > 0
+    ] if contains(local.ipv6_vrfs, vrf.vrf)
   ])
   vrf_base_commands = flatten([
     for vrf in local.role_vrfs : [

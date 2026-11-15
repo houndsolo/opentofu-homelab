@@ -4,7 +4,6 @@ variable "name" {
 variable "leaf" {
   type = object({
     role             = string
-    proxmox_node     = optional(string, null)
     standalone       = optional(bool, false) # the standalone Proxmox host's leaf (greatfox)
     id               = number
     access_interface = string

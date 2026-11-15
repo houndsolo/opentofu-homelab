@@ -12,16 +12,8 @@ locals {
   # Flatten all L2VNIs from the permitted VRFs.
   #
   role_l2vnis_list = flatten([
-    for vrf_name, vrf in local.role_vrfs : [
-      for vlan_key, l2vni in try(vrf.l2, {}) : merge(
-        l2vni,
-        {
-          vrf       = vrf.vrf
-          vrf_table = vrf.vrf_table
-          l3vni     = vrf.vni
-          roles     = vrf.roles
-        }
-      )
+    for vrf in local.role_vrfs : [
+      for l2vni in vrf.l2 : merge(l2vni, { vrf = vrf.vrf })
     ]
   ])
 
@@ -32,6 +24,11 @@ locals {
     for l2vni in local.role_l2vnis_list :
     l2vni.vni => l2vni
   }
+
+  # The L2VNIs with an IPv6 anycast gateway, and the VRFs that have at least one.
+  ipv6_l2vnis = { for key, l2vni in local.l2vnis : key => l2vni if l2vni.anycast_gw_ipv6 != null }
+  ipv6_vrfs   = toset([for l2vni in local.ipv6_l2vnis : l2vni.vrf])
+
   #
   # Standalone L2VNIs (no VRF/SVI/gateway) for this node's role, keyed by VNI. The standalone
   # Proxmox host's leaf only gets the ones marked on_standalone (none of the HA segments).
