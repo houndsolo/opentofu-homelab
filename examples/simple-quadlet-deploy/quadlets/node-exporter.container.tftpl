@@ -1,0 +1,19 @@
+[Unit]
+Description=Prometheus node exporter
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=node-exporter
+# Host network and PID namespace, host / mounted read-only: it reports on the VM, not on the container.
+Network=host
+PodmanArgs=--pid=host
+Volume=/:/host:ro,rslave
+Exec=--path.rootfs=/host
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

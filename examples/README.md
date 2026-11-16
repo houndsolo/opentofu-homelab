@@ -40,3 +40,6 @@ Assumptions:
   ([services-config](../roots/services-config/README.md#when-your-names-match-generated-ones)).
 - Some values differ from the lab on purpose: RTs in AS 65000 (lab: 700), HA segment VLAN 211 /
   VNI 9211 / `10.21.67.0/24` (lab: 1009 / 5009 / `10.50.9.0/24`).
+
+A separate, standalone example: [`simple-quadlet-deploy/`](simple-quadlet-deploy/README.md), a minimal version of
+the Quadlet deploy that monitoring-config and services-config use (proposal for review).
