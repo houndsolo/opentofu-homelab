@@ -13,12 +13,12 @@ Run from the top of the repo, in the dev shell (direnv or `nix-shell`).
 | `with-secrets` | Run a command with one central secrets file loaded as `TF_VAR_*` |
 | `routeros-spine-imports.py` | Import existing spine objects into state |
 | `tofu_import_stuff.sh` | Import existing Proxmox host networking into state |
-| `tests/` | Unit tests for `walk-roots.sh`, `with-secrets` and the VM schema files |
+| `tests/` | Unit tests for `walk-roots.sh`, `with-secrets`, the VM schema files and `ansible/inventory/tfvars.py` |
 
 ## The development shell
 
 `shell.nix` (loaded by direnv via `.envrc`, cached by nix-direnv in `.direnv/`; or `nix-shell`)
-provides OpenTofu >= 1.13.0, Python 3 with `python-hcl2` >= 7.3.1 (for `with-secrets`), git, and
+provides OpenTofu >= 1.13.0, Python 3 with `python-hcl2` >= 7.3.1 (for `with-secrets` and the Ansible inventory), git, Ansible (`ansible/`), and
 `TF_CLI_CONFIG_FILE=tooling/local-provider.generated.tfrc`. Non-interactive: `direnv exec . tofu ...`.
 
 - OpenTofu comes from `<nixpkgs-unstable>` when on `NIX_PATH` (a0-nix sets it; stable ships

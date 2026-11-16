@@ -42,9 +42,10 @@ gateway for those VLANs and carries them across the fabric as VXLAN.
 | [roots/](roots/README.md) | One deployable folder per layer; you run `tofu` here. Each has its own local state. |
 | [modules/](modules/README.md) | Shared logic: VM, host networking, leaf/spine config, DHCP, monitoring |
 | [providers/](providers/README.md) | Git submodules: source of the custom `proxmox`, `vyoscmd` and `routeros` providers |
+| [ansible/](ansible/README.md) | Hand-run Proxmox host chores (bashrc, popup patch, smartd, apt upgrades, rolling reboot); inventory generated from `inventory/auto.tfvars/nodes.auto.tfvars` |
 | [tooling/](tooling/README.md) | Provider build, `walk-roots.sh` runner, `with-secrets`, import helpers, tests |
 | [examples/](examples/README.md) | Commented example values; nothing loads them |
-| `shell.nix`, `.envrc` | Dev shell (OpenTofu, Python + `python-hcl2`, git, `TF_CLI_CONFIG_FILE`) via direnv or `nix-shell`. Go for provider builds is in `tooling/build-shell.nix`. |
+| `shell.nix`, `.envrc` | Dev shell (OpenTofu, Python + `python-hcl2`, git, Ansible, `TF_CLI_CONFIG_FILE`) via direnv or `nix-shell`. Go for provider builds is in `tooling/build-shell.nix`. |
 
 Registry providers also in use: `hashicorp/dns`, `hashicorp/random` (services-config,
 monitoring-config), `vancluever/acme` (certs).

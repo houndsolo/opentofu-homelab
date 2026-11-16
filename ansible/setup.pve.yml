@@ -1,0 +1,37 @@
+---
+- hosts: all
+  tasks:
+
+  # Only adds a marked block to root's existing .bashrc; the rest of the file
+  # (custom PS1 etc.) is left alone. Edit the lines here, re-run to update.
+  - name: ensure root bashrc has vi mode and colour aliases
+    ansible.builtin.blockinfile:
+      path: /root/.bashrc
+      create: true
+      mode: '0644'
+      marker: "# {mark} proxmox-lylat setup.pve.yml (managed block)"
+      block: |
+        if [[ $- == *i* ]]; then
+          set -o vi
+          export LS_OPTIONS='--color=auto'
+          eval "$(dircolors)"
+          alias ls='ls $LS_OPTIONS'
+          alias ll='ls $LS_OPTIONS -l'
+          alias l='ls $LS_OPTIONS -lA'
+          alias ip='ip --color=auto'
+          alias grep='grep --color=auto'
+        fi
+
+  - name: disable proxmox subscription popup
+    ansible.builtin.import_tasks: tasks/no-subscription-nag.yml
+
+# smartd tuning on the PVE nodes only (gf.pbs is a VM: no smartd there).
+- hosts: cluster:standalone
+  tasks:
+  - name: smartd alerts only on growing sector counts
+    ansible.builtin.import_tasks: tasks/smartd.yml
+  handlers:
+  - name: reload smartd
+    ansible.builtin.service:
+      name: smartmontools
+      state: reloaded

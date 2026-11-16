@@ -1,0 +1,10 @@
+---
+# Hosts that aren't in nodes.auto.tfvars (tfvars.py covers the Proxmox nodes).
+all:
+  children:
+    # Proxmox Backup Server, VM 100 on greatfox (off whenever greatfox is).
+    # setup.pve.yml and update-packages.yml cover it (hosts: all); reboot.yml doesn't.
+    pbs:
+      hosts:
+        gf.pbs:
+          ansible_host: 10.20.8.20

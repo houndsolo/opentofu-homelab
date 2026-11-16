@@ -1,0 +1,5 @@
+---
+# tasks/smartd.yml: disks that keep alerting on every check while nonzero.
+# sdf = Seagate ST8000DM004 with real pending sectors (DT-12).
+smartd_always_alert:
+  - /dev/disk/by-id/ata-ST8000DM004-2CX188_ZCT2MCWB

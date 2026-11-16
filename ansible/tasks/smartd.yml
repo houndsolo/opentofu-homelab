@@ -1,0 +1,29 @@
+---
+# smartd: alert on pending (197) / offline-uncorrectable (198) sectors only when the count GROWS
+# (-C 197+ -U 198+). The stock DEVICESCAN line reports any nonzero raw count every 30 min, so disks
+# with a static firmware count (e.g. raw 198 = 5 on the HUH721212s) logged crit forever (DT-138).
+# Disks in the host var smartd_always_alert (by-id paths) keep the stock behaviour (alert on every
+# check while nonzero): smartd monitors them through their own line and skips them in the scan.
+# smartd stops reading at the first DEVICESCAN, so the block goes ABOVE the stock line, which is
+# then commented out. Both edits are checked with `smartd -q showtests` before they are written.
+
+- name: smartd.conf - managed block above the stock DEVICESCAN line
+  ansible.builtin.blockinfile:
+    path: /etc/smartd.conf
+    marker: "# {mark} proxmox-lylat setup.pve.yml smartd (managed block)"
+    insertbefore: '^DEVICESCAN -d removable -n standby -m root '
+    validate: smartd -q showtests -c %s
+    block: |
+      {% for disk in smartd_always_alert | default([]) %}
+      {{ disk }} -a -n standby -m root -M exec /usr/share/smartmontools/smartd-runner
+      {% endfor %}
+      DEVICESCAN -d removable -n standby -a -C 197+ -U 198+ -m root -M exec /usr/share/smartmontools/smartd-runner
+  notify: reload smartd
+
+- name: smartd.conf - comment out the stock DEVICESCAN line
+  ansible.builtin.replace:
+    path: /etc/smartd.conf
+    regexp: '^(DEVICESCAN -d removable -n standby -m root .*)$'
+    replace: '#\1  # replaced by the proxmox-lylat block above'
+    validate: smartd -q showtests -c %s
+  notify: reload smartd

@@ -1,0 +1,25 @@
+---
+# Removes the PVE "No valid subscription" popup and keeps it removed:
+# an apt hook re-runs the patch after every dpkg run (CLI, Ansible or GUI upgrades).
+- name: Install no-subscription nag patch script
+  ansible.builtin.copy:
+    src: files/pve-no-nag.sh
+    dest: /usr/local/sbin/pve-no-nag
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install apt hook that re-applies the patch after package upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/86pve-no-nag
+    content: |
+      // Managed by Ansible: re-apply the PVE no-subscription nag patch after dpkg runs
+      DPkg::Post-Invoke { "/usr/local/sbin/pve-no-nag || true"; };
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Remove the no-subscription popup now
+  ansible.builtin.command: /usr/local/sbin/pve-no-nag
+  register: pve_no_nag
+  changed_when: "'patched' in pve_no_nag.stdout"

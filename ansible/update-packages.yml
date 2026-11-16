@@ -1,0 +1,29 @@
+---
+- hosts: all
+  tasks:
+  # Installs the apt hook before upgrading, so the dist-upgrade below re-patches
+  # proxmoxlib.js if it brings in a new proxmox-widget-toolkit.
+  - name: disable proxmox subscription popup
+    ansible.builtin.import_tasks: tasks/no-subscription-nag.yml
+
+  - name: Update repositories cache
+    ansible.builtin.apt:
+      update_cache: yes
+
+  - name: Update all packages to their latest version
+    ansible.builtin.apt:
+      upgrade: dist
+    register: out
+  - debug: var=out.stdout_lines
+
+  - name: Find newest installed kernel
+    ansible.builtin.shell: ls /lib/modules | sort -V | tail -n1
+    register: newest_kernel
+    changed_when: false
+    check_mode: false
+
+  - name: Report whether a reboot is needed for the new kernel
+    ansible.builtin.debug:
+      msg: >-
+        running {{ ansible_facts['kernel'] }}, newest installed {{ newest_kernel.stdout }}:
+        {{ 'REBOOT NEEDED (run reboot.yml)' if newest_kernel.stdout != ansible_facts['kernel'] else 'no reboot needed' }}

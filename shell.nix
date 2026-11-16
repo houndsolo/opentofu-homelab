@@ -1,4 +1,4 @@
-# The everyday shell: OpenTofu, Python with python-hcl2 (tooling/with-secrets) and git, with
+# The everyday shell: OpenTofu, Python with python-hcl2 (tooling/with-secrets, ansible/inventory), git and Ansible, with
 # TF_CLI_CONFIG_FILE pointing at the local provider mirror. direnv loads it automatically
 # (.envrc, cached by nix-direnv); `nix-shell` works too. Go is only needed to build the providers:
 # that lives in tooling/build-shell.nix, which the build scripts enter by themselves.
@@ -35,6 +35,8 @@ pkgs.mkShell {
     python
     pkgs.git
     tofu
+    # Hand-run host chores on the Proxmox nodes: ansible/ (inventory from the tfvars).
+    pkgs.ansible
   ];
 
   # Resolve the local/mechanic/* providers from the repo's provider mirror.

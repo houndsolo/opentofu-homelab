@@ -1,0 +1,52 @@
+---
+# Rolling reboot: one node at a time, so corosync keeps quorum, HA has somewhere
+# to put guests, and Ceph keeps 6 of 7 nodes' OSDs and 3 of 4 mons up.
+- name: Set Ceph noout so OSDs aren't marked out while a node reboots
+  hosts: ceph
+  gather_facts: false
+  run_once: true
+  tasks:
+  - ansible.builtin.command: ceph osd set noout
+    changed_when: true
+
+# Order = group order = node id order from nodes.auto.tfvars (inventory/tfvars.py):
+# fichina, macbeth, titania, zoness, fortuna, eldarad, venom.
+- name: Rolling reboot
+  hosts: cluster
+  # explicit: run in group order (--list-hosts prints an unordered set, ignore its order)
+  order: inventory
+  serial: 1
+  gather_facts: yes
+  tasks:
+  - name: Reboot the system and wait for it to come back
+    ansible.builtin.reboot:
+      reboot_timeout: 600 # Maximum time in seconds to wait for a successful reboot
+      connect_timeout: 30 # Maximum time in seconds to wait for a successful connection to the managed hosts after reboot
+      pre_reboot_delay: 0 # Optional delay in seconds before rebooting
+      post_reboot_delay: 60 # Optional delay in seconds after reboot before continuing
+      test_command: whoami # Command to send to the host to test its availability after reboot
+
+  - name: Wait for the PVE cluster to be quorate
+    ansible.builtin.command: pvecm status
+    register: pvecm
+    until: "pvecm.stdout is search('Quorate:\\s+Yes')"
+    retries: 30
+    delay: 10
+    changed_when: false
+
+  - name: Wait for all Ceph PGs to be active+clean before the next node
+    ansible.builtin.command: ceph pg stat
+    register: pgstat
+    until: "pgstat.stdout is search('^(\\d+) pgs: \\1 active\\+clean;')"
+    retries: 60
+    delay: 10
+    changed_when: false
+    when: inventory_hostname in groups['ceph']
+
+- name: Unset Ceph noout
+  hosts: ceph
+  gather_facts: false
+  run_once: true
+  tasks:
+  - ansible.builtin.command: ceph osd unset noout
+    changed_when: true
