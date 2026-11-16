@@ -19,7 +19,7 @@ Environment=NGINX_ENTRYPOINT_QUIET_LOGS=1
 # start/restart returns only once it does.
 HealthCmd=curl -fsS -o /dev/null http://127.0.0.1/healthz
 HealthInterval=30s
-HealthTimeout=5s
+HealthTimeout=30s
 HealthStartPeriod=1m
 Notify=healthy
 

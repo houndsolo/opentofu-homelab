@@ -19,7 +19,7 @@ Exec=--path.rootfs=/host --web.listen-address=${listen} --collector.netdev.addre
 # only once it does (and fails after TimeoutStartSec if it never does).
 HealthCmd=wget -q -O /dev/null http://${listen}/
 HealthInterval=30s
-HealthTimeout=5s
+HealthTimeout=30s
 HealthStartPeriod=1m
 Notify=healthy
 

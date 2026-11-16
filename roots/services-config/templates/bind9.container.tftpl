@@ -16,7 +16,7 @@ Exec=-f -c /etc/bind/named.conf
 # whatever the zones or the peer do. Notify=healthy: systemctl start/restart returns only once it does.
 HealthCmd=wget -q -O /dev/null http://127.0.0.1:${stats_port}/xml/v3/status
 HealthInterval=30s
-HealthTimeout=5s
+HealthTimeout=30s
 HealthStartPeriod=1m
 Notify=healthy
 

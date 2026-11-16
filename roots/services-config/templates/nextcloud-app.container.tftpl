@@ -26,7 +26,7 @@ Volume=/etc/nextcloud/fpm.conf:/usr/local/etc/php-fpm.d/zz-lylat.conf:ro
 # start/restart returns only once it does (after the code copy / occ upgrade on the first start).
 HealthCmd=php -r 'exit(@fsockopen("127.0.0.1", 9000) ? 0 : 1);'
 HealthInterval=30s
-HealthTimeout=5s
+HealthTimeout=30s
 HealthStartPeriod=5m
 Notify=healthy
 

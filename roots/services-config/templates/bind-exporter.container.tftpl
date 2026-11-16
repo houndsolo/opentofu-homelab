@@ -14,7 +14,7 @@ Exec=--bind.stats-url=http://127.0.0.1:${stats_port} --web.listen-address=${list
 # Notify=healthy: systemctl start/restart returns only once it does.
 HealthCmd=wget -q -O /dev/null http://${listen}/
 HealthInterval=30s
-HealthTimeout=5s
+HealthTimeout=30s
 HealthStartPeriod=1m
 Notify=healthy
 

@@ -15,7 +15,7 @@ Volume=/var/lib/netbox/reports:/opt/netbox/netbox/reports
 Volume=/var/lib/netbox/scripts:/opt/netbox/netbox/scripts
 HealthCmd=/opt/netbox/health.sh
 HealthInterval=15s
-HealthTimeout=3s
+HealthTimeout=30s
 HealthStartPeriod=90s
 # systemctl start/restart returns only once health.sh passes (the first migration fits in TimeoutStartSec).
 Notify=healthy
