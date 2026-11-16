@@ -190,101 +190,34 @@ locals {
 
   metrics_units = {
     for name, vm in var.metrics : name => {
-      haproxy = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "haproxy"
-        description = "haproxy: S3 on 127.0.0.1:7480 -> Ceph RGWs"
-        image       = var.images.haproxy
-        network     = "host"
-        volumes     = ["${local.metrics_conf}/haproxy:/usr/local/etc/haproxy:ro"]
-      }))
-      mimir = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "mimir"
-        description = "Grafana Mimir (monolithic, ring of ${length(var.metrics)})"
-        image       = var.images.mimir
-        network     = "host"
-        volumes     = ["${local.metrics_conf}/mimir:/etc/mimir:ro", "${local.metrics_data}/mimir:/data"]
-        env_files   = ["${local.metrics_conf}/mimir.env"]
-        exec        = ["-config.file=/etc/mimir/mimir.yaml", "-config.expand-env=true"]
-      }))
-      node-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "node-exporter"
-        description = "Prometheus node exporter"
-        image       = var.images.node_exporter
-        network     = "host"
-        volumes     = local.node_exporter_volumes
-        # address-info: node_network_address_info shows which VM holds the VIP.
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
-        podman_args = ["--pid=host"]
-      }))
+      haproxy = templatefile("${path.module}/templates/haproxy.container.tftpl", { image = var.images.haproxy, conf_dir = local.metrics_conf })
+      mimir   = templatefile("${path.module}/templates/mimir.container.tftpl", { image = var.images.mimir, ring_size = length(var.metrics) })
+      # address-info: node_network_address_info shows which VM holds the VIP.
+      node-exporter = templatefile("${path.module}/templates/node-exporter.container.tftpl", {
+        image          = var.images.node_exporter
+        listen_address = coalesce(vm.telemetry_address, vm.backend_address)
+        textfile_dir   = null
+      })
     }
   }
 
   # Start order: the guard before Mimir opens its ports, S3 before Mimir, keepalived last.
-  metrics_services   = ["metrics-guard", "haproxy", "mimir", "alloy", "node-exporter", "keepalived"]
-  metrics_containers = ["haproxy", "mimir", "node-exporter"]
+  metrics_services = ["metrics-guard", "haproxy", "mimir", "alloy", "node-exporter", "keepalived"]
 
-  metrics_deployments = local.mimir_enabled ? {
-    for name, vm in var.metrics : name => templatefile("${path.module}/templates/deploy.sh.tftpl", {
-      host       = name
-      state_file = "${local.metrics_conf}/.tofu-quadlets"
-      images     = [var.images.haproxy, var.images.mimir, var.images.alloy, var.images.node_exporter]
-      packages   = ["keepalived"]
-      apt        = null
-      dirs = concat(
-        [
-          { path = local.quadlet_dir, mode = "0755", owner = "root" },
-          { path = local.metrics_conf, mode = "0755", owner = "root" },
-          { path = "${local.metrics_conf}/haproxy", mode = "0755", owner = "root" },
-          { path = "${local.metrics_conf}/mimir", mode = "0755", owner = "root" },
-          { path = local.metrics_data, mode = "0755", owner = "root" },
-          { path = "${local.metrics_data}/mimir", mode = "0750", owner = "runtime|${var.images.mimir}" },
-          { path = "${local.metrics_data}/mimir/tokens", mode = "0750", owner = "runtime|${var.images.mimir}" },
-          { path = "${local.metrics_data}/mimir/rules", mode = "0750", owner = "runtime|${var.images.mimir}" }, # ruler_storage (empty)
-          # compactor data_dir: block-upload validation needs it, but Mimir only creates it at the first compaction
-          { path = "${local.metrics_data}/mimir/compactor", mode = "0750", owner = "runtime|${var.images.mimir}" },
-          { path = "/etc/keepalived", mode = "0755", owner = "root" },
-        ],
-        local.alloy_dirs,
-      )
-      prune_dirs = []
-      files = concat(
-        [for unit in local.metrics_containers : {
-          path    = "${local.quadlet_dir}/${unit}.container"
-          mode    = "0644"
-          owner   = "root"
-          content = local.metrics_units[name][unit]
-          restart = [unit]
-          reload  = []
-        }],
-        lookup(local.alloy_files, name, []), # (mimir_alloy_hosts is empty when Mimir is off)
-        [
-          { path = "${local.metrics_conf}/haproxy/haproxy.cfg", mode = "0644", owner = "root", content = local.metrics_haproxy_cfg[name], restart = ["haproxy"], reload = [] },
-          { path = "${local.metrics_conf}/mimir/mimir.yaml", mode = "0644", owner = "root", content = local.mimir_yml[name], restart = ["mimir"], reload = [] },
-          { path = "${local.metrics_conf}/mimir.env", mode = "0600", owner = "root", content = local.mimir_env, restart = ["mimir"], reload = [] },
-          { path = "${local.metrics_conf}/guard.nft", mode = "0644", owner = "root", content = local.metrics_guard_nft, restart = ["metrics-guard"], reload = [] },
-          { path = "/etc/systemd/system/metrics-guard.service", mode = "0644", owner = "root", content = file("${path.module}/templates/metrics-guard.service"), restart = ["metrics-guard"], reload = [] },
-          { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.metrics_keepalived_conf[name], restart = [], reload = ["keepalived"] },
-        ],
-      )
-      validations = [
-        # -modules parses the file strictly (unknown keys fail), validates it and exits without starting.
-        "podman run --rm --network=none --user 0 -v \"$root${local.metrics_conf}/mimir:/etc/mimir:ro\" '${var.images.mimir}' -config.file=/etc/mimir/mimir.yaml -config.expand-env=true -modules >/dev/null",
-        lookup(local.alloy_validation, name, "true"),
-        "podman run --rm --network=none --user 0 -v \"$root${local.metrics_conf}/haproxy:/usr/local/etc/haproxy:ro\" '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg",
-        "nft -c -f \"$root${local.metrics_conf}/guard.nft\"",
-        local.keepalived_validation,
-      ]
-      post_install = ["systemctl enable --quiet metrics-guard.service keepalived.service"]
-      services     = local.metrics_services
-      health = [
-        "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:7480/", # haproxy -> an RGW
-        # Ready once its ingester is ACTIVE in the ring (on first start: once every ring member is healthy).
-        "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:${local.mimir_http_port}/ready",
-        lookup(local.alloy_health, name, "true"),
-        "nft list table inet metrics_guard",
-      ]
-    })
-  } : {}
+  metrics_files = {
+    for name, vm in var.metrics : name => concat(
+      [for unit in ["haproxy", "mimir", "node-exporter"] : { path = "${local.quadlet_dir}/${unit}.container", content = local.metrics_units[name][unit], units = [unit] }],
+      lookup(local.alloy_files, name, []), # (mimir_alloy_hosts is empty when Mimir is off)
+      [
+        { path = "${local.metrics_conf}/haproxy/haproxy.cfg", content = local.metrics_haproxy_cfg[name], units = ["haproxy"], restart = true },
+        { path = "${local.metrics_conf}/mimir/mimir.yaml", content = local.mimir_yml[name], units = ["mimir"], restart = true },
+        { path = "${local.metrics_conf}/mimir.env", mode = "0600", content = local.mimir_env, units = ["mimir"], restart = true },
+        { path = "${local.metrics_conf}/guard.nft", content = local.metrics_guard_nft, units = ["metrics-guard"], restart = true },
+        { path = "/etc/systemd/system/metrics-guard.service", content = file("${path.module}/templates/metrics-guard.service"), units = ["metrics-guard"] },
+        { path = "/etc/keepalived/keepalived.conf", mode = "0600", content = local.metrics_keepalived_conf[name], units = ["keepalived"] },
+      ],
+    )
+  }
 
   # --- Prometheus: scrape jobs, alerts ---
   mimir_scrape_configs = local.mimir_enabled ? [
@@ -367,4 +300,40 @@ locals {
       },
     ]
   }] : []
+}
+
+# One deploy script per Mimir VM. Mimir's /ready needs the ring and haproxy's port an RGW, so those are
+# checked from the host after the restarts (verify), not in the units.
+module "metrics_deploy" {
+  source   = "../quadlet-deploy"
+  for_each = local.mimir_enabled ? var.metrics : {}
+
+  name     = "metrics"
+  host     = each.key
+  images   = [var.images.haproxy, var.images.mimir, var.images.alloy, var.images.node_exporter]
+  packages = ["keepalived"]
+  # The mimir image runs as root. compactor: block-upload validation needs it, but Mimir only creates
+  # it at the first compaction; rules: ruler_storage (empty).
+  dirs = concat(
+    [for d in ["", "/tokens", "/rules", "/compactor"] : { path = "${local.metrics_data}/mimir${d}", mode = "0750", owner = "0:0" }],
+    local.alloy_dirs,
+  )
+  files = local.metrics_files[each.key]
+  checks = [
+    # -modules parses the file strictly (unknown keys fail), validates it and exits without starting.
+    "podman run --rm --network=none --user 0 -v \"$stage${local.metrics_conf}/mimir:/etc/mimir:ro\" '${var.images.mimir}' -config.file=/etc/mimir/mimir.yaml -config.expand-env=true -modules >/dev/null",
+    local.alloy_check[each.key],
+    "podman run --rm --network=none --user 0 -v \"$stage${local.metrics_conf}/haproxy:/usr/local/etc/haproxy:ro\" '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg",
+    "nft -c -f \"$stage${local.metrics_conf}/guard.nft\"",
+    local.keepalived_validation,
+  ]
+  post_install = ["systemctl enable --quiet metrics-guard.service keepalived.service"]
+  units        = local.metrics_services
+  verify = [
+    "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:7480/", # haproxy -> an RGW
+    # Ready once its ingester is ACTIVE in the ring (on first start: once every ring member is healthy).
+    "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:${local.mimir_http_port}/ready",
+    local.alloy_verify[each.key],
+    "retry nft list table inet metrics_guard",
+  ]
 }

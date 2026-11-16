@@ -93,52 +93,32 @@ locals {
     "",
   ])) : "" }
 
-  # Always defined (main.tf filters it out unless enabled): a conditional with {} would
-  # need identical object types.
-  wlc_container = {
-    for host, b in var.backends : host => {
-      telegraf = {
-        description = "Telegraf: Cisco MDT (gRPC dial-out) from the C9800 WLCs -> Prometheus"
-        image       = var.images.telegraf
-        # Its own metrics on the backend VLAN too: every Prometheus replica scrapes every Telegraf.
-        # On the monitoring VIP too (net.ipv4.ip_nonlocal_bind, backends.tf).
-        publish = concat(
-          ["${b.monitoring_address}:${local.wlc_port}:${local.wlc_port}"],
-          [for vip in(local.wlc_vip ? local.backend_vip_monitoring : []) : "${vip}:${local.wlc_port}:${local.wlc_port}"],
-          ["${b.backend_address}:9273:9273"],
-          ["${local.wlc_prom_port}:${local.wlc_prom_port}"], # all local addresses, incl. the VIP when held (see above)
-        )
-        volumes   = ["${local.wlc_conf}:/etc/telegraf:ro"]
-        env_files = []
-        # As root, the image's entrypoint gives the binary cap_net_raw (file capability),
-        # which Podman's default capability set refuses to exec. Both ports are unprivileged.
-        user   = "telegraf"
-        reload = true
-      }
-    }
+  # The Telegraf unit on the backends that run it, else null (main.tf leaves it out). Its own metrics on
+  # the backend VLAN too: every Prometheus replica scrapes every Telegraf; the gRPC port also on the
+  # monitoring VIP (net.ipv4.ip_nonlocal_bind, backends.tf). As root, the image's entrypoint gives the
+  # binary cap_net_raw (file capability), which Podman's default capability set refuses to exec, hence
+  # User=telegraf (both ports are unprivileged).
+  wlc_unit = {
+    for host, b in var.backends : host => contains(local.wlc_backends, host) ? templatefile("${path.module}/templates/telegraf.container.tftpl", {
+      image              = var.images.telegraf
+      monitoring_address = b.monitoring_address
+      vips               = local.wlc_vip ? local.backend_vip_monitoring : []
+      backend_address    = b.backend_address
+      port               = local.wlc_port
+      prom_port          = local.wlc_prom_port
+    }) : null
   }
 
   wlc_files = {
     for host in local.backend_names : host => contains(local.wlc_backends, host) ? [
-      { path = "${local.wlc_conf}/telegraf.conf", mode = "0644", owner = "root", content = local.telegraf_conf[host], restart = [], reload = ["telegraf"] },
-      { path = "${local.wlc_conf}/wlc.star", mode = "0644", owner = "root", content = file("${path.module}/telegraf/wlc.star"), restart = [], reload = ["telegraf"] },
+      { path = "${local.wlc_conf}/telegraf.conf", content = local.telegraf_conf[host], units = ["telegraf"] },
+      { path = "${local.wlc_conf}/wlc.star", content = file("${path.module}/telegraf/wlc.star"), units = ["telegraf"] },
     ] : []
   }
 
-  wlc_dirs = { for host in local.backend_names : host => contains(local.wlc_backends, host) ? [{ path = local.wlc_conf, mode = "0755", owner = "root" }] : [] }
-
-  wlc_validations = {
+  wlc_checks = {
     for host in local.backend_names : host => contains(local.wlc_backends, host) ? [
-      "podman run --rm --network=none --user 0 --entrypoint telegraf -v \"$root${local.wlc_conf}:/etc/telegraf:ro\" '${var.images.telegraf}' config check --config /etc/telegraf/telegraf.conf",
-    ] : []
-  }
-
-  # The gRPC listener answers plain HTTP/2 (with 415), so curl proves the published port works.
-  wlc_health = {
-    for host, b in var.backends : host => contains(local.wlc_backends, host) ? [
-      "curl -sS -o /dev/null --max-time 3 --http2-prior-knowledge http://${b.monitoring_address}:${local.wlc_port}/",
-      "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:9273/metrics",
-      "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:${local.wlc_prom_port}/metrics",
+      "podman run --rm --network=none --user 0 --entrypoint telegraf -v \"$stage${local.wlc_conf}:/etc/telegraf:ro\" '${var.images.telegraf}' config check --config /etc/telegraf/telegraf.conf",
     ] : []
   }
 

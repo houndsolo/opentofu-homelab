@@ -1,0 +1,19 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Prometheus Proxmox VE exporter
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=pve-exporter
+Network=monitoring.network
+Volume=/etc/monitoring/pve-exporter/pve.yml:/etc/prometheus/pve.yml:ro
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

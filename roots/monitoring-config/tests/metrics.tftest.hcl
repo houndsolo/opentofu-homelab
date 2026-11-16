@@ -124,8 +124,9 @@ run "mimir" {
       strcontains(module.monitoring.alloy_configs[name], "url = \"http://10.55.18.101:3100/loki/api/v1/push\"") && # the Loki telemetry VIP
       strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "-config.expand-env=true -modules") &&
       strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "nft -c -f") &&
-      strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "for pkg in keepalived; do") &&
-      strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "put '/etc/metrics/mimir.env' '0600' 'root' 'mimir' ''") &&
+      strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "dpkg-query -W -f='$${Status}' 'keepalived'") &&
+      strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "put '/etc/metrics/mimir.env' '0600' '0:0' restart mimir\n") &&
+      strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:8080/ready\n") &&
       strcontains(nonsensitive(module.monitoring.metrics_deployments[name]), base64encode("MIMIR_S3_ACCESS_KEY=MOCKMIMIRKEY\nMIMIR_S3_SECRET_KEY=mockmimirsecretmockmimirsecret\n"))
     )])
     error_message = "Each Mimir deploy.sh validates Mimir/Alloy/haproxy/nftables, installs keepalived, and keeps the S3 keys in a 0600 env file."

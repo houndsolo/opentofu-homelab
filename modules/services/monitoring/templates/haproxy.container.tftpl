@@ -1,0 +1,19 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=haproxy: S3 on 127.0.0.1:7480 -> Ceph RGWs
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=haproxy
+Network=host
+Volume=${conf_dir}/haproxy:/usr/local/etc/haproxy:ro
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

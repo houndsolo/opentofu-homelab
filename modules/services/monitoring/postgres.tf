@@ -298,45 +298,21 @@ locals {
 
   pg_units = {
     for name, vm in var.postgres : name => {
-      haproxy = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "haproxy"
-        description = "haproxy: S3 (TLS) on 127.0.0.1:7443 -> Ceph RGWs"
-        image       = var.images.haproxy
-        network     = "host"
-        volumes = [
-          "${local.pg_conf}/haproxy:/usr/local/etc/haproxy:ro",
-          "/etc/ssl/certs/ssl-cert-snakeoil.pem:/usr/local/etc/haproxy/tls/s3.pem:ro",
-          "/etc/ssl/private/ssl-cert-snakeoil.key:/usr/local/etc/haproxy/tls/s3.pem.key:ro",
-        ]
-        user = "0" # reads the key, then drops to haproxy (global user/group)
-      }))
-      postgres-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "postgres-exporter"
-        description = "Prometheus postgres_exporter (local member)"
-        image       = var.images.postgres_exporter
-        network     = "host"
-        env_files   = ["${local.pg_conf}/postgres-exporter.env"]
-        # Off by default, used by the Databases dashboards: pg_stat_checkpointer (PG 17+ moved the
-        # checkpoint counters out of pg_stat_bgwriter), postmaster start time, transactions open
-        # > 1 min, xid/multixact age per database.
-        exec = [
-          "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9187",
-          "--collector.stat_checkpointer",
-          "--collector.postmaster",
-          "--collector.long_running_transactions",
-          "--collector.database_wraparound",
-        ]
-      }))
-      node-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "node-exporter"
-        description = "Prometheus node exporter"
-        image       = var.images.node_exporter
-        network     = "host"
-        volumes     = local.node_exporter_volumes
-        # address-info: which VM holds the VIP; textfile: pg-backup's result.
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info", "--collector.textfile.directory=/host${local.pg_textfile}"], local.node_exporter_collectors) # main.tf: the extra collectors
-        podman_args = ["--pid=host"]
-      }))
+      # User=0: reads the key, then drops to haproxy (global user/group).
+      haproxy = templatefile("${path.module}/templates/postgres-haproxy.container.tftpl", { image = var.images.haproxy })
+      # Off by default, used by the Databases dashboards: pg_stat_checkpointer (PG 17+ moved the
+      # checkpoint counters out of pg_stat_bgwriter), postmaster start time, transactions open
+      # > 1 min, xid/multixact age per database.
+      postgres-exporter = templatefile("${path.module}/templates/postgres-exporter.container.tftpl", {
+        image          = var.images.postgres_exporter
+        listen_address = coalesce(vm.telemetry_address, vm.backend_address)
+      })
+      # address-info: which VM holds the VIP; textfile: pg-backup's result.
+      node-exporter = templatefile("${path.module}/templates/node-exporter.container.tftpl", {
+        image          = var.images.node_exporter
+        listen_address = coalesce(vm.telemetry_address, vm.backend_address)
+        textfile_dir   = local.pg_textfile
+      })
     }
   }
 
@@ -375,119 +351,57 @@ locals {
       Pin-Priority: 600
     EOT
   }
-  pg_apt = {
-    versions = local.pg_package_versions
-    # Before any package is installed: the PGDG source/pin/key in place (apt lists refreshed when
-    # they change), so postgresql-<major> and the upgrades come from PGDG.
-    setup = [
-      "codename=$(. /etc/os-release && echo \"$VERSION_CODENAME\"); [ \"$codename-pgdg\" = '${local.pg_apt_suite}' ] || { echo \"PGDG suite ${local.pg_apt_suite} does not match Debian $codename\" >&2; exit 1; }",
-      "apt_changed=0; for f in ${join(" ", keys(local.pg_apt_files))}; do cmp -s \"$root$f\" \"$f\" && continue; install -d -m 0755 \"$(dirname \"$f\")\"; install -m 0644 \"$root$f\" \"$f\"; apt_changed=1; echo \"updated $f\"; done; if [ $apt_changed = 1 ]; then apt-get update -q >/dev/null; echo \"apt lists updated (PGDG)\"; fi",
-    ]
-  }
+  # The packages above (pins from postgres_settings.package_versions), PGDG apt files first: its own script,
+  # installed as /usr/local/sbin/pg-packages; the deploy runs the staged copy before its checks.
+  pg_packages_script = templatefile("${path.module}/templates/pg-packages.sh.tftpl", {
+    suite     = local.pg_apt_suite
+    apt_files = keys(local.pg_apt_files)
+    packages  = local.pg_packages
+    versions  = local.pg_package_versions
+  })
 
   # Start order: the guard before anything listens, S3 before Patroni (archive_command),
   # etcd before Patroni, the leader setup once Postgres runs, keepalived last.
-  pg_services   = ["postgres-guard", "haproxy", "etcd", "patroni", "pg-leader-setup", "postgres-exporter", "alloy", "node-exporter", "keepalived"]
-  pg_containers = ["haproxy", "postgres-exporter", "node-exporter"]
+  pg_services = ["postgres-guard", "haproxy", "etcd", "patroni", "pg-leader-setup", "postgres-exporter", "alloy", "node-exporter", "keepalived"]
 
   pg_version_checks = [
     for pkg, pattern in local.pg_package_versions :
     "if v=$(dpkg-query -W -f='$${Version}' ${pkg} 2>/dev/null); then case $v in ${pattern}) ;; *) echo \"${pkg} $v is not ${pattern} (software-versions.auto.tfvars)\" >&2; exit 1 ;; esac; fi"
   ]
 
-  postgres_deployments = local.postgres_enabled ? {
-    for name, vm in var.postgres : name => templatefile("${path.module}/templates/deploy.sh.tftpl", {
-      host       = name
-      state_file = "${local.pg_conf}/.tofu-quadlets"
-      images     = [var.images.haproxy, var.images.postgres_exporter, var.images.alloy, var.images.node_exporter]
-      packages   = local.pg_packages
-      apt        = local.pg_apt
-      dirs = concat(
-        [
-          { path = local.quadlet_dir, mode = "0755", owner = "root" },
-          { path = local.pg_conf, mode = "0755", owner = "root" },
-          { path = "${local.pg_conf}/haproxy", mode = "0755", owner = "root" },
-          { path = "/etc/patroni", mode = "0755", owner = "root" },
-          { path = "/etc/etcd", mode = "0755", owner = "root" },
-          { path = "/etc/pgbackrest", mode = "0755", owner = "root" },
-          { path = "/etc/systemd/system/patroni.service.d", mode = "0755", owner = "root" },
-          { path = "/etc/systemd/system/etcd.service.d", mode = "0755", owner = "root" },
-          { path = "/var/lib/node_exporter", mode = "0755", owner = "root" },
-          { path = local.pg_textfile, mode = "0755", owner = "root" },
-          { path = "/etc/keepalived", mode = "0755", owner = "root" },
-        ],
-        local.alloy_dirs,
-      )
-      prune_dirs = []
-      files = concat(
-        [for path, content in local.pg_apt_files : { path = path, mode = "0644", owner = "root", content = content, restart = [], reload = [] }],
-        [for unit in local.pg_containers : {
-          path    = "${local.quadlet_dir}/${unit}.container"
-          mode    = "0644"
-          owner   = "root"
-          content = local.pg_units[name][unit]
-          restart = [unit]
-          reload  = []
-        }],
-        lookup(local.alloy_files, name, []),
-        [
-          { path = "${local.pg_conf}/haproxy/haproxy.cfg", mode = "0644", owner = "root", content = local.pg_haproxy_cfg[name], restart = ["haproxy"], reload = [] },
-          { path = "${local.pg_conf}/guard.nft", mode = "0644", owner = "root", content = local.pg_guard_nft, restart = ["postgres-guard"], reload = [] },
-          { path = "/etc/systemd/system/postgres-guard.service", mode = "0644", owner = "root", content = file("${path.module}/templates/postgres-guard.service"), restart = ["postgres-guard"], reload = [] },
-          # etcd: one member restarting keeps quorum; apply with -parallelism=1 for a rolling change.
-          { path = "/etc/etcd/etcd.yml", mode = "0644", owner = "root", content = local.etcd_yml[name], restart = ["etcd"], reload = [] },
-          { path = "/etc/systemd/system/etcd.service.d/lylat.conf", mode = "0644", owner = "root", content = file("${path.module}/templates/etcd-dropin.conf"), restart = ["etcd"], reload = [] },
-          # Patroni is never restarted by a deploy (that would stop Postgres, and fail over on the
-          # leader): config changes are a SIGHUP; env/unit changes need a rolling restart (README).
-          { path = "/etc/patroni/config.yml", mode = "0644", owner = "root", content = local.patroni_yml[name], restart = [], reload = ["patroni"] },
-          { path = "${local.pg_conf}/patroni.env", mode = "0600", owner = "root", content = local.patroni_env, restart = [], reload = [] },
-          { path = "${local.pg_conf}/s3.env", mode = "0600", owner = "root", content = local.pg_s3_env, restart = [], reload = [] },
-          { path = "/etc/systemd/system/patroni.service.d/lylat.conf", mode = "0644", owner = "root", content = file("${path.module}/templates/patroni-dropin.conf"), restart = [], reload = [] },
-          { path = "${local.pg_conf}/roles.env", mode = "0600", owner = "root", content = local.pg_roles_env, restart = ["pg-leader-setup"], reload = [] },
-          { path = "/usr/local/sbin/pg-leader-setup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-leader-setup.sh.tftpl", { name = name, stanza = local.pg_scope, sync_mode = local.pg_sync_yaml, sync_count = local.pgs.synchronous_node_count, apps = sort(keys(var.postgres_apps)), grafana = { for app in local.pg_grafana_apps : app => var.postgres_apps[app].grafana_grants } }), restart = ["pg-leader-setup"], reload = [] },
-          { path = "/etc/systemd/system/pg-leader-setup.service", mode = "0644", owner = "root", content = file("${path.module}/templates/pg-leader-setup.service"), restart = ["pg-leader-setup"], reload = [] },
-          { path = "/etc/pgbackrest/pgbackrest.conf", mode = "0644", owner = "root", content = local.pgbackrest_conf, restart = [], reload = [] },
-          { path = "/usr/local/sbin/pg-backup", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pg-backup.sh.tftpl", { stanza = local.pg_scope, textfile_dir = local.pg_textfile }), restart = [], reload = [] },
-          { path = "/etc/systemd/system/pg-backup.service", mode = "0644", owner = "root", content = file("${path.module}/templates/pg-backup.service"), restart = [], reload = [] },
-          { path = "/etc/systemd/system/pg-backup.timer", mode = "0644", owner = "root", content = templatefile("${path.module}/templates/pg-backup.timer.tftpl", { schedule = local.pgs.backup_schedule }), restart = [], reload = [] },
-          { path = "/usr/local/sbin/pgctl", mode = "0755", owner = "root", content = templatefile("${path.module}/templates/pgctl.sh.tftpl", { scope = local.pg_scope }), restart = [], reload = [] },
-          { path = "${local.pg_conf}/postgres-exporter.env", mode = "0600", owner = "root", content = local.pg_exporter_env, restart = ["postgres-exporter"], reload = [] },
-          { path = "/etc/apt/apt.conf.d/51lylat-postgres-hold", mode = "0644", owner = "root", content = templatefile("${path.module}/templates/postgres-apt-hold.conf.tftpl", { packages = distinct(concat(local.pg_pgdg_packages, ["python3-etcd", "etcd-server", "etcd-client"])) }), restart = [], reload = [] },
-          { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.pg_keepalived_conf[name], restart = [], reload = ["keepalived"] },
-        ],
-      )
-      validations = concat(local.pg_version_checks, [
-        # Schema check. -i: Postgres/REST already listen on later deploys; etcd isn't up yet on the first
-        # one, so "is not reachable" (the validator's DCS probe) is the only error tolerated.
-        "if command -v patroni >/dev/null; then out=$(patroni --validate-config -i \"$root/etc/patroni/config.yml\" 2>&1) || if printf '%s\\n' \"$out\" | grep -v 'is not reachable' | grep -q .; then printf '%s\\n' \"$out\" >&2; exit 1; fi; else echo \"patroni not installed yet: config check skipped\"; fi",
-        "python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' \"$root/etc/etcd/etcd.yml\"",
-        lookup(local.alloy_validation, name, "true"),
-        # The snakeoil pair exists once ssl-cert is installed (postgresql-<major> depends on it).
-        "if [ -e /etc/ssl/private/ssl-cert-snakeoil.key ]; then podman run --rm --network=none --user 0 -v \"$root${local.pg_conf}/haproxy:/usr/local/etc/haproxy:ro\" -v /etc/ssl/certs/ssl-cert-snakeoil.pem:/usr/local/etc/haproxy/tls/s3.pem:ro -v /etc/ssl/private/ssl-cert-snakeoil.key:/usr/local/etc/haproxy/tls/s3.pem.key:ro '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg; else echo \"no snakeoil certificate yet: haproxy check skipped\"; fi",
-        "nft -c -f \"$root${local.pg_conf}/guard.nft\"",
-        local.keepalived_validation,
-      ])
-      post_install = [
-        # The package's default cluster (<major>/main on 5432) and etcd's default single-member
-        # data dir exist only after a package install; Patroni and our etcd config use others.
-        "if [ -d /etc/postgresql/${local.pg_major}/main ]; then pg_dropcluster --stop ${local.pg_major} main; echo \"dropped the packaged ${local.pg_major}/main cluster\"; fi",
-        "if [ -d /var/lib/etcd/default ]; then systemctl stop etcd.service; rm -rf /var/lib/etcd/default; echo \"removed etcd's default data dir\"; fi",
-        "systemctl enable --quiet postgres-guard.service etcd.service patroni.service pg-leader-setup.service keepalived.service",
-        "systemctl enable --quiet --now pg-backup.timer",
-      ]
-      services = local.pg_services
-      health = [
-        "curl -fsSk -o /dev/null --max-time 3 https://127.0.0.1:7443/", # haproxy -> an RGW
-        "etcdctl --endpoints=http://127.0.0.1:2379 endpoint health",
-        # Postgres runs on this member (leader or streaming replica).
-        "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:8008/health",
-        "curl -fsS -o /dev/null --max-time 3 http://${coalesce(vm.telemetry_address, vm.backend_address)}:9187/metrics",
-        lookup(local.alloy_health, name, "true"),
-        "nft list table inet postgres_guard",
-        "systemctl is-active --quiet pg-backup.timer",
-      ]
-    })
-  } : {}
+  pg_files = {
+    for name, vm in var.postgres : name => concat(
+      [for path, content in local.pg_apt_files : { path = path, content = content }],
+      [{ path = "/usr/local/sbin/pg-packages", mode = "0755", content = local.pg_packages_script }],
+      [for unit in ["haproxy", "postgres-exporter", "node-exporter"] : { path = "${local.quadlet_dir}/${unit}.container", content = local.pg_units[name][unit], units = [unit] }],
+      lookup(local.alloy_files, name, []),
+      [
+        { path = "${local.pg_conf}/haproxy/haproxy.cfg", content = local.pg_haproxy_cfg[name], units = ["haproxy"], restart = true },
+        { path = "${local.pg_conf}/guard.nft", content = local.pg_guard_nft, units = ["postgres-guard"], restart = true },
+        { path = "/etc/systemd/system/postgres-guard.service", content = file("${path.module}/templates/postgres-guard.service"), units = ["postgres-guard"] },
+        # etcd: one member restarting keeps quorum; apply with -parallelism=1 for a rolling change.
+        { path = "/etc/etcd/etcd.yml", content = local.etcd_yml[name], units = ["etcd"], restart = true },
+        { path = "/etc/systemd/system/etcd.service.d/lylat.conf", content = file("${path.module}/templates/etcd-dropin.conf"), units = ["etcd"], restart = true },
+        # Patroni is never restarted by a deploy (that would stop Postgres, and fail over on the
+        # leader): config changes are a SIGHUP (its unit's ExecReload); env/unit changes need a rolling restart (README).
+        { path = "/etc/patroni/config.yml", content = local.patroni_yml[name], units = ["patroni"] },
+        { path = "${local.pg_conf}/patroni.env", mode = "0600", content = local.patroni_env },
+        { path = "${local.pg_conf}/s3.env", mode = "0600", content = local.pg_s3_env },
+        { path = "/etc/systemd/system/patroni.service.d/lylat.conf", content = file("${path.module}/templates/patroni-dropin.conf") },
+        { path = "${local.pg_conf}/roles.env", mode = "0600", content = local.pg_roles_env, units = ["pg-leader-setup"], restart = true },
+        { path = "/usr/local/sbin/pg-leader-setup", mode = "0755", content = templatefile("${path.module}/templates/pg-leader-setup.sh.tftpl", { name = name, stanza = local.pg_scope, sync_mode = local.pg_sync_yaml, sync_count = local.pgs.synchronous_node_count, apps = sort(keys(var.postgres_apps)), grafana = { for app in local.pg_grafana_apps : app => var.postgres_apps[app].grafana_grants } }), units = ["pg-leader-setup"], restart = true },
+        { path = "/etc/systemd/system/pg-leader-setup.service", content = file("${path.module}/templates/pg-leader-setup.service"), units = ["pg-leader-setup"] },
+        { path = "/etc/pgbackrest/pgbackrest.conf", content = local.pgbackrest_conf },
+        { path = "/usr/local/sbin/pg-backup", mode = "0755", content = templatefile("${path.module}/templates/pg-backup.sh.tftpl", { stanza = local.pg_scope, textfile_dir = local.pg_textfile }) },
+        { path = "/etc/systemd/system/pg-backup.service", content = file("${path.module}/templates/pg-backup.service") },
+        { path = "/etc/systemd/system/pg-backup.timer", content = templatefile("${path.module}/templates/pg-backup.timer.tftpl", { schedule = local.pgs.backup_schedule }) },
+        { path = "/usr/local/sbin/pgctl", mode = "0755", content = templatefile("${path.module}/templates/pgctl.sh.tftpl", { scope = local.pg_scope }) },
+        { path = "${local.pg_conf}/postgres-exporter.env", mode = "0600", content = local.pg_exporter_env, units = ["postgres-exporter"], restart = true },
+        { path = "/etc/apt/apt.conf.d/51lylat-postgres-hold", content = templatefile("${path.module}/templates/postgres-apt-hold.conf.tftpl", { packages = distinct(concat(local.pg_pgdg_packages, ["python3-etcd", "etcd-server", "etcd-client"])) }) },
+        { path = "/etc/keepalived/keepalived.conf", mode = "0600", content = local.pg_keepalived_conf[name], units = ["keepalived"] },
+      ],
+    )
+  }
 
   # --- Prometheus: scrape jobs, alerts ---
   postgres_scrape_configs = local.postgres_enabled ? [
@@ -636,4 +550,51 @@ locals {
       },
     ]
   }] : []
+}
+
+# One deploy script per Patroni member. haproxy's port needs an RGW, etcd's health its quorum and Patroni runs
+# outside Podman: checked from the host after the restarts (verify). postgres-exporter checks itself (HealthCmd).
+module "postgres_deploy" {
+  source   = "../quadlet-deploy"
+  for_each = local.postgres_enabled ? var.postgres : {}
+
+  name   = "postgres"
+  host   = each.key
+  images = [var.images.haproxy, var.images.postgres_exporter, var.images.alloy, var.images.node_exporter]
+  # pg_textfile: pg-backup writes the backup result there for node_exporter.
+  dirs  = concat([{ path = local.pg_textfile, mode = "0755", owner = "0:0" }], local.alloy_dirs)
+  files = local.pg_files[each.key]
+  checks = concat(
+    ["\"$stage/usr/local/sbin/pg-packages\" \"$stage\""], # packages before the checks that need them (pg_packages_script)
+    local.pg_version_checks,
+    [
+      # Schema check. -i: Postgres/REST already listen on later deploys; etcd isn't up yet on the first
+      # one, so "is not reachable" (the validator's DCS probe) is the only error tolerated.
+      "if command -v patroni >/dev/null; then out=$(patroni --validate-config -i \"$stage/etc/patroni/config.yml\" 2>&1) || if printf '%s\\n' \"$out\" | grep -v 'is not reachable' | grep -q .; then printf '%s\\n' \"$out\" >&2; exit 1; fi; else echo \"patroni not installed yet: config check skipped\"; fi",
+      "python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' \"$stage/etc/etcd/etcd.yml\"",
+      local.alloy_check[each.key],
+      # The snakeoil pair exists once ssl-cert is installed (postgresql-<major> depends on it).
+      "if [ -e /etc/ssl/private/ssl-cert-snakeoil.key ]; then podman run --rm --network=none --user 0 -v \"$stage${local.pg_conf}/haproxy:/usr/local/etc/haproxy:ro\" -v /etc/ssl/certs/ssl-cert-snakeoil.pem:/usr/local/etc/haproxy/tls/s3.pem:ro -v /etc/ssl/private/ssl-cert-snakeoil.key:/usr/local/etc/haproxy/tls/s3.pem.key:ro '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg; else echo \"no snakeoil certificate yet: haproxy check skipped\"; fi",
+      "nft -c -f \"$stage${local.pg_conf}/guard.nft\"",
+      local.keepalived_validation,
+    ],
+  )
+  post_install = [
+    # The package's default cluster (<major>/main on 5432) and etcd's default single-member
+    # data dir exist only after a package install; Patroni and our etcd config use others.
+    "if [ -d /etc/postgresql/${local.pg_major}/main ]; then pg_dropcluster --stop ${local.pg_major} main; echo \"dropped the packaged ${local.pg_major}/main cluster\"; fi",
+    "if [ -d /var/lib/etcd/default ]; then systemctl stop etcd.service; rm -rf /var/lib/etcd/default; echo \"removed etcd's default data dir\"; fi",
+    "systemctl enable --quiet postgres-guard.service etcd.service patroni.service pg-leader-setup.service keepalived.service",
+    "systemctl enable --quiet --now pg-backup.timer",
+  ]
+  units = local.pg_services
+  verify = [
+    "retry curl -fsSk -o /dev/null --max-time 3 https://127.0.0.1:7443/", # haproxy -> an RGW
+    "retry etcdctl --endpoints=http://127.0.0.1:2379 endpoint health",
+    # Postgres runs on this member (leader or streaming replica).
+    "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:8008/health",
+    local.alloy_verify[each.key],
+    "retry nft list table inet postgres_guard",
+    "retry systemctl is-active --quiet pg-backup.timer",
+  ]
 }

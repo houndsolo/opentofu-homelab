@@ -86,42 +86,29 @@ locals {
     "",
   ]) : ""
 
-  # Always defined (main.tf filters it out unless enabled), like wlc_container.
-  pvestatd_container = {
-    for host, b in var.backends : host => {
-      pvestatd = {
-        description = "Telegraf: Proxmox pvestatd metric server (InfluxDB line protocol) -> Prometheus"
-        image       = var.images.telegraf
-        # The listener for the PVE nodes; the metrics on the backend VLAN for the health check
-        # (Prometheus itself scrapes by container name on the monitoring network).
-        publish   = ["${b.monitoring_address}:${local.pvestatd_port}:${local.pvestatd_port}", "${b.backend_address}:${local.pvestatd_metrics_port}:${local.pvestatd_metrics_port}"]
-        volumes   = ["${local.pvestatd_conf}:/etc/telegraf:ro"]
-        env_files = ["${local.backend_conf}/pvestatd.env"]
-        user      = "telegraf" # see wlc_container
-        reload    = true
-      }
-    }
+  # The unit on every backend when on, else null (main.tf leaves it out). The listener for the PVE nodes on
+  # the monitoring network; the metrics also on the backend VLAN (Prometheus itself scrapes by container
+  # name on the monitoring network). User=telegraf: see wlc_unit.
+  pvestatd_unit = {
+    for host, b in var.backends : host => local.pvestatd_enabled ? templatefile("${path.module}/templates/pvestatd.container.tftpl", {
+      image              = var.images.telegraf
+      monitoring_address = b.monitoring_address
+      backend_address    = b.backend_address
+      port               = local.pvestatd_port
+      metrics_port       = local.pvestatd_metrics_port
+    }) : null
   }
 
   pvestatd_files = {
-    for host in local.backend_names : host => local.pvestatd_enabled ? [
-      { path = "${local.pvestatd_conf}/telegraf.conf", mode = "0644", owner = "root", content = local.pvestatd_telegraf_conf, restart = [], reload = ["pvestatd"] },
-      { path = "${local.backend_conf}/pvestatd.env", mode = "0600", owner = "root", content = "PVESTATD_TOKEN=${coalesce(var.pvestatd_token, "missing")}\n", restart = ["pvestatd"], reload = [] },
-    ] : []
+    for host in local.backend_names : host => [for f in [
+      { path = "${local.pvestatd_conf}/telegraf.conf", content = local.pvestatd_telegraf_conf, units = ["pvestatd"] },
+      { path = "${local.backend_conf}/pvestatd.env", mode = "0600", content = "PVESTATD_TOKEN=${coalesce(var.pvestatd_token, "missing")}\n", units = ["pvestatd"], restart = true },
+    ] : f if local.pvestatd_enabled]
   }
 
-  pvestatd_dirs = { for host in local.backend_names : host => local.pvestatd_enabled ? [{ path = local.pvestatd_conf, mode = "0755", owner = "root" }] : [] }
-
-  pvestatd_validations = {
+  pvestatd_checks = {
     for host in local.backend_names : host => local.pvestatd_enabled ? [
-      "podman run --rm --network=none --user 0 --entrypoint telegraf -e PVESTATD_TOKEN=check -v \"$root${local.pvestatd_conf}:/etc/telegraf:ro\" '${var.images.telegraf}' config check --config /etc/telegraf/telegraf.conf",
-    ] : []
-  }
-
-  pvestatd_health = {
-    for host, b in var.backends : host => local.pvestatd_enabled ? [
-      "curl -fsS -o /dev/null --max-time 3 http://${b.monitoring_address}:${local.pvestatd_port}/health",
-      "curl -fsS -o /dev/null --max-time 3 http://${b.backend_address}:${local.pvestatd_metrics_port}/metrics",
+      "podman run --rm --network=none --user 0 --entrypoint telegraf -e PVESTATD_TOKEN=check -v \"$stage${local.pvestatd_conf}:/etc/telegraf:ro\" '${var.images.telegraf}' config check --config /etc/telegraf/telegraf.conf",
     ] : []
   }
 

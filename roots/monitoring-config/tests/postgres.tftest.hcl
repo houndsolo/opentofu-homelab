@@ -125,10 +125,16 @@ run "postgres_cluster" {
   assert {
     # Packages, services in order, Patroni reloaded (never restarted) by deploys.
     condition = (
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for pkg in keepalived jq postgresql-18 patroni python3-etcd etcd-server etcd-client pgbackrest; do") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for svc in postgres-guard haproxy etcd patroni pg-leader-setup postgres-exporter alloy node-exporter keepalived; do") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/patroni/config.yml' '0644' 'root' '' 'patroni'") &&
+      strcontains(module.monitoring.postgres_packages_script, "for pkg in keepalived jq postgresql-18 patroni python3-etcd etcd-server etcd-client pgbackrest; do") &&
+      # The deploy runs the staged package script before its checks, and installs it.
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "\n\"$stage/usr/local/sbin/pg-packages\" \"$stage\"\n") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "unpack '/usr/local/sbin/pg-packages' '${base64encode(module.monitoring.postgres_packages_script)}'") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/usr/local/sbin/pg-packages' '0755' '0:0' reload \n") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for unit in postgres-guard haproxy etcd patroni pg-leader-setup postgres-exporter alloy node-exporter keepalived; do") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/patroni/config.yml' '0644' '0:0' reload patroni\n") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/postgres-ha/patroni.env' '0600' '0:0' reload \n") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "pg_dropcluster --stop 18 main") &&
+      strcontains(module.monitoring.units.pg01["postgres-exporter"], "HealthCmd=wget -q -O /dev/null http://10.55.14.40:9187/\n") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 18.6-*)") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 4.1.5-*)") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "case $v in 2.60.0-*)") &&
@@ -143,13 +149,13 @@ run "postgres_cluster" {
     # versions upgraded, and package scripts can't (re)start a service (policy-rc.d) meanwhile.
     condition = (
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), base64encode(file("../../modules/services/monitoring/templates/pgdg.asc"))) &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/apt/sources.list.d/pgdg.sources' '0644' 'root' '' ''") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for f in /etc/apt/keyrings/pgdg.asc /etc/apt/preferences.d/pgdg.pref /etc/apt/sources.list.d/pgdg.sources; do") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for spec in 'etcd-client=3.5.16-*' 'etcd-server=3.5.16-*' 'patroni=4.1.5-*' 'pgbackrest=2.60.0-*' 'postgresql-18=18.6-*' 'postgresql-client-18=18.6-*'; do") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/etc/apt/sources.list.d/pgdg.sources' '0644' '0:0' reload \n") &&
+      strcontains(module.monitoring.postgres_packages_script, "for f in /etc/apt/keyrings/pgdg.asc /etc/apt/preferences.d/pgdg.pref /etc/apt/sources.list.d/pgdg.sources; do") &&
+      strcontains(module.monitoring.postgres_packages_script, "for spec in 'etcd-client=3.5.16-*' 'etcd-server=3.5.16-*' 'patroni=4.1.5-*' 'pgbackrest=2.60.0-*' 'postgresql-18=18.6-*' 'postgresql-client-18=18.6-*'; do") &&
       # A missing or off-pin package installs exactly the newest apt version matching its pin.
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "'postgresql-18') echo '18.6-*' ;;") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "targets+=\" $pkg=$ver\"") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "printf '#!/bin/sh\\nexit 101\\n' > \"$policy_rc\"") &&
+      strcontains(module.monitoring.postgres_packages_script, "'postgresql-18') echo '18.6-*' ;;") &&
+      strcontains(module.monitoring.postgres_packages_script, "targets+=\" $pkg=$ver\"") &&
+      strcontains(module.monitoring.postgres_packages_script, "printf '#!/bin/sh\\nexit 101\\n' > \"$policy_rc\"") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), base64encode(<<-EOT
         # Managed by OpenTofu (monitoring-config). Local edits are overwritten.
         # PGDG supplies the Patroni stack only; every other package stays Debian's.
@@ -162,10 +168,10 @@ run "postgres_cluster" {
         Pin-Priority: 600
       EOT
       )) &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "[ \"$codename-pgdg\" = 'trixie-pgdg' ]") &&
-      # The other roles' deploys have no PGDG step and are rendered as before.
+      strcontains(module.monitoring.postgres_packages_script, "[ \"$codename-pgdg\" = 'trixie-pgdg' ]") &&
+      # The other roles' deploys have no PGDG step: keepalived comes from the shared deploy's package list.
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "policy-rc.d") &&
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "echo \"installed packages:$missing\"")
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "dpkg-query -W -f='$${Status}' 'keepalived'")
     )
     error_message = "The Postgres deploy sets up the PGDG repository (pinned to the Patroni stack) before installing, upgrades packages outside their series and keeps package scripts from starting services."
   }
@@ -258,8 +264,8 @@ run "postgres_major_override" {
       yamldecode(module.monitoring.patroni_configs.pg01).scope == "lylat-pg19" &&
       yamldecode(module.monitoring.patroni_configs.pg01).postgresql.data_dir == "/var/lib/postgresql/patroni/19" &&
       yamldecode(module.monitoring.etcd_configs.pg01).data-dir == "/var/lib/etcd/lylat-pg" &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "'patroni=4.2.0-*' 'pgbackrest=2.61.0-1.pgdg13+1' 'postgresql-19=19.1-*' 'postgresql-client-19=19.1-*'; do") &&
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "'etcd-server') echo '3.5.16-*' ;;")
+      strcontains(module.monitoring.postgres_packages_script, "'patroni=4.2.0-*' 'pgbackrest=2.61.0-1.pgdg13+1' 'postgresql-19=19.1-*' 'postgresql-client-19=19.1-*'; do") &&
+      strcontains(module.monitoring.postgres_packages_script, "'etcd-server') echo '3.5.16-*' ;;")
     )
     error_message = "packages.postgresql's major selects the packages, data dir, Patroni scope and stanza; an upstream version accepts any Debian revision, a full version only itself."
   }

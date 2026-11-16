@@ -1,0 +1,24 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Prometheus postgres_exporter (local member)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=postgres-exporter
+Network=host
+EnvironmentFile=/etc/postgres-ha/postgres-exporter.env
+Exec=--web.listen-address=${listen_address}:9187 --collector.stat_checkpointer --collector.postmaster --collector.long_running_transactions --collector.database_wraparound
+HealthCmd=wget -q -O /dev/null http://${listen_address}:9187/
+HealthInterval=15s
+HealthStartPeriod=5m
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

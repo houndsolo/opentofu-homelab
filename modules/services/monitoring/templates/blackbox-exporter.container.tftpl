@@ -1,0 +1,24 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Prometheus blackbox exporter
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=blackbox-exporter
+Network=monitoring.network
+PublishPort=${backend_address}:9115:9115
+Volume=/etc/monitoring/blackbox:/etc/blackbox_exporter:ro
+User=0
+AddCapability=CAP_NET_RAW
+Exec=--config.file=/etc/blackbox_exporter/config.yml
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman kill --signal HUP blackbox-exporter
+
+[Install]
+WantedBy=multi-user.target

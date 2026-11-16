@@ -1,0 +1,39 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Prometheus Alertmanager
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=alertmanager
+Network=monitoring.network
+PublishPort=${monitoring_address}:9093:9093
+PublishPort=${backend_address}:9093:9093
+%{ for vip in vips ~}
+PublishPort=${vip}:9093:9093
+%{ endfor ~}
+%{ if gossip_address != null ~}
+PublishPort=${gossip_address}:9094:9094/tcp
+PublishPort=${gossip_address}:9094:9094/udp
+%{ endif ~}
+Volume=/etc/monitoring/alertmanager:/etc/alertmanager:ro
+Volume=/var/lib/monitoring/alertmanager:/alertmanager
+%{ if gossip_address != null ~}
+Exec=--config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager --web.external-url=http://${monitoring_address}:9093/ --cluster.listen-address=0.0.0.0:9094 --cluster.advertise-address=${gossip_address}:9094 --cluster.label=lylat-alertmanager%{ for peer in peers } --cluster.peer=${peer}:9094%{ endfor }
+%{ else ~}
+Exec=--config.file=/etc/alertmanager/alertmanager.yml --storage.path=/alertmanager --web.external-url=http://${monitoring_address}:9093/ --cluster.listen-address=
+%{ endif ~}
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:9093/-/ready
+HealthInterval=15s
+HealthStartPeriod=5m
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman kill --signal HUP alertmanager
+
+[Install]
+WantedBy=multi-user.target

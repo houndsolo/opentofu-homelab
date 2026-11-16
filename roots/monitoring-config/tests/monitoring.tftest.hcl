@@ -65,9 +65,18 @@ run "inventory_targets" {
       # mon01's old Postgres container (Grafana's database before the Patroni cutover) is gone from the code.
       !contains(keys(module.monitoring.units.mon01), "postgres") &&
       !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "/var/lib/monitoring/postgres") &&
-      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "postgres.env")
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "postgres.env") &&
+      # Prometheus and Alertmanager check themselves (systemctl restart waits for healthy); Alloy (no curl/wget
+      # in its image) is checked from the host. No old .tofu-quadlets bookkeeping.
+      strcontains(module.monitoring.units.mon01.prometheus, "HealthCmd=wget -q -O /dev/null http://127.0.0.1:9090/-/ready\nHealthInterval=15s\nHealthStartPeriod=5m\nNotify=healthy\n") &&
+      strcontains(module.monitoring.units.mon01.alertmanager, "HealthCmd=wget -q -O /dev/null http://127.0.0.1:9093/-/ready\n") &&
+      !strcontains(module.monitoring.units.mon01["node-exporter"], "HealthCmd=") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "retry curl -fsS -o /dev/null --max-time 3 http://10.55.16.30:12345/-/ready\n") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "put '/etc/monitoring/prometheus/prometheus.yml' '0644' '0:0' reload prometheus\n") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "install -d -m '0750' -o '65534' -g '65534' '/var/lib/monitoring/prometheus'") &&
+      !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), ".tofu-quadlets")
     )
-    error_message = "Validate before install, peer Grafana over the HA VLAN, and no Postgres container on mon01."
+    error_message = "Validate before install, peer Grafana over the HA VLAN, no Postgres container on mon01, health in the Prometheus/Alertmanager units, config changes reload Prometheus."
   }
 
   assert {
@@ -248,16 +257,20 @@ run "inventory_targets" {
 
   assert {
     condition = alltrue([for name in ["graf01", "graf02"] : (
-      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "prune '/etc/grafana-container/provisioning/dashboards/files'") &&
-      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/Network' '0755' 'root'") &&
-      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/files/Network/snmp-device-summary.json' '0644' 'root' '' 'grafana'") &&
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "find '/etc/grafana-container/provisioning/dashboards/files' -type f") &&
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/files/Network/snmp-device-summary.json' '0644' '0:0' reload grafana\n") &&
       alltrue([for dir in ["Hosts", "Monitoring", "Overview", "Probes", "Storage"] : strcontains(
         nonsensitive(module.monitoring.grafana_deployments[name]),
-        "ensure_dir '/etc/grafana-container/provisioning/dashboards/files/${dir}' '0755' 'root'"
+        "unpack '/etc/grafana-container/provisioning/dashboards/files/${dir}/"
       )]) &&
-      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/dashboards.yml' '0644' 'root' 'grafana' ''")
-    )]) && !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "\nprune '")
-    error_message = "Grafana VMs install the dashboards without a restart (the provider polls), restart only for the provider file, and prune removed dashboards."
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "put '/etc/grafana-container/provisioning/dashboards/dashboards.yml' '0644' '0:0' restart grafana\n") &&
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "install -d -m '0750' -o '472' -g '472' '/var/lib/grafana-container'") &&
+      # Grafana's unit checks that it serves (no database involved); /api/health (database too) is checked after the restart.
+      strcontains(module.monitoring.units[name].grafana, "HealthCmd=curl -fsS -o /dev/null http://127.0.0.1:3000/robots.txt\nHealthInterval=15s\nHealthStartPeriod=5m\nNotify=healthy\n") &&
+      strcontains(module.monitoring.units[name].grafana, "ExecReload=/usr/bin/podman exec grafana sh -c 'curl -fsS -X POST") &&
+      strcontains(nonsensitive(module.monitoring.grafana_deployments[name]), "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3000/api/health\n")
+    )]) && !strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "-type f | while")
+    error_message = "Grafana VMs reload (not restart) for dashboards, restart for the provider file, prune removed dashboards, check themselves in the unit and the database after the restart."
   }
 }
 
@@ -302,7 +315,8 @@ run "exporters_and_ceph_alerts" {
       alltrue([for name, addr in { mon01 = "10.5.11.30", mon02 = "10.5.11.31" } : (
         strcontains(module.monitoring.units[name].pvestatd, "PublishPort=${addr}:8186:8186\n") &&
         strcontains(module.monitoring.units[name].pvestatd, "EnvironmentFile=/etc/monitoring/pvestatd.env\n") &&
-        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "put '/etc/monitoring/pvestatd.env' '0600' 'root' 'pvestatd' ''") &&
+        strcontains(nonsensitive(module.monitoring.backend_deployments[name]), "put '/etc/monitoring/pvestatd.env' '0600' '0:0' restart pvestatd\n") &&
+        strcontains(module.monitoring.units[name].pvestatd, "HealthCmd=curl -fsS -o /dev/null http://127.0.0.1:8186/health && curl -fsS -o /dev/null http://127.0.0.1:9274/metrics\n") &&
         proxmox_metrics_server.pvestatd[name].server == addr && proxmox_metrics_server.pvestatd[name].port == 8186
       )]) &&
       strcontains(module.monitoring.pvestatd_telegraf_config, "token = \"$${PVESTATD_TOKEN}\"") &&
@@ -626,11 +640,12 @@ run "wlc_telemetry" {
 
   assert {
     condition = (
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "put '/etc/monitoring/telegraf/telegraf.conf' '0644' 'root' '' 'telegraf'") &&
+      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "put '/etc/monitoring/telegraf/telegraf.conf' '0644' '0:0' reload telegraf\n") &&
       strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "config check --config /etc/telegraf/telegraf.conf") &&
-      strcontains(nonsensitive(module.monitoring.backend_deployments.mon01), "--http2-prior-knowledge http://10.5.11.30:57500/")
+      strcontains(module.monitoring.units.mon01.telegraf, "HealthCmd=curl -fsS -o /dev/null http://127.0.0.1:9273/metrics && curl -fsS -o /dev/null http://127.0.0.1:9275/metrics && curl -sS -o /dev/null --http2-prior-knowledge http://127.0.0.1:57500/\n") &&
+      strcontains(module.monitoring.units.mon01.telegraf, "Notify=healthy\n")
     )
-    error_message = "deploy.sh checks the Telegraf config before install and health-checks the gRPC port."
+    error_message = "The deploy checks the Telegraf config before install; the unit health-checks both metrics ports and the gRPC port."
   }
 
   assert {
@@ -709,7 +724,7 @@ run "logging" {
   assert {
     # One VRRP instance: adverts over the HA NIC (eth4), the VIPs on the client NICs, nopreempt.
     condition = alltrue([for name, p in { loki01 = { i = 34, prio = 150 }, loki02 = { i = 35, prio = 100 }, loki03 = { i = 36, prio = 50 } } : (
-      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/keepalived/keepalived.conf' '0600' 'root' '' 'keepalived'") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/keepalived/keepalived.conf' '0600' '0:0' reload keepalived\n") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), base64encode(templatefile("../../modules/services/monitoring/templates/keepalived.conf.tftpl", {
         host          = name
         router_id     = 101
@@ -825,11 +840,15 @@ run "logging" {
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "-verify-config") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "validate --stability.level=experimental /etc/alloy/config.alloy") &&
       strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "haproxy -c") &&
-      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "for pkg in keepalived; do") &&
-      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/logging/loki.env' '0600' 'root' 'loki' ''") &&
-      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "ensure_dir '/var/lib/logging/loki' '0750' 'runtime|${local.container_images.loki}'")
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "dpkg-query -W -f='$${Status}' 'keepalived'") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "put '/etc/logging/loki.env' '0600' '0:0' restart loki\n") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "install -d -m '0750' -o '10001' -g '10001' '/var/lib/logging/loki'") &&
+      # Loki's /ready needs the ring: checked from the host after the restarts, not as a HealthCmd.
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/ready\n") &&
+      !strcontains(module.monitoring.units[name].loki, "HealthCmd=") &&
+      strcontains(nonsensitive(module.monitoring.logging_deployments[name]), "find '/etc/logging/loki/rules' -type f")
     )])
-    error_message = "Each logging deploy.sh validates Loki/Alloy/haproxy/nftables first, installs keepalived, and keeps the S3 keys in a 0600 env file."
+    error_message = "Each logging deploy validates Loki/Alloy/haproxy/nftables first, installs keepalived, keeps the S3 keys in a 0600 env file and waits for Loki's ring readiness from the host."
   }
 }
 

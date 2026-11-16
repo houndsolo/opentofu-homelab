@@ -1,0 +1,31 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Telegraf: Cisco MDT (gRPC dial-out) from the C9800 WLCs -> Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=telegraf
+Network=monitoring.network
+PublishPort=${monitoring_address}:${port}:${port}
+%{ for vip in vips ~}
+PublishPort=${vip}:${port}:${port}
+%{ endfor ~}
+PublishPort=${backend_address}:9273:9273
+PublishPort=${prom_port}:${prom_port}
+Volume=/etc/monitoring/telegraf:/etc/telegraf:ro
+User=telegraf
+HealthCmd=curl -fsS -o /dev/null http://127.0.0.1:9273/metrics && curl -fsS -o /dev/null http://127.0.0.1:${prom_port}/metrics && curl -sS -o /dev/null --http2-prior-knowledge http://127.0.0.1:${port}/
+HealthInterval=15s
+HealthStartPeriod=5m
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman kill --signal HUP telegraf
+
+[Install]
+WantedBy=multi-user.target

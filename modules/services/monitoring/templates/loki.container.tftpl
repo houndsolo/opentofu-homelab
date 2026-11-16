@@ -1,0 +1,22 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Grafana Loki (monolithic, ring of ${ring_size})
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=loki
+Network=host
+Volume=/etc/logging/loki:/etc/loki:ro
+Volume=/var/lib/logging/loki:/loki
+EnvironmentFile=/etc/logging/loki.env
+Exec=-config.file=/etc/loki/loki.yaml -config.expand-env=true
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

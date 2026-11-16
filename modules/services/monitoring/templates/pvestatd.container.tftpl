@@ -1,0 +1,28 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Telegraf: Proxmox pvestatd metric server (InfluxDB line protocol) -> Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=pvestatd
+Network=monitoring.network
+PublishPort=${monitoring_address}:${port}:${port}
+PublishPort=${backend_address}:${metrics_port}:${metrics_port}
+Volume=/etc/monitoring/pvestatd:/etc/telegraf:ro
+EnvironmentFile=/etc/monitoring/pvestatd.env
+User=telegraf
+HealthCmd=curl -fsS -o /dev/null http://127.0.0.1:${port}/health && curl -fsS -o /dev/null http://127.0.0.1:${metrics_port}/metrics
+HealthInterval=15s
+HealthStartPeriod=5m
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman kill --signal HUP pvestatd
+
+[Install]
+WantedBy=multi-user.target

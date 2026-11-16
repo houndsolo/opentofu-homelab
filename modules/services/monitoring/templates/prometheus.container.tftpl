@@ -1,0 +1,28 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=prometheus
+Network=monitoring.network
+PublishPort=${monitoring_address}:9090:9090
+PublishPort=${backend_address}:9090:9090
+Volume=/etc/monitoring/prometheus:/etc/prometheus:ro
+Volume=/var/lib/monitoring/prometheus:/prometheus
+Exec=--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=${retention_time} --storage.tsdb.retention.size=${retention_size} --web.external-url=http://${monitoring_address}:9090/ --web.enable-lifecycle
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:9090/-/ready
+HealthInterval=15s
+HealthStartPeriod=5m
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman kill --signal HUP prometheus
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Grafana Mimir (monolithic, ring of ${ring_size})
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=mimir
+Network=host
+Volume=/etc/metrics/mimir:/etc/mimir:ro
+Volume=/var/lib/metrics/mimir:/data
+EnvironmentFile=/etc/metrics/mimir.env
+Exec=-config.file=/etc/mimir/mimir.yaml -config.expand-env=true
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

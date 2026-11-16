@@ -58,33 +58,39 @@ Each group has a `*VIPNotHeldOnce` alert.
 
 One `terraform_data` per VM: `backend`, `grafana`, `logging`, `metrics`, `postgres` (`["<vm>"]`). Order:
 backends, then logging, then metrics and postgres, then grafana (it needs Postgres and Mimir). Each uploads
-`deploy.sh` to a private `/tmp` directory, runs it with `sudo -n`, and deletes it. The script:
+`deploy.sh` (rendered by `modules/services/quadlet-deploy` from the role's file list) to a private `/tmp`
+directory, runs it with `sudo -n`, and deletes it. The script:
 
-1. Unpacks its embedded files into a staging directory and pulls the images.
-2. Installs missing or out-of-pin Debian packages (keepalived; the Patroni stack). Deploy mode only.
-3. **Validates** (in throwaway no-network containers, or on the host for nft/keepalived/patroni): `promtool check config` (and the Ceph rules),
-   `amtool check-config`, blackbox `--config.check`, snmp_exporter `--dry-run`, `telegraf config check`,
-   `alloy validate`, `loki -verify-config`, `haproxy -c`, `nft -c`, and once the packages exist `keepalived -t`
-   and `patroni --validate-config`. A broken
-   config never gets installed.
-4. Creates directories (data dirs owned by the user each image runs as) and installs only files that changed
-   (content, mode, owner). Under the dashboards directory, files no longer in the module are deleted.
-5. Stops and removes Quadlet units it no longer manages (e.g. `pve-exporter` after removing the token).
-6. `systemctl daemon-reload`, then per service in order: **restart** if its unit, env file or a restart-type
-   config changed; **start** if not running; **reload** (SIGHUP / ExecReload) if only a reloadable config changed.
-   Prometheus, Alertmanager, blackbox, Telegraf, Alloy and keepalived reload, so scrape-target edits don't
-   restart Prometheus.
-7. Waits up to two minutes per health check (`/-/ready`, Grafana `/api/health`, Telegraf's ports, ...). On
-   failure it prints the failing units' journal and exits non-zero.
+1. Installs missing Debian packages (keepalived).
+2. Unpacks its embedded files into a private staging directory and pulls the images.
+3. **Validates** the staged files (in throwaway no-network containers, or on the host for nft/keepalived/patroni):
+   `promtool check config` (and the Ceph rules), `amtool check-config`, blackbox `--config.check`, snmp_exporter
+   `--dry-run`, `telegraf config check`, `alloy validate`, `loki -verify-config`, `mimir -modules`, `haproxy -c`,
+   `nft -c`, and once the packages exist `keepalived -t` and `patroni --validate-config`. On the Patroni members
+   the staged `pg-packages` runs first (PGDG apt files, then missing or out-of-pin packages, no service started
+   by package scripts). A broken config never gets installed.
+4. Creates the data directories (numeric owner = the user each image runs as: Prometheus/Alertmanager 65534,
+   Grafana 472, Loki 10001; Alloy and Mimir root) and installs only files whose content changed; mode and owner
+   are set on every run. Under the dashboards and Loki rules directories, files no longer in the module are deleted.
+5. Stops and removes unit files it installed last time but no longer does (list in
+   `/var/lib/tofu-deploy/<deployment>.units`, e.g. `pve-exporter` after removing the token).
+6. `systemctl daemon-reload`, then per unit in order: **restart** if its unit file or a restart-type file (env
+   file, Loki/Mimir/haproxy config, sysctl) changed, or it isn't running; else **reload-or-restart** if another of
+   its files changed. Prometheus, Alertmanager, blackbox, both Telegrafs, Alloy, Patroni and keepalived reload
+   (ExecReload), so scrape-target edits don't restart Prometheus and keepalived edits restart nothing else.
+   Units with `HealthCmd=` + `Notify=healthy` (Prometheus, Alertmanager, Telegraf, pvestatd, Grafana,
+   postgres_exporter) make `systemctl restart` wait until the container is healthy (up to `TimeoutStartSec`,
+   300 s); a failed start prints the unit's journal and exits non-zero.
+7. Checks from the host what the units can't (up to two minutes each): Alloy `/-/ready`, Grafana `/api/health`
+   (its database), Loki/Mimir `/ready` (the ring), haproxy -> RGW, etcd, Patroni `/health`, the nft tables.
 
-`deploy.sh check` pulls, validates and lists what would change, installing nothing (copy it to a VM and run
-`sudo bash deploy.sh check`). A failed deploy fails the apply and taints the resource, so the next apply retries.
+A failed deploy fails the apply and taints the resource, so the next apply retries.
 
 **Redeploy triggers:** any rendered file or image, the VM's management address, VM ID, `ssh_username`, or
 `deploy_revision`. Secrets are rendered in, but generated once and kept in state.
 
 **Rolling restarts:** all VMs of a role deploy in parallel. For Loki, Mimir and Patroni use `-parallelism=1`
-so each VM waits for its health check before the next restarts; a parallel apply restarts all three Lokis or
+so each VM waits for its checks before the next restarts; a parallel apply restarts all three Lokis or
 Mimirs at once (writes fail for a minute, clients retry).
 
 ### What ends up on the VMs
@@ -103,7 +109,8 @@ Mimirs at once (writes fail for a minute, clients retry).
 | `/etc/{logging,metrics}/haproxy/haproxy.cfg` | haproxy (S3 -> RGWs) |
 | `/etc/{logging,metrics}/guard.nft` + `{logging,metrics}-guard.service` | nftables guards |
 | `/etc/keepalived/keepalived.conf` (0600), `/etc/sysctl.d/90-monitoring-vip.conf` (backends) | VRRP; `ip_nonlocal_bind` so containers can publish on VIPs |
-| `/etc/patroni/`, `/etc/etcd/etcd.yml`, `/etc/pgbackrest/`, `/etc/postgres-ha/` (`s3.env`, haproxy, guard) | Patroni members; data in `/var/lib/postgresql/patroni/<major>` |
+| `/etc/patroni/`, `/etc/etcd/etcd.yml`, `/etc/pgbackrest/`, `/etc/postgres-ha/` (`s3.env`, haproxy, guard), `/usr/local/sbin/{pgctl,pg-backup,pg-leader-setup,pg-packages}` | Patroni members; data in `/var/lib/postgresql/patroni/<major>` |
+| `/var/lib/tofu-deploy/<deployment>.units` | unit files the last deploy installed (`monitoring`, `grafana`, `logging`, `metrics`, `postgres`) |
 
 Logs: `journalctl -u <unit>`.
 

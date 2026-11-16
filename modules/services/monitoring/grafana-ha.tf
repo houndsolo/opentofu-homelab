@@ -25,15 +25,14 @@ locals {
     }) : null
   }
 
-  # Extra deploy.sh pieces for keepalived (empty when the VIP is off).
+  # Extra deploy pieces for keepalived (empty when the VIP is off).
   grafana_ha_packages = local.grafana_vrrp_enabled ? ["keepalived"] : []
-  grafana_ha_dirs     = local.grafana_vrrp_enabled ? [{ path = "/etc/keepalived", mode = "0755", owner = "root" }] : []
   grafana_ha_files = {
     for name in local.grafana_names : name => local.grafana_vrrp_enabled ? [
-      { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.grafana_keepalived_conf[name], restart = [], reload = ["keepalived"] },
+      { path = "/etc/keepalived/keepalived.conf", mode = "0600", content = local.grafana_keepalived_conf[name], units = ["keepalived"] },
     ] : []
   }
-  grafana_ha_validations  = local.grafana_vrrp_enabled ? [local.keepalived_validation] : []
+  grafana_ha_checks       = local.grafana_vrrp_enabled ? [local.keepalived_validation] : []
   grafana_ha_post_install = local.grafana_vrrp_enabled ? ["systemctl enable --quiet keepalived.service"] : []
   # keepalived last: it only takes the VIP once Grafana answers.
   grafana_ha_services = local.grafana_vrrp_enabled ? ["keepalived"] : []

@@ -188,46 +188,28 @@ locals {
     })
   }
   alloy_unit = {
-    for name, a in local.alloy_hosts : name => templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-      name        = "alloy"
-      description = "Grafana Alloy (journal${a.syslog ? " and syslog" : ""} -> Loki)"
-      image       = var.images.alloy
-      network     = "host" # syslog senders' addresses, the VIPs, the journal
-      volumes = [
-        "${local.alloy_conf}:/etc/alloy:ro",
-        "${local.alloy_data}:/var/lib/alloy",
-        "/var/log/journal:/var/log/journal:ro",
-        "/run/log/journal:/run/log/journal:ro",
-        "/etc/machine-id:/etc/machine-id:ro",
-      ]
-      exec = concat([
-        "run", "/etc/alloy/config.alloy",
-        "--storage.path=/var/lib/alloy/data",
-        "--server.http.listen-addr=${a.listen}:12345",
-        "--disable-reporting",
-      ], local.alloy_stability[name])
-      reload = true # SIGHUP reloads the config
-    }))
+    for name, a in local.alloy_hosts : name => templatefile("${path.module}/templates/alloy.container.tftpl", {
+      image          = var.images.alloy
+      listen_address = a.listen
+      syslog         = a.syslog # also the syslog receiver (logging VMs)
+    })
   }
-  alloy_dirs = [
-    { path = local.alloy_conf, mode = "0755", owner = "root" },
-    { path = local.alloy_data, mode = "0750", owner = "runtime|${var.images.alloy}" },
-  ]
+  alloy_dirs = [{ path = local.alloy_data, mode = "0750", owner = "0:0" }] # the alloy image runs as root
   alloy_files = {
     for name in keys(local.alloy_hosts) : name => [
-      { path = "${local.quadlet_dir}/alloy.container", mode = "0644", owner = "root", content = local.alloy_unit[name], restart = ["alloy"], reload = [] },
-      { path = "${local.alloy_conf}/config.alloy", mode = "0644", owner = "root", content = local.alloy_config[name], restart = [], reload = ["alloy"] },
+      { path = "${local.quadlet_dir}/alloy.container", content = local.alloy_unit[name], units = ["alloy"] },
+      { path = "${local.alloy_conf}/config.alloy", content = local.alloy_config[name], units = ["alloy"] },
     ]
   }
   # The syslog receiver's raw listener (Cisco IOS-XE, FS S3910: not RFC 3164) is
   # experimental in Alloy; "alloy validate" doesn't check stability, "run" refuses it.
-  alloy_stability = { for name, a in local.alloy_hosts : name => a.syslog ? ["--stability.level=experimental"] : [] }
-  alloy_validation = {
+  alloy_check = {
     for name, a in local.alloy_hosts : name => join(" ", concat([
-      "podman run --rm --network=none --user 0 -v \"$root${local.alloy_conf}:/etc/alloy:ro\" '${var.images.alloy}' validate",
-    ], local.alloy_stability[name], ["/etc/alloy/config.alloy"]))
+      "podman run --rm --network=none --user 0 -v \"$stage${local.alloy_conf}:/etc/alloy:ro\" '${var.images.alloy}' validate",
+    ], a.syslog ? ["--stability.level=experimental"] : [], ["/etc/alloy/config.alloy"]))
   }
-  alloy_health = { for name, a in local.alloy_hosts : name => "curl -fsS -o /dev/null --max-time 3 http://${a.listen}:12345/-/ready" }
+  # From the host: the alloy image has neither curl nor wget for a HealthCmd.
+  alloy_verify = { for name, a in local.alloy_hosts : name => "retry curl -fsS -o /dev/null --max-time 3 http://${a.listen}:12345/-/ready" }
 
   # keepalived: one VRRP instance per network, unicast to the other logging VMs.
   keepalived_conf = {
@@ -248,99 +230,36 @@ locals {
 
   logging_units = {
     for name, vm in var.logging : name => {
-      haproxy = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "haproxy"
-        description = "haproxy: S3 on 127.0.0.1:7480 -> Ceph RGWs"
-        image       = var.images.haproxy
-        network     = "host"
-        volumes     = ["${local.logging_conf}/haproxy:/usr/local/etc/haproxy:ro"]
-      }))
-      loki = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "loki"
-        description = "Grafana Loki (monolithic, ring of ${length(var.logging)})"
-        image       = var.images.loki
-        network     = "host"
-        volumes     = ["${local.logging_conf}/loki:/etc/loki:ro", "${local.logging_data}/loki:/loki"]
-        env_files   = ["${local.logging_conf}/loki.env"]
-        exec        = ["-config.file=/etc/loki/loki.yaml", "-config.expand-env=true"]
-      }))
-      alloy = local.alloy_unit[name]
-      node-exporter = templatefile("${path.module}/templates/container.tftpl", merge(local.container_defaults, {
-        name        = "node-exporter"
-        description = "Prometheus node exporter"
-        image       = var.images.node_exporter
-        network     = "host"
-        volumes     = local.node_exporter_volumes
-        # address-info: node_network_address_info shows which VM holds each VIP.
-        exec        = concat(["--path.rootfs=/host", "--web.listen-address=${coalesce(vm.telemetry_address, vm.backend_address)}:9100", "--collector.netdev.address-info"], local.node_exporter_collectors) # main.tf: the extra collectors
-        podman_args = ["--pid=host"]
-      }))
+      haproxy = templatefile("${path.module}/templates/haproxy.container.tftpl", { image = var.images.haproxy, conf_dir = local.logging_conf })
+      loki    = templatefile("${path.module}/templates/loki.container.tftpl", { image = var.images.loki, ring_size = length(var.logging) })
+      alloy   = local.alloy_unit[name]
+      # address-info: node_network_address_info shows which VM holds each VIP.
+      node-exporter = templatefile("${path.module}/templates/node-exporter.container.tftpl", {
+        image          = var.images.node_exporter
+        listen_address = coalesce(vm.telemetry_address, vm.backend_address)
+        textfile_dir   = null
+      })
     }
   }
 
   # Start order: the guard before Loki opens its ports, S3 before Loki, keepalived last.
-  logging_services   = ["logging-guard", "haproxy", "loki", "alloy", "node-exporter", "keepalived"]
-  logging_containers = ["haproxy", "loki", "alloy", "node-exporter"]
+  logging_services = ["logging-guard", "haproxy", "loki", "alloy", "node-exporter", "keepalived"]
 
-  logging_deployments = {
-    for name, vm in var.logging : name => templatefile("${path.module}/templates/deploy.sh.tftpl", {
-      host       = name
-      state_file = "${local.logging_conf}/.tofu-quadlets"
-      images     = [var.images.haproxy, var.images.loki, var.images.alloy, var.images.node_exporter]
-      packages   = ["keepalived"]
-      apt        = null
-      dirs = concat(
-        [
-          { path = local.quadlet_dir, mode = "0755", owner = "root" },
-          { path = local.logging_conf, mode = "0755", owner = "root" },
-          { path = "${local.logging_conf}/haproxy", mode = "0755", owner = "root" },
-          { path = "${local.logging_conf}/loki", mode = "0755", owner = "root" },
-          { path = "${local.logging_conf}/loki/rules", mode = "0755", owner = "root" },
-          { path = "${local.logging_conf}/loki/rules/fake", mode = "0755", owner = "root" },
-          { path = local.logging_data, mode = "0755", owner = "root" },
-          { path = "${local.logging_data}/loki", mode = "0750", owner = "runtime|${var.images.loki}" },
-          { path = "/etc/keepalived", mode = "0755", owner = "root" },
-        ],
-        local.alloy_dirs,
-      )
-      prune_dirs = ["${local.logging_conf}/loki/rules"]
-      files = concat(
-        [for unit in local.logging_containers : {
-          path    = "${local.quadlet_dir}/${unit}.container"
-          mode    = "0644"
-          owner   = "root"
-          content = local.logging_units[name][unit]
-          restart = [unit]
-          reload  = []
-        }],
-        [for f in local.alloy_files[name] : f if f.path != "${local.quadlet_dir}/alloy.container"],
-        [
-          { path = "${local.logging_conf}/haproxy/haproxy.cfg", mode = "0644", owner = "root", content = local.haproxy_cfg[name], restart = ["haproxy"], reload = [] },
-          { path = "${local.logging_conf}/loki/loki.yaml", mode = "0644", owner = "root", content = local.loki_yml[name], restart = ["loki"], reload = [] },
-          # The ruler polls the rules directory: no restart.
-          { path = "${local.logging_conf}/loki/rules/fake/logging.yaml", mode = "0644", owner = "root", content = local.loki_rules_yml, restart = [], reload = [] },
-          { path = "${local.logging_conf}/loki.env", mode = "0600", owner = "root", content = local.loki_env, restart = ["loki"], reload = [] },
-          { path = "${local.logging_conf}/guard.nft", mode = "0644", owner = "root", content = local.guard_nft, restart = ["logging-guard"], reload = [] },
-          { path = "/etc/systemd/system/logging-guard.service", mode = "0644", owner = "root", content = file("${path.module}/templates/logging-guard.service"), restart = ["logging-guard"], reload = [] },
-          { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.keepalived_conf[name], restart = [], reload = ["keepalived"] },
-        ],
-      )
-      validations = [
-        "podman run --rm --network=none --user 0 -v \"$root${local.logging_conf}/loki:/etc/loki:ro\" '${var.images.loki}' -config.file=/etc/loki/loki.yaml -config.expand-env=true -verify-config",
-        local.alloy_validation[name],
-        "podman run --rm --network=none --user 0 -v \"$root${local.logging_conf}/haproxy:/usr/local/etc/haproxy:ro\" '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg",
-        "nft -c -f \"$root${local.logging_conf}/guard.nft\"",
-        local.keepalived_validation,
-      ]
-      post_install = ["systemctl enable --quiet logging-guard.service keepalived.service"]
-      services     = local.logging_services
-      health = [
-        "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:7480/", # haproxy -> an RGW
-        "curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/ready",
-        local.alloy_health[name],
-        "nft list table inet logging_guard",
-      ]
-    })
+  logging_files = {
+    for name, vm in var.logging : name => concat(
+      [for unit in ["haproxy", "loki", "alloy", "node-exporter"] : { path = "${local.quadlet_dir}/${unit}.container", content = local.logging_units[name][unit], units = [unit] }],
+      [for f in local.alloy_files[name] : f if f.path != "${local.quadlet_dir}/alloy.container"],
+      [
+        { path = "${local.logging_conf}/haproxy/haproxy.cfg", content = local.haproxy_cfg[name], units = ["haproxy"], restart = true },
+        { path = "${local.logging_conf}/loki/loki.yaml", content = local.loki_yml[name], units = ["loki"], restart = true },
+        # The ruler polls the rules directory: no restart.
+        { path = "${local.logging_conf}/loki/rules/fake/logging.yaml", content = local.loki_rules_yml },
+        { path = "${local.logging_conf}/loki.env", mode = "0600", content = local.loki_env, units = ["loki"], restart = true },
+        { path = "${local.logging_conf}/guard.nft", content = local.guard_nft, units = ["logging-guard"], restart = true },
+        { path = "/etc/systemd/system/logging-guard.service", content = file("${path.module}/templates/logging-guard.service"), units = ["logging-guard"] },
+        { path = "/etc/keepalived/keepalived.conf", mode = "0600", content = local.keepalived_conf[name], units = ["keepalived"] },
+      ],
+    )
   }
 
   haproxy_cfg = {
@@ -464,4 +383,37 @@ locals {
       }]
     }
   }] : []
+}
+
+# One deploy script per logging VM. Loki's /ready needs the ring and haproxy's port an RGW, so those are
+# checked from the host after the restarts (verify), not in the units.
+module "logging_deploy" {
+  source   = "../quadlet-deploy"
+  for_each = var.logging
+
+  name     = "logging"
+  host     = each.key
+  images   = [var.images.haproxy, var.images.loki, var.images.alloy, var.images.node_exporter]
+  packages = ["keepalived"]
+  dirs = concat(
+    [{ path = "${local.logging_data}/loki", mode = "0750", owner = "10001:10001" }], # the loki image's user
+    local.alloy_dirs,
+  )
+  prune_dirs = ["${local.logging_conf}/loki/rules"]
+  files      = local.logging_files[each.key]
+  checks = [
+    "podman run --rm --network=none --user 0 -v \"$stage${local.logging_conf}/loki:/etc/loki:ro\" '${var.images.loki}' -config.file=/etc/loki/loki.yaml -config.expand-env=true -verify-config",
+    local.alloy_check[each.key],
+    "podman run --rm --network=none --user 0 -v \"$stage${local.logging_conf}/haproxy:/usr/local/etc/haproxy:ro\" '${var.images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg",
+    "nft -c -f \"$stage${local.logging_conf}/guard.nft\"",
+    local.keepalived_validation,
+  ]
+  post_install = ["systemctl enable --quiet logging-guard.service keepalived.service"]
+  units        = local.logging_services
+  verify = [
+    "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:7480/", # haproxy -> an RGW
+    "retry curl -fsS -o /dev/null --max-time 3 http://127.0.0.1:3100/ready",
+    local.alloy_verify[each.key],
+    "retry nft list table inet logging_guard",
+  ]
 }

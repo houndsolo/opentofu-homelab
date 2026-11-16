@@ -78,7 +78,7 @@ resource "terraform_data" "metrics" {
   provisioner "remote-exec" {
     inline = [
       # One command, so a failed deploy fails the apply (remote-exec reports the last exit status).
-      "rc=0; sudo -n bash /tmp/tofu-metrics-${self.id}/deploy.sh deploy || rc=$?; rm -rf /tmp/tofu-metrics-${self.id}; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-metrics-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-metrics-${self.id}; exit $rc",
     ]
   }
 }

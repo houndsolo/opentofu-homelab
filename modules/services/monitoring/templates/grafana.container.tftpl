@@ -1,0 +1,45 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Grafana
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=grafana
+PublishPort=3000:3000
+PublishPort=${gossip_address}:9094:9094/tcp
+PublishPort=${gossip_address}:9094:9094/udp
+Volume=/etc/grafana-container/provisioning:/etc/grafana/provisioning:ro
+Volume=/var/lib/grafana-container:/var/lib/grafana
+Environment=GF_ANALYTICS_CHECK_FOR_UPDATES=false
+Environment=GF_ANALYTICS_REPORTING_ENABLED=false
+%{ if home_dashboard_path != null ~}
+Environment=GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=${home_dashboard_path}
+%{ endif ~}
+Environment=GF_DATABASE_HOST=${db_host}
+Environment=GF_DATABASE_NAME=grafana
+Environment=GF_DATABASE_SSL_MODE=require
+Environment=GF_DATABASE_TYPE=postgres
+Environment=GF_DATABASE_USER=grafana
+Environment=GF_LOG_FILTERS=search-manifest-watcher:error
+Environment=GF_METRICS_ENABLED=true
+Environment=GF_SECURITY_ADMIN_USER=admin
+Environment=GF_SERVER_ROOT_URL=${root_url}
+Environment=GF_UNIFIED_ALERTING_HA_ADVERTISE_ADDRESS=${gossip_address}:9094
+Environment=GF_UNIFIED_ALERTING_HA_LISTEN_ADDRESS=0.0.0.0:9094
+Environment=GF_UNIFIED_ALERTING_HA_PEERS=${gossip_peers}
+EnvironmentFile=/etc/grafana-container/grafana.env
+HealthCmd=curl -fsS -o /dev/null http://127.0.0.1:3000/robots.txt
+HealthInterval=15s
+HealthStartPeriod=5m
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman exec grafana sh -c 'curl -fsS -X POST -u "$$GF_SECURITY_ADMIN_USER:$$GF_SECURITY_ADMIN_PASSWORD" http://127.0.0.1:3000/api/admin/provisioning/dashboards/reload'
+
+[Install]
+WantedBy=multi-user.target

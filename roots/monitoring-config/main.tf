@@ -373,7 +373,7 @@ resource "terraform_data" "backend" {
   provisioner "remote-exec" {
     inline = [
       # One command, so a failed deploy fails the apply (remote-exec reports the last exit status).
-      "rc=0; sudo -n bash /tmp/tofu-monitoring-${self.id}/deploy.sh deploy || rc=$?; rm -rf /tmp/tofu-monitoring-${self.id}; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-monitoring-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-monitoring-${self.id}; exit $rc",
     ]
   }
 }
@@ -428,7 +428,7 @@ resource "terraform_data" "grafana" {
   provisioner "remote-exec" {
     inline = [
       # One command, so a failed deploy fails the apply (remote-exec reports the last exit status).
-      "rc=0; sudo -n bash /tmp/tofu-grafana-${self.id}/deploy.sh deploy || rc=$?; rm -rf /tmp/tofu-grafana-${self.id}; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-grafana-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-grafana-${self.id}; exit $rc",
     ]
   }
 }
@@ -484,7 +484,7 @@ resource "terraform_data" "logging" {
   provisioner "remote-exec" {
     inline = [
       # One command, so a failed deploy fails the apply (remote-exec reports the last exit status).
-      "rc=0; sudo -n bash /tmp/tofu-logging-${self.id}/deploy.sh deploy || rc=$?; rm -rf /tmp/tofu-logging-${self.id}; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-logging-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-logging-${self.id}; exit $rc",
     ]
   }
 }

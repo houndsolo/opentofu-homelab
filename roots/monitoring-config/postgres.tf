@@ -132,7 +132,7 @@ resource "terraform_data" "postgres" {
   provisioner "remote-exec" {
     inline = [
       # One command, so a failed deploy fails the apply (remote-exec reports the last exit status).
-      "rc=0; sudo -n bash /tmp/tofu-postgres-${self.id}/deploy.sh deploy || rc=$?; rm -rf /tmp/tofu-postgres-${self.id}; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-postgres-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-postgres-${self.id}; exit $rc",
     ]
   }
 }

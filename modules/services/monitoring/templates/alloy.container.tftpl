@@ -1,0 +1,25 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Grafana Alloy (journal%{ if syslog } and syslog%{ endif } -> Loki)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=alloy
+Network=host
+Volume=/etc/alloy:/etc/alloy:ro
+Volume=/var/lib/alloy:/var/lib/alloy
+Volume=/var/log/journal:/var/log/journal:ro
+Volume=/run/log/journal:/run/log/journal:ro
+Volume=/etc/machine-id:/etc/machine-id:ro
+Exec=run /etc/alloy/config.alloy --storage.path=/var/lib/alloy/data --server.http.listen-addr=${listen_address}:12345 --disable-reporting%{ if syslog } --stability.level=experimental%{ endif }
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+ExecReload=/usr/bin/podman kill --signal HUP alloy
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+# Managed by OpenTofu (monitoring-config). Local edits are overwritten.
+[Unit]
+Description=Prometheus SNMP exporter (bundled snmp.yml, mikrotik_lite, plus SNMPv3 auths when given)
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=snmp-exporter
+Network=monitoring.network
+PublishPort=${backend_address}:9116:9116
+%{ for volume in volumes ~}
+Volume=${volume}
+%{ endfor ~}
+Exec=${join(" ", [for f in config_files : "--config.file=${f}"])}
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

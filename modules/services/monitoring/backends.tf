@@ -60,15 +60,14 @@ locals {
   backend_sysctl = "# Managed by OpenTofu (monitoring-config). Local edits are overwritten.\n# Podman binds published ports, also on the keepalived VIPs, which only one backend holds.\nnet.ipv4.ip_nonlocal_bind = 1\n"
 
   backend_ha_packages = local.backend_vrrp_enabled ? ["keepalived"] : []
-  backend_ha_dirs     = local.backend_vrrp_enabled ? [{ path = "/etc/keepalived", mode = "0755", owner = "root" }] : []
   backend_ha_files = {
-    for name in local.backend_names : name => local.backend_vrrp_enabled ? [
+    for name in local.backend_names : name => [for f in [
       # Restarting the containers that publish on the VIPs picks up the sysctl (post_install applies it first).
-      { path = "/etc/sysctl.d/90-monitoring-vip.conf", mode = "0644", owner = "root", content = local.backend_sysctl, restart = ["telegraf", "alertmanager"], reload = [] },
-      { path = "/etc/keepalived/keepalived.conf", mode = "0600", owner = "root", content = local.backend_keepalived_conf[name], restart = [], reload = ["keepalived"] },
-    ] : []
+      { path = "/etc/sysctl.d/90-monitoring-vip.conf", content = local.backend_sysctl, units = ["telegraf", "alertmanager"], restart = true },
+      { path = "/etc/keepalived/keepalived.conf", mode = "0600", content = local.backend_keepalived_conf[name], units = ["keepalived"] },
+    ] : f if local.backend_vrrp_enabled]
   }
-  backend_ha_validations = local.backend_vrrp_enabled ? [local.keepalived_validation] : []
+  backend_ha_checks = local.backend_vrrp_enabled ? [local.keepalived_validation] : []
   backend_ha_post_install = local.backend_vrrp_enabled ? [
     "/usr/sbin/sysctl -q -p /etc/sysctl.d/90-monitoring-vip.conf",
     "systemctl enable --quiet keepalived.service",

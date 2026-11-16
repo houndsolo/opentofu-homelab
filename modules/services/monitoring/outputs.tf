@@ -1,12 +1,12 @@
 output "backend_deployments" {
   description = "Backend VM name => deploy.sh. Contains secrets."
-  value       = local.backend_deployments
+  value       = { for name, d in module.backend_deploy : name => d.script }
   sensitive   = true
 }
 
 output "grafana_deployments" {
   description = "Grafana VM name => deploy.sh. Contains secrets."
-  value       = local.grafana_deployments
+  value       = { for name, d in module.grafana_deploy : name => d.script }
   sensitive   = true
 }
 
@@ -92,6 +92,7 @@ output "units" {
     { for name, units in local.grafana_units : name => merge(units, { alloy = local.alloy_unit[name] }) },
     local.logging_units,
     { for name, units in local.metrics_units : name => merge(units, { alloy = local.alloy_unit[name] }) if local.mimir_enabled }, # metrics.tf
+    { for name, units in local.pg_units : name => merge(units, { alloy = local.alloy_unit[name] }) if local.postgres_enabled },   # postgres.tf
   )
 }
 
@@ -107,7 +108,7 @@ output "dashboards" {
 
 output "logging_deployments" {
   description = "Logging VM name => deploy.sh. Contains secrets (the S3 keys)."
-  value       = local.logging_deployments
+  value       = { for name, d in module.logging_deploy : name => d.script }
   sensitive   = true
 }
 
@@ -148,7 +149,7 @@ output "grafana_keepalived_configs" {
 
 output "metrics_deployments" {
   description = "Mimir VM name => deploy.sh (empty when Mimir is off). Contains secrets (the S3 keys)."
-  value       = local.metrics_deployments
+  value       = { for name, d in module.metrics_deploy : name => d.script }
   sensitive   = true
 }
 
@@ -174,8 +175,13 @@ output "mimir_url" {
 
 output "postgres_deployments" {
   description = "Patroni member name => deploy.sh (empty when the cluster is off). Contains secrets (passwords, S3 keys)."
-  value       = local.postgres_deployments
+  value       = { for name, d in module.postgres_deploy : name => d.script }
   sensitive   = true
+}
+
+output "postgres_packages_script" {
+  description = "Rendered /usr/local/sbin/pg-packages (no secrets): the Patroni members' pinned Debian packages, run by the deploy before its checks; null when the cluster is off."
+  value       = local.postgres_enabled ? local.pg_packages_script : null
 }
 
 output "patroni_configs" {
