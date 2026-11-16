@@ -149,8 +149,13 @@ esac
 %{ if shared_sessions ~}
 
 # Sessions: the local HAProxy must reach a Valkey primary (role:master). The password stays inside
-# the container (read from session.save_path).
-role=$(podman exec nextcloud-app php -r 'parse_str(parse_url(ini_get("session.save_path"), PHP_URL_QUERY), $q); $r = new Redis(); $r->connect("127.0.0.1", 6379, 2); $r->auth($q["auth"]); echo $r->info("replication")["role"];' 2>/dev/null || true)
+# the container (read from session.save_path). A freshly started HAProxy counts every server as up until
+# its checks have run (balance first then picks valkey01 even as a replica), so give it up to ~20 s.
+for i in $(seq 1 20); do
+  role=$(podman exec nextcloud-app php -r 'parse_str(parse_url(ini_get("session.save_path"), PHP_URL_QUERY), $q); $r = new Redis(); $r->connect("127.0.0.1", 6379, 2); $r->auth($q["auth"]); echo $r->info("replication")["role"];' 2>/dev/null || true)
+  [ "$role" != master ] || break
+  sleep 1
+done
 if [ "$role" != master ]; then
   echo "the session proxy doesn't reach the Valkey primary (role: '$role')" >&2
   journalctl -u nextcloud-haproxy.service -n 20 --no-pager >&2

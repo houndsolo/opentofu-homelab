@@ -163,6 +163,11 @@ if [ "$mode" = check ]; then
   exit 0
 fi
 
+# Debian 13 VMs have no vsock CID, so systemd-ssh-generator fails ("Failed to query local AF_VSOCK CID")
+# on every daemon-reload (DT-138). Masked the systemd.generator(7) way.
+install -d -m 0755 /etc/systemd/system-generators
+ln -sfn /dev/null /etc/systemd/system-generators/systemd-ssh-generator
+
 ensure_dir() { # path mode owner-spec
   local ids
   ids=$(owner_ids "$3")

@@ -701,6 +701,8 @@ locals {
           GF_METRICS_ENABLED                       = "true"
           GF_ANALYTICS_REPORTING_ENABLED           = "false"
           GF_ANALYTICS_CHECK_FOR_UPDATES           = "false"
+          # The search manifest watcher warns every ~25 s that it has nothing to watch (DT-138).
+          GF_LOG_FILTERS = "search-manifest-watcher:error"
           }, local.grafana_db_env, local.home_dashboard_path == null ? {} : {
           GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = local.home_dashboard_path
         })
