@@ -1,0 +1,34 @@
+# Managed by OpenTofu (services-config, gitea.tf). Local edits are overwritten.
+# Gitea (official rootless image, uid/gid 1000). Web UI/API on :3000 and the built-in SSH server on :2222,
+# both published on the node's lylat-app address; the proxy pair forwards https://${domain}/ and :2222 to
+# every node. /var/lib/gitea is CephFS (shared by every node); app.ini is local and identical on every node.
+[Unit]
+Description=Gitea
+Wants=network-online.target
+RequiresMountsFor=/var/lib/gitea
+After=network-online.target
+
+[Container]
+Image=${image}
+ContainerName=gitea
+PublishPort=${listen}:3000:3000
+PublishPort=${listen}:2222:2222
+Volume=/var/lib/gitea:/var/lib/gitea
+Volume=/etc/gitea:/etc/gitea
+# Health: the HTTP server answers (no database round trip). Notify=healthy: systemctl start/restart returns
+# only once it does (after database migrations on the first start of a new version).
+HealthCmd=curl -fsS -o /dev/null http://127.0.0.1:3000/api/v1/version
+HealthInterval=30s
+HealthTimeout=30s
+HealthStartPeriod=5m
+Notify=healthy
+
+[Service]
+Restart=always
+# A new version migrates the database before the HTTP server starts.
+TimeoutStartSec=1800
+# Running git operations (pushes, clones over SSH) get time to finish.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -28,7 +28,7 @@ check "alloy_telemetry_nic" {
 }
 
 locals {
-  alloy_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
+  alloy_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms, local.gitea_vms)
 
   # VM name => Alloy's part of a deployment (modules/services/quadlet-deploy inputs); empty when var.alloy is
   # null. The config is validated in a throwaway container; a config change reloads Alloy (ExecReload, SIGHUP),

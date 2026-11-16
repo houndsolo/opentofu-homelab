@@ -10,7 +10,7 @@
 # sentinel.conf). A deploy therefore asks the running Sentinels for the current primary and writes
 # valkey.conf to match, and only writes sentinel.conf the first time or when its settings change.
 # Deploys are canary-first (first VM, then the rest) and restart a service only when its config
-# changed. An nftables table limits 6379/26379 to the NetBox, Nextcloud and Valkey VMs.
+# changed. An nftables table limits 6379/26379 to the NetBox, Nextcloud, Gitea and Valkey VMs.
 #
 # Memory: maxmemory with noeviction (locks and task queues must never be evicted), so a full Valkey refuses
 # writes for every app at once. Keep maxmemory well under the VMs' RAM (2 GB) and watch used/max.
@@ -48,9 +48,9 @@ locals {
   } : {}
   valkey_sentinels = [for name in local.valkey_names : "${local.valkey_backend[name]}:26379"]
 
-  # Who may reach Valkey/Sentinel: the trio itself and the NetBox and Nextcloud VMs (their lylat-app addresses).
+  # Who may reach Valkey/Sentinel: the trio itself and the NetBox, Nextcloud and Gitea VMs (their lylat-app addresses).
   valkey_clients = local.valkey_enabled ? sort(concat(values(local.valkey_backend), flatten([
-    for vm in values(merge(local.netbox_vms, local.nextcloud_vms)) : [ # netbox.tf, nextcloud.tf
+    for vm in values(merge(local.netbox_vms, local.nextcloud_vms, local.gitea_vms)) : [ # netbox.tf, nextcloud.tf, gitea.tf
       for nic in vm.network_devices : split("/", nic.ipv4_address)[0]
       if nic.vlan_id == var.valkey.client_vlan_id && nic.ipv4_address != null
     ]

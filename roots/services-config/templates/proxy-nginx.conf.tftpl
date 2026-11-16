@@ -2,7 +2,7 @@
 # Complete nginx.conf for the nginx container (Quadlet nginx.container, host network): TLS reverse
 # proxy for <name>.${domain}, one server block per published host (its name plus aliases), upstreams
 # are the services' own VIPs over HTTP, every VM of a role over HTTP (active/active apps: nextcloud), or the
-# Proxmox nodes' :8006 over HTTPS (pve, pve-<node>). IPv4 only (the proxies have no global IPv6 address).
+# Proxmox nodes' :8006 over HTTPS (pve, pve-<node>); plain TCP forwards in the stream block at the end. IPv4 only (the proxies have no global IPv6 address).
 # Logs: the image links /var/log/nginx/*.log to stdout/stderr, so they land in the journal (and Loki).
 
 user  nginx;
@@ -151,3 +151,27 @@ http {
   }
 %{ endfor ~}
 }
+%{ if length(tcp) > 0 }
+# Plain TCP forwards (var.proxy.tcp): every VM of a role, like the role hosts above. One logfmt line per connection.
+stream {
+  log_format lylat_tcp 'stream=$server_port status=$status bytes_in=$bytes_received bytes_out=$bytes_sent '
+                       'session=$session_time upstream="$upstream_addr" client=$remote_addr';
+  access_log /var/log/nginx/access.log lylat_tcp;
+%{ for name, t in tcp }
+  # ${name}: ${t.backend}.
+  upstream tcp_${replace(name, "-", "_")} {
+%{ for srv in t.servers ~}
+    server ${srv} max_fails=1 fail_timeout=30s;
+%{ endfor ~}
+  }
+
+  server {
+    listen ${t.port};
+    proxy_pass tcp_${replace(name, "-", "_")};
+    # A dead node is skipped within 1 s; an idle git session may stay open for an hour.
+    proxy_connect_timeout 1s;
+    proxy_timeout 1h;
+  }
+%{ endfor ~}
+}
+%{ endif ~}

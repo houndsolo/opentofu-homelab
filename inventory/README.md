@@ -474,6 +474,7 @@ machine that runs OpenTofu. Git ignores the directory and any `*.secret.auto.tfv
 | `postgres.secret.auto.tfvars` | `postgres_s3` (RGW user for pgBackRest) | monitoring-config |
 | `app-db.secret.auto.tfvars` | `app_db_passwords` (app database passwords) | services-config, monitoring-config |
 | `netbox.secret.auto.tfvars` | `netbox_cephfs_key` (CephFS key for the media mount) | services-config |
+| `gitea.secret.auto.tfvars` | `gitea_cephfs_key` (CephFS key of client.gitea, `/gitea`) | services-config |
 | `cloudflare.secret.auto.tfvars` | `cloudflare` (API token per zone, DNS-01) | certs |
 | `state.secret.auto.tfvars` | `state_passphrase` (state/plan encryption, >= 32 chars) | certs, services-config |
 | `ssh_keys.secret.auto.tfvars` | `ssh_keys` | nothing (no root reads it) |

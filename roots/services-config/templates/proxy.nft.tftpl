@@ -1,5 +1,5 @@
 #!/usr/sbin/nft -f
-# Managed by OpenTofu (services-config, proxy.tf): HTTP/HTTPS only from the lab's networks.
+# Managed by OpenTofu (services-config, proxy.tf): HTTP/HTTPS and the TCP forwards only from the lab's networks.
 # Everything else on this VM (ssh, VRRP, exporters) is untouched (own table).
 table inet proxy
 delete table inet proxy
@@ -12,7 +12,7 @@ table inet proxy {
   }
   chain input {
     type filter hook input priority filter - 5; policy accept;
-    tcp dport { 80, 443 } ip saddr @clients accept
-    tcp dport { 80, 443 } drop
+    tcp dport { ${join(", ", ports)} } ip saddr @clients accept
+    tcp dport { ${join(", ", ports)} } drop
   }
 }

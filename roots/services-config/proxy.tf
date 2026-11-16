@@ -4,6 +4,7 @@
 # installs in var.proxy.cert_dir, and forwards over plain HTTP either to the service's own VIP (its address
 # from vips.auto.tfvars, e.g. grafana-vip) or, for active/active apps without a VIP (Nextcloud), to every
 # VM of a role (an nginx upstream over their service addresses; nginx skips a node that stops answering).
+# Plain TCP services (var.proxy.tcp, nginx stream: git over SSH to the Gitea VMs) are forwarded the same way.
 # DNS: every host name and alias is generated as a CNAME to proxy-vip.lylat.space (dns-records.tf).
 #
 # A deploy that restarts nginx (new image/unit) on the node holding the VIP first hands the VIP to a
@@ -12,7 +13,7 @@
 # HA: both nodes run nginx all the time with the same config (stateless). keepalived holds
 # var.proxy.vip on the VLAN 2 NIC of a node whose nginx answers /healthz, with use_vmac (fixed MAC,
 # DT-045); adverts go unicast over the HA L2VNI (l2vnis.ha_proxy). nginx listens on all addresses,
-# so the VIP needs no ip_nonlocal_bind. nftables limits 80/443 to var.proxy.clients.
+# so the VIP needs no ip_nonlocal_bind. nftables limits 80/443 (and the TCP ports) to var.proxy.clients.
 #
 # Order: roots/certs first (the deploy stops if the certificate is missing). Deploys are
 # canary-first: the first VM (sorted by name) must pass its health check before the others.
@@ -40,6 +41,19 @@ variable "proxy" {
       # Nextcloud (nextcloud.tf): nc01-03, sessions shared through Valkey, so plain round robin. With
       # nextcloud.sessions = "local" set balance = "hash $remote_addr consistent" (vault nextcloud-ha-plan).
       nextcloud = { role = "nextcloud", port = 80, max_body = "16g", stream = true }
+      # Gitea (gitea.tf): git01/git02, sessions in Valkey, so plain round robin. Pushes and LFS uploads over
+      # HTTPS stream through without a size limit.
+      git = { role = "gitea", port = 3000, max_body = "0", stream = true }
+    })
+    # Plain TCP forwards (nginx stream), name => listen port on every proxy (clients use proxy-vip) and every
+    # VM of a role on target_port. Clients must name the port; 22 stays the proxies' own sshd.
+    tcp = optional(map(object({
+      port        = number
+      role        = string
+      target_port = number
+      })), {
+      # git over SSH to Gitea's built-in SSH server: ssh://git@git.lylat.space:2222/<owner>/<repo>.git
+      git-ssh = { port = 2222, role = "gitea", target_port = 2222 }
     })
     clients = optional(list(string), ["10.0.0.0/8"]) # may reach 80/443
     # Landing page https://<name>.<domain>: links to every published host. null = none.
@@ -71,10 +85,12 @@ variable "proxy" {
       alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && (h.vip == null) != (h.role == null) && (h.vip == null || contains(keys(var.vips), coalesce(h.vip, "-"))) && h.port >= 1 && h.port <= 65535 && contains(["", "ip_hash", "least_conn", "hash $remote_addr consistent"], h.balance)]) &&
       length(distinct(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]))) == length(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)])) &&
       alltrue([for c in var.proxy.clients : can(cidrhost(c, 0))]) &&
+      alltrue([for name, t in var.proxy.tcp : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", name)) && t.port >= 1 && t.port <= 65535 && !contains([22, 80, 443], t.port) && t.target_port >= 1 && t.target_port <= 65535]) &&
+      length(distinct([for t in values(var.proxy.tcp) : t.port])) == length(var.proxy.tcp) &&
       (var.proxy.landing == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.landing.name)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.landing.name))) &&
       (var.proxy.pve == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.pve.cluster_name)) && can(regex("^[a-z0-9][a-z0-9-]*$", var.proxy.pve.node_prefix)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.pve.cluster_name))), false
     )
-    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host has either a vip (a key in vips.auto.tfvars) or a role, port 1..65535, balance \"\", \"ip_hash\", \"least_conn\" or \"hash $remote_addr consistent\"; clients are CIDRs; landing.name is a DNS label not used by a host; pve.cluster_name is a DNS label not used by a host and pve.node_prefix starts a DNS label."
+    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host has either a vip (a key in vips.auto.tfvars) or a role, port 1..65535, balance \"\", \"ip_hash\", \"least_conn\" or \"hash $remote_addr consistent\"; clients are CIDRs; tcp names are DNS labels with unique ports other than 22/80/443; landing.name is a DNS label not used by a host; pve.cluster_name is a DNS label not used by a host and pve.node_prefix starts a DNS label."
   }
 }
 
@@ -104,6 +120,20 @@ locals {
       "${split("/", one([for nic in var.vms[vm_name].network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null]))[0]}:${h.port}"
     ] if h.role != null
   }
+
+  # TCP forwards (var.proxy.tcp): name => listen port and the role's VMs' service addresses. A role without
+  # VMs (yet) forwards nothing.
+  proxy_tcp = var.proxy == null ? {} : {
+    for name, t in var.proxy.tcp : name => {
+      port = t.port
+      servers = [
+        for vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == t.role]) :
+        "${split("/", one([for nic in var.vms[vm_name].network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null]))[0]}:${t.target_port}"
+      ]
+      backend = "${t.role} VMs :${t.target_port}"
+    }
+  }
+  proxy_tcp_live = { for name, t in local.proxy_tcp : name => t if length(t.servers) > 0 }
 
   # Proxmox web UIs (var.proxy.pve): host key => nginx upstream servers (node management addresses).
   proxy_pve = try(var.proxy.pve, null)
@@ -185,6 +215,7 @@ locals {
     cert_dir      = var.proxy.cert_dir
     conf_dir      = local.proxy_conf_dir
     hosts         = local.proxy_hosts
+    tcp           = local.proxy_tcp_live
     landing_names = local.proxy_landing_names
   }
   proxy_config_id  = var.proxy == null ? "" : substr(sha256(templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", merge(local.proxy_nginx_vars, { config_id = "" }))), 0, 16)
@@ -198,7 +229,7 @@ locals {
   proxy_files = {
     for name, vm in(var.proxy == null ? {} : local.proxy_vms) : name => concat([
       # nftables: own table, loaded by its own unit (the distro nftables.service stays as it is).
-      { path = "/etc/nftables-proxy.nft", units = ["proxy-nft"], content = templatefile("${path.module}/templates/proxy.nft.tftpl", { clients = var.proxy.clients }) },
+      { path = "/etc/nftables-proxy.nft", units = ["proxy-nft"], content = templatefile("${path.module}/templates/proxy.nft.tftpl", { clients = var.proxy.clients, ports = concat([80, 443], sort([for t in values(local.proxy_tcp_live) : t.port])) }) },
       { path = "/etc/systemd/system/proxy-nft.service", units = ["proxy-nft"], content = file("${path.module}/templates/proxy-nft.service") },
       { path = "/etc/containers/systemd/nginx.container", units = ["nginx"], content = templatefile("${path.module}/templates/proxy-nginx.container.tftpl", {
         image    = local.container_images.nginx
@@ -261,7 +292,17 @@ module "proxy" {
     ], [
     # Every published name answers over TLS on this node (any HTTP status: the upstream decides).
     for h in local.proxy_host_names : "curl -sS -o /dev/null --max-time 5 --resolve '${h}:443:${local.proxy_nics[each.key].service.address}' -w 'https://${h}/ on ${local.proxy_nics[each.key].service.address}: HTTP %%{http_code}\\n' 'https://${h}/'"
+    ], [
+    # Every TCP forward listens on this node (the upstream may still be down).
+    for name, t in local.proxy_tcp_live : "timeout 5 bash -c 'exec 3<>/dev/tcp/${local.proxy_nics[each.key].service.address}/${t.port}' && echo 'tcp ${name} :${t.port} on ${local.proxy_nics[each.key].service.address}: listening'"
   ])
+}
+
+check "proxy_tcp_have_vms" {
+  assert {
+    condition     = length(local.proxy_tcp_live) == length(local.proxy_tcp)
+    error_message = "proxy: TCP forwards without any VM of their role aren't published (yet): ${join(", ", [for name, t in local.proxy_tcp : name if length(t.servers) == 0])}."
+  }
 }
 
 check "proxy_role_hosts_have_vms" {
@@ -342,6 +383,7 @@ output "proxy_urls" {
   description = "Reverse proxy: each published hostname and its upstream; the VIP."
   value = var.proxy == null ? {} : merge(
     { for name, h in local.proxy_hosts : "https://${h.names[0]}/" => h.upstream },
+    { for name, t in local.proxy_tcp_live : "tcp ${name} :${t.port}" => join(", ", t.servers) },
     local.proxy_vip == null ? {} : { vip = "${local.proxy_vip} (proxy-vip.lylat.space)" },
   )
 }

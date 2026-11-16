@@ -1,0 +1,82 @@
+; Managed by OpenTofu (services-config, gitea.tf). Local edits are overwritten.
+; Identical on every Gitea node: Gitea's documented HA layout (docs.gitea.com, "High Availability Deployment"):
+; one database, Valkey for sessions, cache, queues and the global lock (cron tasks run once across the nodes),
+; shared storage for repositories and data (CephFS /gitea), the "db" issue indexer (bleve can't be shared),
+; code search off (it would need Elasticsearch), logs to the console (the journal) per node.
+APP_NAME  = ${app_name}
+RUN_MODE  = prod
+RUN_USER  = git
+WORK_PATH = /var/lib/gitea
+
+[server]
+PROTOCOL               = http
+HTTP_ADDR              = 0.0.0.0
+HTTP_PORT              = 3000
+DOMAIN                 = ${domain}
+ROOT_URL               = https://${domain}/
+APP_DATA_PATH          = /var/lib/gitea/data
+DISABLE_SSH            = false
+START_SSH_SERVER       = true
+SSH_DOMAIN             = ${domain}
+SSH_PORT               = ${ssh_port}
+SSH_LISTEN_HOST        = 0.0.0.0
+SSH_LISTEN_PORT        = 2222
+LFS_START_SERVER       = true
+LFS_JWT_SECRET         = ${lfs_jwt_secret}
+; No external CDNs; also turns Gravatar off by default (the avatar settings live in the admin panel).
+OFFLINE_MODE           = true
+
+[database]
+DB_TYPE  = postgres
+HOST     = ${db_host}:${db_port}
+NAME     = ${db_name}
+USER     = ${db_user}
+PASSWD   = `${db_password}`
+SSL_MODE = require
+
+[repository]
+ROOT = /var/lib/gitea/git/repositories
+
+[lfs]
+PATH = /var/lib/gitea/git/lfs
+
+[session]
+PROVIDER        = redis
+PROVIDER_CONFIG = ${valkey}/${session_db}?mastername=${master_name}
+COOKIE_SECURE   = true
+
+[cache]
+ADAPTER = redis
+HOST    = ${valkey}/${cache_db}?mastername=${master_name}
+
+[queue]
+TYPE     = redis
+CONN_STR = ${valkey}/${queue_db}?mastername=${master_name}
+
+[global_lock]
+SERVICE_TYPE     = redis
+SERVICE_CONN_STR = ${valkey}/${lock_db}?mastername=${master_name}
+
+[indexer]
+ISSUE_INDEXER_TYPE   = db
+REPO_INDEXER_ENABLED = false
+
+[security]
+INSTALL_LOCK                  = true
+SECRET_KEY                    = ${secret_key}
+INTERNAL_TOKEN                = ${internal_token}
+REVERSE_PROXY_TRUSTED_PROXIES = ${trusted_proxies}
+
+[oauth2]
+JWT_SECRET = ${oauth2_jwt_secret}
+
+[service]
+DISABLE_REGISTRATION = ${disable_registration}
+REQUIRE_SIGNIN_VIEW  = ${require_signin_view}
+
+[mailer]
+ENABLED = false
+
+[log]
+MODE  = console
+LEVEL = info

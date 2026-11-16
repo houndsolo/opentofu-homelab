@@ -550,6 +550,82 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  git01 = {
+    # Gitea app node, active/active pair git01/git02 behind the proxy pair (no VIP), Gitea's documented HA
+    # layout: Postgres (Patroni, database "gitea"), Valkey (sessions, cache, queues, global lock), repositories
+    # and data on CephFS /gitea. Podman Quadlet deployed by services-config (gitea.tf).
+    owner              = "services-vms"
+    role               = "gitea"
+    ha                 = { group = "gitea" } # Proxmox HA; never on a node with the other gitea VM
+    node               = "fichina"
+    vm_id              = 1157
+    image              = "debian13"
+    management_address = "10.20.11.57/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.21.57/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::21:57/64"
+      },
+      {
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.57/16"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.21.57/16"
+        ipv6_address = "fd69:5501::21:57/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "gitea"]
+      cpu_cores    = 2
+      memory_mb    = 4096
+      disk_size_gb = 20
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  git02 = {
+    # Gitea app node, active/active pair with git01 (no VIP). See git01.
+    owner              = "services-vms"
+    role               = "gitea"
+    ha                 = { group = "gitea" } # Proxmox HA; never on a node with the other gitea VM
+    node               = "fortuna"
+    vm_id              = 1158
+    image              = "debian13"
+    management_address = "10.20.11.58/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.21.58/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::21:58/64"
+      },
+      {
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.11.58/16"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.21.58/16"
+        ipv6_address = "fd69:5501::21:58/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "gitea"]
+      cpu_cores    = 2
+      memory_mb    = 4096
+      disk_size_gb = 20
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   valkey01 = {
     # Valkey + Sentinel for NetBox (cache and task queue), trio valkey01-03: valkey01 starts as the
     # primary, the others replicate; the three Sentinels (quorum 2) promote a replica if the primary

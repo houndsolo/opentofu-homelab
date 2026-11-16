@@ -15,7 +15,7 @@ State and plans are encrypted (`state_passphrase`).
 | `dns-node-exporter.tf`, `dns-bind-exporter.tf` | node_exporter (:9100) and bind_exporter (:9119) on the DNS VMs |
 | `dhcp.tf` | the DHCP HA pair, [modules/services/dhcp](../../modules/README.md#servicesdhcp) per VM (VyOS API) |
 | `netbox.tf`, `valkey.tf`, `proxy.tf`, `ticketing.tf` | the services (table below) |
-| `*-monitoring.tf` (netbox, nextcloud, radius, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, one deployment per VM separate from the service deploy |
+| `*-monitoring.tf` (netbox, nextcloud, radius, gitea, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, one deployment per VM separate from the service deploy |
 | `alloy.tf` | the Alloy install every Linux service VM gets ([Logs to Loki](#logs-to-loki)) |
 | `telemetry.tf` | each VM's lylat-telemetry address (`scrape_ip`), where every exporter and Alloy listens |
 | `templates/` | `named.conf`, seed zones, TSIG key, Quadlet units, keepalived/nginx/Valkey configs, the few helper scripts the deploys call |
@@ -27,6 +27,7 @@ State and plans are encrypted (`state_passphrase`).
 | Valkey + Sentinel | valkey01-03 | none: clients ask the Sentinels (:26379) | Debian packages; Sentinels own the topology after the first deploy; nftables limits 6379/26379 |
 | nginx proxy | proxy01/02 | `proxy-vip` 10.2.11.107 (VLAN 2) | TLS with the [certs](../certs/README.md) wildcard, forwards to each service's `<name>-vip`; every published name is a generated CNAME to `proxy-vip` |
 | dark-triage | triage01/02 | `dark-triage-vip` 10.52.13.105 (lylat-app) | built from a pinned commit, DB on Patroni; canary-first |
+| Gitea | git01/02 | none: the proxy forwards https://git.lylat.space/ and TCP :2222 (git over SSH) to both | Gitea's documented HA layout: DB on Patroni, sessions/cache/queues/global lock in Valkey via Sentinel, repositories and data on CephFS `/gitea`, issue indexer `db`, code search off; canary-first |
 
 Container images and versions (BIND by digest, exporters, Alloy, nginx, NetBox) come from
 [`software-versions.auto.tfvars`](../../inventory/auto.tfvars/software-versions.auto.tfvars) (`containers`),
@@ -64,6 +65,7 @@ shared with monitoring-config. A bump redeploys every VM running that container:
 | `netbox_monitoring`, `valkey_monitoring`, `proxy_monitoring`, `ticketing_monitoring` | `{}` | node_exporter + role exporters + Alloy on those VMs; `null` skips |
 | `netbox`, `valkey`, `proxy`, `ticketing` | see the `.tf` file | the services; `null` = don't deploy |
 | `netbox_cephfs_key` | from `netbox.secret.auto.tfvars` | `null` keeps NetBox media local per VM |
+| `gitea`, `gitea_cephfs_key` | see `gitea.tf`; key from `gitea.secret.auto.tfvars` | Gitea; no key = not deployed (admin password: `tofu output -raw gitea_admin_password`) |
 | `app_db_passwords` | from `app-db.secret.auto.tfvars` | app DB passwords on Patroni, shared with monitoring-config |
 | `telemetry_vlan_id` | `1501` | lylat-telemetry VLAN |
 | `dns_hosts`, `dns_records` | from `dns-records.auto.tfvars` | your records |
@@ -112,6 +114,7 @@ list is stopped and its file removed on the next deploy).
 | `nextcloud` | the shared `lylat.config.php` is published atomically to CephFS; first install on the canary; the session check retries (HAProxy's first health checks) |
 | `proxy` | certificate present, `nginx -t` on the staged config; before an nginx restart the VIP holder hands the VIP to a healthy peer (`pre_install`, `templates/proxy-vip-handoff.sh.tftpl`); afterwards `/healthz` serves this config's id and every name answers over TLS |
 | `valkey` | the managed settings go to `/etc/valkey/tofu/`; `templates/valkey-apply.sh.tftpl` writes the live configs for the primary the Sentinels report (Sentinel owns them after the first start) and restarts only what changed |
+| `gitea` | CephFS mount up (`post_install`); `/api/healthz` (database, Valkey, storage) and the SSH banner checked from the host; the admin user created on the canary when none exists |
 | `radius` | `freeradius -C` on the staged config; schema on the canary; Status-Server and a rejected-and-logged probe afterwards (`templates/radius-db.sh.tftpl`, unpacked with a pgpass for the deploy only) |
 
 ## How BIND is deployed

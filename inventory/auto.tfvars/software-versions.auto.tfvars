@@ -43,6 +43,7 @@ containers = {
   netbox         = { image = "docker.io/netboxcommunity/netbox", version = "v4.7.5-5.1.2" }
   nextcloud      = { image = "docker.io/library/nextcloud", version = "35.0.3-fpm" } # php-fpm variant (Debian trixie, PHP 8.5); one major at a time
   redis_exporter = { image = "docker.io/oliver006/redis_exporter", version = "v1.97.0" }
+  gitea          = { image = "docker.io/gitea/gitea", version = "28.4.0-rootless" } # rootless image (uid 1000); one release line at a time
 }
 
 # Debian packages: name = version, the upstream version ("18.6" = any Debian revision of 18.6) or a full Debian version

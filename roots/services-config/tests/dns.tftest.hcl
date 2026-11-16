@@ -258,7 +258,7 @@ run "alloy_journal_to_loki" {
   assert {
     condition = (
       length(terraform_data.dns_alloy) == 2 &&
-      sort(keys(local.alloy_parts)) == sort(["dns01", "dns02", "nc01", "nc02", "nc03", "netbox01", "netbox02", "proxy01", "proxy02", "rad01", "rad02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
+      sort(keys(local.alloy_parts)) == sort(["dns01", "dns02", "git01", "git02", "nc01", "nc02", "nc03", "netbox01", "netbox02", "proxy01", "proxy02", "rad01", "rad02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
       # Every Alloy VM pushes to Loki's telemetry VIP from its lylat-telemetry NIC (VLAN 1501, since 2026-11-14).
       local.alloy_parts.dns01.files[1].path == "/etc/alloy/config.alloy" &&
       local.alloy_parts.dns01.files[1].content == templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
