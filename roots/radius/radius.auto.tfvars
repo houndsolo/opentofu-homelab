@@ -34,4 +34,6 @@ inventory_clients = {
 # Other devices allowed to ask the servers (their MGMT address), each with a generated secret (output
 # client_secrets); a name here overrides a generated one.
 clients = {
+  # Arch workstation (VM 777 on greatfox): pam_radius for local logins (console, hyprlock, su). Sends from mgmt.
+  "arch" = { address = "10.20.20.69" }
 }
