@@ -10,25 +10,33 @@ variable "radius_monitoring" {
 }
 
 locals {
-  radius_monitoring_scripts = var.radius_monitoring == null ? {} : {
-    for name, vm in local.radius_vms : name => {
-      node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
-        unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-          image  = local.container_images.node_exporter
-          listen = "${local.scrape_ip[name]}:9100"
-        }))
-        listen = "${local.scrape_ip[name]}:9100"
-      })
-      alloy = lookup(local.alloy_scripts, name, null)
-    }
+  # The deployment's parts (node_exporter, Alloy), one module call per VM.
+  radius_monitoring_parts = {
+    for name in(var.radius_monitoring != null ? keys(local.radius_vms) : []) : name => [
+      for p in [local.node_exporter_parts[name], lookup(local.alloy_parts, name, null)] : p if p != null
+    ]
   }
 }
 
+module "radius_monitoring" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.radius_monitoring_parts
+
+  name   = "radius-monitoring"
+  host   = each.key
+  files  = flatten([for p in each.value : p.files])
+  units  = flatten([for p in each.value : p.units])
+  images = flatten([for p in each.value : p.images])
+  dirs   = flatten([for p in each.value : p.dirs])
+  checks = flatten([for p in each.value : p.checks])
+  verify = flatten([for p in each.value : p.verify])
+}
+
 resource "terraform_data" "radius_monitoring" {
-  for_each = local.radius_monitoring_scripts
+  for_each = local.radius_monitoring_parts
 
   triggers_replace = [
-    sha256(jsonencode(each.value)),
+    sha256(module.radius_monitoring[each.key].script),
     local.radius_vms[each.key].management_address,
     local.radius_vms[each.key].vm_id,
     local.radius_vms[each.key].config.ssh_username,
@@ -47,18 +55,13 @@ resource "terraform_data" "radius_monitoring" {
   }
 
   provisioner "file" {
-    content     = each.value.node_exporter
-    destination = "/tmp/tofu-radius-mon-${self.id}/node-exporter.sh"
-  }
-
-  provisioner "file" {
-    content     = coalesce(each.value.alloy, "#!/bin/bash\n# alloy = null: no journal shipping\n")
-    destination = "/tmp/tofu-radius-mon-${self.id}/alloy.sh"
+    content     = module.radius_monitoring[each.key].script
+    destination = "/tmp/tofu-radius-mon-${self.id}/deploy.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "rc=0; d=/tmp/tofu-radius-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/alloy.sh || rc=$?; rm -rf $d; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-radius-mon-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-radius-mon-${self.id}; exit $rc",
     ]
   }
 }

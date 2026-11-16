@@ -125,67 +125,132 @@ locals {
     session_dbindex = var.nextcloud.session_dbindex
   })
 
-  nextcloud_script = !local.nextcloud_enabled ? {} : {
-    for name, vm in local.nextcloud_vms : name => templatefile("${path.module}/templates/nextcloud-deploy.sh.tftpl", {
-      app_image       = local.container_images.nextcloud
-      web_image       = local.container_images.nginx
-      haproxy_image   = local.container_images.haproxy
-      listen          = local.nextcloud_listen[name]
-      port            = var.nextcloud.port
-      domain          = var.nextcloud.domain
-      install_node    = name == local.nextcloud_names[0]
-      cron            = name == local.nextcloud_cron_node
-      shared_sessions = local.nextcloud_shared_sessions
-      cephfs_client   = var.nextcloud.cephfs.client
-      # base64 so secrets never appear in the script as plain text (they are still in tofu's state).
-      cephfs_key_b64 = base64encode(var.nextcloud_cephfs_key)
-      mount_b64 = base64encode(templatefile("${path.module}/templates/nextcloud-cephfs.mount.tftpl", {
+  nextcloud_status = { for name, a in local.nextcloud_listen : name => "curl -sf --max-time 5 -H 'Host: ${var.nextcloud.domain}' 'http://${a}:${var.nextcloud.port}/status.php'" }
+  nextcloud_occ    = "podman exec -u www-data nextcloud-app php -f /var/www/html/occ"
+
+  # The deploy (modules/services/quadlet-deploy), per node: the CephFS mount and the shared directories on it,
+  # the host config, the pod. A changed file restarts only the containers it belongs to (a changed pod file
+  # restarts the whole pod). nextcloud-app and nextcloud-web check their own health (HealthCmd + Notify=healthy);
+  # everything that needs the database, Valkey or the shared config runs afterwards (verify).
+  nextcloud_files = {
+    for name, vm in(!local.nextcloud_enabled ? {} : local.nextcloud_vms) : name => concat([
+      # CephFS /nextcloud at /var/lib/nextcloud (kernel client; mount.ceph comes with ceph-common).
+      { path = "/etc/ceph/${var.nextcloud.cephfs.client}.secret", mode = "0600", content = var.nextcloud_cephfs_key },
+      { path = "/etc/systemd/system/var-lib-nextcloud.mount", units = ["var-lib-nextcloud.mount"], content = templatefile("${path.module}/templates/nextcloud-cephfs.mount.tftpl", {
         what    = "${join(",", [for m in var.nextcloud.cephfs.monitors : "${m}:6789"])}:${var.nextcloud.cephfs.path}"
         options = "name=${var.nextcloud.cephfs.client},secretfile=/etc/ceph/${var.nextcloud.cephfs.client}.secret,mds_namespace=${var.nextcloud.cephfs.fs},noatime,_netdev"
-      }))
-      config_b64 = base64encode(local.nextcloud_config_php)
-      php_b64    = base64encode(local.nextcloud_php_ini)
-      fpm_b64 = base64encode(templatefile("${path.module}/templates/nextcloud-fpm.conf.tftpl", {
-        max_children = var.nextcloud.php.max_children
-      }))
-      nginx_b64 = base64encode(templatefile("${path.module}/templates/nextcloud-nginx.conf.tftpl", {
-        upload_limit = var.nextcloud.php.upload_limit
-      }))
-      haproxy_b64 = !local.nextcloud_shared_sessions ? "" : base64encode(templatefile("${path.module}/templates/nextcloud-haproxy.cfg.tftpl", {
-        servers = { for n in local.valkey_names : n => local.valkey_backend[n] }
-      }))
-      haproxy_env_b64 = !local.nextcloud_shared_sessions ? "" : base64encode("VALKEY_PASSWORD=${random_password.valkey[0].result}\n")
-      install_env_b64 = base64encode(join("", [for k, v in {
-        NC_DB_HOST    = "${var.nextcloud.database.host}:${var.nextcloud.database.port}"
-        NC_DB_NAME    = var.nextcloud.database.name
-        NC_DB_USER    = var.nextcloud.database.user
-        NC_DB_PASS    = var.app_db_passwords["nextcloud"]
-        NC_ADMIN_USER = var.nextcloud.admin_user
-        NC_ADMIN_PASS = random_password.nextcloud_admin[0].result
-      } : "${k}=${v}\n"]))
-      pod_b64 = base64encode(templatefile("${path.module}/templates/nextcloud.pod.tftpl", {
+      }) },
+      { path = "/etc/containers/systemd/nextcloud.pod", units = concat(["nextcloud-pod", "nextcloud-app"], local.nextcloud_shared_sessions ? ["nextcloud-haproxy"] : [], ["nextcloud-web"]), content = templatefile("${path.module}/templates/nextcloud.pod.tftpl", {
         listen = local.nextcloud_listen[name]
         port   = var.nextcloud.port
-      }))
-      app_b64 = base64encode(templatefile("${path.module}/templates/nextcloud-app.container.tftpl", {
+      }) },
+      { path = "/etc/containers/systemd/nextcloud-app.container", units = ["nextcloud-app"], content = templatefile("${path.module}/templates/nextcloud-app.container.tftpl", {
         image        = local.container_images.nextcloud
         memory_limit = var.nextcloud.php.memory_limit
         upload_limit = var.nextcloud.php.upload_limit
-      }))
-      web_b64 = base64encode(templatefile("${path.module}/templates/nextcloud-web.container.tftpl", {
+      }) },
+      { path = "/etc/containers/systemd/nextcloud-web.container", units = ["nextcloud-web"], content = templatefile("${path.module}/templates/nextcloud-web.container.tftpl", {
         image = local.container_images.nginx
-      }))
-      haproxy_unit_b64 = !local.nextcloud_shared_sessions ? "" : base64encode(templatefile("${path.module}/templates/nextcloud-haproxy.container.tftpl", {
-        image = local.container_images.haproxy
-      }))
-      cron_service_b64 = base64encode(file("${path.module}/templates/nextcloud-cron.service"))
-      cron_timer_b64   = base64encode(file("${path.module}/templates/nextcloud-cron.timer"))
-    })
+      }) },
+      # /etc/nextcloud is root-only (0700); the files inside are read by the containers. php.ini holds the Valkey
+      # password (session.save_path): 0644 because php-cli (occ) runs as www-data in the container.
+      { path = "/etc/nextcloud/php.ini", units = ["nextcloud-app"], restart = true, content = local.nextcloud_php_ini },
+      { path = "/etc/nextcloud/fpm.conf", units = ["nextcloud-app"], restart = true, content = templatefile("${path.module}/templates/nextcloud-fpm.conf.tftpl", {
+        max_children = var.nextcloud.php.max_children
+      }) },
+      { path = "/etc/nextcloud/nginx/nginx.conf", units = ["nextcloud-web"], restart = true, content = templatefile("${path.module}/templates/nextcloud-nginx.conf.tftpl", {
+        upload_limit = var.nextcloud.php.upload_limit
+      }) },
+      # Shared Nextcloud config (same content from every node): published atomically to CephFS after the mount
+      # (post_install), Nextcloud reads it per request.
+      { path = "/deploy/lylat.config.php", stage_only = true, content = local.nextcloud_config_php },
+      ], [for f in [
+        { path = "/etc/containers/systemd/nextcloud-haproxy.container", units = ["nextcloud-haproxy"], content = templatefile("${path.module}/templates/nextcloud-haproxy.container.tftpl", {
+          image = local.container_images.haproxy
+        }) },
+        { path = "/etc/nextcloud/haproxy/haproxy.cfg", units = ["nextcloud-haproxy"], restart = true, content = templatefile("${path.module}/templates/nextcloud-haproxy.cfg.tftpl", {
+          servers = { for n in local.valkey_names : n => local.valkey_backend[n] }
+        }) },
+        { path = "/etc/nextcloud/haproxy.env", mode = "0600", units = ["nextcloud-haproxy"], restart = true, content = "VALKEY_PASSWORD=${random_password.valkey[0].result}\n" },
+        ] : f if local.nextcloud_shared_sessions], [for f in [
+        # First install (canary only, when the shared config says it isn't installed): credentials go in through an
+        # env file, never the command line on the host; never installed.
+        { path = "/deploy/install.env", stage_only = true, content = join("", [for k, v in {
+          NC_DB_HOST    = "${var.nextcloud.database.host}:${var.nextcloud.database.port}"
+          NC_DB_NAME    = var.nextcloud.database.name
+          NC_DB_USER    = var.nextcloud.database.user
+          NC_DB_PASS    = var.app_db_passwords["nextcloud"]
+          NC_ADMIN_USER = var.nextcloud.admin_user
+          NC_ADMIN_PASS = random_password.nextcloud_admin[0].result
+        } : "${k}=${v}\n"]) },
+        ] : f if name == local.nextcloud_names[0]], [for f in [
+        # Background jobs: cron.php from a timer on one node only.
+        { path = "/etc/systemd/system/nextcloud-cron.service", content = file("${path.module}/templates/nextcloud-cron.service") },
+        { path = "/etc/systemd/system/nextcloud-cron.timer", units = ["nextcloud-cron.timer"], content = file("${path.module}/templates/nextcloud-cron.timer") },
+    ] : f if name == local.nextcloud_cron_node])
   }
 
   # Canary first: the first VM by name installs (first deploy) or upgrades (new major) before the rest.
-  nextcloud_canary = { for name, s in local.nextcloud_script : name => s if name == local.nextcloud_names[0] }
-  nextcloud_rest   = { for name, s in local.nextcloud_script : name => s if name != local.nextcloud_names[0] }
+  nextcloud_canary = { for name, f in local.nextcloud_files : name => f if name == local.nextcloud_names[0] }
+  nextcloud_rest   = { for name, f in local.nextcloud_files : name => f if name != local.nextcloud_names[0] }
+}
+
+module "nextcloud" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.nextcloud_files
+
+  name  = "nextcloud"
+  host  = each.key
+  files = each.value
+  units = concat(["var-lib-nextcloud.mount", "nextcloud-pod", "nextcloud-app"], local.nextcloud_shared_sessions ? ["nextcloud-haproxy"] : [], ["nextcloud-web"],
+  each.key == local.nextcloud_cron_node ? ["nextcloud-cron.timer"] : [])
+  images   = concat([local.container_images.nextcloud, local.container_images.nginx], local.nextcloud_shared_sessions ? [local.container_images.haproxy] : [])
+  packages = ["ceph-common"]
+  dirs = [
+    { path = "/var/lib/nextcloud" },
+    # The code: local per node, filled (and chowned) by the image's entrypoint.
+    { path = "/var/lib/nextcloud-html", owner = "33:33" },
+    { path = "/etc/nextcloud", mode = "0700" },
+    { path = "/etc/nextcloud/nginx" },
+    { path = "/etc/nextcloud/haproxy" },
+  ]
+  setup = concat(local.nextcloud_shared_sessions ? [] : [
+    # Session files per node (nextcloud.sessions = "local"): no session proxy, and its secret goes too.
+    "if [ -e /etc/containers/systemd/nextcloud-haproxy.container ]; then systemctl stop nextcloud-haproxy.service || true; rm -f /etc/containers/systemd/nextcloud-haproxy.container /etc/nextcloud/haproxy.env /etc/nextcloud/haproxy/haproxy.cfg; echo 'session proxy removed'; fi",
+    ], [for f in [
+      # Another node runs cron.php.
+      "if [ -e /etc/systemd/system/nextcloud-cron.timer ]; then systemctl disable --now --quiet nextcloud-cron.timer || true; rm -f /etc/systemd/system/nextcloud-cron.timer /etc/systemd/system/nextcloud-cron.service; echo 'cron: timer removed (another node runs cron.php)'; fi",
+  ] : f if each.key != local.nextcloud_cron_node])
+  checks = concat([
+    "podman run --rm --network none --entrypoint nginx -v \"$stage/etc/nextcloud/nginx:/etc/nextcloud-nginx:ro\" '${local.container_images.nginx}' -c /etc/nextcloud-nginx/nginx.conf -t -q",
+    ], local.nextcloud_shared_sessions ? [
+    "podman run --rm --network none --env-file \"$stage/etc/nextcloud/haproxy.env\" -v \"$stage/etc/nextcloud/haproxy:/usr/local/etc/haproxy:ro\" '${local.container_images.haproxy}' haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg",
+  ] : [])
+  post_install = concat([
+    "systemctl enable --quiet var-lib-nextcloud.mount",
+    "systemctl start var-lib-nextcloud.mount",
+    "mountpoint -q /var/lib/nextcloud",
+    # Shared dirs on CephFS (the first node creates them). www-data in the image is uid/gid 33. Nextcloud wants 0770 on data.
+    "for d in config custom_apps themes; do install -d -m 0750 -o 33 -g 33 /var/lib/nextcloud/$d; done",
+    "install -d -m 0770 -o 33 -g 33 /var/lib/nextcloud/data",
+    "cmp -s \"$stage/deploy/lylat.config.php\" /var/lib/nextcloud/config/lylat.config.php || { install -m 0640 -o 33 -g 33 \"$stage/deploy/lylat.config.php\" /var/lib/nextcloud/config/.lylat.config.php.${each.key} && mv -f /var/lib/nextcloud/config/.lylat.config.php.${each.key} /var/lib/nextcloud/config/lylat.config.php && echo 'shared config updated'; }",
+  ], each.key == local.nextcloud_cron_node ? ["systemctl enable --quiet nextcloud-cron.timer"] : [])
+  verify = concat([
+    # status.php through this node's nginx answers (installed or not) once php-fpm runs.
+    "retry sh -c \"${local.nextcloud_status[each.key]} | grep -q '\\\"installed\\\"'\"",
+    ], each.key == local.nextcloud_names[0] ? [
+    # First install (canary only): Postgres database/role from monitoring-config, admin from tofu.
+    "if ${local.nextcloud_status[each.key]} | grep -q '\"installed\":false'; then podman exec --env-file \"$stage/deploy/install.env\" -u www-data nextcloud-app sh -c 'php -f /var/www/html/occ maintenance:install -n --database pgsql --database-host \"$NC_DB_HOST\" --database-name \"$NC_DB_NAME\" --database-user \"$NC_DB_USER\" --database-pass \"$NC_DB_PASS\" --admin-user \"$NC_ADMIN_USER\" --admin-pass \"$NC_ADMIN_PASS\" --data-dir /var/www/html/data' && echo 'nextcloud installed'; fi",
+    ] : [], [
+    # Healthy = installed, not in maintenance, no pending database upgrade (the canary installs it first).
+    "${local.nextcloud_status[each.key]} | grep -q '\"installed\":true.*\"maintenance\":false.*\"needsDbUpgrade\":false' || { echo 'nextcloud is not healthy on ${local.nextcloud_listen[each.key]}' >&2; journalctl -u nextcloud-app.service -n 40 --no-pager >&2; exit 1; }",
+    ], local.nextcloud_shared_sessions ? [
+    # Sessions: the local HAProxy reaches the Valkey primary (role:master); the password stays inside the
+    # container. A fresh HAProxy counts every server as up until its first checks ran: retry.
+    "retry podman exec nextcloud-app php -r 'parse_str(parse_url(ini_get(\"session.save_path\"), PHP_URL_QUERY), $q); $r = new Redis(); $r->connect(\"127.0.0.1\", 6379, 2); $r->auth($q[\"auth\"]); exit($r->info(\"replication\")[\"role\"] === \"master\" ? 0 : 1);'",
+    ] : [], each.key == local.nextcloud_cron_node ? [
+    "${local.nextcloud_occ} background:cron >/dev/null",
+  ] : [])
 }
 
 check "nextcloud_cron_node" {
@@ -200,7 +265,7 @@ resource "terraform_data" "nextcloud_canary" {
   depends_on = [terraform_data.valkey_canary, terraform_data.valkey]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.nextcloud[each.key].script),
     local.nextcloud_vms[each.key].management_address,
     local.nextcloud_vms[each.key].vm_id,
   ]
@@ -218,7 +283,7 @@ resource "terraform_data" "nextcloud_canary" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.nextcloud[each.key].script
     destination = "/tmp/tofu-nextcloud-${self.id}/deploy.sh"
   }
 
@@ -234,7 +299,7 @@ resource "terraform_data" "nextcloud" {
   depends_on = [terraform_data.nextcloud_canary]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.nextcloud[each.key].script),
     local.nextcloud_vms[each.key].management_address,
     local.nextcloud_vms[each.key].vm_id,
   ]
@@ -252,7 +317,7 @@ resource "terraform_data" "nextcloud" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.nextcloud[each.key].script
     destination = "/tmp/tofu-nextcloud-${self.id}/deploy.sh"
   }
 

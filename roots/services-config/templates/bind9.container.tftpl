@@ -12,11 +12,20 @@ Volume=/var/lib/bind9-container:/var/lib/bind:rw
 # The image entrypoint already runs /usr/sbin/named -u bind. -f (foreground) and not -g: -g forces
 # its own stderr logging and ignores named.conf's logging statement (no severity in the lines).
 Exec=-f -c /etc/bind/named.conf
+# Health: named serves its loopback statistics channel (named.conf statistics-channels): up and configured,
+# whatever the zones or the peer do. Notify=healthy: systemctl start/restart returns only once it does.
+HealthCmd=wget -q -O /dev/null http://127.0.0.1:${stats_port}/xml/v3/status
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=1m
+Notify=healthy
 
 [Service]
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=300
+# named.conf or key changed: SIGHUP, and fail unless named logs a successful reload.
+ExecReload=/usr/local/sbin/bind9-reload
 
 [Install]
 WantedBy=multi-user.target

@@ -76,49 +76,80 @@ locals {
     var.ticketing.database.port, var.ticketing.database.name,
   ) : null
 
-  ticketing_script = var.ticketing == null ? {} : {
-    for name, vm in local.ticketing_vms : name => templatefile("${path.module}/templates/ticketing-deploy.sh.tftpl", {
-      tarball = "https://codeload.github.com/${var.ticketing.repo}/tar.gz/${var.ticketing.commit}"
-      image   = "localhost/dark-triage:${substr(var.ticketing.commit, 0, 12)}"
-      listen  = local.ticketing_listen[name]
-      ha      = local.ticketing_ha
-      unit_b64 = base64encode(templatefile("${path.module}/templates/dark-triage.container.tftpl", {
-        image     = "localhost/dark-triage:${substr(var.ticketing.commit, 0, 12)}"
+  ticketing_image = var.ticketing == null ? null : "localhost/dark-triage:${substr(var.ticketing.commit, 0, 12)}"
+
+  # The deploy (modules/services/quadlet-deploy): build the pinned commit once, install the unit, env and
+  # (HA) keepalived. The app restarts only when its unit or env changed (or it isn't running): a deploy that
+  # only changes keepalived reloads keepalived and leaves the app alone. /api/health needs the database, so
+  # it is a deploy check (verify), not a unit health check.
+  ticketing_files = {
+    for name, vm in(var.ticketing == null ? {} : local.ticketing_vms) : name => concat([
+      { path = "/etc/containers/systemd/dark-triage.container", units = ["dark-triage"], content = templatefile("${path.module}/templates/dark-triage.container.tftpl", {
+        image     = local.ticketing_image
         addresses = compact([local.ticketing_listen[name], local.ticketing_vip])
         ports     = var.ticketing.ports
-      }))
-      env_b64 = base64encode(join("", [
+      }) },
+      { path = "/etc/dark-triage/env", mode = "0600", units = ["dark-triage"], restart = true, content = join("", [
         "ADMIN_USERNAME=${var.ticketing.admin}\n",
         "ADMIN_PASSWORD=${random_password.ticketing[0].result}\n",
         local.ticketing_database_url == null ? "" : "DATABASE_URL=${local.ticketing_database_url}\n",
-      ]))
-      keepalived_b64 = !local.ticketing_ha ? "" : base64encode(templatefile("${path.module}/templates/ticketing-keepalived.conf.tftpl", {
-        host         = name
-        ha_interface = local.ticketing_nics[name].ha.interface
-        ha_address   = local.ticketing_nics[name].ha.address
-        peers        = [for peer, n in local.ticketing_nics : n.ha.address if peer != name]
-        router_id    = var.ticketing.router_id
-        # Only the first election: nopreempt keeps the VIP where it is afterwards.
-        priority  = name == local.ticketing_names[0] ? 150 : 100
-        vip       = var.ticketing.vip
-        interface = local.ticketing_nics[name].service.interface
-      }))
-      check_b64 = base64encode(templatefile("${path.module}/templates/ticketing-keepalived-check.sh.tftpl", {
-        url = "http://${local.ticketing_listen[name]}:3000/api/health"
-      }))
-    })
+      ]) },
+      ], [for f in [
+        # The VIP is published on both nodes; only the MASTER holds it.
+        { path = "/etc/sysctl.d/90-dark-triage.conf", content = "net.ipv4.ip_nonlocal_bind = 1\n" },
+        { path = "/etc/keepalived/keepalived.conf", mode = "0600", units = ["keepalived"], content = templatefile("${path.module}/templates/ticketing-keepalived.conf.tftpl", {
+          host         = name
+          ha_interface = local.ticketing_nics[name].ha.interface
+          ha_address   = local.ticketing_nics[name].ha.address
+          peers        = [for peer, n in local.ticketing_nics : n.ha.address if peer != name]
+          router_id    = var.ticketing.router_id
+          # Only the first election: nopreempt keeps the VIP where it is afterwards.
+          priority  = name == local.ticketing_names[0] ? 150 : 100
+          vip       = var.ticketing.vip
+          interface = local.ticketing_nics[name].service.interface
+        }) },
+        # enable_script_security: the check must be root-owned and not writable by others.
+        { path = "/etc/keepalived/chk_triage.sh", mode = "0755", units = ["keepalived"], content = templatefile("${path.module}/templates/ticketing-keepalived-check.sh.tftpl", {
+          url = "http://${local.ticketing_listen[name]}:3000/api/health"
+        }) },
+    ] : f if local.ticketing_ha])
   }
 
   # Canary first: the first VM by name, then everything else (depends_on).
-  ticketing_canary = { for name, s in local.ticketing_script : name => s if name == local.ticketing_names[0] }
-  ticketing_rest   = { for name, s in local.ticketing_script : name => s if name != local.ticketing_names[0] }
+  ticketing_canary = { for name, f in local.ticketing_files : name => f if name == local.ticketing_names[0] }
+  ticketing_rest   = { for name, f in local.ticketing_files : name => f if name != local.ticketing_names[0] }
+}
+
+module "ticketing" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.ticketing_files
+
+  name     = "ticketing"
+  host     = each.key
+  files    = each.value
+  units    = concat(["dark-triage"], local.ticketing_ha ? ["keepalived"] : [])
+  packages = concat(["curl"], local.ticketing_ha ? ["keepalived"] : [])
+  dirs = [
+    { path = "/etc/dark-triage" },
+    { path = "/var/lib/dark-triage", mode = "0750", owner = "1000:1000" },
+  ]
+  # Build the pinned commit once (the image tag is the commit).
+  setup = [
+    "podman image exists '${local.ticketing_image}' || { mkdir \"$stage/src\" && curl -fsSL 'https://codeload.github.com/${var.ticketing.repo}/tar.gz/${var.ticketing.commit}' | tar -xz -C \"$stage/src\" --strip-components=1 && chmod -R a+rX \"$stage/src\" && podman build --pull=newer -t '${local.ticketing_image}' \"$stage/src\" && rm -rf \"$stage/src\"; }",
+  ]
+  checks = local.ticketing_ha ? ["keepalived -t -f \"$stage/etc/keepalived/keepalived.conf\""] : []
+  post_install = local.ticketing_ha ? [
+    "sysctl -q -p /etc/sysctl.d/90-dark-triage.conf",
+    "systemctl enable --quiet keepalived.service",
+  ] : []
+  verify = ["retry curl -fsS -o /dev/null --max-time 3 'http://${local.ticketing_listen[each.key]}:3000/api/health'"]
 }
 
 resource "terraform_data" "ticketing_canary" {
   for_each = local.ticketing_canary
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.ticketing[each.key].script),
     local.ticketing_vms[each.key].management_address,
     local.ticketing_vms[each.key].vm_id,
   ]
@@ -136,7 +167,7 @@ resource "terraform_data" "ticketing_canary" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.ticketing[each.key].script
     destination = "/tmp/tofu-ticketing-${self.id}/deploy.sh"
   }
 
@@ -152,7 +183,7 @@ resource "terraform_data" "ticketing" {
   depends_on = [terraform_data.ticketing_canary]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.ticketing[each.key].script),
     local.ticketing_vms[each.key].management_address,
     local.ticketing_vms[each.key].vm_id,
   ]
@@ -170,7 +201,7 @@ resource "terraform_data" "ticketing" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.ticketing[each.key].script
     destination = "/tmp/tofu-ticketing-${self.id}/deploy.sh"
   }
 

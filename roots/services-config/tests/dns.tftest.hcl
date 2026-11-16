@@ -235,7 +235,10 @@ run "dns_vrrp" {
       output.dns_vip == "10.8.53.53" &&
       length(terraform_data.dns_keepalived) == 2 &&
       local.dns_nics.dns01 == { service = "eth1", zone = { interface = "eth2", address = "10.53.53.51" }, ha = { interface = "eth3", address = "10.50.53.51" } } &&
-      strcontains(local.dns_keepalived_scripts.dns01, base64encode(templatefile("${path.module}/templates/dns-keepalived-check.sh.tftpl", { address = "10.8.53.1" })))
+      contains([for f in local.dns_keepalived_files.dns01 : f.content if f.path == "/etc/keepalived/chk_bind.sh" && f.mode == "0755"], templatefile("${path.module}/templates/dns-keepalived-check.sh.tftpl", { address = "10.8.53.1" })) &&
+      # A config change reloads keepalived (keeps the VRRP state); the staged config is checked first.
+      strcontains(nonsensitive(module.dns_keepalived["dns01"].script), "put '/etc/keepalived/keepalived.conf' '0600' '0:0' reload keepalived\n") &&
+      strcontains(nonsensitive(module.dns_keepalived["dns01"].script), "keepalived -t -f \"$stage/etc/keepalived/keepalived.conf\"\n")
     )
     error_message = "keepalived on both DNS VMs: VIP on the service NIC, adverts on the ha_dns NIC, health check on the own address."
   }
@@ -255,25 +258,29 @@ run "alloy_journal_to_loki" {
   assert {
     condition = (
       length(terraform_data.dns_alloy) == 2 &&
-      keys(local.alloy_scripts) == sort(["dns01", "dns02", "nc01", "nc02", "nc03", "netbox01", "netbox02", "proxy01", "proxy02", "rad01", "rad02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
+      sort(keys(local.alloy_parts)) == sort(["dns01", "dns02", "nc01", "nc02", "nc03", "netbox01", "netbox02", "proxy01", "proxy02", "rad01", "rad02", "triage01", "triage02", "valkey01", "valkey02", "valkey03"]) &&
       # Every Alloy VM pushes to Loki's telemetry VIP from its lylat-telemetry NIC (VLAN 1501, since 2026-11-14).
-      strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+      local.alloy_parts.dns01.files[1].path == "/etc/alloy/config.alloy" &&
+      local.alloy_parts.dns01.files[1].content == templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
         host = "dns01", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
-      }))) &&
-      strcontains(local.alloy_scripts.proxy02, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+      }) &&
+      local.alloy_parts.proxy02.files[1].content == templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
         host = "proxy02", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
-      }))) &&
-      strcontains(local.alloy_scripts.netbox01, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+      }) &&
+      local.alloy_parts.netbox01.files[1].content == templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
         host = "netbox01", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
-      }))) &&
-      strcontains(local.alloy_scripts.triage02, base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+      }) &&
+      local.alloy_parts.triage02.files[1].content == templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
         host = "triage02", max_age = "12h", loki_urls = ["http://10.55.18.101:3100"]
-      }))) &&
+      }) &&
       # The HTTP listener (scraped by monitoring-config's alloy job) on the telemetry address.
-      strcontains(local.alloy_scripts.dns01, base64encode(templatefile("${path.module}/templates/alloy.container.tftpl", {
+      local.alloy_parts.dns01.files[0].content == templatefile("${path.module}/templates/alloy.container.tftpl", {
         image = local.container_images.alloy, listen = "10.55.53.51:12345"
-      }))) &&
-      strcontains(local.alloy_scripts.valkey03, "http://10.55.15.49:12345/-/ready")
+      }) &&
+      strcontains(local.alloy_parts.valkey03.verify[0], "http://10.55.15.49:12345/-/ready") &&
+      # The staged config is validated before anything is installed; a config change reloads Alloy.
+      strcontains(nonsensitive(module.dns_alloy["dns01"].script), "validate /etc/alloy/config.alloy\n") &&
+      strcontains(nonsensitive(module.dns_alloy["dns01"].script), "put '/etc/alloy/config.alloy' '0644' '0:0' reload alloy\n")
     )
     error_message = "Alloy on every DNS/NetBox/proxy/Valkey/ticketing VM: the telemetry VIP; listener on the telemetry address :12345."
   }
@@ -303,8 +310,8 @@ run "bind_logging" {
   command = plan
   assert {
     condition = (
-      strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x" }), "\nExec=-f -c /etc/bind/named.conf\n") &&
-      !strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x" }), "Exec=-g") &&
+      strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x", stats_port = 8053 }), "\nExec=-f -c /etc/bind/named.conf\n") &&
+      !strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x", stats_port = 8053 }), "Exec=-g") &&
       strcontains(templatefile("${path.module}/templates/named.conf.tftpl", {
         address         = "10.8.53.1", vip = null, extra_listen = [], allowed_clients = ["10.0.0.0/8"], primary = true,
         primary_address = "10.8.53.1", secondary_addresses = ["10.8.53.2"], stats_port = 8053
@@ -318,7 +325,7 @@ run "alloy_disabled" {
   command = plan
   variables { alloy = null }
   assert {
-    condition     = length(terraform_data.dns_alloy) == 0 && length(local.alloy_scripts) == 0 && length(terraform_data.bind9) == 2
+    condition     = length(terraform_data.dns_alloy) == 0 && length(local.alloy_parts) == 0 && length(terraform_data.bind9) == 2
     error_message = "alloy = null installs no Alloy but still deploys BIND."
   }
 }
@@ -334,8 +341,12 @@ run "dns_node_exporter" {
   assert {
     condition = (
       length(terraform_data.dns_node_exporter) == 2 &&
-      strcontains(local.dns_node_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = local.container_images.node_exporter, listen = "10.55.53.51:9100" }))) &&
-      strcontains(local.dns_node_exporter_script.dns02, "http://10.55.53.52:9100/metrics") &&
+      local.dns_node_exporter_parts.dns01.files[0].content == templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = local.container_images.node_exporter, listen = "10.55.53.51:9100" }) &&
+      # Health in the unit: the landing page on the listen address, and systemd waits for it.
+      strcontains(local.dns_node_exporter_parts.dns02.files[0].content, "\nHealthCmd=wget -q -O /dev/null http://10.55.53.52:9100/\n") &&
+      strcontains(local.dns_node_exporter_parts.dns02.files[0].content, "\nNotify=healthy\n") &&
+      # Every service VM's monitoring deployment gets the same exporter on :9100.
+      strcontains(local.node_exporter_parts.valkey01.files[0].content, "--web.listen-address=10.55.15.47:9100 ") &&
       # The collectors of monitoring-config's VMs, and the D-Bus socket the systemd one needs.
       strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.55.53.51:9100" }), "\nExec=--path.rootfs=/host --web.listen-address=10.55.53.51:9100 --collector.netdev.address-info --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)\n") &&
       strcontains(templatefile("${path.module}/templates/node-exporter.container.tftpl", { image = "i", listen = "10.55.53.51:9100" }), "\nVolume=/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro\n")
@@ -358,12 +369,14 @@ run "dns_bind_exporter" {
   assert {
     condition = (
       length(terraform_data.dns_bind_exporter) == 2 &&
-      strcontains(local.dns_bind_exporter_script.dns01, base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = local.container_images.bind_exporter, stats_port = 8053, listen = "10.55.53.51:9119" }))) &&
+      local.dns_bind_exporter_parts.dns01.files[0].content == templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = local.container_images.bind_exporter, stats_port = 8053, listen = "10.55.53.51:9119" }) &&
       strcontains(templatefile("${path.module}/templates/bind-exporter.container.tftpl", { image = "i", stats_port = 8053, listen = "10.55.53.51:9119" }), "\nExec=--bind.stats-url=http://127.0.0.1:8053 --web.listen-address=10.55.53.51:9119 --bind.pid-file=\n") &&
-      strcontains(local.dns_bind_exporter_script.dns02, "http://10.55.53.52:9119/metrics") &&
+      strcontains(local.dns_bind_exporter_parts.dns02.verify[0], "http://10.55.53.52:9119/metrics") &&
       # The statistics channel it reads, loopback only, and a named.conf change is a reload, not a restart.
-      strcontains(base64decode(regex("printf '%s' '([^']+)' \\| base64 -d > \"\\$stage/named.conf\"", local.deployments.dns02)[0]), "statistics-channels {\n    inet 127.0.0.1 port 8053 allow { 127.0.0.1; };\n};") &&
-      strcontains(local.deployments.dns01, "podman kill --signal HUP bind9")
+      strcontains(one([for f in local.bind9_files.dns02 : f.content if f.path == "/etc/bind9-container/named.conf"]), "statistics-channels {\n    inet 127.0.0.1 port 8053 allow { 127.0.0.1; };\n};") &&
+      strcontains(nonsensitive(module.bind9["dns01"].script), "put '/etc/bind9-container/named.conf' '0644' '0:0' reload bind9\n") &&
+      strcontains(one([for f in local.bind9_files.dns01 : f.content if f.path == "/etc/containers/systemd/bind9.container"]), "\nExecReload=/usr/local/sbin/bind9-reload\n") &&
+      strcontains(file("${path.module}/templates/bind9-reload.sh"), "podman kill --signal HUP bind9")
     )
     error_message = "bind_exporter on both DNS VMs on their telemetry address :9119, reading BIND's loopback statistics channel; named.conf changes reload BIND."
   }
@@ -375,5 +388,21 @@ run "dns_bind_exporter_disabled" {
   assert {
     condition     = length(terraform_data.dns_bind_exporter) == 0
     error_message = "dns_bind_exporter = null installs nothing."
+  }
+}
+
+# BIND's files: the key 0640 root:bind (gid 53), seed zones only on the primary and only once (the live zones
+# take RFC 2136 updates), and the zones checked before anything is installed.
+run "bind9_deploy" {
+  command = plan
+  assert {
+    condition = (
+      strcontains(nonsensitive(module.bind9["dns01"].script), "put '/etc/bind9-container/tsig.key' '0640' '0:53' reload bind9\n") &&
+      strcontains(nonsensitive(module.bind9["dns01"].script), "put '/var/lib/bind9-container/primary/lylat.space.zone' '0640' '53:53' once \n") &&
+      strcontains(nonsensitive(module.bind9["dns01"].script), "named-checkzone -v \"$stage/var/lib/bind9-container/primary:/zones:ro\"") &&
+      !strcontains(nonsensitive(module.bind9["dns02"].script), "/var/lib/bind9-container/primary/lylat.space.zone") &&
+      strcontains(nonsensitive(module.bind9["dns02"].script), "install -d -m '0750' -o '53' -g '53' '/var/lib/bind9-container/secondary'")
+    )
+    error_message = "BIND: key 0640 0:53, seed zones once on the primary only, zone dirs owned by bind (53)."
   }
 }

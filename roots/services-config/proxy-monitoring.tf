@@ -15,33 +15,49 @@ variable "proxy_monitoring" {
 locals {
   proxy_monitoring_ports = { node = 9100, nginx = 9113 }
 
-  proxy_monitoring_scripts = var.proxy != null && var.proxy_monitoring != null ? {
-    for name, vm in local.proxy_vms : name => {
-      node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
-        unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-          image  = local.container_images.node_exporter
-          listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.node}"
-        }))
-        listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.node}"
-      })
-      exporter = templatefile("${path.module}/templates/nginx-exporter.sh.tftpl", {
-        unit_b64 = base64encode(templatefile("${path.module}/templates/nginx-exporter.container.tftpl", {
-          image  = local.container_images.nginx_exporter
-          listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.nginx}"
-        }))
+  # nginx-prometheus-exporter: its image has no shell, so the deploy checks it from the host (nginx_up 1).
+  nginx_exporter_parts = {
+    for name, vm in(var.proxy == null ? {} : local.proxy_vms) : name => {
+      units  = ["nginx-exporter"]
+      images = [local.container_images.nginx_exporter]
+      dirs   = []
+      files = [{ path = "/etc/containers/systemd/nginx-exporter.container", units = ["nginx-exporter"], content = templatefile("${path.module}/templates/nginx-exporter.container.tftpl", {
+        image  = local.container_images.nginx_exporter
         listen = "${local.scrape_ip[name]}:${local.proxy_monitoring_ports.nginx}"
-      })
-      alloy = lookup(local.alloy_scripts, name, null)
+      }) }]
+      checks = []
+      verify = ["retry sh -c \"curl -fsS --max-time 3 'http://${local.scrape_ip[name]}:${local.proxy_monitoring_ports.nginx}/metrics' | grep -qx 'nginx_up 1'\""]
     }
-  } : {}
+  }
+
+  # The deployment's parts (node_exporter, the role's exporters, Alloy), one module call per VM.
+  proxy_monitoring_parts = {
+    for name in(var.proxy != null && var.proxy_monitoring != null ? keys(local.proxy_vms) : []) : name => [
+      for p in [local.node_exporter_parts[name], local.nginx_exporter_parts[name], lookup(local.alloy_parts, name, null)] : p if p != null
+    ]
+  }
+}
+
+module "proxy_monitoring" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.proxy_monitoring_parts
+
+  name   = "proxy-monitoring"
+  host   = each.key
+  files  = flatten([for p in each.value : p.files])
+  units  = flatten([for p in each.value : p.units])
+  images = flatten([for p in each.value : p.images])
+  dirs   = flatten([for p in each.value : p.dirs])
+  checks = flatten([for p in each.value : p.checks])
+  verify = flatten([for p in each.value : p.verify])
 }
 
 resource "terraform_data" "proxy_monitoring" {
-  for_each   = local.proxy_monitoring_scripts
+  for_each   = local.proxy_monitoring_parts
   depends_on = [terraform_data.proxy_canary, terraform_data.proxy]
 
   triggers_replace = [
-    sha256(jsonencode(each.value)),
+    sha256(module.proxy_monitoring[each.key].script),
     local.proxy_vms[each.key].management_address,
     local.proxy_vms[each.key].vm_id,
     local.proxy_vms[each.key].config.ssh_username,
@@ -60,23 +76,13 @@ resource "terraform_data" "proxy_monitoring" {
   }
 
   provisioner "file" {
-    content     = each.value.node_exporter
-    destination = "/tmp/tofu-proxy-mon-${self.id}/node-exporter.sh"
-  }
-
-  provisioner "file" {
-    content     = each.value.exporter
-    destination = "/tmp/tofu-proxy-mon-${self.id}/nginx-exporter.sh"
-  }
-
-  provisioner "file" {
-    content     = coalesce(each.value.alloy, "#!/bin/bash\n# alloy = null: no journal shipping\n")
-    destination = "/tmp/tofu-proxy-mon-${self.id}/alloy.sh"
+    content     = module.proxy_monitoring[each.key].script
+    destination = "/tmp/tofu-proxy-mon-${self.id}/deploy.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "rc=0; d=/tmp/tofu-proxy-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/nginx-exporter.sh && sudo -n bash $d/alloy.sh || rc=$?; rm -rf $d; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-proxy-mon-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-proxy-mon-${self.id}; exit $rc",
     ]
   }
 }

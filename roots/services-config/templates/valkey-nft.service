@@ -1,0 +1,12 @@
+# Managed by OpenTofu (services-config, valkey.tf).
+[Unit]
+Description=nftables rules for Valkey/Sentinel
+Before=valkey-server.service valkey-sentinel.service
+Wants=network-pre.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables-valkey.nft
+ExecStop=/usr/sbin/nft delete table inet valkey
+[Install]
+WantedBy=multi-user.target

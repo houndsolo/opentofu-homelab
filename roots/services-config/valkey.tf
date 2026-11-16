@@ -56,40 +56,62 @@ locals {
     ]
   ]))) : []
 
-  valkey_script = !local.valkey_enabled ? {} : {
-    for name, vm in local.valkey_vms : name => templatefile("${path.module}/templates/valkey-deploy.sh.tftpl", {
-      address         = local.valkey_backend[name]
-      initial_primary = local.valkey_backend[local.valkey_names[0]]
-      peers           = [for peer in local.valkey_names : local.valkey_backend[peer] if peer != name]
-      master_name     = var.valkey.master_name
-      server_b64 = base64encode(templatefile("${path.module}/templates/valkey.conf.tftpl", {
+  # The deploy (modules/services/quadlet-deploy): Debian's packages, the nftables table (own unit, loaded
+  # first), the managed settings in /etc/valkey/tofu, then templates/valkey-apply.sh.tftpl writes the live
+  # configs for the current primary and restarts only what changed (see its header), and waits for health.
+  valkey_files = {
+    for name, vm in(!local.valkey_enabled ? {} : local.valkey_vms) : name => [
+      { path = "/etc/nftables-valkey.nft", content = templatefile("${path.module}/templates/valkey.nft.tftpl", { clients = local.valkey_clients }) },
+      { path = "/etc/systemd/system/valkey-nft.service", content = file("${path.module}/templates/valkey-nft.service") },
+      { path = "/etc/valkey/tofu/valkey.conf", mode = "0600", content = templatefile("${path.module}/templates/valkey.conf.tftpl", {
         address   = local.valkey_backend[name]
         password  = random_password.valkey[0].result
         maxmemory = var.valkey.maxmemory
-      }))
-      sentinel_b64 = base64encode(templatefile("${path.module}/templates/valkey-sentinel.conf.tftpl", {
+      }) },
+      { path = "/etc/valkey/tofu/sentinel.conf", mode = "0600", content = templatefile("${path.module}/templates/valkey-sentinel.conf.tftpl", {
         address             = local.valkey_backend[name]
         master_name         = var.valkey.master_name
         quorum              = var.valkey.quorum
         password            = random_password.valkey[0].result
         down_after_ms       = var.valkey.down_after_ms
         failover_timeout_ms = var.valkey.failover_timeout_ms
-      }))
-      nft_b64 = base64encode(templatefile("${path.module}/templates/valkey.nft.tftpl", {
-        clients = local.valkey_clients
-      }))
-    })
+      }) },
+      { path = "/etc/valkey/tofu/apply.sh", mode = "0755", content = templatefile("${path.module}/templates/valkey-apply.sh.tftpl", {
+        address         = local.valkey_backend[name]
+        initial_primary = local.valkey_backend[local.valkey_names[0]]
+        peers           = [for peer in local.valkey_names : local.valkey_backend[peer] if peer != name]
+        master_name     = var.valkey.master_name
+      }) },
+    ]
   }
 
-  valkey_canary = { for name, s in local.valkey_script : name => s if name == local.valkey_names[0] }
-  valkey_rest   = { for name, s in local.valkey_script : name => s if name != local.valkey_names[0] }
+  valkey_canary = { for name, f in local.valkey_files : name => f if name == local.valkey_names[0] }
+  valkey_rest   = { for name, f in local.valkey_files : name => f if name != local.valkey_names[0] }
+}
+
+module "valkey" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.valkey_files
+
+  name     = "valkey"
+  host     = each.key
+  files    = each.value
+  units    = ["valkey-server", "valkey-sentinel"]
+  packages = ["valkey-server", "valkey-sentinel", "nftables"]
+  checks   = ["nft -c -f \"$stage/etc/nftables-valkey.nft\""]
+  post_install = [
+    # Firewall first, on every deploy: 6379/26379 only for the trio and the client VMs.
+    "systemctl enable --quiet valkey-nft.service valkey-server.service valkey-sentinel.service",
+    "systemctl restart valkey-nft.service",
+    "/etc/valkey/tofu/apply.sh",
+  ]
 }
 
 resource "terraform_data" "valkey_canary" {
   for_each = local.valkey_canary
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.valkey[each.key].script),
     local.valkey_vms[each.key].management_address,
     local.valkey_vms[each.key].vm_id,
   ]
@@ -107,7 +129,7 @@ resource "terraform_data" "valkey_canary" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.valkey[each.key].script
     destination = "/tmp/tofu-valkey-${self.id}/deploy.sh"
   }
 
@@ -123,7 +145,7 @@ resource "terraform_data" "valkey" {
   depends_on = [terraform_data.valkey_canary]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.valkey[each.key].script),
     local.valkey_vms[each.key].management_address,
     local.valkey_vms[each.key].vm_id,
   ]
@@ -141,7 +163,7 @@ resource "terraform_data" "valkey" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.valkey[each.key].script
     destination = "/tmp/tofu-valkey-${self.id}/deploy.sh"
   }
 

@@ -125,46 +125,78 @@ locals {
     RELEASE_CHECK_URL    = "https://api.github.com/repos/netbox-community/netbox/releases"
   } : "${k}=${v}\n"])
 
-  netbox_script = !local.netbox_enabled ? {} : {
-    for name, vm in local.netbox_vms : name => templatefile("${path.module}/templates/netbox-deploy.sh.tftpl", {
-      image  = local.container_images.netbox
-      listen = local.netbox_nics[name].service.address
-      ha     = local.netbox_ha
-      cephfs = local.netbox_cephfs
-      # base64 so the key never appears in the script as plain text (it is still in tofu's state).
-      cephfs_key_b64 = local.netbox_cephfs ? base64encode(var.netbox_cephfs_key) : ""
-      mount_b64 = !local.netbox_cephfs ? "" : base64encode(templatefile("${path.module}/templates/netbox-cephfs.mount.tftpl", {
-        what    = "${join(",", [for m in var.netbox.cephfs.monitors : "${m}:6789"])}:${var.netbox.cephfs.path}"
-        options = "name=${var.netbox.cephfs.client},secretfile=/etc/ceph/${var.netbox.cephfs.client}.secret,mds_namespace=${var.netbox.cephfs.fs},noatime,_netdev"
-      }))
-      env_b64 = base64encode(local.netbox_env)
-      unit_b64 = base64encode(templatefile("${path.module}/templates/netbox.container.tftpl", {
+  # The deploy (modules/services/quadlet-deploy). Media, scripts and reports: the CephFS mount comes up and
+  # the directories are made before NetBox (re)starts. Health is the unit's (HealthCmd + Notify=healthy,
+  # TimeoutStartSec covers the first migration). Units restart only when their unit or env changed (or they
+  # aren't running): a deploy that only changes keepalived reloads keepalived and leaves NetBox alone.
+  netbox_files = {
+    for name, vm in(!local.netbox_enabled ? {} : local.netbox_vms) : name => concat([
+      { path = "/etc/containers/systemd/netbox.container", units = ["netbox"], content = templatefile("${path.module}/templates/netbox.container.tftpl", {
         image     = local.container_images.netbox
         addresses = compact([local.netbox_nics[name].service.address, local.netbox_vip])
         ports     = var.netbox.ports
-      }))
-      worker_b64 = base64encode(templatefile("${path.module}/templates/netbox-worker.container.tftpl", {
+      }) },
+      { path = "/etc/containers/systemd/netbox-worker.container", units = ["netbox-worker"], content = templatefile("${path.module}/templates/netbox-worker.container.tftpl", {
         image = local.container_images.netbox
-      }))
-      keepalived_b64 = !local.netbox_ha ? "" : base64encode(templatefile("${path.module}/templates/netbox-keepalived.conf.tftpl", {
-        host         = name
-        ha_interface = local.netbox_nics[name].ha.interface
-        ha_address   = local.netbox_nics[name].ha.address
-        peers        = [for peer, n in local.netbox_nics : n.ha.address if peer != name]
-        router_id    = var.netbox.router_id
-        # Only the first election: nopreempt keeps the VIP where it is afterwards.
-        priority  = name == local.netbox_names[0] ? 150 : 100
-        vip       = var.netbox.vip
-        interface = local.netbox_nics[name].service.interface
-      }))
-      check_b64 = base64encode(templatefile("${path.module}/templates/netbox-keepalived-check.sh.tftpl", {
-        url = "http://${local.netbox_nics[name].service.address}/login/"
-      }))
-    })
+      }) },
+      { path = "/etc/netbox/env", mode = "0600", units = ["netbox", "netbox-worker"], restart = true, content = local.netbox_env },
+      ], [for f in [
+        # CephFS /netbox at /var/lib/netbox (kernel client; mount.ceph comes with ceph-common).
+        { path = "/etc/ceph/netbox.secret", mode = "0600", content = var.netbox_cephfs_key },
+        { path = "/etc/systemd/system/var-lib-netbox.mount", units = ["var-lib-netbox.mount"], content = templatefile("${path.module}/templates/netbox-cephfs.mount.tftpl", {
+          what    = "${join(",", [for m in var.netbox.cephfs.monitors : "${m}:6789"])}:${var.netbox.cephfs.path}"
+          options = "name=${var.netbox.cephfs.client},secretfile=/etc/ceph/${var.netbox.cephfs.client}.secret,mds_namespace=${var.netbox.cephfs.fs},noatime,_netdev"
+        }) },
+        ] : f if local.netbox_cephfs], [for f in [
+        # The VIP is published on both nodes; only the MASTER holds it.
+        { path = "/etc/sysctl.d/90-netbox.conf", content = "net.ipv4.ip_nonlocal_bind = 1\n" },
+        { path = "/etc/keepalived/keepalived.conf", mode = "0600", units = ["keepalived"], content = templatefile("${path.module}/templates/netbox-keepalived.conf.tftpl", {
+          host         = name
+          ha_interface = local.netbox_nics[name].ha.interface
+          ha_address   = local.netbox_nics[name].ha.address
+          peers        = [for peer, n in local.netbox_nics : n.ha.address if peer != name]
+          router_id    = var.netbox.router_id
+          # Only the first election: nopreempt keeps the VIP where it is afterwards.
+          priority  = name == local.netbox_names[0] ? 150 : 100
+          vip       = var.netbox.vip
+          interface = local.netbox_nics[name].service.interface
+        }) },
+        # enable_script_security: the check must be root-owned and not writable by others.
+        { path = "/etc/keepalived/chk_netbox.sh", mode = "0755", units = ["keepalived"], content = templatefile("${path.module}/templates/netbox-keepalived-check.sh.tftpl", {
+          url = "http://${local.netbox_nics[name].service.address}/login/"
+        }) },
+    ] : f if local.netbox_ha])
   }
 
-  netbox_canary = { for name, s in local.netbox_script : name => s if name == local.netbox_names[0] }
-  netbox_rest   = { for name, s in local.netbox_script : name => s if name != local.netbox_names[0] }
+  netbox_canary = { for name, f in local.netbox_files : name => f if name == local.netbox_names[0] }
+  netbox_rest   = { for name, f in local.netbox_files : name => f if name != local.netbox_names[0] }
+}
+
+module "netbox" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.netbox_files
+
+  name     = "netbox"
+  host     = each.key
+  files    = each.value
+  units    = concat(local.netbox_cephfs ? ["var-lib-netbox.mount"] : [], ["netbox", "netbox-worker"], local.netbox_ha ? ["keepalived"] : [])
+  images   = [local.container_images.netbox]
+  packages = concat(local.netbox_cephfs ? ["ceph-common"] : [], local.netbox_ha ? ["keepalived"] : [])
+  dirs     = [{ path = "/etc/netbox" }, { path = "/var/lib/netbox" }]
+  checks   = local.netbox_ha ? ["keepalived -t -f \"$stage/etc/keepalived/keepalived.conf\""] : []
+  post_install = concat(local.netbox_ha ? [
+    "sysctl -q -p /etc/sysctl.d/90-netbox.conf",
+    "systemctl enable --quiet keepalived.service",
+    ] : [], local.netbox_cephfs ? [
+    "systemctl enable --quiet var-lib-netbox.mount",
+    "systemctl start var-lib-netbox.mount",
+    "mountpoint -q /var/lib/netbox",
+    ] : [], [
+    # On CephFS when mounted, so after the mount. The image runs as netbox (uid 999), group root.
+    "for d in media reports scripts; do install -d -m 0775 -o 999 -g 0 /var/lib/netbox/$d; done",
+  ])
+  # The published port on the node's own address (the unit's HealthCmd checks inside the container).
+  verify = ["retry curl -fsS -o /dev/null --max-time 3 'http://${local.netbox_nics[each.key].service.address}/login/'"]
 }
 
 resource "terraform_data" "netbox_canary" {
@@ -172,7 +204,7 @@ resource "terraform_data" "netbox_canary" {
   depends_on = [terraform_data.valkey_canary, terraform_data.valkey]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.netbox[each.key].script),
     local.netbox_vms[each.key].management_address,
     local.netbox_vms[each.key].vm_id,
   ]
@@ -190,7 +222,7 @@ resource "terraform_data" "netbox_canary" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.netbox[each.key].script
     destination = "/tmp/tofu-netbox-${self.id}/deploy.sh"
   }
 
@@ -206,7 +238,7 @@ resource "terraform_data" "netbox" {
   depends_on = [terraform_data.netbox_canary]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.netbox[each.key].script),
     local.netbox_vms[each.key].management_address,
     local.netbox_vms[each.key].vm_id,
   ]
@@ -224,7 +256,7 @@ resource "terraform_data" "netbox" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.netbox[each.key].script
     destination = "/tmp/tofu-netbox-${self.id}/deploy.sh"
   }
 

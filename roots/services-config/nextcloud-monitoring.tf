@@ -11,25 +11,33 @@ variable "nextcloud_monitoring" {
 }
 
 locals {
-  nextcloud_monitoring_scripts = var.nextcloud_monitoring == null ? {} : {
-    for name, vm in local.nextcloud_vms : name => {
-      node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
-        unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-          image  = local.container_images.node_exporter
-          listen = "${local.scrape_ip[name]}:9100"
-        }))
-        listen = "${local.scrape_ip[name]}:9100"
-      })
-      alloy = lookup(local.alloy_scripts, name, null)
-    }
+  # The deployment's parts (node_exporter, Alloy), one module call per VM.
+  nextcloud_monitoring_parts = {
+    for name in(var.nextcloud_monitoring != null ? keys(local.nextcloud_vms) : []) : name => [
+      for p in [local.node_exporter_parts[name], lookup(local.alloy_parts, name, null)] : p if p != null
+    ]
   }
 }
 
+module "nextcloud_monitoring" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.nextcloud_monitoring_parts
+
+  name   = "nextcloud-monitoring"
+  host   = each.key
+  files  = flatten([for p in each.value : p.files])
+  units  = flatten([for p in each.value : p.units])
+  images = flatten([for p in each.value : p.images])
+  dirs   = flatten([for p in each.value : p.dirs])
+  checks = flatten([for p in each.value : p.checks])
+  verify = flatten([for p in each.value : p.verify])
+}
+
 resource "terraform_data" "nextcloud_monitoring" {
-  for_each = local.nextcloud_monitoring_scripts
+  for_each = local.nextcloud_monitoring_parts
 
   triggers_replace = [
-    sha256(jsonencode(each.value)),
+    sha256(module.nextcloud_monitoring[each.key].script),
     local.nextcloud_vms[each.key].management_address,
     local.nextcloud_vms[each.key].vm_id,
     local.nextcloud_vms[each.key].config.ssh_username,
@@ -48,18 +56,13 @@ resource "terraform_data" "nextcloud_monitoring" {
   }
 
   provisioner "file" {
-    content     = each.value.node_exporter
-    destination = "/tmp/tofu-nextcloud-mon-${self.id}/node-exporter.sh"
-  }
-
-  provisioner "file" {
-    content     = coalesce(each.value.alloy, "#!/bin/bash\n# alloy = null: no journal shipping\n")
-    destination = "/tmp/tofu-nextcloud-mon-${self.id}/alloy.sh"
+    content     = module.nextcloud_monitoring[each.key].script
+    destination = "/tmp/tofu-nextcloud-mon-${self.id}/deploy.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "rc=0; d=/tmp/tofu-nextcloud-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/alloy.sh || rc=$?; rm -rf $d; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-nextcloud-mon-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-nextcloud-mon-${self.id}; exit $rc",
     ]
   }
 }

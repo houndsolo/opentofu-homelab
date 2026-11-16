@@ -11,26 +11,34 @@ variable "ticketing_monitoring" {
 }
 
 locals {
-  ticketing_monitoring_scripts = var.ticketing != null && var.ticketing_monitoring != null ? {
-    for name, vm in local.ticketing_vms : name => {
-      node_exporter = templatefile("${path.module}/templates/node-exporter.sh.tftpl", {
-        unit_b64 = base64encode(templatefile("${path.module}/templates/node-exporter.container.tftpl", {
-          image  = local.container_images.node_exporter
-          listen = "${local.scrape_ip[name]}:9100"
-        }))
-        listen = "${local.scrape_ip[name]}:9100"
-      })
-      alloy = lookup(local.alloy_scripts, name, null)
-    }
-  } : {}
+  # The deployment's parts (node_exporter, Alloy), one module call per VM.
+  ticketing_monitoring_parts = {
+    for name in(var.ticketing != null && var.ticketing_monitoring != null ? keys(local.ticketing_vms) : []) : name => [
+      for p in [local.node_exporter_parts[name], lookup(local.alloy_parts, name, null)] : p if p != null
+    ]
+  }
+}
+
+module "ticketing_monitoring" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.ticketing_monitoring_parts
+
+  name   = "ticketing-monitoring"
+  host   = each.key
+  files  = flatten([for p in each.value : p.files])
+  units  = flatten([for p in each.value : p.units])
+  images = flatten([for p in each.value : p.images])
+  dirs   = flatten([for p in each.value : p.dirs])
+  checks = flatten([for p in each.value : p.checks])
+  verify = flatten([for p in each.value : p.verify])
 }
 
 resource "terraform_data" "ticketing_monitoring" {
-  for_each   = local.ticketing_monitoring_scripts
+  for_each   = local.ticketing_monitoring_parts
   depends_on = [terraform_data.ticketing_canary, terraform_data.ticketing]
 
   triggers_replace = [
-    sha256(jsonencode(each.value)),
+    sha256(module.ticketing_monitoring[each.key].script),
     local.ticketing_vms[each.key].management_address,
     local.ticketing_vms[each.key].vm_id,
     local.ticketing_vms[each.key].config.ssh_username,
@@ -49,18 +57,13 @@ resource "terraform_data" "ticketing_monitoring" {
   }
 
   provisioner "file" {
-    content     = each.value.node_exporter
-    destination = "/tmp/tofu-ticketing-mon-${self.id}/node-exporter.sh"
-  }
-
-  provisioner "file" {
-    content     = coalesce(each.value.alloy, "#!/bin/bash\n# alloy = null: no journal shipping\n")
-    destination = "/tmp/tofu-ticketing-mon-${self.id}/alloy.sh"
+    content     = module.ticketing_monitoring[each.key].script
+    destination = "/tmp/tofu-ticketing-mon-${self.id}/deploy.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "rc=0; d=/tmp/tofu-ticketing-mon-${self.id}; sudo -n bash $d/node-exporter.sh && sudo -n bash $d/alloy.sh || rc=$?; rm -rf $d; exit $rc",
+      "rc=0; sudo -n bash /tmp/tofu-ticketing-mon-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-ticketing-mon-${self.id}; exit $rc",
     ]
   }
 }

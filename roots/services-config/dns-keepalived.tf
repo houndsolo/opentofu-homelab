@@ -25,9 +25,9 @@ locals {
     }
   }
 
-  dns_keepalived_scripts = var.dns_vrrp == null ? {} : {
-    for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/dns-keepalived.sh.tftpl", {
-      conf_b64 = base64encode(templatefile("${path.module}/templates/dns-keepalived.conf.tftpl", {
+  dns_keepalived_files = {
+    for name, vm in(var.dns_vrrp == null ? {} : local.dns_vms) : name => [
+      { path = "/etc/keepalived/keepalived.conf", mode = "0600", units = ["keepalived"], content = templatefile("${path.module}/templates/dns-keepalived.conf.tftpl", {
         host = name
         # try(): a VM without an HA NIC renders a placeholder, so the precondition below can name the problem.
         ha_interface = try(local.dns_nics[name].ha.interface, "")
@@ -40,16 +40,31 @@ locals {
         interface      = local.dns_nics[name].service
         zone_vip       = local.dns_nics[name].zone == null ? null : var.dns_vrrp.zone_vip
         zone_interface = try(local.dns_nics[name].zone.interface, null)
-      }))
-      check_b64 = base64encode(templatefile("${path.module}/templates/dns-keepalived-check.sh.tftpl", {
+      }) },
+      # enable_script_security: the check must be root-owned and not writable by others.
+      { path = "/etc/keepalived/chk_bind.sh", mode = "0755", units = ["keepalived"], content = templatefile("${path.module}/templates/dns-keepalived-check.sh.tftpl", {
         address = local.dns_addresses[name]
-      }))
-    })
+      }) },
+    ]
   }
 }
 
+# A changed config reloads keepalived (keeps the VRRP state, no VIP move); it is started when not running.
+module "dns_keepalived" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.dns_keepalived_files
+
+  name         = "dns-keepalived"
+  host         = each.key
+  files        = each.value
+  units        = ["keepalived"]
+  packages     = ["keepalived", "bind9-dnsutils"]
+  checks       = ["keepalived -t -f \"$stage/etc/keepalived/keepalived.conf\""]
+  post_install = ["systemctl enable --quiet keepalived.service"]
+}
+
 resource "terraform_data" "dns_keepalived" {
-  for_each = local.dns_keepalived_scripts
+  for_each = local.dns_keepalived_files
 
   lifecycle {
     precondition {
@@ -59,7 +74,7 @@ resource "terraform_data" "dns_keepalived" {
   }
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.dns_keepalived[each.key].script),
     local.dns_vms[each.key].management_address,
     local.dns_vms[each.key].vm_id,
     local.dns_vms[each.key].config.ssh_username,
@@ -79,7 +94,7 @@ resource "terraform_data" "dns_keepalived" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.dns_keepalived[each.key].script
     destination = "/tmp/tofu-keepalived-${self.id}/dns-keepalived.sh"
   }
 

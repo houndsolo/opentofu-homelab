@@ -1,0 +1,66 @@
+#!/bin/bash
+# Managed by OpenTofu (services-config, valkey.tf). Run by the deploy after it installed the managed
+# settings in /etc/valkey/tofu. After the first start the Sentinels own the live configs (they rewrite
+# them on failover), so this writes them only when needed, for the primary the running Sentinels report:
+#   valkey.conf    the managed settings + "replicaof <primary>" on a replica, when that differs from what the
+#                  last deploy wrote (.valkey.conf.tofu) or valkey-server isn't running: restarts valkey-server;
+#   sentinel.conf  only the first time or when the managed settings changed (.sentinel.conf.tofu):
+#                  restarts valkey-sentinel.
+# Then waits until this node is healthy: the primary, or a replica in sync with it, and its Sentinel reports
+# the same primary.
+set -euo pipefail
+umask 077
+me='${address}'
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# The current primary, as the running Sentinels see it (any of them); before the first Sentinel runs, the
+# first VM by name is the primary.
+primary=""
+for s in $me ${join(" ", peers)}; do
+  p=$(timeout 3 valkey-cli -h "$s" -p 26379 --raw SENTINEL get-master-addr-by-name '${master_name}' 2>/dev/null | head -1 || true)
+  if [[ "$p" =~ ^[0-9.]+$ ]]; then primary=$p; break; fi
+done
+[ -n "$primary" ] || primary='${initial_primary}'
+echo "valkey: primary is $primary (this node $me)"
+
+cp /etc/valkey/tofu/valkey.conf "$work/valkey.conf"
+[ "$primary" = "$me" ] || printf 'replicaof %s 6379\n' "$primary" >> "$work/valkey.conf"
+if ! cmp -s "$work/valkey.conf" /etc/valkey/.valkey.conf.tofu || ! systemctl is-active --quiet valkey-server.service; then
+  install -m 0640 -o valkey -g valkey "$work/valkey.conf" /etc/valkey/valkey.conf
+  install -m 0600 -o root -g root "$work/valkey.conf" /etc/valkey/.valkey.conf.tofu
+  systemctl restart valkey-server.service
+  echo "valkey-server restarted"
+fi
+
+if ! cmp -s /etc/valkey/tofu/sentinel.conf /etc/valkey/.sentinel.conf.tofu || ! systemctl is-active --quiet valkey-sentinel.service; then
+  sed "s/__PRIMARY__/$primary/" /etc/valkey/tofu/sentinel.conf > "$work/sentinel.conf"
+  install -m 0640 -o valkey -g valkey "$work/sentinel.conf" /etc/valkey/sentinel.conf
+  install -m 0600 -o root -g root /etc/valkey/tofu/sentinel.conf /etc/valkey/.sentinel.conf.tofu
+  systemctl restart valkey-sentinel.service
+  echo "valkey-sentinel restarted"
+fi
+
+# Health: valkey answers; a replica is connected to the primary and in sync; Sentinel knows the primary.
+export REDISCLI_AUTH
+REDISCLI_AUTH=$(sed -n 's/^requirepass //p' /etc/valkey/.valkey.conf.tofu)
+ok=0 role="" sp=""
+for _ in $(seq 1 30); do
+  role=$(valkey-cli -h 127.0.0.1 --raw INFO replication 2>/dev/null | tr -d '\r' || true)
+  if [ "$primary" = "$me" ]; then
+    grep -q '^role:master' <<<"$role" && ok=1
+  else
+    grep -q '^role:slave' <<<"$role" && grep -q '^master_link_status:up' <<<"$role" && ok=1
+  fi
+  sp=$(valkey-cli -h 127.0.0.1 -p 26379 --raw SENTINEL get-master-addr-by-name '${master_name}' 2>/dev/null | head -1 || true)
+  [ "$sp" = "$primary" ] || ok=0
+  [ $ok -eq 1 ] && break
+  sleep 2
+done
+if [ $ok -ne 1 ]; then
+  echo "valkey is not healthy on $me (expected primary $primary)" >&2
+  printf '%s\n' "$role" >&2
+  journalctl -u valkey-server.service -u valkey-sentinel.service -n 30 --no-pager >&2
+  exit 1
+fi
+echo "valkey is healthy on $me ($(grep '^role:' <<<"$role")), sentinel sees primary $sp"

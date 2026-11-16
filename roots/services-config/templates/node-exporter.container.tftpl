@@ -15,6 +15,13 @@ PodmanArgs=--pid=host
 # The collectors and flags of monitoring-config's VMs (modules/services/monitoring/main.tf node_exporter_collectors).
 # address-info: node_network_address_info shows which VM holds a keepalived VIP (the overview's VIP table).
 Exec=--path.rootfs=/host --web.listen-address=${listen} --collector.netdev.address-info --collector.processes --collector.tcpstat --collector.interrupts --collector.systemd --collector.systemd.unit-include=.+[.](service|socket|timer)
+# Health: the landing page answers on the listen address. Notify=healthy: systemctl start/restart returns
+# only once it does (and fails after TimeoutStartSec if it never does).
+HealthCmd=wget -q -O /dev/null http://${listen}/
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=1m
+Notify=healthy
 
 [Service]
 Restart=always

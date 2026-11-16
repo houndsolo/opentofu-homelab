@@ -1,0 +1,22 @@
+#!/bin/bash
+# Managed by OpenTofu (services-config, proxy.tf). proxy-vip-handoff <stage>: run by the deploy after its
+# checks, before it installs anything. When the deploy is about to restart nginx (the staged unit differs
+# from the installed one, or nginx isn't running) on the node that holds the VIP, hand the VIP to a healthy
+# peer first: stopping keepalived sends a priority-0 advert and the peer takes over within ~1 s, instead of
+# failing the health check for ~9 s. The deploy starts keepalived again afterwards (BACKUP, nopreempt).
+set -euo pipefail
+unit=/etc/containers/systemd/nginx.container
+if cmp -s "$1$unit" "$unit" && systemctl is-active --quiet nginx.service; then exit 0; fi
+systemctl is-active --quiet keepalived.service || exit 0
+ip -4 -o addr show | grep -q ' ${vip_address}/' || exit 0
+peer_ok=0
+%{ for p in peers ~}
+curl -sf -o /dev/null --max-time 2 'http://${p}/healthz' && peer_ok=1
+%{ endfor ~}
+if [ $peer_ok -eq 1 ]; then
+  systemctl stop keepalived.service
+  for _ in $(seq 1 20); do ip -4 -o addr show | grep -q ' ${vip_address}/' || break; sleep 0.25; done
+  echo "VIP ${vip_address} handed to the peer before restarting nginx"
+else
+  echo "no healthy peer: restarting nginx while holding the VIP" >&2
+fi

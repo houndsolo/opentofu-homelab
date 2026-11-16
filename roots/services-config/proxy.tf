@@ -190,45 +190,78 @@ locals {
   proxy_config_id  = var.proxy == null ? "" : substr(sha256(templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", merge(local.proxy_nginx_vars, { config_id = "" }))), 0, 16)
   proxy_nginx_conf = var.proxy == null ? "" : templatefile("${path.module}/templates/proxy-nginx.conf.tftpl", merge(local.proxy_nginx_vars, { config_id = local.proxy_config_id }))
 
-  proxy_script = var.proxy == null ? {} : {
-    for name, vm in local.proxy_vms : name => templatefile("${path.module}/templates/proxy-deploy.sh.tftpl", {
-      cert_dir    = var.proxy.cert_dir
-      conf_dir    = local.proxy_conf_dir
-      image       = local.container_images.nginx
-      config_id   = local.proxy_config_id
-      listen      = local.proxy_nics[name].service.address
-      vip_address = local.proxy_vip
-      peers       = [for peer, n in local.proxy_nics : n.service.address if peer != name]
-      unit_b64 = base64encode(templatefile("${path.module}/templates/proxy-nginx.container.tftpl", {
+  # The deploy (modules/services/quadlet-deploy). The nginx config is tested with the same image against the
+  # certificate before anything is installed; a config change reloads nginx (ExecReload, graceful), a unit
+  # change restarts it (after handing the VIP to a healthy peer, templates/proxy-vip-handoff.sh.tftpl). The
+  # landing page is static (no reload). Afterwards: /healthz reports this config's id, and every published
+  # name answers over TLS on this node.
+  proxy_files = {
+    for name, vm in(var.proxy == null ? {} : local.proxy_vms) : name => concat([
+      # nftables: own table, loaded by its own unit (the distro nftables.service stays as it is).
+      { path = "/etc/nftables-proxy.nft", units = ["proxy-nft"], content = templatefile("${path.module}/templates/proxy.nft.tftpl", { clients = var.proxy.clients }) },
+      { path = "/etc/systemd/system/proxy-nft.service", units = ["proxy-nft"], content = file("${path.module}/templates/proxy-nft.service") },
+      { path = "/etc/containers/systemd/nginx.container", units = ["nginx"], content = templatefile("${path.module}/templates/proxy-nginx.container.tftpl", {
         image    = local.container_images.nginx
         conf_dir = local.proxy_conf_dir
         cert_dir = var.proxy.cert_dir
-      }))
-      ha         = local.proxy_ha
-      nginx_b64  = base64encode(local.proxy_nginx_conf)
-      nft_b64    = base64encode(templatefile("${path.module}/templates/proxy.nft.tftpl", { clients = var.proxy.clients }))
-      host_names = sort(concat(flatten([for h in values(local.proxy_hosts) : h.names]), local.proxy_landing_names))
-      index_b64  = base64encode(local.proxy_index_html)
-      keepalived_b64 = !local.proxy_ha ? "" : base64encode(templatefile("${path.module}/templates/proxy-keepalived.conf.tftpl", {
-        host         = name
-        ha_interface = local.proxy_nics[name].ha.interface
-        ha_address   = local.proxy_nics[name].ha.address
-        peers        = [for peer, n in local.proxy_nics : n.ha.address if peer != name]
-        router_id    = var.proxy.router_id
-        # Only the first election: nopreempt keeps the VIP where it is afterwards.
-        priority  = name == local.proxy_names[0] ? 150 : 100
-        vip       = var.proxy.vip
-        interface = local.proxy_nics[name].service.interface
-      }))
-      check_b64 = base64encode(templatefile("${path.module}/templates/proxy-keepalived-check.sh.tftpl", {
-        url = "http://127.0.0.1/healthz"
-      }))
-    })
+      }) },
+      { path = "${local.proxy_conf_dir}/nginx.conf", units = ["nginx"], content = local.proxy_nginx_conf },
+      { path = "${local.proxy_conf_dir}/www/index.html", content = local.proxy_index_html },
+      ], [for f in [
+        { path = "/usr/local/sbin/proxy-vip-handoff", mode = "0755", content = templatefile("${path.module}/templates/proxy-vip-handoff.sh.tftpl", {
+          vip_address = local.proxy_vip
+          peers       = [for peer, n in local.proxy_nics : n.service.address if peer != name]
+        }) },
+        { path = "/etc/keepalived/keepalived.conf", mode = "0600", units = ["keepalived"], content = templatefile("${path.module}/templates/proxy-keepalived.conf.tftpl", {
+          host         = name
+          ha_interface = local.proxy_nics[name].ha.interface
+          ha_address   = local.proxy_nics[name].ha.address
+          peers        = [for peer, n in local.proxy_nics : n.ha.address if peer != name]
+          router_id    = var.proxy.router_id
+          # Only the first election: nopreempt keeps the VIP where it is afterwards.
+          priority  = name == local.proxy_names[0] ? 150 : 100
+          vip       = var.proxy.vip
+          interface = local.proxy_nics[name].service.interface
+        }) },
+        # enable_script_security: the check must be root-owned and not writable by others.
+        { path = "/etc/keepalived/chk_proxy.sh", mode = "0755", units = ["keepalived"], content = templatefile("${path.module}/templates/proxy-keepalived-check.sh.tftpl", {
+          url = "http://127.0.0.1/healthz"
+        }) },
+    ] : f if local.proxy_ha])
   }
+  proxy_host_names = var.proxy == null ? [] : sort(concat(flatten([for h in values(local.proxy_hosts) : h.names]), local.proxy_landing_names))
 
   # Canary first: the first VM by name, then everything else (depends_on).
-  proxy_canary = { for name, s in local.proxy_script : name => s if name == local.proxy_names[0] }
-  proxy_rest   = { for name, s in local.proxy_script : name => s if name != local.proxy_names[0] }
+  proxy_canary = { for name, f in local.proxy_files : name => f if name == local.proxy_names[0] }
+  proxy_rest   = { for name, f in local.proxy_files : name => f if name != local.proxy_names[0] }
+}
+
+module "proxy" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.proxy_files
+
+  name     = "proxy"
+  host     = each.key
+  files    = each.value
+  units    = concat(["proxy-nft", "nginx"], local.proxy_ha ? ["keepalived"] : [])
+  images   = [local.container_images.nginx]
+  packages = concat(["podman", "nftables", "curl"], local.proxy_ha ? ["keepalived"] : [])
+  dirs     = [{ path = local.proxy_conf_dir }, { path = "${local.proxy_conf_dir}/www" }]
+  # The certificate comes from roots/certs; without it nginx can't start.
+  setup = ["for f in '${var.proxy.cert_dir}/fullchain.pem' '${var.proxy.cert_dir}/privkey.pem'; do [ -s \"$f\" ] || { echo \"missing $f: apply roots/certs first\" >&2; exit 1; }; done"]
+  checks = concat([
+    "nft -c -f \"$stage/etc/nftables-proxy.nft\"",
+    "podman run --rm --network none --entrypoint nginx -v \"$stage${local.proxy_conf_dir}:${local.proxy_conf_dir}:ro\" -v '${var.proxy.cert_dir}:${var.proxy.cert_dir}:ro' '${local.container_images.nginx}' -c '${local.proxy_conf_dir}/nginx.conf' -t -q",
+  ], local.proxy_ha ? ["keepalived -t -f \"$stage/etc/keepalived/keepalived.conf\""] : [])
+  pre_install  = local.proxy_ha ? ["bash \"$stage/usr/local/sbin/proxy-vip-handoff\" \"$stage\""] : []
+  post_install = concat(["systemctl enable --quiet proxy-nft.service"], local.proxy_ha ? ["systemctl enable --quiet keepalived.service"] : [])
+  verify = concat([
+    # A reload is graceful: old workers keep answering for a moment. This config's id, twice in a row.
+    "retry sh -c \"curl -sf --max-time 2 http://127.0.0.1/healthz | grep -qx 'ok ${local.proxy_config_id}' && sleep 0.5 && curl -sf --max-time 2 http://127.0.0.1/healthz | grep -qx 'ok ${local.proxy_config_id}'\"",
+    ], [
+    # Every published name answers over TLS on this node (any HTTP status: the upstream decides).
+    for h in local.proxy_host_names : "curl -sS -o /dev/null --max-time 5 --resolve '${h}:443:${local.proxy_nics[each.key].service.address}' -w 'https://${h}/ on ${local.proxy_nics[each.key].service.address}: HTTP %%{http_code}\\n' 'https://${h}/'"
+  ])
 }
 
 check "proxy_role_hosts_have_vms" {
@@ -242,7 +275,7 @@ resource "terraform_data" "proxy_canary" {
   for_each = local.proxy_canary
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.proxy[each.key].script),
     local.proxy_vms[each.key].management_address,
     local.proxy_vms[each.key].vm_id,
   ]
@@ -260,7 +293,7 @@ resource "terraform_data" "proxy_canary" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.proxy[each.key].script
     destination = "/tmp/tofu-proxy-${self.id}/deploy.sh"
   }
 
@@ -276,7 +309,7 @@ resource "terraform_data" "proxy" {
   depends_on = [terraform_data.proxy_canary]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.proxy[each.key].script),
     local.proxy_vms[each.key].management_address,
     local.proxy_vms[each.key].vm_id,
   ]
@@ -294,7 +327,7 @@ resource "terraform_data" "proxy" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.proxy[each.key].script
     destination = "/tmp/tofu-proxy-${self.id}/deploy.sh"
   }
 

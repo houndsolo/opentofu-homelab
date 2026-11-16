@@ -1,0 +1,49 @@
+#!/bin/bash
+# Managed by OpenTofu (services-config, radius.tf). Unpacked with the deploy, never installed; next to it
+# the pgpass for '${db_user}' on '${db_name}' (role + database come from monitoring-config).
+#   radius-db.sh schema  ${canary ? "loads the image's postgresql/schema.sql when the tables don't exist yet (the canary), then " : ""}checks the schema is there
+#   radius-db.sh probe   FreeRADIUS answers Status-Server on 127.0.0.1:1812 (the image's localhost client,
+#                        secret testing123), and an Access-Request for a random, non-existent user is rejected
+#                        AND logged in radpostauth (proves the RADIUS -> sql -> Postgres path, writes included)
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+chmod 0600 "$here/pgpass"
+export PGPASSFILE="$here/pgpass" PGSSLMODE=require PGCONNECT_TIMEOUT=5
+pg() { psql -h '${db_host}' -p '${db_port}' -U '${db_user}' -d '${db_name}' -v ON_ERROR_STOP=1 -X -q "$@"; }
+has_schema() { [ "$(pg -Atc "select to_regclass('public.radpostauth') is not null")" = t ]; }
+fail() { journalctl -u radius.service -n 40 --no-pager -o cat >&2; echo "radius is not healthy: $1" >&2; exit 1; }
+
+case $1 in
+  schema)
+%{ if canary ~}
+    if ! has_schema; then
+      podman run --rm --entrypoint cat '${image}' /etc/freeradius/mods-config/sql/main/postgresql/schema.sql > "$here/schema.sql"
+      pg -f "$here/schema.sql"
+      echo "radius schema loaded"
+    fi
+%{ endif ~}
+    has_schema || { echo "radius schema missing (the canary loads it)" >&2; exit 1; }
+    ;;
+  probe)
+    ok=0
+    for _ in $(seq 1 30); do
+      if printf 'Message-Authenticator = 0x00\n' | podman exec -i radius radclient -r 1 -t 2 127.0.0.1:1812 status testing123 2>&1 | grep -q 'Received Access-Accept'; then ok=1; break; fi
+      sleep 2
+    done
+    [ "$ok" = 1 ] || fail "no answer to Status-Server on 127.0.0.1:1812"
+    echo "radius answers Status-Server on 127.0.0.1:1812"
+    probe="lylat-probe-$(hostname -s)-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+    since=$(pg -Atc "select now()")
+    reply=$(podman exec radius radtest -t pap "$probe" "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" 127.0.0.1 0 testing123 2>&1 | grep -oE 'Received Access-(Accept|Reject)' | head -1 || true)
+    [ "$reply" = "Received Access-Reject" ] || fail "probe user $probe: expected Access-Reject, got '$reply'"
+    logged=0
+    for _ in $(seq 1 10); do
+      n=$(pg -Atc "select count(*) from radpostauth where username = '$probe' and authdate >= '$since'")
+      [ "$n" -ge 1 ] && { logged=1; break; }
+      sleep 1
+    done
+    [ "$logged" = 1 ] || fail "probe $probe was rejected but not logged in radpostauth (no working sql connection)"
+    pg -c "delete from radpostauth where username = '$probe'"
+    echo "radius is healthy: probe rejected and logged in Postgres (${db_name} on ${db_host})"
+    ;;
+esac

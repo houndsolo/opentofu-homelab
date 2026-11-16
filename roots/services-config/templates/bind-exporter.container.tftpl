@@ -10,6 +10,13 @@ ContainerName=bind-exporter
 Network=host
 # named runs in its own container, so its pid file isn't visible here: no process metrics.
 Exec=--bind.stats-url=http://127.0.0.1:${stats_port} --web.listen-address=${listen} --bind.pid-file=
+# Health: the landing page answers on the listen address (not bind_up: that depends on the bind9 container).
+# Notify=healthy: systemctl start/restart returns only once it does.
+HealthCmd=wget -q -O /dev/null http://${listen}/
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=1m
+Notify=healthy
 
 [Service]
 Restart=always

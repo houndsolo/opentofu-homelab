@@ -44,34 +44,64 @@ locals {
     pool_max = var.radius.database.pool_max
   })
 
-  radius_script = !local.radius_enabled ? {} : {
-    for name, vm in local.radius_vms : name => templatefile("${path.module}/templates/radius-deploy.sh.tftpl", {
-      image   = local.container_images.freeradius
-      canary  = name == local.radius_names[0]
-      db_host = var.radius.database.host
-      db_port = var.radius.database.port
-      db_name = var.radius.database.name
-      db_user = var.radius.database.user
-      # base64 so secrets never appear in the script as plain text (they are still in tofu's state).
-      sql_b64 = base64encode(local.radius_sql)
-      env_b64 = base64encode("RADIUS_DB_PASSWORD=${var.app_db_passwords["radius"]}\n")
-      unit_b64 = base64encode(templatefile("${path.module}/templates/radius.container.tftpl", {
+  # The deploy (modules/services/quadlet-deploy): host config and the unit, checked with the image (-C) before
+  # anything is installed; the schema (canary) before the restart; afterwards the health probes
+  # (templates/radius-db.sh.tftpl, unpacked with the pgpass for the deploy only). Health needs the localhost
+  # client from roots/radius' clients.conf and the database, so it is a deploy check, not a unit health check.
+  radius_files = {
+    for name, vm in(!local.radius_enabled ? {} : local.radius_vms) : name => [
+      { path = "/etc/containers/systemd/radius.container", units = ["radius"], content = templatefile("${path.module}/templates/radius.container.tftpl", {
         image = local.container_images.freeradius
-      }))
-      pgpass_b64 = base64encode("${var.radius.database.host}:${var.radius.database.port}:${var.radius.database.name}:${var.radius.database.user}:${var.app_db_passwords["radius"]}\n")
-    })
+      }) },
+      # 0644 inside the 0700 dir: freeradius drops to its own user (freerad) in the container after start.
+      { path = "/etc/radius/sql", units = ["radius"], content = local.radius_sql },
+      { path = "/etc/radius/radius.env", mode = "0600", units = ["radius"], restart = true, content = "RADIUS_DB_PASSWORD=${var.app_db_passwords["radius"]}\n" },
+      { path = "/deploy/pgpass", stage_only = true, content = "${var.radius.database.host}:${var.radius.database.port}:${var.radius.database.name}:${var.radius.database.user}:${var.app_db_passwords["radius"]}\n" },
+      { path = "/deploy/radius-db.sh", stage_only = true, content = templatefile("${path.module}/templates/radius-db.sh.tftpl", {
+        image   = local.container_images.freeradius
+        canary  = name == local.radius_names[0]
+        db_host = var.radius.database.host
+        db_port = var.radius.database.port
+        db_name = var.radius.database.name
+        db_user = var.radius.database.user
+      }) },
+    ]
   }
 
   # Canary first: the first VM by name loads the schema before the other server deploys.
-  radius_canary = { for name, s in local.radius_script : name => s if name == local.radius_names[0] }
-  radius_rest   = { for name, s in local.radius_script : name => s if name != local.radius_names[0] }
+  radius_canary = { for name, f in local.radius_files : name => f if name == local.radius_names[0] }
+  radius_rest   = { for name, f in local.radius_files : name => f if name != local.radius_names[0] }
+}
+
+module "radius" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.radius_files
+
+  name     = "radius"
+  host     = each.key
+  files    = each.value
+  units    = ["radius"]
+  images   = [local.container_images.freeradius]
+  packages = ["postgresql-client"]
+  dirs     = [{ path = "/etc/radius", mode = "0700" }]
+  checks = [
+    # clients.conf belongs to roots/radius (devices + secrets); until it exists, the image's own (localhost only).
+    "if [ -s /etc/radius/clients.conf ]; then cp /etc/radius/clients.conf \"$stage/deploy/clients.conf\"; else podman run --rm --entrypoint cat '${local.container_images.freeradius}' /etc/freeradius/clients.conf > \"$stage/deploy/clients.conf\"; fi",
+    "podman run --rm --network none --env-file \"$stage/etc/radius/radius.env\" -v \"$stage/etc/radius/sql:/etc/freeradius/mods-enabled/sql:ro\" -v \"$stage/deploy/clients.conf:/etc/freeradius/clients.conf:ro\" '${local.container_images.freeradius}' -C -l stdout > \"$stage/deploy/check.log\" 2>&1 || { tail -30 \"$stage/deploy/check.log\" >&2; echo 'freeradius config check failed' >&2; exit 1; }",
+  ]
+  post_install = [
+    # Seed clients.conf once so the mount exists before roots/radius' first apply; never overwritten here.
+    "[ -s /etc/radius/clients.conf ] || { install -m 0644 \"$stage/deploy/clients.conf\" /etc/radius/clients.conf; echo 'seeded /etc/radius/clients.conf from the image (roots/radius manages it from now on)'; }",
+    "bash \"$stage/deploy/radius-db.sh\" schema",
+  ]
+  verify = ["bash \"$stage/deploy/radius-db.sh\" probe"]
 }
 
 resource "terraform_data" "radius_canary" {
   for_each = local.radius_canary
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.radius[each.key].script),
     local.radius_vms[each.key].management_address,
     local.radius_vms[each.key].vm_id,
   ]
@@ -89,7 +119,7 @@ resource "terraform_data" "radius_canary" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.radius[each.key].script
     destination = "/tmp/tofu-radius-${self.id}/deploy.sh"
   }
 
@@ -105,7 +135,7 @@ resource "terraform_data" "radius" {
   depends_on = [terraform_data.radius_canary]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.radius[each.key].script),
     local.radius_vms[each.key].management_address,
     local.radius_vms[each.key].vm_id,
   ]
@@ -123,7 +153,7 @@ resource "terraform_data" "radius" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.radius[each.key].script
     destination = "/tmp/tofu-radius-${self.id}/deploy.sh"
   }
 

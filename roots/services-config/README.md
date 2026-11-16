@@ -15,10 +15,10 @@ State and plans are encrypted (`state_passphrase`).
 | `dns-node-exporter.tf`, `dns-bind-exporter.tf` | node_exporter (:9100) and bind_exporter (:9119) on the DNS VMs |
 | `dhcp.tf` | the DHCP HA pair, [modules/services/dhcp](../../modules/README.md#servicesdhcp) per VM (VyOS API) |
 | `netbox.tf`, `valkey.tf`, `proxy.tf`, `ticketing.tf` | the services (table below) |
-| `*-monitoring.tf` (netbox, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, separate from the service deploy |
+| `*-monitoring.tf` (netbox, nextcloud, radius, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, one deployment per VM separate from the service deploy |
 | `alloy.tf` | the Alloy install every Linux service VM gets ([Logs to Loki](#logs-to-loki)) |
 | `telemetry.tf` | each VM's lylat-telemetry address (`scrape_ip`), where every exporter and Alloy listens |
-| `templates/` | `named.conf`, seed zones, TSIG key, Quadlet units, keepalived/nginx/Valkey configs, deploy scripts |
+| `templates/` | `named.conf`, seed zones, TSIG key, Quadlet units, keepalived/nginx/Valkey configs, the few helper scripts the deploys call |
 | `tests/dns.tftest.hcl` | `tofu test` with mocked providers: records, DHCP commands (fixture `tests/fixtures/dhcp-pools.set`), VRRP, Alloy, exporters |
 
 | Service | VMs | Address | Notes |
@@ -84,21 +84,43 @@ tofu -chdir=roots/services-config apply -target=terraform_data.bind9
 tofu -chdir=roots/services-config apply
 ```
 
+## How the VMs are deployed
+
+Every deployment (BIND, keepalived, each exporter and Alloy, every service, each role's monitoring) is one
+`terraform_data` per VM that uploads one script to a private `/tmp/tofu-<name>-<id>/`, runs it with
+`sudo -n` and deletes it. The script comes from
+[modules/services/quadlet-deploy](../../modules/services/quadlet-deploy/README.md): each `.tf` file only
+lists the deployment's files (path, mode, numeric owner, the units it belongs to), units, images, packages
+and a few service-specific commands. In short: validate the staged files, install what changed, restart a
+unit whose unit file changed, reload it (`ExecReload`) when only its config changed, then run the checks
+that need more than the container itself. The unit files are literal `templates/<service>.container.tftpl`.
+
+Health: units whose image has a tool for it carry `HealthCmd=` + `Notify=healthy` (node_exporter,
+bind_exporter, BIND, nginx, NetBox, the Nextcloud app and web containers), so `systemctl restart` returns
+only once the container is healthy. Checks that need a database, Valkey, another container or a peer
+(dark-triage `/api/health`, `bind_up 1`, `nginx_up 1`, `redis_up 1`, Alloy `/-/ready`, Nextcloud
+`status.php` and sessions, the RADIUS probes, Valkey replication) are `verify` commands in the deploy.
+Each deployment's unit-file list is kept in `/var/lib/tofu-deploy/<name>.units` (a unit dropped from the
+list is stopped and its file removed on the next deploy).
+
+| Deployment (`name`) | Special steps |
+| --- | --- |
+| `bind9` | named.conf/key checked (`named-checkconf`), seed zones checked and installed once on the primary only; a config change runs `ExecReload` = `/usr/local/sbin/bind9-reload` (SIGHUP, fails unless named logs `reloading configuration succeeded`) |
+| `dns-keepalived`, keepalived in `ticketing`/`netbox`/`proxy` | `keepalived -t` on the staged config; a change reloads keepalived (keeps the VRRP state), so a keepalived-only change never restarts the app |
+| `ticketing` | builds the pinned commit once (`localhost/dark-triage:<commit>`) |
+| `netbox`, `nextcloud` | CephFS mount up and the data directories made (`post_install`) before the containers restart |
+| `nextcloud` | the shared `lylat.config.php` is published atomically to CephFS; first install on the canary; the session check retries (HAProxy's first health checks) |
+| `proxy` | certificate present, `nginx -t` on the staged config; before an nginx restart the VIP holder hands the VIP to a healthy peer (`pre_install`, `templates/proxy-vip-handoff.sh.tftpl`); afterwards `/healthz` serves this config's id and every name answers over TLS |
+| `valkey` | the managed settings go to `/etc/valkey/tofu/`; `templates/valkey-apply.sh.tftpl` writes the live configs for the primary the Sentinels report (Sentinel owns them after the first start) and restarts only what changed |
+| `radius` | `freeradius -C` on the staged config; schema on the canary; Status-Server and a rejected-and-logged probe afterwards (`templates/radius-db.sh.tftpl`, unpacked with a pgpass for the deploy only) |
+
 ## How BIND is deployed
 
-One `terraform_data.bind9` per `role = "dns"` VM: SSH in, upload `deploy.sh`
-(`templates/deploy.sh.tftpl`) to a private `/tmp/tofu-bind9-<id>/`, run it with `sudo -n`, delete it.
-The script:
-
-1. unpacks `named.conf`, both seed zones, the TSIG key and the Quadlet unit; pulls the image;
-2. validates `named.conf` (`named-checkconf`) and both seed zones (`named-checkzone`) in throwaway
-   containers without network: a broken config never reaches the server;
-3. on the primary only, installs a seed zone (`lylat.space`, `10.in-addr.arpa`) only if no zone
-   file exists: zones with RFC 2136 updates and their journals are never overwritten;
-4. installs `named.conf`, the key (0640 `root:bind`) and the unit; **restarts** BIND only when the
-   unit or image changed (or it isn't running), otherwise **reloads** it (SIGHUP; no rndc channel),
-   so the cache survives. It fails if named logs `reloading configuration failed` (named keeps the
-   old config).
+`terraform_data.bind9` per `role = "dns"` VM (the canary-free pair: apply with `-parallelism=1` when the
+unit changes, or both restart at once). Seed zones (`lylat.space`, `10.in-addr.arpa`) are installed only if
+no zone file exists: zones with RFC 2136 updates and their journals are never overwritten. A new unit or
+image restarts BIND; a `named.conf` or key change reloads it (SIGHUP; no rndc channel), so the cache
+survives, and the deploy fails if the reload fails (named keeps the old config).
 
 | On the VM | In the container | What |
 | --- | --- | --- |
@@ -251,8 +273,8 @@ set service dhcp-server shared-network-name l2vni9008 subnet 10.8.0.0/16 subnet-
   `container`, `app` (syslog identifier: `bind9`, `nginx`, `Keepalived_vrrp`, ...) and `level`, like
   monitoring-config's VMs. [`alloy.tf`](alloy.tf) renders `templates/alloy.*.tftpl`; the DNS VMs get
   it from `terraform_data.dns_alloy`, the others from their `<role>-monitoring.tf`, so it never
-  restarts a service. `alloy.sh` validates the config in a throwaway container, restarts Alloy on a
-  unit change, reloads (SIGHUP) on a config change, then waits for `/-/ready`.
+  restarts a service. The deploy validates the config in a throwaway container, restarts Alloy on a
+  unit change, reloads it (SIGHUP) on a config change, then waits for `/-/ready`.
 - Push path: from the lylat-telemetry NIC to Loki's telemetry VIP `10.55.18.101:3100`; the
   `alloy_telemetry_nic` check warns about Alloy VMs without that NIC (lylat-telemetry is isolated, no
   other route). Alloy's `/metrics` is on the telemetry address `:12345` (monitoring-config job `alloy`).

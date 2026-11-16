@@ -4,7 +4,7 @@
 # (source="syslog", retired on every VM by 2026-11-14). Alloy's HTTP listener (/metrics,
 # /-/ready) is on the telemetry address (telemetry.tf scrape_ip), where monitoring-config's alloy job scrapes it
 # (targets.alloy there; keep the port in step). The DNS VMs get it from terraform_data.dns_alloy
-# below, the others from their <role>-monitoring.tf resource, so changing it never restarts a service.
+# below, the others from their <role>-monitoring.tf deployment, so changing it never restarts a service.
 variable "alloy" {
   description = "Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs, pushing to loki_url (Loki's telemetry VIP) from the VM's lylat-telemetry NIC. null = don't install it (and leave rsyslog alone)."
   type = object({
@@ -30,29 +30,51 @@ check "alloy_telemetry_nic" {
 locals {
   alloy_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms)
 
-  # VM name => the install script (templates/alloy.sh.tftpl); empty when var.alloy is null.
-  alloy_scripts = var.alloy == null ? {} : {
-    for name, vm in local.alloy_vms : name => templatefile("${path.module}/templates/alloy.sh.tftpl", {
-      image  = local.container_images.alloy
-      listen = "${local.scrape_ip[name]}:${var.alloy.port}"
-      unit_b64 = base64encode(templatefile("${path.module}/templates/alloy.container.tftpl", {
-        image  = local.container_images.alloy
-        listen = "${local.scrape_ip[name]}:${var.alloy.port}"
-      }))
-      config_b64 = base64encode(templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
-        host      = name
-        max_age   = var.alloy.max_age
-        loki_urls = [var.alloy.loki_url]
-      }))
-    })
+  # VM name => Alloy's part of a deployment (modules/services/quadlet-deploy inputs); empty when var.alloy is
+  # null. The config is validated in a throwaway container; a config change reloads Alloy (ExecReload, SIGHUP),
+  # a unit change restarts it. The image has no curl/wget, so readiness is checked from the host (verify).
+  alloy_parts = {
+    for name, vm in(var.alloy == null ? {} : local.alloy_vms) : name => {
+      units  = ["alloy"]
+      images = [local.container_images.alloy]
+      dirs   = [{ path = "/var/lib/alloy", mode = "0750" }]
+      files = [
+        { path = "/etc/containers/systemd/alloy.container", units = ["alloy"], content = templatefile("${path.module}/templates/alloy.container.tftpl", {
+          image  = local.container_images.alloy
+          listen = "${local.scrape_ip[name]}:${var.alloy.port}"
+        }) },
+        { path = "/etc/alloy/config.alloy", units = ["alloy"], content = templatefile("${path.module}/templates/alloy.config.alloy.tftpl", {
+          host      = name
+          max_age   = var.alloy.max_age
+          loki_urls = [var.alloy.loki_url]
+        }) },
+      ]
+      checks = ["podman run --rm --network=none --user 0 -v \"$stage/etc/alloy:/etc/alloy:ro\" '${local.container_images.alloy}' validate /etc/alloy/config.alloy"]
+      verify = ["retry curl -fsS -o /dev/null --max-time 3 'http://${local.scrape_ip[name]}:${var.alloy.port}/-/ready'"]
+    }
   }
+  dns_alloy_parts = { for name, p in local.alloy_parts : name => p if contains(keys(local.dns_vms), name) }
+}
+
+module "dns_alloy" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.dns_alloy_parts
+
+  name   = "dns-alloy"
+  host   = each.key
+  files  = each.value.files
+  units  = each.value.units
+  images = each.value.images
+  dirs   = each.value.dirs
+  checks = each.value.checks
+  verify = each.value.verify
 }
 
 resource "terraform_data" "dns_alloy" {
-  for_each = { for name, script in local.alloy_scripts : name => script if contains(keys(local.dns_vms), name) }
+  for_each = local.dns_alloy_parts
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.dns_alloy[each.key].script),
     local.dns_vms[each.key].management_address,
     local.dns_vms[each.key].vm_id,
     local.dns_vms[each.key].config.ssh_username,
@@ -72,7 +94,7 @@ resource "terraform_data" "dns_alloy" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.dns_alloy[each.key].script
     destination = "/tmp/tofu-alloy-${self.id}/alloy.sh"
   }
 

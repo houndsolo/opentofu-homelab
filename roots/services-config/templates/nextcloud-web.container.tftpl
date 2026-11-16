@@ -17,6 +17,13 @@ Volume=/var/lib/nextcloud/custom_apps:/var/www/html/custom_apps:ro
 Volume=/var/lib/nextcloud/themes:/var/www/html/themes:ro
 Exec=nginx -c /etc/nextcloud-nginx/nginx.conf -g "daemon off;"
 Environment=NGINX_ENTRYPOINT_QUIET_LOGS=1
+# Health: nginx serves a static file (robots.txt, no access log; no PHP involved). Notify=healthy:
+# systemctl start/restart returns only once it does.
+HealthCmd=curl -fsS -o /dev/null http://127.0.0.1/robots.txt
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=1m
+Notify=healthy
 
 [Service]
 Restart=always

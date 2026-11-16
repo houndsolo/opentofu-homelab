@@ -17,6 +17,8 @@ HealthCmd=/opt/netbox/health.sh
 HealthInterval=15s
 HealthTimeout=3s
 HealthStartPeriod=90s
+# systemctl start/restart returns only once health.sh passes (the first migration fits in TimeoutStartSec).
+Notify=healthy
 # /metrics (METRICS_ENABLED): Granian runs several worker processes, so django-prometheus must
 # aggregate them through a shared directory or each scrape returns one worker's counters. Fresh
 # (tmpfs) on every start, as prometheus_client's multiprocess mode requires.

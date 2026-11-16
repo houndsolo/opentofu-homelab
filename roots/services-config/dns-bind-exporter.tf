@@ -14,25 +14,39 @@ locals {
   # named.conf's statistics-channels port (main.tf), loopback only.
   dns_stats_port = 8053
 
-  dns_bind_exporter_script = {
-    for name, vm in local.dns_vms : name => templatefile("${path.module}/templates/bind-exporter.sh.tftpl", {
-      unit_b64 = base64encode(templatefile("${path.module}/templates/bind-exporter.container.tftpl", {
+  # Health: the unit checks that the exporter answers (HealthCmd); the deploy then waits for bind_up 1, which
+  # needs BIND's statistics channel (not a unit health check: it depends on another container).
+  dns_bind_exporter_parts = {
+    for name, vm in(var.dns_bind_exporter == null ? {} : local.dns_vms) : name => {
+      files = [{ path = "/etc/containers/systemd/bind-exporter.container", units = ["bind-exporter"], content = templatefile("${path.module}/templates/bind-exporter.container.tftpl", {
         image      = local.container_images.bind_exporter
         stats_port = local.dns_stats_port
         listen     = "${local.scrape_ip[name]}:9119"
-      }))
-      listen = "${local.scrape_ip[name]}:9119"
-    }) if var.dns_bind_exporter != null
+      }) }]
+      verify = ["retry sh -c \"curl -fsS --max-time 5 'http://${local.scrape_ip[name]}:9119/metrics' | grep -qx 'bind_up 1'\""]
+    }
   }
 }
 
+module "dns_bind_exporter" {
+  source   = "../../modules/services/quadlet-deploy"
+  for_each = local.dns_bind_exporter_parts
+
+  name   = "dns-bind-exporter"
+  host   = each.key
+  files  = each.value.files
+  units  = ["bind-exporter"]
+  images = [local.container_images.bind_exporter]
+  verify = each.value.verify
+}
+
 resource "terraform_data" "dns_bind_exporter" {
-  for_each = local.dns_bind_exporter_script
+  for_each = local.dns_bind_exporter_parts
   # The statistics channel comes with the bind9 deploy (a reload); the exporter fails without it.
   depends_on = [terraform_data.bind9]
 
   triggers_replace = [
-    sha256(each.value),
+    sha256(module.dns_bind_exporter[each.key].script),
     local.dns_vms[each.key].management_address,
     local.dns_vms[each.key].vm_id,
     local.dns_vms[each.key].config.ssh_username,
@@ -52,7 +66,7 @@ resource "terraform_data" "dns_bind_exporter" {
   }
 
   provisioner "file" {
-    content     = each.value
+    content     = module.dns_bind_exporter[each.key].script
     destination = "/tmp/tofu-bind-exporter-${self.id}/bind-exporter.sh"
   }
 

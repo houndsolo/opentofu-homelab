@@ -15,6 +15,13 @@ Volume=${conf_dir}:${conf_dir}:ro
 Volume=${cert_dir}:${cert_dir}:ro
 Exec=nginx -c ${conf_dir}/nginx.conf -g "daemon off;"
 Environment=NGINX_ENTRYPOINT_QUIET_LOGS=1
+# Health: nginx answers its own /healthz on port 80 (no upstream involved). Notify=healthy: systemctl
+# start/restart returns only once it does.
+HealthCmd=curl -fsS -o /dev/null http://127.0.0.1/healthz
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=1m
+Notify=healthy
 
 [Service]
 # Graceful: new workers with the new config/certificate, open connections finish on the old ones.
