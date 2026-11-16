@@ -127,7 +127,7 @@ run "postgres_cluster" {
     condition = (
       strcontains(module.monitoring.postgres_packages_script, "for pkg in keepalived jq postgresql-18 patroni python3-etcd etcd-server etcd-client pgbackrest; do") &&
       # The deploy runs the staged package script before its checks, and installs it.
-      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "\n\"$stage/usr/local/sbin/pg-packages\" \"$stage\"\n") &&
+      strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "\nbash \"$stage/usr/local/sbin/pg-packages\" \"$stage\"\n") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "unpack '/usr/local/sbin/pg-packages' '${base64encode(module.monitoring.postgres_packages_script)}'") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "put '/usr/local/sbin/pg-packages' '0755' '0:0' reload \n") &&
       strcontains(nonsensitive(module.monitoring.postgres_deployments.pg01), "for unit in postgres-guard haproxy etcd patroni pg-leader-setup postgres-exporter alloy node-exporter keepalived; do") &&

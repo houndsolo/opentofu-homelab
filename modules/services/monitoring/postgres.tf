@@ -565,7 +565,7 @@ module "postgres_deploy" {
   dirs  = concat([{ path = local.pg_textfile, mode = "0755", owner = "0:0" }], local.alloy_dirs)
   files = local.pg_files[each.key]
   checks = concat(
-    ["\"$stage/usr/local/sbin/pg-packages\" \"$stage\""], # packages before the checks that need them (pg_packages_script)
+    ["bash \"$stage/usr/local/sbin/pg-packages\" \"$stage\""], # packages before the checks that need them (pg_packages_script)
     local.pg_version_checks,
     [
       # Schema check. -i: Postgres/REST already listen on later deploys; etcd isn't up yet on the first
