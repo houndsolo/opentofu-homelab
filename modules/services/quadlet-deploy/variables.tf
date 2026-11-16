@@ -14,7 +14,8 @@ variable "files" {
     /etc/containers/systemd or /etc/systemd/system) restarts them; any other changed file reloads them
     (systemctl reload-or-restart: a unit without ExecReload restarts). `restart = true` forces a restart.
     `owner` is numeric uid:gid. `once = true` installs the file only when it doesn't exist yet and never
-    touches it again (seed data the service then owns).
+    touches it again (seed data the service then owns). `stage_only = true` only unpacks it into $stage
+    for the deploy's own commands (a one-off secret, a file published elsewhere) and never installs it.
   EOT
   type = list(object({
     path    = string
@@ -24,6 +25,8 @@ variable "files" {
     units   = optional(list(string), [])
     restart = optional(bool, false)
     once    = optional(bool, false)
+    # Unpacked into $stage only, never installed.
+    stage_only = optional(bool, false)
   }))
 }
 
@@ -58,6 +61,12 @@ variable "setup" {
 
 variable "checks" {
   description = "Shell commands that validate the staged files ($stage mirrors /) before anything is installed. A failure stops the deploy."
+  type        = list(string)
+  default     = []
+}
+
+variable "pre_install" {
+  description = "Shell commands run after the checks passed and before anything is installed ($stage holds the new files; e.g. hand a VIP to a peer when a unit is about to restart)."
   type        = list(string)
   default     = []
 }

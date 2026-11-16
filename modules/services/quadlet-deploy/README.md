@@ -9,8 +9,9 @@ The script, in order:
 2. Unpacks every file into a private staging directory.
 3. Pulls `images` and runs `checks` against the staging directory (`$stage` mirrors `/`). A failure stops here,
    before anything is installed.
+   Then `pre_install` commands (e.g. hand a VIP to a peer when the staged unit differs from the installed one).
 4. Creates `dirs`, installs the files whose content differs, sets mode and owner (`once = true`: only when the
-   file doesn't exist yet).
+   file doesn't exist yet; `stage_only = true`: never, the file is only for the deploy's own commands).
 5. Deletes files in `prune_dirs` it doesn't install, and stops and removes unit files it installed last time
    but no longer does (list in `/var/lib/tofu-deploy/<name>.units`).
 6. `systemctl daemon-reload`, `post_install` commands, then per unit in order: **restart** if one of its unit

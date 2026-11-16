@@ -32,6 +32,9 @@ podman image exists '${image}' || podman pull -q '${image}' >/dev/null
 %{ for check in checks ~}
 ${check}
 %{ endfor ~}
+%{ for command in pre_install ~}
+${command}
+%{ endfor ~}
 
 # 4. Install the files that differ and note which units they belong to.
 %{ for d in dirs ~}
@@ -50,7 +53,7 @@ put() { # path mode owner restart|reload|once units...
   chown "$owner" "$path"
   chmod "$mode" "$path"
 }
-%{ for f in files ~}
+%{ for f in installed ~}
 put '${f.path}' '${f.mode}' '${f.owner}' ${action[f.path]} ${join(" ", f.units)}
 %{ endfor ~}
 
@@ -70,7 +73,10 @@ while IFS= read -r f; do
   fi
 done < <(cat "$state" 2>/dev/null)
 mkdir -p /var/lib/tofu-deploy
-printf '%s\n' ${join(" ", [for f in unit_files : "'${f}'"])} > "$state"
+: > "$state"
+%{ for f in unit_files ~}
+echo '${f}' >> "$state"
+%{ endfor ~}
 
 # Debian 13 VMs have no vsock CID, so systemd-ssh-generator fails on every daemon-reload (DT-138).
 install -d -m 0755 /etc/systemd/system-generators

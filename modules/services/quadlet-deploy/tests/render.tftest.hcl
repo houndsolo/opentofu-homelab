@@ -7,15 +7,18 @@ variables {
     { path = "/etc/app/app.yml", content = "a: 1\n", units = ["app"] },
     { path = "/etc/app/env", content = "TOKEN=secret-value\n", mode = "0600", units = ["app", "app-worker"], restart = true },
     { path = "/var/lib/app/seed.db", content = "seed\n", once = true },
+    { path = "/deploy/install.env", content = "ONE_OFF=secret-value\n", stage_only = true },
+    { path = "/etc/systemd/system/staged.service", content = "[Service]\n", stage_only = true },
     { path = "/etc/systemd/system/app-guard.service", content = "[Service]\nExecStart=/bin/true\n", units = ["app-guard"] },
   ]
-  units      = ["app-guard", "app", "app-worker"]
-  dirs       = [{ path = "/var/lib/app", mode = "0750", owner = "472:0" }]
-  images     = ["example/app:1"]
-  packages   = ["keepalived"]
-  checks     = ["test -s \"$stage/etc/app/app.yml\""]
-  verify     = ["retry curl -fsS http://127.0.0.1:8080/"]
-  prune_dirs = ["/etc/app/dashboards"]
+  units       = ["app-guard", "app", "app-worker"]
+  dirs        = [{ path = "/var/lib/app", mode = "0750", owner = "472:0" }]
+  images      = ["example/app:1"]
+  packages    = ["keepalived"]
+  checks      = ["test -s \"$stage/etc/app/app.yml\""]
+  pre_install = ["echo before-install"]
+  verify      = ["retry curl -fsS http://127.0.0.1:8080/"]
+  prune_dirs  = ["/etc/app/dashboards"]
 }
 
 run "render" {
@@ -38,7 +41,7 @@ run "render" {
     error_message = "A host unit file restarts its unit."
   }
   assert {
-    condition     = strcontains(nonsensitive(output.script), "printf '%s\\n' '/etc/containers/systemd/app.container' '/etc/systemd/system/app-guard.service' > \"$state\"")
+    condition     = strcontains(nonsensitive(output.script), ": > \"$state\"\necho '/etc/containers/systemd/app.container' >> \"$state\"\necho '/etc/systemd/system/app-guard.service' >> \"$state\"\n")
     error_message = "Only unit files are tracked for removal."
   }
   assert {
@@ -50,8 +53,16 @@ run "render" {
     error_message = "Directories get their numeric owner."
   }
   assert {
+    condition     = strcontains(nonsensitive(output.script), "unpack '/deploy/install.env' ") && !strcontains(nonsensitive(output.script), "put '/deploy/install.env'") && !strcontains(nonsensitive(output.script), "'/etc/systemd/system/staged.service' >")
+    error_message = "stage_only files are unpacked, never installed or tracked."
+  }
+  assert {
     condition     = !strcontains(nonsensitive(output.script), "secret-value")
     error_message = "File contents are base64 in the script, not plain text."
+  }
+  assert {
+    condition     = strcontains(nonsensitive(output.script), "test -s \"$stage/etc/app/app.yml\"\necho before-install\n\n# 4. Install")
+    error_message = "pre_install runs after the checks, before anything is installed."
   }
   assert {
     condition     = strcontains(nonsensitive(output.script), "for unit in app-guard app app-worker; do")
