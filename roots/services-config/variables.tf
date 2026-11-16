@@ -14,6 +14,16 @@ variable "dns_allowed_clients" {
   }
 }
 
+variable "dns_transfer_clients" {
+  description = "IPv4 networks allowed a zone transfer (AXFR/IXFR) of every zone without the TSIG key, e.g. `dig @10.8.53.53 lylat.space axfr` to list all records. The servers' own transfers keep using the key."
+  type        = list(string)
+  default     = ["10.9.0.0/16", "10.2.0.0/16", "10.0.1.0/24", "10.8.6.69/32"] # owner's workstation/laptop networks; 10.8.6.69 = Arch box dns8 leg (its source toward 10.8.53.x)
+  validation {
+    condition     = alltrue([for prefix in var.dns_transfer_clients : can(cidrnetmask(prefix))])
+    error_message = "dns_transfer_clients: IPv4 CIDRs only."
+  }
+}
+
 variable "dns_deploy_revision" {
   description = "Change to redeploy after rebuilding a VM without changing its address or ID."
   type        = string

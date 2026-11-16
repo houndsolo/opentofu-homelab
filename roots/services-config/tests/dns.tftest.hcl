@@ -313,11 +313,22 @@ run "bind_logging" {
       strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x", stats_port = 8053 }), "\nExec=-f -c /etc/bind/named.conf\n") &&
       !strcontains(templatefile("${path.module}/templates/bind9.container.tftpl", { image = "x", stats_port = 8053 }), "Exec=-g") &&
       strcontains(templatefile("${path.module}/templates/named.conf.tftpl", {
-        address         = "10.8.53.1", vip = null, extra_listen = [], allowed_clients = ["10.0.0.0/8"], primary = true,
+        address         = "10.8.53.1", vip = null, extra_listen = [], allowed_clients = ["10.0.0.0/8"], transfer_clients = ["10.9.0.0/16"], primary = true,
         primary_address = "10.8.53.1", secondary_addresses = ["10.8.53.2"], stats_port = 8053
       }), "logging {\n    channel stderr_sev {\n        stderr;\n        severity info;\n        print-time no;\n        print-category yes;\n        print-severity yes;\n    };\n    category default { stderr_sev; };\n};\n")
     )
     error_message = "bind9 runs named -f with a stderr channel that prints category and severity."
+  }
+}
+
+run "zone_transfer_clients" {
+  command = plan
+  assert {
+    condition = (
+      strcontains(one([for f in local.bind9_files.dns01 : f.content if f.path == "/etc/bind9-container/named.conf"]), "acl transfer_clients {\n    10.9.0.0/16;\n    10.2.0.0/16;\n    10.0.1.0/24;\n    10.8.6.69/32;\n};") &&
+      strcontains(one([for f in local.bind9_files.dns02 : f.content if f.path == "/etc/bind9-container/named.conf"]), "allow-transfer { key \"tofu-lylat\"; transfer_clients; };")
+    )
+    error_message = "Both servers allow AXFR from dns_transfer_clients besides the TSIG key."
   }
 }
 

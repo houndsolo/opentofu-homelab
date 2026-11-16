@@ -47,6 +47,7 @@ locals {
         vip                 = local.dns_vip
         extra_listen        = local.dns_nics[name].zone == null ? [] : [local.dns_nics[name].zone.address, local.dns_zone_vip]
         allowed_clients     = var.dns_allowed_clients
+        transfer_clients    = var.dns_transfer_clients
         primary             = name == var.dns_primary
         primary_address     = local.dns_addresses[var.dns_primary]
         secondary_addresses = [for peer, address in local.dns_addresses : address if peer != var.dns_primary]

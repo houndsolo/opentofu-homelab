@@ -9,6 +9,13 @@ acl trusted_clients {
 %{ endfor ~}
 };
 
+# Zone transfers without the TSIG key (dig ... axfr from the owner's machines); the servers use the key.
+acl transfer_clients {
+%{ for prefix in transfer_clients ~}
+    ${prefix};
+%{ endfor ~}
+};
+
 options {
     directory "/var/cache/bind";
     listen-on port 53 { ${address};%{ if vip != null } ${vip};%{ endif }%{ for a in extra_listen } ${a};%{ endfor } };
@@ -17,7 +24,7 @@ options {
     allow-query { trusted_clients; key "tofu-lylat"; };
     allow-recursion { trusted_clients; };
     allow-query-cache { trusted_clients; };
-    allow-transfer { key "tofu-lylat"; };
+    allow-transfer { key "tofu-lylat"; transfer_clients; };
     forward only;
     forwarders { 1.1.1.1; 1.0.0.1; };
     dnssec-validation auto;
@@ -53,7 +60,7 @@ zone "lylat.space" {
     type primary;
     file "/var/lib/bind/primary/lylat.space.zone";
     update-policy { grant tofu-lylat zonesub ANY; };
-    allow-transfer { key "tofu-lylat"; };
+    allow-transfer { key "tofu-lylat"; transfer_clients; };
     notify explicit;
     also-notify {
 %{ for peer in secondary_addresses ~}
@@ -78,7 +85,7 @@ zone "10.in-addr.arpa" {
     type primary;
     file "/var/lib/bind/primary/10.in-addr.arpa.zone";
     update-policy { grant tofu-lylat zonesub ANY; };
-    allow-transfer { key "tofu-lylat"; };
+    allow-transfer { key "tofu-lylat"; transfer_clients; };
     notify explicit;
     also-notify {
 %{ for peer in secondary_addresses ~}
