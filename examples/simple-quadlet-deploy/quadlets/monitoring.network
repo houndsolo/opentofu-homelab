@@ -1,3 +1,0 @@
-# Containers on this network reach each other by ContainerName (grafana -> http://prometheus:9090).
-[Network]
-NetworkName=monitoring

@@ -3,13 +3,14 @@
 A minimal version of what [monitoring-config](../../roots/monitoring-config/README.md) and
 [services-config](../../roots/services-config/README.md) do: OpenTofu renders config files and Quadlet units,
 SSHes to a VM and runs one script that installs them. Standalone: **nothing loads this directory** and no live
-VM is touched by it. It runs Prometheus, Grafana and node_exporter on one VM.
+VM is touched by it. It keeps the repo's per-VM split: a `prometheus` VM and a `grafana` VM (any number of each),
+node_exporter on all of them, one deploy script per VM.
 
 | File | What |
 | --- | --- |
-| `quadlets/*.container.tftpl`, `monitoring.network` | One unit file per service, written out as it lands on the VM. Only the image (and one retention value) is a variable |
+| `quadlets/*.container.tftpl` | One unit file per service, written out as it lands on the VM. Only the image (and one retention value) is a variable |
 | `deploy.sh.tftpl` | The whole deploy script: 48 lines, four numbered steps |
-| `main.tf` | The file list (path, mode, owning unit, content), the script per VM, one `terraform_data` that runs it |
+| `main.tf` | Per role: its files (path, mode, owning unit, content), units, images, checks. Then one script per VM (role + common files) and one `terraform_data` that runs it |
 | `example.tfvars`, `tests/render.tftest.hcl` | Example input; a plan-only test of the rendered script |
 
 ## What the live setup does
@@ -73,5 +74,5 @@ tofu plan -var-file=example.tfvars          # after pointing hosts at a scratch 
 ```
 
 Checked so far: `tofu validate`/`test`, shellcheck on the rendered script, Quadlet's own generator
-(`quadlet -dryrun`, Podman 5.8) accepts the four units, and the script's install/restart/reload logic was run
-against stubbed `podman`/`systemctl`. **Not yet run on a real VM.**
+(`quadlet -dryrun`, Podman 5.8) accepts the three units, and the script's install/restart/reload logic was run
+against stubbed `podman`/`systemctl`, for both roles. **Not yet run on a real VM.**
