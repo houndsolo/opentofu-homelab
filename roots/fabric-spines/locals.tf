@@ -5,6 +5,5 @@ module "leaves" {
 }
 
 locals {
-  # tooling/routeros-spine-imports.py reads this local.
   leaves = module.leaves.leaves
 }

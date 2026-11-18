@@ -10,7 +10,7 @@ Shared logic called by the roots. No state of their own; run `tofu` from a
 | [proxmox/network](#proxmoxnetwork) | proxmox-network | NIC settings, bonds, bridges, VLANs on one node | proxmox |
 | [proxmox/vm](#proxmoxvm) | fabric-vms, services-vms, workloads | One VM (+ HA resource) | proxmox |
 | [fabric/leaf](#fabricleaf) | fabric-leaves | One VyOS command list per leaf | vyoscmd |
-| [fabric/spines](#fabricspines) | fabric-spines | BGP, BFD, EVPN, NTP, logging on one RouterOS spine | routeros |
+| [fabric/spines](#fabricspines) | fabric-spines | Loopback, leaf ports, BGP (underlay + EVPN), BFD, NTP, logging on one RouterOS spine | routeros |
 | [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, services-config, monitoring-config | Nothing: the shared leaf list | none |
 | [fabric/macs](fabric/macs/README.md) | fabric-vms, fabric-leaves | Nothing: leaf VM MAC calculator | none |
 | [services/dhcp](#servicesdhcp) | services-config | One VyOS command list per DHCP VM | vyoscmd |
@@ -101,21 +101,24 @@ spines' RAs. Generated commands: [roots/fabric-leaves](../roots/fabric-leaves/RE
 
 ### fabric/spines
 
-One RouterOS spine.
+One RouterOS spine: one eBGP session per leaf carrying the underlay (ipv6) and EVPN.
 
 - **Inputs:** `spine` (`management_ip`, `id`, `uplink_interface`, optional `as`), `fabric`,
-  `leaves` (map of `id`, `spine_uplink`; unique IDs: one underlay/overlay pair per leaf),
-  `keepalive_time` (`"1m"`) and `hold_time` (`"3m"`) on both templates and every connection (keep
-  keepalive <= hold/3).
+  `leaves` (map of `id`, `spine_uplink`; unique IDs: one connection per leaf), `keepalive_time`
+  (`"1m"`) and `hold_time` (`"3m"`) on the template and every connection (keep keepalive <= hold/3),
+  `port_mtu` (10000), `port_l2mtu` (10218), `switch_name` (`switch1`).
 - **Creates** (see [roots/fabric-spines](../roots/fabric-spines/README.md)):
-  - `main.tf`: address lists, BFD, BGP instance, templates, connections, ND prefix, RA interval on
-    the leaf ports, EVPN filter rule
+  - `loopback.tf`: routing id, `lo` addresses (IPv4 router id, IPv6 loopback), `FABRIC-LOOPBACK` list
+  - `ports.tf`: leaf-port MTU, RAs + `none` ND prefix per port, the disabled `interface=all` ND entry
+    and `switch1` L3 offload (both imported by the root), BFD on the leaf ports
+  - `bgp.tf`: instance `fabric`, input chain `LEAF-IN`, template `LEAF`, connection `leaf-<ID>` per
+    leaf (remote AS `leaf_underlay_as_base + ID`)
   - `system.tf`: NTP client (when `ntp_servers` is non-empty); built-in `memory` logging action,
     10,000 lines
   - `syslog.tf`: built-in `remote` action to `spine_syslog.host` (UDP, BSD syslog) + one rule per
     topic (when `spine_syslog` is set)
 
-Underlay AS: `spine_as` unless the spine sets `as`; overlay uses `overlay_as`.
+AS: `spine_as` unless the spine sets `as`.
 
 ### fabric/leaves
 

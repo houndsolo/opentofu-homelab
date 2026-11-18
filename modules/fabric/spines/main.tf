@@ -1,128 +1,32 @@
+# One RouterOS spine of the EVPN/VXLAN fabric: the spine's loopback and router id, the leaf-facing ports and
+# ONE eBGP session per leaf that carries both the underlay (the leaves' VTEP loopbacks, ipv6) and EVPN
+# ("option C", branch ebgp-evpn). The spine is a plain eBGP route forwarder: it keeps the originating VTEP as
+# the EVPN next hop (nexthop-choice=propagate) and never takes part in VXLAN.
+#
+#   loopback.tf  router id, lo addresses, the address list the sessions advertise
+#   ports.tf     leaf ports: MTU, IPv6 RAs (BGP unnumbered), BFD, L3 hardware offload
+#   bgp.tf       instance, input chain, template, one connection per leaf
+#   system.tf    NTP client, in-memory log;  syslog.tf  remote syslog
+#
+# Not here on purpose: management/OOB (bridge, vlan5, ether21/22/24, addresses, default route) and the Proxmox
+# corosync ports (ether1-7). RouterOS's `/interface ethernet switch l3hw-settings ipv6-hw=yes` has no provider
+# resource; it is set by hand (see the root README).
 locals {
   spine_as = coalesce(var.spine.as, var.fabric.settings.spine_as)
-  # Loopback host numbers read the decimal ID as hex: id 11 -> ...::11.
-  spine_loopback = cidrhost(var.fabric.settings.loopback_ipv6_prefix, parseint(tostring(var.spine.id), 16))
-  leaf_loopbacks = {
-    for name, leaf in var.leaves :
-    name => cidrhost(var.fabric.settings.loopback_ipv6_prefix, parseint(tostring(leaf.id), 16))
+
+  # Loopbacks: IPv4 = router id, IPv6 = advertised to the leaves. Host numbers read the decimal ID as hex
+  # (id 11 -> ...::11), the same expression the leaf module uses.
+  router_id     = cidrhost(var.fabric.settings.loopback_ipv4_prefix, var.spine.id)
+  loopback_ipv6 = cidrhost(var.fabric.settings.loopback_ipv6_prefix, parseint(tostring(var.spine.id), 16))
+
+  # One entry per leaf: the spine port it hangs off (ether<leaf id> unless spine_uplink overrides it) and the
+  # AS it presents (leaf_underlay_as_base + id, via local-as or its own system-as).
+  leaves = {
+    for name, leaf in var.leaves : name => {
+      id   = leaf.id
+      port = coalesce(leaf.spine_uplink, "ether${leaf.id}")
+      as   = var.fabric.settings.leaf_underlay_as_base + leaf.id
+    }
   }
-  # Spine-side port toward each leaf: ether<leaf id> unless spine_uplink overrides it.
-  leaf_uplinks = {
-    for name, leaf in var.leaves : name => coalesce(leaf.spine_uplink, "ether${leaf.id}")
-  }
+  ports = sort([for leaf in local.leaves : leaf.port])
 }
-
-resource "routeros_ipv6_firewall_addr_list" "bgp_loopbacks" {
-  address = local.spine_loopback
-  list    = "BGP-LOOPBACKS"
-}
-
-resource "routeros_ipv6_firewall_addr_list" "fabric_loopbacks_ipv6" {
-  address = var.fabric.settings.loopback_ipv6_prefix
-  list    = "fabric_loopbacks_ipv6"
-}
-
-resource "routeros_routing_bfd_configuration" "bfd_to_overlay" {
-  depends_on   = [routeros_ipv6_firewall_addr_list.fabric_loopbacks_ipv6]
-  forbid_bfd   = false
-  address_list = "fabric_loopbacks_ipv6"
-}
-
-resource "routeros_routing_bfd_configuration" "bfd_to_leaves" {
-  interfaces = values(local.leaf_uplinks)
-
-  forbid_bfd = false
-}
-
-resource "routeros_routing_bgp_instance" "main" {
-  as        = local.spine_as
-  name      = "default"
-  router_id = "rid-spine"
-}
-
-resource "routeros_ipv6_nd_prefix" "leaf_uplinks" {
-  for_each  = local.leaf_uplinks
-  prefix    = "none"
-  interface = each.value
-}
-
-# Leaves learn the spine link-local for BGP unnumbered from RAs. The RouterOS
-# default (3m20s-10m) can stall leaf underlay peering for minutes after boot.
-resource "routeros_ipv6_neighbor_discovery" "leaf_uplinks" {
-  for_each      = local.leaf_uplinks
-  interface     = each.value
-  ra_interval   = "10s-30s"
-  advertise_dns = false
-}
-
-resource "routeros_routing_bgp_template" "underlay" {
-  name             = "SPINE-eBGP-v6-LL"
-  as               = local.spine_as
-  address_families = "ipv6"
-  nexthop_choice   = "force-self"
-  keepalive_time   = var.keepalive_time
-  hold_time        = var.hold_time
-  output {
-    network = "BGP-LOOPBACKS"
-  }
-}
-
-resource "routeros_routing_bgp_connection" "underlay" {
-  for_each         = var.leaves
-  name             = "underlay-leaf-${each.value.id}"
-  as               = local.spine_as
-  address_families = "ipv6"
-  instance         = "default"
-  use_bfd          = true
-  keepalive_time   = var.keepalive_time
-  hold_time        = var.hold_time
-  local {
-    role    = "ebgp"
-    address = local.leaf_uplinks[each.key]
-  }
-  templates = ["SPINE-eBGP-v6-LL"]
-  output {
-    network = "BGP-LOOPBACKS"
-  }
-}
-
-resource "routeros_routing_filter_rule" "evpn_chain" {
-  chain    = "EVPN-IN"
-  rule     = "set scope-target 40; accept;"
-  disabled = false
-}
-
-resource "routeros_routing_bgp_template" "overlay" {
-  name             = "SPINE-iBGP-EVPN"
-  as               = var.fabric.settings.overlay_as
-  address_families = "evpn"
-  nexthop_choice   = "propagate"
-  keepalive_time   = var.keepalive_time
-  hold_time        = var.hold_time
-  input {
-    filter = "EVPN-IN"
-  }
-}
-
-resource "routeros_routing_bgp_connection" "overlay" {
-  for_each         = var.leaves
-  name             = "overlay-leaf-${each.value.id}"
-  as               = var.fabric.settings.overlay_as
-  address_families = "evpn"
-  instance         = "default"
-  use_bfd          = true
-  keepalive_time   = var.keepalive_time
-  hold_time        = var.hold_time
-  input {
-    filter = "EVPN-IN"
-  }
-  local {
-    role    = "ibgp-rr"
-    address = local.spine_loopback
-  }
-  remote {
-    address = local.leaf_loopbacks[each.key]
-  }
-  templates = ["SPINE-iBGP-EVPN"]
-}
-

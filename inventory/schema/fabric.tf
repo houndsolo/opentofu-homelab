@@ -37,6 +37,19 @@ variable "fabric" {
       leaf_radius = optional(object({
         vrf = optional(string) # VRF the leaf reaches the servers from; null = default VRF
       }))
+      # EXPERIMENT (branch ebgp-evpn, "option C"): EVPN on the unnumbered eBGP underlay session instead of a
+      # separate iBGP loopback session, for these spine ids x leaf ids only. The spine's underlay connection
+      # to such a leaf carries ipv6 + evpn with nexthop-choice=propagate and no output filter; the leaf drops
+      # its loopback session to that spine and denies spine-learned routes (as-path _<spine_as>_) toward
+      # the spines. null = off (every leaf/spine as on main).
+      evpn_on_underlay = optional(object({
+        spine_ids = list(number)
+        leaf_ids  = list(number)
+      }))
+      # EXPERIMENT (branch ebgp-evpn, "option B"): leaf ids whose BGP instances (default + every VRF) use
+      # system-as leaf_underlay_as_base + id instead of overlay_as (no local-as trick). These leaves peer
+      # only with the evpn_on_underlay spines; their links to the other spines are disabled.
+      leaf_own_as_ids = optional(list(number), [])
       # Remote syslog on the RouterOS spines: the built-in "remote" logging action
       # (BSD/RFC 3164 over UDP, source address picked by the route) plus one logging
       # rule per topic. null = don't manage it.

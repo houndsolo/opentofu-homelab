@@ -22,6 +22,10 @@ fabric = {
     # Spines: UDP 514 (RFC 3164) to the Loki/Alloy VIP on the monitoring network, sent
     # from their VLAN 5 address (10.5.0.<n>).
     spine_syslog = { host = "10.5.11.101" }
+    # EXPERIMENT (branch ebgp-evpn): EVPN on the underlay session, spine-1 x leaf-11 (fichina) + leaf-15 (fortuna).
+    evpn_on_underlay = { spine_ids = [1, 2], leaf_ids = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 42] }
+    # EXPERIMENT (branch ebgp-evpn): leaf-11/15 run their BGP as AS 711/715, spine-1 only.
+    leaf_own_as_ids = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 42]
   }
   # Physical leaves. The fabric roots generate virtual Proxmox leaves from var.nodes.
   leaves = {
@@ -46,10 +50,12 @@ fabric = {
     m326-1 = {
       management_ip = "10.20.0.5"
       id            = 1
+      as            = 701 # unique per spine (eBGP fabric); leaves ECMP across them via multipath-relax
     }
     m326-2 = {
       management_ip = "10.20.0.6"
       id            = 2
+      as            = 702 # unique per spine (eBGP fabric); leaves ECMP across them via multipath-relax
     }
   }
 }

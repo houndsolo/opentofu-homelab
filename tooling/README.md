@@ -11,7 +11,6 @@ Run from the top of the repo, in the dev shell (direnv or `nix-shell`).
 | `build-shell.nix` | Go shell for the provider builds |
 | `walk-roots.sh` | Guided plan/apply across the roots, in deployment order |
 | `with-secrets` | Run a command with one central secrets file loaded as `TF_VAR_*` |
-| `routeros-spine-imports.py` | Import existing spine objects into state |
 | `tofu_import_stuff.sh` | Import existing Proxmox host networking into state |
 | `tests/` | Unit tests for `walk-roots.sh`, `with-secrets`, the VM schema files and `ansible/inventory/tfvars.py` |
 
@@ -116,7 +115,6 @@ tooling/with-secrets [--file PATH] [--tofu PATH] [--] COMMAND [ARGS...]
 ```sh
 tooling/with-secrets tofu -chdir=roots/services-config plan
 tooling/with-secrets --file ~/other-lab.tfvars tofu -chdir=roots/workloads plan
-tooling/with-secrets python3 tooling/routeros-spine-imports.py --import   # any command
 ```
 
 1. Reads only the variable **names** from the file (default
@@ -138,7 +136,6 @@ object names, the import script's node/interface lists): read them first.
 
 | Script | Run | Details |
 | --- | --- | --- |
-| `routeros-spine-imports.py` | `python3 tooling/routeros-spine-imports.py` (preview), add `--import` to write state; prompts for REST credentials; the provider needs `routeros.secret.auto.tfvars` linked into `roots/fabric-spines` | [fabric-spines](../roots/fabric-spines/README.md#importing-existing-spine-config) |
 | `tofu_import_stuff.sh` | `bash tooling/tofu_import_stuff.sh` (needs `proxmox.secret.auto.tfvars` linked into `roots/proxmox-network`) | [proxmox-network](../roots/proxmox-network/README.md#adopting-the-existing-host-config) |
 
 ## Tests

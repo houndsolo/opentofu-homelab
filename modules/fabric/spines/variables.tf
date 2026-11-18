@@ -16,18 +16,36 @@ variable "leaves" {
 
   validation {
     condition     = length(distinct([for leaf in values(var.leaves) : leaf.id])) == length(var.leaves)
-    error_message = "Leaf IDs must be unique so each spine has only one underlay/overlay connection pair per leaf."
+    error_message = "Leaf IDs must be unique so each spine has only one BGP connection per leaf."
   }
 }
 
 variable "keepalive_time" {
-  description = "RouterOS BGP keepalive interval on both templates and every connection; use at most one third of hold_time."
+  description = "RouterOS BGP keepalive interval on the template and every connection; use at most one third of hold_time."
   type        = string
   default     = "1m"
 }
 
 variable "hold_time" {
-  description = "RouterOS BGP hold time on both templates and every connection."
+  description = "RouterOS BGP hold time on the template and every connection."
   type        = string
   default     = "3m"
+}
+
+variable "port_mtu" {
+  description = "L3 MTU of the leaf-facing ports (above the leaves' outer_mtu 9189, room for VXLAN)."
+  type        = number
+  default     = 10000
+}
+
+variable "port_l2mtu" {
+  description = "L2 MTU of the leaf-facing ports (CRS326 maximum)."
+  type        = number
+  default     = 10218
+}
+
+variable "switch_name" {
+  description = "The switch chip whose L3 hardware offload routes the underlay."
+  type        = string
+  default     = "switch1"
 }

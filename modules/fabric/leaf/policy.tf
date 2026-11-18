@@ -82,6 +82,19 @@ locals {
       ] if length(vrf.l2) > 0
     ],
     [
+      # EXPERIMENT (evpn_on_underlay): over eBGP a leaf would re-advertise routes learned from one spine to
+      # the other; deny anything that already passed a spine (any spine's AS in the path) toward the spines.
+      # One rule per distinct spine AS (each spine may have its own `as`).
+      length(local.evpn_on_underlay_spine_ids) == 0 ? [] : flatten([
+        for i, as in local.spine_as_numbers : [
+          "set policy as-path-list AS-FROM-SPINES rule ${(i + 1) * 10} action 'permit'",
+          "set policy as-path-list AS-FROM-SPINES rule ${(i + 1) * 10} regex '_${as}_'",
+        ]
+      ]),
+      length(local.evpn_on_underlay_spine_ids) == 0 ? [] : [
+        "set policy route-map RM-EVPN-SPINE-EXPORT rule 1 action 'deny'",
+        "set policy route-map RM-EVPN-SPINE-EXPORT rule 1 match as-path 'AS-FROM-SPINES'",
+      ],
       "set policy route-map RM-EVPN-SPINE-EXPORT rule 65535 action 'permit'",
     ]
   ])
