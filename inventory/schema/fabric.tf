@@ -9,7 +9,6 @@ variable "fabric" {
       loopback_interface       = string
       management_prefix        = string
       management_prefix_length = number
-      l2_vni_base              = number
       vxlan_mtu                = optional(number, 9119)
       outer_mtu                = optional(number, 9189)
       ntp_servers              = optional(list(string), ["0.pool.ntp.org", "1.pool.ntp.org"])
