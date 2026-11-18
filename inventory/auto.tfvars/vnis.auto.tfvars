@@ -38,9 +38,6 @@ vnis = [
     ipv4_rt_exports = "700:6900"
     import_ipv4_vpn = true
     export_vpn_ipv4 = true
-    #redistribute_ipv4 = {
-    #  connected = {}
-    #}
     evpn_rt_imports = [
       "700:6900",
       "700:6700",
@@ -54,14 +51,11 @@ vnis = [
 
     l2 = {
       9 = {
-        vni                  = 9009
-        vlan_id              = 9
-        anycast_gw_ip        = "10.9.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:09:01"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 9009
+        vlan_id         = 9
+        anycast_gw_ip   = "10.9.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:00:09:01"
         dhcp = {
           scope = {
             ranges = {
@@ -71,14 +65,11 @@ vnis = [
         }
       }
       10 = {
-        vni                  = 9010
-        vlan_id              = 10
-        anycast_gw_ip        = "10.10.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:10:01"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 9010
+        vlan_id         = 10
+        anycast_gw_ip   = "10.10.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:00:10:01"
         dhcp = {
           scope = {
             ranges = {
@@ -88,14 +79,11 @@ vnis = [
         }
       }
       11 = {
-        vni                  = 9011
-        vlan_id              = 11
-        anycast_gw_ip        = "10.11.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:11:01"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 9011
+        vlan_id         = 11
+        anycast_gw_ip   = "10.11.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:00:11:01"
       }
     }
   },
@@ -125,15 +113,12 @@ vnis = [
 
     l2 = {
       2 = {
-        vni                  = 9002
-        vlan_id              = 2
-        anycast_gw_ip        = "10.2.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:02:01"
-        anycast_gw_ipv6      = "fd69:9002::1/64"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 9002
+        vlan_id         = 2
+        anycast_gw_ip   = "10.2.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:00:02:01"
+        anycast_gw_ipv6 = "fd69:9002::1/64"
         dhcp = {
           scope = {
             ranges = {
@@ -169,16 +154,13 @@ vnis = [
 
     l2 = {
       1201 = {
-        vni                  = 5201
-        vlan_id              = 1201
-        anycast_gw_ip        = "10.52.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:12:01:01"
-        anycast_gw_ipv6      = "fd69:5201::1/64"
-        router_advert        = true
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 5201
+        vlan_id         = 1201
+        anycast_gw_ip   = "10.52.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:12:01:01"
+        anycast_gw_ipv6 = "fd69:5201::1/64"
+        router_advert   = true
       }
     }
   },
@@ -211,27 +193,21 @@ vnis = [
 
     l2 = {
       1301 = {
-        vni                  = 5301
-        vlan_id              = 1301
-        anycast_gw_ip        = "10.53.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:13:01:01"
-        anycast_gw_ipv6      = "fd69:5301::1/64"
-        router_advert        = true
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 5301
+        vlan_id         = 1301
+        anycast_gw_ip   = "10.53.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:13:01:01"
+        anycast_gw_ipv6 = "fd69:5301::1/64"
+        router_advert   = true
       }
       8 = {
-        vni                  = 9008
-        vlan_id              = 8
-        anycast_gw_ip        = "10.8.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:08:01"
-        anycast_gw_ipv6      = "fd69:9008::1/64"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 9008
+        vlan_id         = 8
+        anycast_gw_ip   = "10.8.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:00:08:01"
+        anycast_gw_ipv6 = "fd69:9008::1/64"
         dhcp = {
           scope = {
             ranges = {
@@ -266,16 +242,13 @@ vnis = [
 
     l2 = {
       1401 = {
-        vni                  = 5401
-        vlan_id              = 1401
-        anycast_gw_ip        = "10.54.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:14:01:01"
-        anycast_gw_ipv6      = "fd69:5401::1/64"
-        router_advert        = true
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 5401
+        vlan_id         = 1401
+        anycast_gw_ip   = "10.54.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:14:01:01"
+        anycast_gw_ipv6 = "fd69:5401::1/64"
+        router_advert   = true
       }
     }
   },
@@ -303,16 +276,13 @@ vnis = [
 
     l2 = {
       1601 = {
-        vni                  = 5601
-        vlan_id              = 1601
-        anycast_gw_ip        = "10.56.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:16:01:01"
-        anycast_gw_ipv6      = "fd69:5601::1/64"
-        router_advert        = true
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 5601
+        vlan_id         = 1601
+        anycast_gw_ip   = "10.56.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:16:01:01"
+        anycast_gw_ipv6 = "fd69:5601::1/64"
+        router_advert   = true
       }
     }
   },
@@ -368,20 +338,14 @@ vnis = [
     evpn_rt_exports = [
       "700:6700",
     ]
-    #redistribute_ipv4 = {
-    #  connected = {}
-    #}
 
     l2 = {
       12 = {
-        vni                  = 9012
-        vlan_id              = 12
-        anycast_gw_ip        = "10.12.0.1"
-        anycast_gw_cidr      = 16
-        anycast_mac          = "02:00:00:00:12:01"
-        advertise_default_gw = false
-        advertise_svi_ip     = false
-        export_ipv4_unicast  = true
+        vni             = 9012
+        vlan_id         = 12
+        anycast_gw_ip   = "10.12.0.1"
+        anycast_gw_cidr = 16
+        anycast_mac     = "02:00:00:00:12:01"
         dhcp = {
           scope = {
             ranges = {

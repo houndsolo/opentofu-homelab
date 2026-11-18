@@ -2,18 +2,17 @@ variable "vnis" {
   description = "L3VNIs with nested L2VNIs, selected by leaf role."
   default     = []
   type = list(object({
-    roles            = set(string)
-    vni              = number
-    vrf              = string
-    vrf_table        = number
-    vlan_id          = number
-    ipv4_rt_imports  = optional(string, null)
-    ipv4_rt_exports  = optional(string, null)
-    import_ipv4_vpn  = optional(bool, false)
-    import_ipv4_vrfs = optional(list(string), null)
-    evpn_rt_imports  = optional(list(string), [])
-    evpn_rt_exports  = optional(list(string), [])
-    ext_l3           = optional(bool, false)
+    roles           = set(string)
+    vni             = number
+    vrf             = string
+    vrf_table       = number
+    vlan_id         = number
+    ipv4_rt_imports = optional(string, null)
+    ipv4_rt_exports = optional(string, null)
+    import_ipv4_vpn = optional(bool, false)
+    evpn_rt_imports = optional(list(string), [])
+    evpn_rt_exports = optional(list(string), [])
+    ext_l3          = optional(bool, false)
     # BGP to the external router (fw-wan) on external_l3 leaves: an unnumbered (v6only)
     # session on <access_interface>.<vlan_id> in this VRF. Needs ext_l3 = true.
     ext_l3_peer = optional(object({
@@ -23,20 +22,12 @@ variable "vnis" {
       description = optional(string, "external L3 connectivity")
     }))
     export_vpn_ipv4 = optional(bool, false)
-    anycast_mac     = optional(string, null)
-    redistribute_ipv4 = optional(object({
-      connected = optional(object({ route_map = optional(string) }), null)
-      static    = optional(object({}), null)
-    }))
     l2 = optional(map(object({
-      vni                  = number
-      vlan_id              = number
-      anycast_gw_ip        = string
-      anycast_gw_cidr      = number
-      anycast_mac          = string
-      advertise_default_gw = optional(bool, false)
-      advertise_svi_ip     = optional(bool, false)
-      export_ipv4_unicast  = optional(bool, false)
+      vni             = number
+      vlan_id         = number
+      anycast_gw_ip   = string
+      anycast_gw_cidr = number
+      anycast_mac     = string
       # IPv6 anycast gateway (CIDR, e.g. "fd69:5201::1/64", zone design step 8) and router advertisements on it
       # (default route + on-link prefix, no SLAAC: hosts keep their static addresses). null = IPv4 only.
       anycast_gw_ipv6 = optional(string)
