@@ -17,7 +17,7 @@ locals {
   # The roles services-config configures (node_exporter and Grafana Alloy from there), in the order of the
   # node job's targets. Alloy: HTTP on the telemetry address (alloy job); it pushes to Loki's telemetry VIP
   # (logging-guard allows 10.55.0.0/16 on 3100).
-  service_config_roles = ["dns", "valkey", "netbox", "nextcloud", "radius", "gitea", "arr", "bao", "proxy", "ticketing"]
+  service_config_roles = ["dns", "valkey", "netbox", "nextcloud", "radius", "forgejo", "arr", "bao", "proxy", "ticketing"]
   alloy_service_vms    = { for name, vm in local.service_vms : name => vm if contains(local.service_config_roles, coalesce(vm.role, "-")) }
   deploy_vms           = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
@@ -293,7 +293,7 @@ module "monitoring" {
   # pg_major and the package pins come from packages in software-versions.auto.tfvars (postgres.tf).
   postgres_settings = merge(var.postgres_settings, { pg_major = local.pg_major, package_versions = local.pg_package_versions })
   # Application databases (role = database = key): dark-triage (role "ticketing" VMs), NetBox
-  # (role "netbox" VMs), Nextcloud (role "nextcloud" VMs), FreeRADIUS (role "radius" VMs) and Gitea (role "gitea" VMs) connect from their backend VLAN addresses with the shared passwords from
+  # (role "netbox" VMs), Nextcloud (role "nextcloud" VMs), FreeRADIUS (role "radius" VMs) and Forgejo (role "forgejo" VMs) connect from their backend VLAN addresses with the shared passwords from
   # app-db.secret.auto.tfvars.
   postgres_apps = {
     for app, clients in local.postgres_app_clients : app => {

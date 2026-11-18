@@ -1,4 +1,4 @@
-# Host monitoring for the OpenBao VMs (openbao.tf), like the Gitea VMs: node_exporter
+# Host monitoring for the OpenBao VMs (openbao.tf), like the Forgejo VMs: node_exporter
 # (dns-node-exporter.tf's Quadlet) on the telemetry address :9100, where monitoring-config's node job
 # scrapes it, and Grafana Alloy (alloy.tf: the journal, the OpenBao container's log (incl. the audit log) included, to Loki's
 # telemetry VIP). OpenBao itself is probed through the proxy (monitoring-config blackbox_https_targets).

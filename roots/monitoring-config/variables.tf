@@ -194,7 +194,7 @@ variable "blackbox_https_targets" {
     netbox      = "https://netbox.lylat.space/login/"
     dark-triage = "https://dark-triage.lylat.space/api/health"
     nextcloud   = "https://nextcloud.lylat.space/status.php"             # through the proxy to any of nc01-03
-    git         = "https://git.lylat.space/api/healthz"                  # through the proxy to git01/git02 (database, Valkey, storage)
+    git         = "https://git.lylat.space/api/healthz"                  # through the proxy to Forgejo on git01 (git02 = backup): database, Valkey, storage
     jellyfin    = "https://jellyfin.lylat.space/health"                  # through the proxy to arr01 (Jellyfin; the arr apps share its VM)
     bao         = "https://bao.lylat.space/v1/sys/health?standbyok=true" # through the proxy to bao01-03: 200 = an unsealed node answered
     proxy       = "https://proxy.lylat.space/"                           # the proxy's landing page

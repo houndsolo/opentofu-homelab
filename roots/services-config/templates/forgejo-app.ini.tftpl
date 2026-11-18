@@ -1,8 +1,7 @@
-; Managed by OpenTofu (services-config, gitea.tf). Local edits are overwritten.
-; Identical on every Gitea node: Gitea's documented HA layout (docs.gitea.com, "High Availability Deployment"):
-; one database, Valkey for sessions, cache, queues and the global lock (cron tasks run once across the nodes),
-; shared storage for repositories and data (CephFS /gitea), the "db" issue indexer (bleve can't be shared),
-; code search off (it would need Elasticsearch), logs to the console (the journal) per node.
+; Managed by OpenTofu (services-config, forgejo.tf). Local edits are overwritten.
+; Forgejo, active/passive: one database, Valkey for sessions, cache and queues, shared storage for repositories
+; and data (CephFS /forgejo), the "db" issue indexer (bleve can't be shared), code search off (it would need
+; Elasticsearch), logs to the console (the journal) per node. Paths are the rootless image's (/var/lib/gitea).
 APP_NAME  = ${app_name}
 RUN_MODE  = prod
 RUN_USER  = git
@@ -21,6 +20,9 @@ SSH_DOMAIN             = ${domain}
 SSH_PORT               = ${ssh_port}
 SSH_LISTEN_HOST        = 0.0.0.0
 SSH_LISTEN_PORT        = 2222
+; The host keys the old Gitea generated on this share (ed25519 first): clients' known_hosts stay valid.
+; Forgejo's default list is RSA only.
+SSH_SERVER_HOST_KEYS   = ssh/gitea.ed25519, ssh/gitea.ecdsa, ssh/gitea.rsa
 LFS_START_SERVER       = true
 LFS_JWT_SECRET         = ${lfs_jwt_secret}
 ; No external CDNs; also turns Gravatar off by default (the avatar settings live in the admin panel).
@@ -53,10 +55,6 @@ HOST    = ${valkey}/${cache_db}?mastername=${master_name}
 TYPE     = redis
 CONN_STR = ${valkey}/${queue_db}?mastername=${master_name}
 
-[global_lock]
-SERVICE_TYPE     = redis
-SERVICE_CONN_STR = ${valkey}/${lock_db}?mastername=${master_name}
-
 [indexer]
 ISSUE_INDEXER_TYPE   = db
 REPO_INDEXER_ENABLED = false
@@ -80,3 +78,15 @@ ENABLED = false
 [log]
 MODE  = console
 LEVEL = info
+%{ if standby ~}
+
+; Hot standby (the proxy's backup server): no scheduled tasks here, the primary runs them once (Forgejo has
+; no global lock between nodes).
+[cron]
+ENABLED = false
+%{ for t in cron_tasks ~}
+
+[cron.${t}]
+ENABLED = false
+%{ endfor ~}
+%{ endif ~}

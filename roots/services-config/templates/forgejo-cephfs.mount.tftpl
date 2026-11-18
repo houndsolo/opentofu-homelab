@@ -1,0 +1,17 @@
+# Managed by OpenTofu (services-config, forgejo.tf). CephFS /forgejo: Forgejo's repositories, LFS objects,
+# attachments, avatars, SSH host keys and custom files, mounted on every Forgejo VM (kernel client over the
+# Ceph public NIC).
+[Unit]
+Description=CephFS for Forgejo (repositories and data)
+Wants=network-online.target
+After=network-online.target
+
+[Mount]
+What=${what}
+Where=/var/lib/forgejo
+Type=ceph
+Options=${options}
+TimeoutSec=60
+
+[Install]
+WantedBy=remote-fs.target

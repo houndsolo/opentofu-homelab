@@ -35,7 +35,7 @@ is real-world readiness (a leaf can't be configured until its VM boots and its A
 | 6 | [fabric-leaves](fabric-leaves/README.md) | EVPN/VXLAN config on every leaf | Leaf VMs booted, HTTPS API on | `vyos`, `radius-clients` |
 | 7 | [services-vms](services-vms/README.md) | Every `owner = "services-vms"` VM | Images and host bridges | `proxmox` |
 | 8 | [certs](certs/README.md) | Let's Encrypt wildcard (Cloudflare DNS-01), copied to the proxy VMs over SSH | Proxy VMs exist | `cloudflare`, `state` |
-| 9 | [services-config](services-config/README.md) | BIND (SSH), DNS records (RFC 2136), DHCP (VyOS API), NetBox, Valkey, dark-triage, nginx (SSH) | Service VMs have Podman + passwordless sudo; fabric routes VLAN 8; certificate on the proxy VMs | `vyos`, `app-db`, `netbox`, `gitea`, `nextcloud`, `arr`, `state` |
+| 9 | [services-config](services-config/README.md) | BIND (SSH), DNS records (RFC 2136), DHCP (VyOS API), NetBox, Valkey, dark-triage, nginx (SSH) | Service VMs have Podman + passwordless sudo; fabric routes VLAN 8; certificate on the proxy VMs | `vyos`, `app-db`, `netbox`, `forgejo`, `nextcloud`, `arr`, `state` |
 | 10 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, Telegraf, Grafana, Loki, Mimir, Patroni Postgres (SSH); PVE metric servers (API) | Monitoring VMs have Podman + passwordless sudo; zone segments, lylat-telemetry (VLAN 1501) and the `ha_*` L2VNIs on the leaves | `proxmox`, `monitoring`, `logging`, `metrics`, `postgres`, `app-db` |
 | 11 | [workloads](workloads/README.md) | Every `owner = "workloads"` VM | Images and host bridges | `proxmox` |
 

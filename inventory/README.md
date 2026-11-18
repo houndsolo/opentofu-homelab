@@ -229,7 +229,7 @@ One `vms` map. `owner` decides which root creates the VM; service VMs also take 
 | `services-vms` | `proxy` | certs, services-config (nginx) | `proxy01`, `proxy02` |
 | `services-vms` | `nextcloud` | services-config | `nc01`-`nc03` |
 | `services-vms` | `radius` | services-config (FreeRADIUS), [radius](../roots/radius/README.md) (users, groups, clients) | `rad01`, `rad02` |
-| `services-vms` | `gitea` | services-config | `git01`, `git02` |
+| `services-vms` | `forgejo` | services-config | `git01`, `git02` |
 | `services-vms` | `arr` | services-config | `arr01` |
 | `services-vms` | `bao` | certs, services-config (OpenBao) | `bao01`-`bao03` |
 | `services-vms` | none | nothing | any other service VM |
@@ -484,7 +484,7 @@ machine that runs OpenTofu. Git ignores the directory and any `*.secret.auto.tfv
 | `postgres.secret.auto.tfvars` | `postgres_s3` (RGW user for pgBackRest) | monitoring-config |
 | `app-db.secret.auto.tfvars` | `app_db_passwords` (app database passwords) | services-config, monitoring-config |
 | `netbox.secret.auto.tfvars` | `netbox_cephfs_key` (CephFS key for the media mount) | services-config |
-| `gitea.secret.auto.tfvars` | `gitea_cephfs_key` (CephFS key of client.gitea, `/gitea`) | services-config |
+| `forgejo.secret.auto.tfvars` | `forgejo_cephfs_key` (CephFS key of client.forgejo, `/forgejo`) | services-config |
 | `nextcloud.secret.auto.tfvars` | `nextcloud_cephfs_key` | services-config |
 | `arr.secret.auto.tfvars` | `arr_cephfs_key` | services-config |
 | `radius.secret.auto.tfvars` | `password_hashes` (crypt hashes of chosen RADIUS passwords) | radius |

@@ -4,7 +4,9 @@
 # installs in var.proxy.cert_dir, and forwards over plain HTTP either to the service's own VIP (its address
 # from vips.auto.tfvars, e.g. grafana-vip) or, for active/active apps without a VIP (Nextcloud), to every
 # VM of a role (an nginx upstream over their service addresses; nginx skips a node that stops answering).
-# Plain TCP services (var.proxy.tcp, nginx stream: git over SSH to the Gitea VMs) are forwarded the same way.
+# Plain TCP services (var.proxy.tcp, nginx stream: git over SSH to the Forgejo VMs) are forwarded the same way.
+# Active/passive apps (active_passive = true: Forgejo) get the role's first VM by name as the only active
+# server and the others as nginx "backup" servers, used only while the first one is down.
 # DNS: every host name and alias is generated as a CNAME to proxy-vip.lylat.space (dns-records.tf).
 #
 # A deploy that restarts nginx (new image/unit) on the node holding the VIP first hands the VIP to a
@@ -37,6 +39,9 @@ variable "proxy" {
       # Upstream speaks HTTPS with a certificate valid for this name (role hosts only): nginx verifies it against
       # the system CAs (the *.lylat.space wildcard on OpenBao). null = plain HTTP.
       tls_name = optional(string)
+      # Role hosts: only the role's first VM by name gets traffic, the others are nginx backup servers
+      # (active/passive apps). Needs balance = "" (nginx refuses backup servers with hash balancing).
+      active_passive = optional(bool, false)
       })), {
       grafana       = { vip = "grafana-vip", port = 3000, websockets = true }
       netbox        = { vip = "netbox-vip", port = 80, max_body = "100m" }
@@ -44,9 +49,9 @@ variable "proxy" {
       # Nextcloud (nextcloud.tf): nc01-03, sessions shared through Valkey, so plain round robin. With
       # nextcloud.sessions = "local" set balance = "hash $remote_addr consistent" (vault nextcloud-ha-plan).
       nextcloud = { role = "nextcloud", port = 80, max_body = "16g", stream = true }
-      # Gitea (gitea.tf): git01/git02, sessions in Valkey, so plain round robin. Pushes and LFS uploads over
-      # HTTPS stream through without a size limit.
-      git = { role = "gitea", port = 3000, max_body = "0", stream = true }
+      # Forgejo (forgejo.tf): git01 active, git02 hot standby (Forgejo isn't active/active-ready). Pushes and
+      # LFS uploads over HTTPS stream through without a size limit.
+      git = { role = "forgejo", port = 3000, max_body = "0", stream = true, active_passive = true }
       # arr stack (arr.tf): one VM, one host per app. Sonarr/Radarr/Prowlarr/Bazarr/Seerr use websockets for
       # live UI updates; Jellyfin streams video (no buffering, long timeouts).
       sonarr   = { role = "arr", port = 8989, websockets = true }
@@ -61,12 +66,13 @@ variable "proxy" {
     # Plain TCP forwards (nginx stream), name => listen port on every proxy (clients use proxy-vip) and every
     # VM of a role on target_port. Clients must name the port; 22 stays the proxies' own sshd.
     tcp = optional(map(object({
-      port        = number
-      role        = string
-      target_port = number
+      port           = number
+      role           = string
+      target_port    = number
+      active_passive = optional(bool, false) # as for hosts: the first VM by name, the others as backups
       })), {
-      # git over SSH to Gitea's built-in SSH server: ssh://git@git.lylat.space:2222/<owner>/<repo>.git
-      git-ssh = { port = 2222, role = "gitea", target_port = 2222 }
+      # git over SSH to Forgejo's built-in SSH server: ssh://git@git.lylat.space:2222/<owner>/<repo>.git
+      git-ssh = { port = 2222, role = "forgejo", target_port = 2222, active_passive = true }
     })
     clients = optional(list(string), ["10.0.0.0/8"]) # may reach 80/443
     # Landing page https://<name>.<domain>: links to every published host. null = none.
@@ -95,7 +101,7 @@ variable "proxy" {
     condition = var.proxy == null || try(
       (var.proxy.vip == null || (can(cidrhost(var.proxy.vip, 0)) && strcontains(var.proxy.vip, "/"))) &&
       var.proxy.router_id >= 1 && var.proxy.router_id <= 255 &&
-      alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && (h.vip == null) != (h.role == null) && (h.vip == null || contains(keys(var.vips), coalesce(h.vip, "-"))) && h.port >= 1 && h.port <= 65535 && contains(["", "ip_hash", "least_conn", "hash $remote_addr consistent"], h.balance)]) &&
+      alltrue([for name, h in var.proxy.hosts : alltrue([for n in concat([name], h.aliases) : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", n))]) && (h.vip == null) != (h.role == null) && (h.vip == null || contains(keys(var.vips), coalesce(h.vip, "-"))) && h.port >= 1 && h.port <= 65535 && contains(["", "ip_hash", "least_conn", "hash $remote_addr consistent"], h.balance) && (!h.active_passive || (h.role != null && h.balance == ""))]) &&
       length(distinct(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]))) == length(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)])) &&
       alltrue([for c in var.proxy.clients : can(cidrhost(c, 0))]) &&
       alltrue([for name, t in var.proxy.tcp : can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", name)) && t.port >= 1 && t.port <= 65535 && !contains([22, 80, 443], t.port) && t.target_port >= 1 && t.target_port <= 65535]) &&
@@ -103,7 +109,7 @@ variable "proxy" {
       (var.proxy.landing == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.landing.name)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.landing.name))) &&
       (var.proxy.pve == null || (can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", var.proxy.pve.cluster_name)) && can(regex("^[a-z0-9][a-z0-9-]*$", var.proxy.pve.node_prefix)) && !contains(flatten([for name, h in var.proxy.hosts : concat([name], h.aliases)]), var.proxy.pve.cluster_name))), false
     )
-    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host has either a vip (a key in vips.auto.tfvars) or a role, port 1..65535, balance \"\", \"ip_hash\", \"least_conn\" or \"hash $remote_addr consistent\"; clients are CIDRs; tcp names are DNS labels with unique ports other than 22/80/443; landing.name is a DNS label not used by a host; pve.cluster_name is a DNS label not used by a host and pve.node_prefix starts a DNS label."
+    error_message = "proxy: vip is an IPv4 address with prefix length, router_id 1..255; host keys and aliases are unique single DNS labels; every host has either a vip (a key in vips.auto.tfvars) or a role, port 1..65535, balance \"\", \"ip_hash\", \"least_conn\" or \"hash $remote_addr consistent\" (active_passive only on role hosts with balance \"\"); clients are CIDRs; tcp names are DNS labels with unique ports other than 22/80/443; landing.name is a DNS label not used by a host; pve.cluster_name is a DNS label not used by a host and pve.node_prefix starts a DNS label."
   }
 }
 
@@ -129,8 +135,8 @@ locals {
   # the gateway) and the port. A role without VMs (yet) publishes nothing (check proxy_role_hosts_have_vms).
   proxy_role_servers = var.proxy == null ? {} : {
     for name, h in var.proxy.hosts : name => [
-      for vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == h.role]) :
-      "${one(local.vm_gateway_addresses[vm_name])}:${h.port}"
+      for i, vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == h.role]) :
+      "${one(local.vm_gateway_addresses[vm_name])}:${h.port}${h.active_passive && i > 0 ? " backup" : ""}"
     ] if h.role != null
   }
 
@@ -140,8 +146,8 @@ locals {
     for name, t in var.proxy.tcp : name => {
       port = t.port
       servers = [
-        for vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == t.role]) :
-        "${one(local.vm_gateway_addresses[vm_name])}:${t.target_port}"
+        for i, vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == t.role]) :
+        "${one(local.vm_gateway_addresses[vm_name])}:${t.target_port}${t.active_passive && i > 0 ? " backup" : ""}"
       ]
       backend = "${t.role} VMs :${t.target_port}"
     }

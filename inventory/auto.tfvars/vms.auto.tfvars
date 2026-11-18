@@ -551,12 +551,12 @@ vms = {
     }
   }
   git01 = {
-    # Gitea app node, active/active pair git01/git02 behind the proxy pair (no VIP), Gitea's documented HA
-    # layout: Postgres (Patroni, database "gitea"), Valkey (sessions, cache, queues, global lock), repositories
-    # and data on CephFS /gitea. Podman Quadlet deployed by services-config (gitea.tf).
+    # Forgejo primary, active/passive pair git01/git02 behind the proxy pair (no VIP; git02 is the nginx backup):
+    # Postgres (Patroni, database "forgejo"), Valkey (sessions, cache, queues), repositories and data on
+    # CephFS /forgejo. Podman Quadlet deployed by services-config (forgejo.tf).
     owner              = "services-vms"
-    role               = "gitea"
-    ha                 = { group = "gitea" } # Proxmox HA; never on a node with the other gitea VM
+    role               = "forgejo"
+    ha                 = { group = "forgejo" } # Proxmox HA; never on a node with the other forgejo VM
     node               = "fichina"
     vm_id              = 1157
     image              = "debian13"
@@ -581,7 +581,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["opentofu", "debian", "gitea"]
+      tags         = ["opentofu", "debian", "forgejo"]
       cpu_cores    = 2
       memory_mb    = 4096
       disk_size_gb = 20
@@ -590,10 +590,10 @@ vms = {
     }
   }
   git02 = {
-    # Gitea app node, active/active pair with git01 (no VIP). See git01.
+    # Forgejo hot standby for git01 (the proxy's backup server, cron tasks off). See git01.
     owner              = "services-vms"
-    role               = "gitea"
-    ha                 = { group = "gitea" } # Proxmox HA; never on a node with the other gitea VM
+    role               = "forgejo"
+    ha                 = { group = "forgejo" } # Proxmox HA; never on a node with the other forgejo VM
     node               = "fortuna"
     vm_id              = 1158
     image              = "debian13"
@@ -618,7 +618,7 @@ vms = {
       },
     ]
     config = {
-      tags         = ["opentofu", "debian", "gitea"]
+      tags         = ["opentofu", "debian", "forgejo"]
       cpu_cores    = 2
       memory_mb    = 4096
       disk_size_gb = 20

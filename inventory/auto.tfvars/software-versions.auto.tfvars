@@ -43,7 +43,7 @@ containers = {
   netbox         = { image = "docker.io/netboxcommunity/netbox", version = "v4.7.5-5.1.2" }
   nextcloud      = { image = "docker.io/library/nextcloud", version = "35.0.3-fpm" } # php-fpm variant (Debian trixie, PHP 8.5); one major at a time
   redis_exporter = { image = "docker.io/oliver006/redis_exporter", version = "v1.97.0" }
-  gitea          = { image = "docker.io/gitea/gitea", version = "28.4.0-rootless" }            # rootless image (uid 1000); one release line at a time
+  forgejo        = { image = "codeberg.org/forgejo/forgejo", version = "17.0.2-rootless" }     # rootless image (uid 1000); forgejo.tf (git01/git02)
   sonarr         = { image = "lscr.io/linuxserver/sonarr", version = "4.0.20.3014-ls5" }       # arr.tf (arr01)
   radarr         = { image = "lscr.io/linuxserver/radarr", version = "7.0.3.10918-ls328" }     # arr.tf
   prowlarr       = { image = "lscr.io/linuxserver/prowlarr", version = "2.7.0.5723-ls168" }    # arr.tf

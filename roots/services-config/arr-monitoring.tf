@@ -1,4 +1,4 @@
-# Host monitoring for the arr VM (arr.tf), like the Gitea VMs: node_exporter
+# Host monitoring for the arr VM (arr.tf), like the Forgejo VMs: node_exporter
 # (dns-node-exporter.tf's Quadlet) on the telemetry address :9100, where monitoring-config's node job
 # scrapes it, and Grafana Alloy (alloy.tf: the journal, the arr pod's container logs included, to Loki's
 # telemetry VIP). Jellyfin is probed through the proxy (monitoring-config blackbox_https_targets).
