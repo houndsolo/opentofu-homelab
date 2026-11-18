@@ -218,7 +218,7 @@ run "preserve_ha_peer_configuration" {
   assert {
     condition = (
       module.dhcp_macs.ha_interfaces.dhcp01 == "eth${length(module.dhcp_macs.data_network_devices.dhcp01) + 1}" &&
-      contains(module.dhcp["dhcp01"].commands, "set interfaces ethernet ${module.dhcp_macs.ha_interfaces.dhcp01} hw-id 02:00:00:67:01:ff") &&
+      alltrue([for command in module.dhcp["dhcp01"].commands : !strcontains(command, " hw-id ")]) &&
       contains(module.dhcp["dhcp01"].commands, "set interfaces ethernet ${module.dhcp_macs.ha_interfaces.dhcp01} address '10.50.9.1/24'") &&
       contains(module.dhcp["dhcp02"].commands, "set interfaces ethernet ${module.dhcp_macs.ha_interfaces.dhcp02} address '10.50.9.2/24'") &&
       !contains(module.dhcp["dhcp01"].commands, "set service dhcp-server listen-interface '${module.dhcp_macs.ha_interfaces.dhcp01}'")

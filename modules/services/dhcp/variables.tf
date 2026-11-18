@@ -81,7 +81,7 @@ variable "syslog" {
 }
 
 variable "ha_interface" {
-  description = "VyOS interface of the Kea HA NIC (its own L2VNI). Bound by hw-id and addressed, but Kea doesn't listen for clients there. null = none."
+  description = "VyOS interface of the Kea HA NIC (its own L2VNI). Addressed, but Kea doesn't listen for clients there. null = none."
   type        = string
   default     = null
 }

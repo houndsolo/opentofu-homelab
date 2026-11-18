@@ -150,7 +150,7 @@ One DHCP VM's VyOS configuration.
 
 | File | Builds |
 | --- | --- |
-| `interfaces.tf` | `hw-id` bindings, data interface addresses |
+| `interfaces.tf` | data interface addresses (NICs named by slot, no `hw-id`) |
 | `dhcp-commands.tf` | HA settings, listen interfaces, one pool per VLAN with `dhcp.scope` |
 | `main.tf` | Hostname, `disable-forwarding`, the combined resource |
 | `monitoring.tf` | node-/frr-exporter when `prometheus_exporters` is set |

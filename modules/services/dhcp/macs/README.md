@@ -4,8 +4,8 @@ Works out the VLAN NICs of the two DHCP VMs and a fixed MAC for each. Creates no
 the same inputs by:
 
 - [services-vms](../../../../roots/services-vms/README.md): Proxmox NICs (`network_devices`).
-- [services-config](../../../../roots/services-config/README.md): VyOS `hw-id` bindings
-  (`interface_macs`), and the same order for each interface's address.
+- [services-config](../../../../roots/services-config/README.md): the interface list
+  (`interface_macs` keys: eth1.. in NIC order) and each interface's address.
 
 ## What it produces
 

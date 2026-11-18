@@ -20,12 +20,11 @@ run "bind_only_data_interfaces" {
   command = plan
   assert {
     condition = (
-      contains(vyoscmd_commands.this.commands, "set interfaces ethernet eth1 hw-id 02:00:00:67:01:02") &&
-      contains(vyoscmd_commands.this.commands, "set interfaces ethernet eth2 hw-id 02:00:00:67:01:06") &&
+      alltrue([for command in vyoscmd_commands.this.commands : !strcontains(command, " hw-id ")]) &&
       alltrue([for command in vyoscmd_commands.this.commands : !strcontains(command, "ethernet eth0 ")]) &&
       vyoscmd_commands.this.endpoint == "https://10.20.67.1"
     )
-    error_message = "Bind data NICs using shared MACs; never change the OOB management interface."
+    error_message = "No hw-id bindings (VyOS names NICs by slot); never change the OOB management interface."
   }
 }
 

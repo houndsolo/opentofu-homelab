@@ -237,7 +237,7 @@ tofu -chdir=roots/services-config import 'dns_a_record_set.records["torrent|A"]'
   the last NIC, MAC `02:00:00:67:<VM ID % 100>:ff`, no client listening. The HA `name` is the
   **peer's real hostname** (Kea matches it; a mismatch puts both into partner-down).
 - One `vyoscmd_commands` per VM (`<name>-dhcp`, `save = true`): hostname, `system ip
-  disable-forwarding`, each data NIC bound to its MAC with `10.<VLAN>.67.<slot>/<prefix>`, listen on
+  disable-forwarding`, each data NIC addressed `10.<VLAN>.67.<slot>/<prefix>` (no `hw-id`: VyOS names NICs by slot, in the Proxmox NIC order), listen on
   every data NIC (eth0 untouched), one pool per VLAN with `dhcp.scope`: default router (anycast
   gateway), domain name/search, name server = the DNS VIP only (the service addresses if `dns_vrrp`
   is null), lease, ranges, `subnet-id` = VNI, authoritative by default (defaults in
@@ -245,7 +245,6 @@ tofu -chdir=roots/services-config import 'dns_a_record_set.records["torrent|A"]'
   exporters and syslog above.
 
 ```text
-set interfaces ethernet eth2 hw-id 02:00:00:67:01:08
 set interfaces ethernet eth2 address '10.8.67.1/16'
 set service dhcp-server high-availability mode 'active-passive'
 set service dhcp-server high-availability name 'dhcp02'
