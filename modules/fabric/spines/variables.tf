@@ -1,9 +1,7 @@
 variable "spine" {
+  description = "This spine's fabric.spines entry; only the id is used here (the root's provider has the address)."
   type = object({
-    management_ip    = string
-    id               = number
-    uplink_interface = optional(string)
-    as               = optional(number)
+    id = number
   })
 }
 

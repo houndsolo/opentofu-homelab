@@ -1,7 +1,7 @@
 fabric = {
   settings = {
-    underlay_as_base         = 700 # leaf/spine underlay AS = this + id (leaf-17 717, m326-1 701)
-    overlay_as               = 700
+    underlay_as_base         = 700 # leaf/spine AS = this + id (leaf-17 717, m326-1 701)
+    overlay_as               = 700 # L2VNI route targets are 700:<vni>
     loopback_ipv4_prefix     = "10.255.240.0/24"
     loopback_ipv6_prefix     = "fd69:255:240::/64"
     loopback_interface       = "dum240"
@@ -21,10 +21,6 @@ fabric = {
     # Spines: UDP 514 (RFC 3164) to the Loki/Alloy VIP on the monitoring network, sent
     # from their VLAN 5 address (10.5.0.<n>).
     spine_syslog = { host = "10.5.11.101" }
-    # EXPERIMENT (branch ebgp-evpn): EVPN on the underlay session, spine-1 x leaf-11 (fichina) + leaf-15 (fortuna).
-    evpn_on_underlay = { spine_ids = [1, 2], leaf_ids = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 42] }
-    # EXPERIMENT (branch ebgp-evpn): leaf-11/15 run their BGP as AS 711/715, spine-1 only.
-    leaf_own_as_ids = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 42]
   }
   # Physical leaves. The fabric roots generate virtual Proxmox leaves from var.nodes.
   leaves = {

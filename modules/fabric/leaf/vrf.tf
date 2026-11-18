@@ -22,7 +22,7 @@ locals {
       "set vrf name ${vrf.vrf} protocols bgp address-family l2vpn-evpn rd '${local.router_id}:${vrf.vni}'",
       "set vrf name ${vrf.vrf} protocols bgp parameters bestpath as-path multipath-relax",
       "set vrf name ${vrf.vrf} protocols bgp parameters router-id '${local.router_id}'",
-      "set vrf name ${vrf.vrf} protocols bgp system-as '${local.bgp_system_as}'",
+      "set vrf name ${vrf.vrf} protocols bgp system-as '${local.leaf_as}'",
     ]
   ])
   # IPv6 (zone design step 8) in VRFs with an IPv6 anycast gateway: connected subnets into BGP, type-5/type-2

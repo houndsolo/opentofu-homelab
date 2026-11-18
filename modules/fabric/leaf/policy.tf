@@ -4,6 +4,8 @@ locals {
     local.policy_vrf_commands
   ) : []
   policy_base_commands = [
+    # local_as_rm (underlay export toward the spines): only routes this leaf originated (empty AS path), so a
+    # leaf is never underlay transit. block_local_as_rm is its unused inverse.
     "set policy as-path-list local_as_export rule 10 action 'permit'",
     "set policy as-path-list local_as_export rule 10 regex '^$'",
     "set policy route-map block_local_as_rm rule 10 action 'deny'",
@@ -82,19 +84,17 @@ locals {
       ] if length(vrf.l2) > 0
     ],
     [
-      # EXPERIMENT (evpn_on_underlay): over eBGP a leaf would re-advertise routes learned from one spine to
-      # the other; deny anything that already passed a spine (any spine's AS in the path) toward the spines.
-      # One rule per distinct spine AS (each spine may have its own `as`).
-      length(local.evpn_on_underlay_spine_ids) == 0 ? [] : flatten([
+      # Over eBGP a leaf would re-advertise the EVPN routes it learned from one spine to the other: deny
+      # anything that already passed a spine (a spine's AS in the path) toward the spines. One rule per
+      # spine AS.
+      [
         for i, as in local.spine_as_numbers : [
           "set policy as-path-list AS-FROM-SPINES rule ${(i + 1) * 10} action 'permit'",
           "set policy as-path-list AS-FROM-SPINES rule ${(i + 1) * 10} regex '_${as}_'",
         ]
-      ]),
-      length(local.evpn_on_underlay_spine_ids) == 0 ? [] : [
-        "set policy route-map RM-EVPN-SPINE-EXPORT rule 1 action 'deny'",
-        "set policy route-map RM-EVPN-SPINE-EXPORT rule 1 match as-path 'AS-FROM-SPINES'",
       ],
+      "set policy route-map RM-EVPN-SPINE-EXPORT rule 1 action 'deny'",
+      "set policy route-map RM-EVPN-SPINE-EXPORT rule 1 match as-path 'AS-FROM-SPINES'",
       "set policy route-map RM-EVPN-SPINE-EXPORT rule 65535 action 'permit'",
     ]
   ])

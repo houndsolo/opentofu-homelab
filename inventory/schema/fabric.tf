@@ -2,8 +2,8 @@ variable "fabric" {
   description = "Fabric addressing, AS numbers and members."
   type = object({
     settings = object({
-      underlay_as_base         = number # Underlay AS of every leaf and spine = base + its id (leaf-17 717, m326-1 701).
-      overlay_as               = number # iBGP EVPN AS shared by leaves and spines.
+      underlay_as_base         = number # AS of every leaf and spine = base + its id (leaf-17 717, m326-1 701).
+      overlay_as               = number # Administrator part of the L2VNI route targets (<this>:<vni>), the same on every leaf.
       loopback_ipv4_prefix     = string
       loopback_ipv6_prefix     = string
       loopback_interface       = string
@@ -36,19 +36,6 @@ variable "fabric" {
       leaf_radius = optional(object({
         vrf = optional(string) # VRF the leaf reaches the servers from; null = default VRF
       }))
-      # EXPERIMENT (branch ebgp-evpn, "option C"): EVPN on the unnumbered eBGP underlay session instead of a
-      # separate iBGP loopback session, for these spine ids x leaf ids only. The spine's underlay connection
-      # to such a leaf carries ipv6 + evpn with nexthop-choice=propagate and no output filter; the leaf drops
-      # its loopback session to that spine and denies spine-learned routes (as-path _<spine AS>_) toward
-      # the spines. null = off (every leaf/spine as on main).
-      evpn_on_underlay = optional(object({
-        spine_ids = list(number)
-        leaf_ids  = list(number)
-      }))
-      # EXPERIMENT (branch ebgp-evpn, "option B"): leaf ids whose BGP instances (default + every VRF) use
-      # system-as underlay_as_base + id instead of overlay_as (no local-as trick). These leaves peer
-      # only with the evpn_on_underlay spines; their links to the other spines are disabled.
-      leaf_own_as_ids = optional(list(number), [])
       # Remote syslog on the RouterOS spines: the built-in "remote" logging action
       # (BSD/RFC 3164 over UDP, source address picked by the route) plus one logging
       # rule per topic. null = don't manage it.
