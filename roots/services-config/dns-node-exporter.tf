@@ -13,7 +13,11 @@ variable "dns_node_exporter" {
 locals {
   # VM name => node_exporter's part of a deployment (modules/services/quadlet-deploy inputs) on every service
   # VM: :9100 on the telemetry address (the DNS VMs: var.dns_node_exporter.port). Health is in the unit
-  # (HealthCmd + Notify=healthy), so the restart returns once it answers.
+  # (HealthCmd + Notify=healthy), so the restart returns once it answers. Its template
+  # (templates/node-exporter.container.tftpl) keeps the collector flags of monitoring-config's VMs, which
+  # are in modules/services/monitoring/templates/node-exporter.container.tftpl. (The template's own comment
+  # still names main.tf node_exporter_collectors, a local that no longer exists; it renders onto every
+  # service VM, so it is corrected with the next exporter redeploy, not now.)
   node_exporter_parts = {
     for name, vm in local.alloy_vms : name => {
       units  = ["node-exporter"]

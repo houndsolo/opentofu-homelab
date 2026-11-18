@@ -119,13 +119,18 @@ fabric = {
 
 Ports by default: on a leaf, spine *N* is `ethN`; on a spine, leaf *ID* is `ether<ID>`
 (`ether17` faces venom); generated Proxmox leaves use `eth<spines + 1>` (`eth3`) as access port.
+At least one spine is required: the schema rejects an empty `spines` map.
 
 `management_prefix`/`_length` feed the leaf VMs' `eth0` (fabric-vms), the API address
 (fabric-leaves) and the `leaf-<ID>` DNS records (services-config), so they can't drift.
-Route-targets in `vnis.auto.tfvars` are literal: changing an AS doesn't rewrite them. Keep their
-administrator part equal to `route_target_as`.
+`route_target_as` is only the administrator part of the generated L2VNI route targets
+(`<route_target_as>:<VNI>`). The L3VNI/VPN route targets in `vnis.auto.tfvars` are literal and
+independent of it: each must match the imports/exports it is meant to pair with (changing an AS
+rewrites none of them). It was called `overlay_as` until 2026-11: a local `fabric.auto.tfvars` that
+still sets `overlay_as` fails to plan (`route_target_as` is required); rename the key, same value.
 
-Optional settings (null/absent = don't manage; never removes existing config):
+Optional settings (null/absent = don't manage; turning one off leaves the lines it set on the
+devices, except `leaf_radius`, see its row):
 
 | Setting | Effect |
 | --- | --- |
@@ -133,7 +138,7 @@ Optional settings (null/absent = don't manage; never removes existing config):
 | `leaf_ntp_vrf` | VRF the leaf NTP client runs in (`mgmt`, to reach fw-wan). Spines ignore it. |
 | `leaf_prometheus_exporters` | VyOS node-exporter (9100) and frr-exporter (9342, with `bgp-l2-vpn` collector and peer-hostname labels) on each leaf's mgmt address in `vrf`. Scraped by monitoring-config (`vyos-node`, `vyos-frr`). |
 | `leaf_syslog` | Leaf syslog (facility `all`, level `info`+) to every host in `hosts` (loki01-03's own mgmt addresses; no VIP on mgmt), from `vrf`. TCP 514, RFC 5424 with timezone, octet-counted framing. Options: `port`, `protocol` (`tcp`/`udp`), `facility`, `level`. The DHCP VMs get the same commands from services-config's `dhcp_syslog`. |
-| `leaf_radius` | RADIUS login on the leaves (`system login radius`), reached from `vrf`. Servers and each leaf's secret come from [roots/radius](../roots/radius/README.md) (`radius-clients.secret.auto.tfvars`, linked into fabric-leaves); a leaf without a secret is left alone. |
+| `leaf_radius` | RADIUS login on the leaves (`system login radius`), reached from `vrf`. Servers and each leaf's secret come from [roots/radius](../roots/radius/README.md) (`radius-clients.secret.auto.tfvars`, linked into fabric-leaves). A leaf gets its own `<leaf>-radius` resource only when the setting is present, that file has a secret for it AND the server list is non-empty; otherwise it is left alone (first run: apply services-config (FreeRADIUS), then radius, then fabric-leaves). Unlike the other settings, removing it, the leaf's secret or every server from a leaf that had it destroys that resource, which deletes the managed `system login radius` lines from the leaf. |
 | `spine_syslog` | Spines' built-in `remote` action to the Loki/Alloy VIP (`logs-vip`): UDP 514, BSD syslog (RFC 3164), facility `daemon`, sent from the VLAN 5 address. One logging rule per `topics` entry (default `info`, `warning`, `error`, `critical`). Options: `port`, `facility`, `topics`. |
 
 ### fabric-vms.auto.tfvars: the leaf VMs

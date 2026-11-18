@@ -61,11 +61,13 @@ monitoring-config), `vancluever/acme` (certs).
   (17) is AS 717, in the default and every VRF BGP instance.
 - **Underlay** (ipv6-unicast): a leaf advertises only its loopback `/128` (its VTEP) and is never
   transit.
+- **Underlay ECMP**: `bestpath as-path multipath-relax` lets a leaf install both spines' paths to
+  another VTEP's loopback when they qualify (they differ only in the spine's AS).
 - **Overlay** (l2vpn-evpn): the spines pass EVPN routes on with the originating VTEP as next hop,
-  so VXLAN goes leaf to leaf. A leaf never sends a spine-learned route back to a spine; it uses both
-  spines' paths (`bestpath as-path multipath-relax`). L2VNI route targets are explicit
-  `<route_target_as>:<VNI>` (`700:9008`), because FRR would otherwise derive them from each leaf's
-  own AS.
+  so VXLAN goes leaf to leaf (over the underlay ECMP above). A leaf never sends a spine-learned
+  route back to a spine. L2VNI route targets are explicit `<route_target_as>:<VNI>` (`700:9008`),
+  because FRR would otherwise derive them from each leaf's own AS; the L3VNI/VPN route targets in
+  `vnis.auto.tfvars` are literal and set separately.
 - **Data plane**: VXLAN over IPv6 from the leaf loopback, head-end replication (no underlay
   multicast). One external-mode `vxlan0` per leaf with VLAN-to-VNI mappings.
 

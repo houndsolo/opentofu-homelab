@@ -38,7 +38,7 @@ Assumptions:
 - Generated DNS names (VMs, VIPs, hosts, leaves, spines) can get extra types in `dns_hosts` but
   can't be redefined
   ([services-config](../roots/services-config/README.md#when-your-names-match-generated-ones)).
-- Some values differ from the lab on purpose: RTs in AS 65000 (lab: 700; set
-  `fabric.settings.route_target_as` to the same number, it is the administrator part of the L2VNI
-  route targets), HA segment VLAN 211 /
+- Some values differ from the lab on purpose: the literal L3VNI/VPN route targets use AS 65000
+  (lab: 700; each must match the imports/exports it pairs with; `fabric.settings.route_target_as`
+  is separate, it only sets the generated L2VNI route targets), HA segment VLAN 211 /
   VNI 9211 / `10.21.67.0/24` (lab: 1009 / 5009 / `10.50.9.0/24`).
