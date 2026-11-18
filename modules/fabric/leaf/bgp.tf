@@ -31,7 +31,7 @@ locals {
   # the leaf's own AS, and no two leaves would import each other's routes. (L3VNI RTs are explicit in
   # vnis.auto.tfvars.)
   bgp_evpn_commands = flatten([
-    for vni_id, l2vni in merge(local.l2vnis, local.role_l2only_vnis) : [
+    for vni_id in keys(merge(local.l2vnis, local.role_l2only_vnis)) : [
       "set protocols bgp address-family l2vpn-evpn vni ${vni_id} rd '${local.router_id}:${vni_id}'",
       "set protocols bgp address-family l2vpn-evpn vni ${vni_id} route-target export '${var.fabric.settings.route_target_as}:${vni_id}'",
       "set protocols bgp address-family l2vpn-evpn vni ${vni_id} route-target import '${var.fabric.settings.route_target_as}:${vni_id}'",
