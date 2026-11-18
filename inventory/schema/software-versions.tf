@@ -46,7 +46,4 @@ locals {
     for k, c in var.containers :
     k => "${c.image}${startswith(c.version, "sha256:") ? "@" : ":"}${c.version}${c.digest == null ? "" : "@${c.digest}"}"
   }
-
-  # name => dpkg version glob: "18.6" accepts any Debian revision of 18.6, a full version only itself.
-  package_patterns = { for k, v in var.packages : k => strcontains(v, "-") ? v : "${v}-*" }
 }

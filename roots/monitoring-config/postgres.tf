@@ -6,7 +6,9 @@
 
 locals {
   # software-versions.auto.tfvars packages -> the Debian packages of the Patroni stack (dpkg globs).
-  pg_major = tonumber(split(".", var.packages.postgresql)[0])
+  # name => dpkg version glob: "18.6" accepts any Debian revision of 18.6, a full version only itself.
+  package_patterns = { for k, v in var.packages : k => strcontains(v, "-") ? v : "${v}-*" }
+  pg_major         = tonumber(split(".", var.packages.postgresql)[0])
   pg_package_versions = {
     "postgresql-${local.pg_major}"        = local.package_patterns.postgresql
     "postgresql-client-${local.pg_major}" = local.package_patterns.postgresql
