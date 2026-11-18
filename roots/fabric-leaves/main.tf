@@ -1,9 +1,3 @@
-module "proxmox_fabric_macs" {
-  source           = "../../modules/fabric/macs"
-  nodes            = var.nodes.proxmox
-  underlay_bridges = var.fabric_vms.underlay_bridges
-}
-
 module "leaf" {
   source   = "../../modules/fabric/leaf"
   for_each = local.leaves
@@ -16,9 +10,4 @@ module "leaf" {
     servers = var.radius_servers
     secret  = var.radius_client_secrets["leaf-${each.value.id}"]
   } : null
-  fabric_macs = each.value.role == "proxmox" ? lookup(
-    module.proxmox_fabric_macs.fabric_macs,
-    each.key,
-    {},
-  ) : {}
 }

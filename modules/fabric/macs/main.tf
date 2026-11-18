@@ -11,15 +11,6 @@ locals {
 }
 
 output "network_devices" {
-  description = "Ordered extra VM NICs, after the management NIC."
+  description = "Ordered extra VM NICs, after the management NIC: list position + 1 is the guest's ethN."
   value       = local.network_devices
-}
-
-output "fabric_macs" {
-  description = "Node -> VyOS ethN -> MAC, matching the extra VM NIC order."
-  value = {
-    for name, devices in local.network_devices : name => {
-      for index, device in devices : "eth${index + 1}" => device.mac_address
-    }
-  }
 }

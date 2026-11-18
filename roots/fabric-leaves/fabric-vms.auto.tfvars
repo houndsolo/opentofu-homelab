@@ -1,1 +1,0 @@
-../../inventory/auto.tfvars/fabric-vms.auto.tfvars
