@@ -16,19 +16,6 @@ locals {
   # else over the backend VLAN. A single backend runs without a gossip listener.
   am_cluster_enabled = length(var.backends) > 1
   am_gossip          = { for name, b in var.backends : name => local.backend_ha_ready ? b.ha_address : b.backend_address }
-  am_cluster_publish = {
-    for name in local.backend_names : name => local.am_cluster_enabled ? [
-      "${local.am_gossip[name]}:9094:9094/tcp",
-      "${local.am_gossip[name]}:9094:9094/udp",
-    ] : []
-  }
-  am_cluster_args = {
-    for name in local.backend_names : name => local.am_cluster_enabled ? concat([
-      "--cluster.listen-address=0.0.0.0:9094",
-      "--cluster.advertise-address=${local.am_gossip[name]}:9094",
-      "--cluster.label=lylat-alertmanager", # ignores gossip from any other cluster
-    ], [for peer in local.backend_names : "--cluster.peer=${local.am_gossip[peer]}:9094" if peer != name]) : ["--cluster.listen-address="]
-  }
   # Every Prometheus (and the Loki ruler) sends to every Alertmanager; the cluster dedups.
   alertmanager_targets = [for name in local.backend_names : "${var.backends[name].backend_address}:9093"]
 

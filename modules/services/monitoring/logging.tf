@@ -127,7 +127,7 @@ locals {
           # The spines' side of a leaf session (DT-007). FRR on VyOS never sends %ADJCHANGE (it logs session
           # changes at informational, VyOS forces "log syslog notifications"), so the old ADJCHANGE rule could
           # never fire; the leaves' own view is BGPSessionDown/BFDPeerDown (infra-alerts.tf). leaf-20 is skipped:
-          # greatfox is often powered off on purpose and each shutdown logs this for its two sessions.
+          # greatfox is often powered off on purpose and each shutdown logs this for its session on each spine.
           alert       = "RouterOSBGPNoBFD"
           expr        = "sum by (host, session) (count_over_time({host=~\"${join("|", local.routeros_hosts)}\"} |= \"Cannot make BGP session\" != \"leaf-20-\" | regexp `(?P<session>\\S+) Cannot make BGP session` [5m])) > 0"
           labels      = { severity = "warning" }

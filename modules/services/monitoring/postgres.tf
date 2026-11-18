@@ -49,7 +49,6 @@ locals {
 
   # Grafana (main.tf): always this cluster's VIP.
   grafana_db_host = "${local.pg_vip}:5432"
-  grafana_db_env  = { GF_DATABASE_SSL_MODE = "require" }
 
   pg_priority = { for i, name in local.pg_names : name => max(150 - 50 * i, 10) }
   pg_members  = [for name in local.pg_names : var.postgres[name].ha_address]

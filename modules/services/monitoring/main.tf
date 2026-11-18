@@ -45,22 +45,13 @@ locals {
     }
   }) : ""
 
-  # node_exporter on every VM here (backends, Grafana, logging.tf, metrics.tf, postgres.tf;
-  # services-config's DNS template has the same flags). Besides the defaults: the collectors
-  # Node Exporter Full graphs that are off by default (processes, tcpstat, interrupts) and
-  # systemd, which asks systemd over the host's D-Bus system socket (--path.rootfs doesn't
-  # cover that, hence the socket at the path D-Bus clients default to). The default exclude
-  # already drops mounts, devices, slices and scopes; unit-include also leaves out targets
-  # and paths (~55 units x 5 state series per VM). [.] instead of \. keeps the Quadlet
-  # Exec line free of escapes.
-  node_exporter_volumes = ["/:/host:ro,rslave", "/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro"]
-  node_exporter_collectors = [
-    "--collector.processes",
-    "--collector.tcpstat",
-    "--collector.interrupts",
-    "--collector.systemd",
-    "--collector.systemd.unit-include=.+[.](service|socket|timer)",
-  ]
+  # node_exporter on every VM here (backends, Grafana, logging.tf, metrics.tf, postgres.tf): its volumes and
+  # collector flags are in templates/node-exporter.container.tftpl (services-config's template has the same
+  # flags). Besides the defaults: the collectors Node Exporter Full graphs that are off by default
+  # (processes, tcpstat, interrupts) and systemd, which asks systemd over the host's D-Bus system socket
+  # (--path.rootfs doesn't cover that, hence the socket at the path D-Bus clients default to). The default
+  # exclude already drops mounts, devices, slices and scopes; unit-include also leaves out targets and
+  # paths (~55 units x 5 state series per VM). [.] instead of \. keeps the Quadlet Exec line free of escapes.
 
   # Deploy-time check of a staged keepalived.conf ($stage mirrors / in the deploy script, modules/services/quadlet-deploy),
   # the same on every role that runs keepalived. Skipped on the first deploy, before the package is installed.
@@ -148,7 +139,7 @@ locals {
         { source_labels = ["instance"], regex = ".*:9283", target_label = "instance", replacement = "ceph_cluster" },
       ]
     }],
-    # Slow agents (the MikroTiks walk if_mib + mikrotik in 7-10 s) get their own interval/timeout.
+    # Slow agents (the MikroTiks' SNMP walk takes several seconds) get their own interval/timeout.
     [for name, job in var.targets.snmp : merge({
       job_name        = "snmp-${name}"
       metrics_path    = "/snmp"
@@ -274,14 +265,12 @@ locals {
   # The ceph-mixin's alerts (rules/ceph-mixin/, vendored from the commit the Ceph dashboards
   # come from: they back the dashboards' Firing Alerts/Alerts panels). Its own file, loaded
   # like the others and routed like them. Changed on the way: the "nodes" group's node_*
-  # selectors get settings.ceph_node_selector (by default the PVE cluster's nodes), because
-  # node_exporter runs on every host here, not just on the Ceph nodes (unfiltered,
+  # selectors get host=~ the PVE cluster's nodes (targets.pve; standalone PVE hosts aren't in Ceph),
+  # because node_exporter runs on every host here, not just on the Ceph nodes (unfiltered,
   # CephNodeInconsistentMTU fires for each VyOS interface whose MTU differs from the
   # median of all hosts' same-named interfaces, CephNodeDiskspaceWarning for any VM).
   ceph_alerts_enabled = length(var.targets.ceph) > 0
-  ceph_node_sel = (var.settings.ceph_node_selector != null ? var.settings.ceph_node_selector
-    : length(var.targets.pve) == 0 ? "" : "host=~\"${join("|", sort([for t in var.targets.pve : t.host]))}\""
-  )
+  ceph_node_sel       = length(var.targets.pve) == 0 ? "" : "host=~\"${join("|", sort([for t in var.targets.pve : t.host]))}\""
   # Groups from the Ceph mixin that reference metrics which don't exist on a
   # non-cephadm (PVE) cluster are skipped (DT-039).
   ceph_alert_skip = toset(["hardware", "nvmeof", "rbdmirror", "cephadm"])
@@ -407,7 +396,6 @@ locals {
     for rel in fileset("${path.module}/dashboards", "**/*.json") :
     rel => jsonencode(jsondecode(file("${path.module}/dashboards/${rel}")))
   }
-  dashboard_dirs = sort(distinct([for rel in keys(local.dashboards) : dirname(rel) if dirname(rel) != "."]))
   # Grafana's home page (until a user, team or org preference overrides it). Left
   # unset if the file is gone, so Grafana falls back to its own home page.
   home_dashboard      = "Overview/overview.json"

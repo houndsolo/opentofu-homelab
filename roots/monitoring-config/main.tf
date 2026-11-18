@@ -13,17 +13,13 @@ locals {
   logging_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "logging" }
   valkey_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "valkey" }
   netbox_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "netbox" }
-  nextcloud_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "nextcloud" }
-  radius_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "radius" }
-  gitea_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "gitea" }
-  arr_vms        = { for name, vm in local.service_vms : name => vm if vm.role == "arr" }
-  openbao_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "bao" }
   proxy_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "proxy" }
-  ticketing_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "ticketing" }
-  # Grafana Alloy from services-config (alloy.tf) on these VMs: HTTP on the telemetry address (alloy job);
-  # they push to Loki's telemetry VIP (logging-guard allows 10.55.0.0/16 on 3100).
-  alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms, local.gitea_vms, local.arr_vms, local.openbao_vms)
-  deploy_vms        = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
+  # The roles services-config configures (node_exporter and Grafana Alloy from there), in the order of the
+  # node job's targets. Alloy: HTTP on the telemetry address (alloy job); it pushes to Loki's telemetry VIP
+  # (logging-guard allows 10.55.0.0/16 on 3100).
+  service_config_roles = ["dns", "valkey", "netbox", "nextcloud", "radius", "gitea", "arr", "bao", "proxy", "ticketing"]
+  alloy_service_vms    = { for name, vm in local.service_vms : name => vm if contains(local.service_config_roles, coalesce(vm.role, "-")) }
+  deploy_vms           = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
   # lylat-telemetry (VLAN telemetry_vlan_id, flat 10.55.0.0/16, zone design): every service VM's scrape and log-push
@@ -114,7 +110,6 @@ locals {
   )
 
   pve_prefix = try(var.pve_network.bridges[var.pve_monitoring_bridge].ipv4.cidrhost_prefix, null)
-  # Cluster nodes only: the standalone host would need its own API token.
   pve_nodes = {
     for name, node in var.nodes.proxmox : name => cidrhost(local.pve_prefix, node.id)
     if local.pve_prefix != null
@@ -125,16 +120,9 @@ locals {
       # Service VMs: their telemetry address (falls back to the old one while a VM has no telemetry NIC).
       [for name in keys(local.monitoring_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.monitoring_address[name], "0.0.0.0"), labels = { role = "monitoring" } }],
       [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.backend_address[name], "0.0.0.0"), labels = { role = "grafana" } }],
-      [for name in keys(local.dns_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "dns" } }],
-      [for name in keys(local.valkey_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "valkey" } }],
-      [for name in keys(local.netbox_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "netbox" } }],
-      [for name in keys(local.nextcloud_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "nextcloud" } }],
-      [for name in keys(local.radius_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "radius" } }],
-      [for name in keys(local.gitea_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "gitea" } }],
-      [for name in keys(local.arr_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "arr" } }],
-      [for name in keys(local.openbao_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "bao" } }],
-      [for name in keys(local.proxy_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "proxy" } }],
-      [for name in keys(local.ticketing_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "ticketing" } }],
+      flatten([for role in local.service_config_roles : [
+        for name, vm in local.service_vms : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = role } } if vm.role == role
+      ]]),
       [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],
       [for name, n in local.metrics_nic : { host = name, address = coalesce(local.telemetry_address[name], try(n.backend.address, "0.0.0.0")), labels = { role = "metrics" } } if local.mimir_enabled],
       [for name, n in local.postgres_nic : { host = name, address = coalesce(local.telemetry_address[name], try(n.backend.address, "0.0.0.0")), labels = { role = "postgres" } } if local.postgres_enabled],
@@ -148,6 +136,7 @@ locals {
       [for name in keys(local.dhcp_vms) : { host = name, address = local.mgmt[name], labels = { role = "dhcp" } }],
       [for host, address in var.vyos_extra_targets : { host = host, address = address, labels = { role = "router" } }],
     )
+    # Cluster nodes only: the standalone host would need its own API token.
     pve      = [for name, address in local.pve_nodes : { host = name, address = address } if !var.nodes.proxmox[name].standalone]
     grafana  = [for name in keys(local.grafana_vms) : { host = name, address = coalesce(local.backend_address[name], "0.0.0.0") }]
     telegraf = [for host, address in var.vyos_telegraf_targets : { host = host, address = address }]

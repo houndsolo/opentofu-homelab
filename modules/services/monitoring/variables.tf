@@ -159,10 +159,6 @@ variable "settings" {
     grafana_root_url          = optional(string, "https://grafana.lylat.space/") # through the reverse proxy (services-config proxy.tf)
     dns_probe_zone            = optional(string, "lylat.space")
     ceph_cluster_name         = optional(string, "lylat") # cluster label on ceph metrics (ceph-mixin dashboards filter on it)
-    # Label matchers added to the ceph-mixin's node_* alerts (main.tf), which assume node_exporter
-    # runs on the Ceph nodes only. null: host=~ the PVE cluster's nodes (targets.pve; standalone
-    # PVE hosts aren't in Ceph); "": the upstream rules unchanged.
-    ceph_node_selector = optional(string)
   })
   default = {}
 }
@@ -321,7 +317,7 @@ variable "postgres" {
 }
 
 variable "postgres_settings" {
-  description = "Patroni cluster: VIP (CIDR on the backend NIC), VRRP router id, cluster name (etcd data dir/token; with pg_major the Patroni scope and pgBackRest stanza, e.g. lylat-pg18), PostgreSQL major (PGDG packages), RGWs behind each member's haproxy, backup schedule/retention, Postgres parameters, the Grafana cutover switches and the package series the deploy accepts."
+  description = "Patroni cluster: VIP (CIDR on the backend NIC), VRRP router id, cluster name (etcd data dir/token; with pg_major the Patroni scope and pgBackRest stanza, e.g. lylat-pg18), PostgreSQL major (PGDG packages), RGWs behind each member's haproxy, backup schedule/retention, Postgres parameters and the package series the deploy accepts."
   type = object({
     vip            = optional(string, "10.56.14.104/16")
     vrrp_router_id = optional(number, 104)

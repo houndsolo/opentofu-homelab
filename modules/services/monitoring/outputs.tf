@@ -80,11 +80,6 @@ output "wlc_receiver" {
   value       = local.wlc_vip ? local.backend_vip_monitoring[0] : null
 }
 
-output "alertmanager_targets" {
-  description = "Every Alertmanager (backend VLAN address:port): Prometheus and the Loki ruler send to all of them."
-  value       = local.alertmanager_targets
-}
-
 output "units" {
   description = "Rendered Quadlet .container units (no secrets): VM name => service => unit text."
   value = merge(
@@ -130,11 +125,6 @@ output "haproxy_configs" {
 output "loki_url" {
   description = "Loki on the backend VIP (Grafana's datasource). Alloy on the VMs pushes to the telemetry VIP when there is one."
   value       = local.loki_url
-}
-
-output "logging_keepalived_configs" {
-  description = "Rendered keepalived.conf per logging VM."
-  value       = local.keepalived_conf
 }
 
 output "logging_guard_config" {
