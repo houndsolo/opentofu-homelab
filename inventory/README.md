@@ -188,7 +188,7 @@ vm_config = {                 # defaults for every VM; full list in schema/vm-co
 vm_images = {                 # a VM picks one with image = "<name>"
   debian13 = { import_image = "cephfs:import/debian-13-genericcloud-amd64.qcow2", tags = ["opentofu", "debian"] }
   vyos = {
-    import_image      = "cephfs:import/vyos-1.5-rolling-202608270227-generic-amd64.qcow2"
+    import_image      = "cephfs:import/vyos-1.5-rolling-202611140411-generic-amd64.qcow2"
     user_data_file_id = "cephfs:snippets/vyos_api.yml" # enables the VyOS API
     tags              = ["opentofu", "vyos"]
   }

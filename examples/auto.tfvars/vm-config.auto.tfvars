@@ -17,7 +17,7 @@ vm_images = {
     tags         = ["opentofu", "debian"]
   }
   vyos = {
-    import_image      = "cephfs:import/vyos-1.5-rolling-202608270227-generic-amd64.qcow2"
+    import_image      = "cephfs:import/vyos-1.5-rolling-202611140411-generic-amd64.qcow2"
     user_data_file_id = "cephfs:snippets/vyos_api.yml" # Your existing API bootstrap snippet.
     tags              = ["opentofu", "vyos"]
   }
