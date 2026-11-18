@@ -626,6 +626,55 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  arr01 = {
+    # Media automation ("arr stack"), single VM: Prowlarr, Sonarr, Radarr, Bazarr, Jellyfin and Seerr in one
+    # Podman pod (services-config arr.tf). Media and downloads on CephFS /media (mounted at /data; the torrent
+    # client on CT 877, 10.8.7.7, writes to the same share), app configs on the local disk.
+    # https://<app>.lylat.space via the proxy pair (VLAN 2). VM ID and addresses chosen by the owner to sit
+    # beside CT 877 (torrent).
+    owner              = "services-vms"
+    role               = "arr"
+    ha                 = { group = "arr" } # Proxmox HA restarts it elsewhere if titania dies (single VM, no spread rule)
+    node               = "titania"
+    vm_id              = 878
+    image              = "debian13"
+    management_address = "10.20.7.8/16"
+    network_devices = [
+      {
+        # Main address on VLAN 2 (lylat-edge), the proxies' own VLAN: nginx reaches the app ports directly.
+        bridge       = "vmbr4000"
+        vlan_id      = 2
+        ipv4_address = "10.2.7.8/16"
+        ipv4_gateway = "10.2.0.1"
+      },
+      {
+        # VLAN 8, beside CT 877 (torrent, 10.8.7.7): Sonarr/Radarr -> qBittorrent on the same subnet (the CT's
+        # WireGuard tunnel only answers 10.8/16 and 10.27/16).
+        bridge       = "vmbr4000"
+        vlan_id      = 8
+        ipv4_address = "10.8.7.8/16"
+      },
+      {
+        # Ceph public: the CephFS /media mount.
+        bridge       = "vmbr27"
+        ipv4_address = "10.27.7.8/16"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.7.8/16"
+        ipv6_address = "fd69:5501::7:8/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "arr"]
+      cpu_cores    = 8 # Jellyfin transcodes on the CPU (no GPU in this VM)
+      memory_mb    = 16384
+      disk_size_gb = 100 # app databases, Jellyfin metadata and transcode cache
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   valkey01 = {
     # Valkey + Sentinel for NetBox (cache and task queue), trio valkey01-03: valkey01 starts as the
     # primary, the others replicate; the three Sentinels (quorum 2) promote a replica if the primary

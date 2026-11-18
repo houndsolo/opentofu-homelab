@@ -195,6 +195,7 @@ variable "blackbox_https_targets" {
     dark-triage = "https://dark-triage.lylat.space/api/health"
     nextcloud   = "https://nextcloud.lylat.space/status.php" # through the proxy to any of nc01-03
     git         = "https://git.lylat.space/api/healthz"      # through the proxy to git01/git02 (database, Valkey, storage)
+    jellyfin    = "https://jellyfin.lylat.space/health"      # through the proxy to arr01 (Jellyfin; the arr apps share its VM)
     proxy       = "https://proxy.lylat.space/"               # the proxy's landing page
     pve         = "https://pve.lylat.space/"                 # Proxmox cluster UI (greatfox's pve-greatfox isn't probed: often off)
   }

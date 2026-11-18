@@ -43,7 +43,13 @@ containers = {
   netbox         = { image = "docker.io/netboxcommunity/netbox", version = "v4.7.5-5.1.2" }
   nextcloud      = { image = "docker.io/library/nextcloud", version = "35.0.3-fpm" } # php-fpm variant (Debian trixie, PHP 8.5); one major at a time
   redis_exporter = { image = "docker.io/oliver006/redis_exporter", version = "v1.97.0" }
-  gitea          = { image = "docker.io/gitea/gitea", version = "28.4.0-rootless" } # rootless image (uid 1000); one release line at a time
+  gitea          = { image = "docker.io/gitea/gitea", version = "28.4.0-rootless" }            # rootless image (uid 1000); one release line at a time
+  sonarr         = { image = "lscr.io/linuxserver/sonarr", version = "4.0.20.3014-ls5" }       # arr.tf (arr01)
+  radarr         = { image = "lscr.io/linuxserver/radarr", version = "7.0.3.10918-ls328" }     # arr.tf
+  prowlarr       = { image = "lscr.io/linuxserver/prowlarr", version = "2.7.0.5723-ls168" }    # arr.tf
+  bazarr         = { image = "lscr.io/linuxserver/bazarr", version = "v1.6.2-ls372" }          # arr.tf
+  jellyfin       = { image = "docker.io/jellyfin/jellyfin", version = "12.4.20261026-211555" } # arr.tf
+  seerr          = { image = "docker.io/seerr/seerr", version = "v3.5.2" }                     # arr.tf (Jellyseerr's successor)
 }
 
 # Debian packages: name = version, the upstream version ("18.6" = any Debian revision of 18.6) or a full Debian version

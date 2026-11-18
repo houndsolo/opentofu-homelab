@@ -44,6 +44,14 @@ variable "proxy" {
       # Gitea (gitea.tf): git01/git02, sessions in Valkey, so plain round robin. Pushes and LFS uploads over
       # HTTPS stream through without a size limit.
       git = { role = "gitea", port = 3000, max_body = "0", stream = true }
+      # arr stack (arr.tf): one VM, one host per app. Sonarr/Radarr/Prowlarr/Bazarr/Seerr use websockets for
+      # live UI updates; Jellyfin streams video (no buffering, long timeouts).
+      sonarr   = { role = "arr", port = 8989, websockets = true }
+      radarr   = { role = "arr", port = 7878, websockets = true }
+      prowlarr = { role = "arr", port = 9696, websockets = true }
+      bazarr   = { role = "arr", port = 6767, websockets = true }
+      jellyfin = { role = "arr", port = 8096, websockets = true, stream = true, max_body = "100m" }
+      seerr    = { role = "arr", port = 5055, websockets = true }
     })
     # Plain TCP forwards (nginx stream), name => listen port on every proxy (clients use proxy-vip) and every
     # VM of a role on target_port. Clients must name the port; 22 stays the proxies' own sshd.

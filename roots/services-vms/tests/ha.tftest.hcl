@@ -6,7 +6,7 @@ run "ha_groups" {
   assert {
     condition = (
       local.ha_groups.postgres == tolist(["pg01", "pg02", "pg03"]) && local.ha_groups.dns == tolist(["dns01", "dns02"]) &&
-      local.ha_groups.gitea == tolist(["git01", "git02"]) && length(local.ha_groups) == 14
+      local.ha_groups.gitea == tolist(["git01", "git02"]) && length(local.ha_groups) == 15
     )
     error_message = "Every service role is an HA group (postgres = pg01-03, dns = dns01/02, ...)."
   }
