@@ -16,7 +16,7 @@ locals {
 resource "vyoscmd_commands" "radius" {
   count    = local.radius_enabled ? 1 : 0
   name     = "${var.name}-radius"
-  endpoint = "https://${local.management_ip}"
+  endpoint = "https://${var.leaf.management_ip}"
   save     = true
   commands = local.radius_commands
 }

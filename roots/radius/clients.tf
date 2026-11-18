@@ -3,7 +3,7 @@
 locals {
   leaf_clients = !var.inventory_clients.vyos_leaves ? {} : {
     for name, leaf in module.leaves.leaves : "leaf-${leaf.id}" => {
-      address                       = cidrhost(var.fabric.settings.management_prefix, leaf.id)
+      address                       = leaf.management_ip
       nas_type                      = "other"
       require_message_authenticator = null
     }

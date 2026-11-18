@@ -131,7 +131,7 @@ locals {
     )
     vyos = concat(
       [for name, leaf in module.leaves.leaves : {
-        host = "leaf-${leaf.id}", address = cidrhost(var.fabric.settings.management_prefix, leaf.id), labels = { role = "leaf" }
+        host = "leaf-${leaf.id}", address = leaf.management_ip, labels = { role = "leaf" }
       }],
       [for name in keys(local.dhcp_vms) : { host = name, address = local.mgmt[name], labels = { role = "dhcp" } }],
       [for host, address in var.vyos_extra_targets : { host = host, address = address, labels = { role = "router" } }],

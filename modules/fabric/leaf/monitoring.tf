@@ -1,13 +1,13 @@
 locals {
   # Prometheus exporters bound to the management address, inside the management VRF.
   # frr-exporter always has the bgp6 collector (VyOS default); bgp-l2-vpn adds the
-  # EVPN overlay sessions, and peer-hostname labels peers by their hostname.
+  # sessions' EVPN address family, and peer-hostname labels peers by their hostname.
   exporters = var.fabric.settings.leaf_prometheus_exporters
 
   monitoring_commands = local.exporters == null ? [] : concat(
     [
       for exporter in ["node-exporter", "frr-exporter"] :
-      "set service monitoring prometheus ${exporter} listen-address '${local.management_ip}'"
+      "set service monitoring prometheus ${exporter} listen-address '${var.leaf.management_ip}'"
     ],
     local.exporters.vrf == null ? [] : [
       for exporter in ["node-exporter", "frr-exporter"] :

@@ -24,8 +24,8 @@ locals {
 
   leaf_dns_hosts = merge([
     for name, leaf in module.leaves.leaves : {
-      "leaf-${leaf.id}"      = { A = cidrhost(var.fabric.settings.management_prefix, leaf.id) }
-      "leaf-${leaf.id}.mgmt" = { A = cidrhost(var.fabric.settings.management_prefix, leaf.id) }
+      "leaf-${leaf.id}"      = { A = leaf.management_ip }
+      "leaf-${leaf.id}.mgmt" = { A = leaf.management_ip }
     }
   ]...)
 

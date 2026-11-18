@@ -1,13 +1,6 @@
-locals {
-  management_ip = cidrhost(
-    var.fabric.settings.management_prefix,
-    var.leaf.id,
-  )
-}
-
 resource "vyoscmd_commands" "this" {
   name     = "${var.name}-system"
-  endpoint = "https://${local.management_ip}"
+  endpoint = "https://${var.leaf.management_ip}"
   save     = true # Persist to config.boot, so a leaf reboot keeps the tofu-managed config.
 
   commands = flatten([

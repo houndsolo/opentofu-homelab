@@ -13,6 +13,9 @@ locals {
 }
 
 output "leaves" {
-  description = "Physical fabric.leaves plus one virtual leaf per Proxmox host."
-  value       = merge({ for name, leaf in var.fabric.leaves : name => merge(leaf, { standalone = false }) }, local.proxmox_leaves)
+  description = "Physical fabric.leaves plus one virtual leaf per Proxmox host, each with its management address (API, exporters, DNS, RADIUS client)."
+  value = {
+    for name, leaf in merge({ for name, leaf in var.fabric.leaves : name => merge(leaf, { standalone = false }) }, local.proxmox_leaves) :
+    name => merge(leaf, { management_ip = cidrhost(var.fabric.settings.management_prefix, leaf.id) })
+  }
 }

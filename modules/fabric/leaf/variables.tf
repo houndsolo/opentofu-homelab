@@ -6,6 +6,7 @@ variable "leaf" {
     role             = string
     standalone       = optional(bool, false) # the standalone Proxmox host's leaf (greatfox)
     id               = number
+    management_ip    = string # from modules/fabric/leaves
     access_interface = string
   })
 }
