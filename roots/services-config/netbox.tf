@@ -142,7 +142,7 @@ locals {
       { path = "/etc/netbox/env", mode = "0600", units = ["netbox", "netbox-worker"], restart = true, content = local.netbox_env },
       ], [for f in [
         # CephFS /netbox at /var/lib/netbox (kernel client; mount.ceph comes with ceph-common).
-        { path = "/etc/ceph/netbox.secret", mode = "0600", content = var.netbox_cephfs_key },
+        { path = "/etc/ceph/${var.netbox.cephfs.client}.secret", mode = "0600", content = var.netbox_cephfs_key },
         { path = "/etc/systemd/system/var-lib-netbox.mount", units = ["var-lib-netbox.mount"], content = templatefile("${path.module}/templates/netbox-cephfs.mount.tftpl", {
           what    = "${join(",", [for m in var.netbox.cephfs.monitors : "${m}:6789"])}:${var.netbox.cephfs.path}"
           options = "name=${var.netbox.cephfs.client},secretfile=/etc/ceph/${var.netbox.cephfs.client}.secret,mds_namespace=${var.netbox.cephfs.fs},noatime,_netdev"
