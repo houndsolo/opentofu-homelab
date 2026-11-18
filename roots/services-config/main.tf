@@ -108,8 +108,7 @@ resource "terraform_data" "bind9" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo -n bash /tmp/tofu-bind9-${self.id}/deploy.sh",
-      "rm -rf /tmp/tofu-bind9-${self.id}",
+      "rc=0; sudo -n bash /tmp/tofu-bind9-${self.id}/deploy.sh || rc=$?; rm -rf /tmp/tofu-bind9-${self.id}; exit $rc",
     ]
   }
 }

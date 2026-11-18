@@ -100,8 +100,7 @@ resource "terraform_data" "dns_keepalived" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo -n bash /tmp/tofu-keepalived-${self.id}/dns-keepalived.sh",
-      "rm -rf /tmp/tofu-keepalived-${self.id}",
+      "rc=0; sudo -n bash /tmp/tofu-keepalived-${self.id}/dns-keepalived.sh || rc=$?; rm -rf /tmp/tofu-keepalived-${self.id}; exit $rc",
     ]
   }
 
