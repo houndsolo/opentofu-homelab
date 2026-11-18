@@ -25,8 +25,8 @@ The leaves come from `modules/fabric/leaves` (the physical `fabric.leaves` plus 
 | BFD configuration | all leaf ports | BFD on every session |
 | Switch | `switch1` `l3-hw-offloading=yes` (imported) | the underlay is routed in the switch chip |
 | Routing filter | chain `LEAF-IN`: `if (afi evpn) { set scope-target 40; } accept;` | an EVPN next hop (leaf VTEP loopback) is a scope-40 BGP route; without this every EVPN route is unreachable and never passed on. EVPN only: raising the ipv6 routes' target scope too breaks it |
-| BGP instance | `fabric`: the spine's own `as` (m326-1 701, m326-2 702; fallback `spine_as`), router id `fabric` | unique per spine: leaves ECMP over `701 7xx` / `702 7xx` with `bestpath as-path multipath-relax` (default instance and every VRF) |
-| BGP template + connections | `LEAF` (AS 810, `ipv6,evpn`, next-hop `propagate`, input `LEAF-IN`, originates `FABRIC-LOOPBACK`, BFD); `leaf-<ID>` per leaf on its port, role `ebgp`, remote AS `leaf_underlay_as_base + ID` | `propagate` keeps the originating VTEP for EVPN (traffic goes leaf to leaf) and, for the ipv6 loopback routes, drops the other port's link-local and falls back to the spine's own |
+| BGP instance | `fabric`: `underlay_as_base` + spine ID (m326-1 701, m326-2 702), router id `fabric` | unique per spine: leaves ECMP over `701 7xx` / `702 7xx` with `bestpath as-path multipath-relax` (default instance and every VRF) |
+| BGP template + connections | `LEAF` (the spine's AS, `ipv6,evpn`, next-hop `propagate`, input `LEAF-IN`, originates `FABRIC-LOOPBACK`, BFD); `leaf-<ID>` per leaf on its port, role `ebgp`, remote AS `underlay_as_base + ID` | `propagate` keeps the originating VTEP for EVPN (traffic goes leaf to leaf) and, for the ipv6 loopback routes, drops the other port's link-local and falls back to the spine's own |
 | BGP timers | `keepalive_time` 1m, `hold_time` 3m on the template **and** every connection | a connection's own value wins over the template |
 | NTP client | unicast, `fabric.settings.ntp_servers` (fw-wan `10.20.10.255`) | only when the list isn't empty |
 | Logging | built-in `memory` action: 10,000 lines | adopted by name |

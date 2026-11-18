@@ -1,7 +1,6 @@
 fabric = {
   settings = {
-    leaf_underlay_as_base    = 700
-    spine_as                 = 810
+    underlay_as_base         = 700 # leaf/spine underlay AS = this + id (leaf-17 717, m326-1 701)
     overlay_as               = 700
     loopback_ipv4_prefix     = "10.255.240.0/24"
     loopback_ipv6_prefix     = "fd69:255:240::/64"
@@ -50,12 +49,10 @@ fabric = {
     m326-1 = {
       management_ip = "10.20.0.5"
       id            = 1
-      as            = 701 # unique per spine (eBGP fabric); leaves ECMP across them via multipath-relax
     }
     m326-2 = {
       management_ip = "10.20.0.6"
       id            = 2
-      as            = 702 # unique per spine (eBGP fabric); leaves ECMP across them via multipath-relax
     }
   }
 }

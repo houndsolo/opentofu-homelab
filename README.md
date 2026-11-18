@@ -57,7 +57,7 @@ monitoring-config), `vancluever/acme` (certs).
 - **Underlay**: eBGP leaf-to-spine over IPv6 link-local only (BGP unnumbered, FRR
   `neighbor ethN interface v6only`); no addresses on the links. A leaf advertises only its
   loopback `/128` (its VTEP).
-- **Underlay AS**: spines AS 810 (`spine_as`); each leaf `leaf_underlay_as_base` (700) + its ID,
+- **Underlay AS**: every leaf and spine `underlay_as_base` (700) + its ID (spines 701/702),
   so venom (17) is AS 717.
 - **Overlay**: iBGP L2VPN EVPN in AS 700 (`overlay_as`) between loopbacks. The spines are route
   reflectors; leaves peer only with the spines. BFD on every session.

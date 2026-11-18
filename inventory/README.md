@@ -81,8 +81,7 @@ nodes = {
 ```hcl
 fabric = {
   settings = {
-    leaf_underlay_as_base     = 700                 # leaf underlay AS = this + ID -> venom AS 717
-    spine_as                  = 810                 # spines' underlay AS (per-spine `as` overrides)
+    underlay_as_base          = 700                 # leaf/spine underlay AS = this + ID -> venom AS 717, m326-1 701
     overlay_as                = 700                 # iBGP EVPN AS, leaves and spines
     loopback_ipv4_prefix      = "10.255.240.0/24"   # router-IDs: .<ID>
     loopback_ipv6_prefix      = "fd69:255:240::/64" # VTEPs: ::<ID>
@@ -112,7 +111,6 @@ fabric = {
       management_ip = "10.20.0.5" # REST API at http://<management_ip>
       id            = 1           # loopback ::1; leaves reach it on eth1
       # uplink_interface = "eth5" # leaf-side port, if not eth<ID>
-      # as               = 65001  # underlay AS, if not settings.spine_as
     }
     # m326-2: 10.20.0.6, id 2
   }
@@ -447,7 +445,7 @@ Everything derived from venom's ID, 17:
 | VTEP / IPv6 loopback | `fd69:255:240::17` | `loopback_ipv6_prefix` |
 | Leaf VXLAN/bridge MAC | `00:13:37:00:00:17` | `modules/fabric/leaf/addressing.tf` |
 | Leaf NIC MACs (eth1-eth3) | `02:00:00:17:00:01`-`:03` | [modules/fabric/macs](../modules/fabric/macs/README.md) |
-| Leaf underlay AS | `717` | `leaf_underlay_as_base` + ID |
+| Leaf underlay AS | `717` | `underlay_as_base` + ID |
 | Spine port facing the leaf | `ether17` | `ether<ID>` |
 | Leaf hostname | `LEAF-17` | `modules/fabric/leaf/system.tf` |
 | DNS | `venom.lylat.space` → `10.20.7.17`, `leaf-17.lylat.space` → `10.20.10.17` | services-config |

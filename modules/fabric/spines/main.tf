@@ -12,7 +12,8 @@
 # corosync ports (ether1-7). RouterOS's `/interface ethernet switch l3hw-settings ipv6-hw=yes` has no provider
 # resource; it is set by hand (see the root README).
 locals {
-  spine_as = coalesce(var.spine.as, var.fabric.settings.spine_as)
+  # Underlay AS = underlay_as_base + id, for spines (m326-1 701) and leaves (leaf-17 717) alike.
+  spine_as = var.fabric.settings.underlay_as_base + var.spine.id
 
   # Loopbacks: IPv4 = router id, IPv6 = advertised to the leaves. Host numbers read the decimal ID as hex
   # (id 11 -> ...::11), the same expression the leaf module uses.
@@ -20,12 +21,12 @@ locals {
   loopback_ipv6 = cidrhost(var.fabric.settings.loopback_ipv6_prefix, parseint(tostring(var.spine.id), 16))
 
   # One entry per leaf: the spine port it hangs off (ether<leaf id> unless spine_uplink overrides it) and the
-  # AS it presents (leaf_underlay_as_base + id, via local-as or its own system-as).
+  # AS it presents (underlay_as_base + id, via local-as or its own system-as).
   leaves = {
     for name, leaf in var.leaves : name => {
       id   = leaf.id
       port = coalesce(leaf.spine_uplink, "ether${leaf.id}")
-      as   = var.fabric.settings.leaf_underlay_as_base + leaf.id
+      as   = var.fabric.settings.underlay_as_base + leaf.id
     }
   }
   ports = sort([for leaf in local.leaves : leaf.port])

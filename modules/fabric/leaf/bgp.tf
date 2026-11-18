@@ -9,7 +9,7 @@ locals {
   ) : []
 
   # This leaf's own AS (the underlay AS every leaf already shows the spines via local-as).
-  leaf_as = var.fabric.settings.leaf_underlay_as_base + var.leaf.id
+  leaf_as = var.fabric.settings.underlay_as_base + var.leaf.id
   # EXPERIMENT (fabric.settings.leaf_own_as_ids, "option B"): the leaf's BGP instances really run as leaf_as.
   own_as        = contains(var.fabric.settings.leaf_own_as_ids, var.leaf.id)
   bgp_system_as = local.own_as ? local.leaf_as : var.fabric.settings.overlay_as
@@ -36,9 +36,9 @@ locals {
 
   # EXPERIMENT (fabric.settings.evpn_on_underlay): ids of the spines whose underlay session to this leaf also
   # carries EVPN. This leaf has no loopback session to them; its link neighbor joins spine_underlay_evpn.
-  # Every spine's AS (its own `as`, else settings.spine_as), sorted, as numbers.
+  # Every spine's AS (underlay_as_base + spine id, as the spine module sets it), sorted, as strings.
   spine_as_numbers = sort(distinct([
-    for spine in var.fabric.spines : tostring(coalesce(spine.as, var.fabric.settings.spine_as))
+    for spine in var.fabric.spines : tostring(var.fabric.settings.underlay_as_base + spine.id)
   ]))
   evpn_on_underlay_spine_ids = (
     var.fabric.settings.evpn_on_underlay != null && contains(try(var.fabric.settings.evpn_on_underlay.leaf_ids, []), var.leaf.id)

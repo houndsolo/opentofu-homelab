@@ -62,7 +62,7 @@ set protocols bgp address-family l2vpn-evpn advertise-all-vni
 set protocols bgp address-family l2vpn-evpn flooding head-end-replication     # no multicast
 set protocols bgp neighbor eth1 interface v6only peer-group 'spine_underlay'  # one per spine port
 set protocols bgp neighbor fd69:255:240::1 peer-group 'spine_overlay'         # one per spine loopback
-# Underlay: eBGP, seen by the spine as AS 717 (leaf_underlay_as_base 700 + ID); exports only own routes.
+# Underlay: eBGP, seen by the spine as AS 717 (underlay_as_base 700 + ID); exports only own routes.
 set protocols bgp peer-group spine_underlay remote-as 'external'
 set protocols bgp peer-group spine_underlay local-as 717 no-prepend replace-as
 set protocols bgp peer-group spine_underlay address-family ipv6-unicast route-map export 'local_as_rm'

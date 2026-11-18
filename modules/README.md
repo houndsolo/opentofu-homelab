@@ -112,13 +112,13 @@ One RouterOS spine: one eBGP session per leaf carrying the underlay (ipv6) and E
   - `ports.tf`: leaf-port MTU, RAs + `none` ND prefix per port, the disabled `interface=all` ND entry
     and `switch1` L3 offload (both imported by the root), BFD on the leaf ports
   - `bgp.tf`: instance `fabric`, input chain `LEAF-IN`, template `LEAF`, connection `leaf-<ID>` per
-    leaf (remote AS `leaf_underlay_as_base + ID`)
+    leaf (remote AS `underlay_as_base + ID`)
   - `system.tf`: NTP client (when `ntp_servers` is non-empty); built-in `memory` logging action,
     10,000 lines
   - `syslog.tf`: built-in `remote` action to `spine_syslog.host` (UDP, BSD syslog) + one rule per
     topic (when `spine_syslog` is set)
 
-AS: `spine_as` unless the spine sets `as`.
+AS: `underlay_as_base + ID` (m326-1 701, m326-2 702).
 
 ### fabric/leaves
 
