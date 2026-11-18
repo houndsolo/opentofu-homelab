@@ -1580,7 +1580,7 @@ vms = {
   }
 
   ebgptest11 = {
-    # EXPERIMENT (branch ebgp-evpn): throwaway test host behind leaf-11 (VLAN 1201, lylat-app), no HA.
+    # Test host behind leaf-11 (VLAN 1201, lylat-app) used to verify the eBGP fabric, no HA. Remove with commit 15eac25.
     owner              = "workloads"
     node               = "fichina"
     vm_id              = 9011
@@ -1605,7 +1605,7 @@ vms = {
     }
   }
   ebgptest15 = {
-    # EXPERIMENT (branch ebgp-evpn): throwaway test host behind leaf-15 (VLAN 1201, lylat-app), no HA.
+    # Test host behind leaf-15 (VLAN 1201, lylat-app) used to verify the eBGP fabric, no HA. Remove with commit 15eac25.
     owner              = "workloads"
     node               = "fortuna"
     vm_id              = 9015

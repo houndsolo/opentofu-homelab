@@ -4,7 +4,9 @@ Pushes the EVPN/VXLAN config to every leaf through the VyOS HTTPS API.
 [modules/fabric/leaf](../../modules/README.md#fabricleaf) renders plain VyOS `set` commands from
 the inventory, sent as one `vyoscmd_commands` resource per leaf (`<leaf>-system`, `save = true`:
 written to `/config/config.boot`, so a reboot keeps it). The plan shows the exact CLI. The excerpts
-below are from the leaf on venom (ID 17), 748 commands in total.
+below are from the leaf on venom (ID 17), 787 commands in total. RADIUS login
+(`fabric.settings.leaf_radius`) is a second, sensitive resource per leaf (`<leaf>-radius`: servers
+and the leaf's secret from [roots/radius](../radius/README.md)).
 
 ## Which leaves
 
@@ -13,8 +15,9 @@ below are from the leaf on venom (ID 17), 748 commands in total.
 | `external_l2_01` (42), `external_l3_01` (18), `external_l3_02` (19) | `fabric.leaves` (physical) | as configured | as configured |
 | one per host in `nodes.proxmox`: IDs 11–17 and standalone greatfox (20) | `modules/fabric/leaves` | `proxmox` | `eth3` (spines + 1) |
 
-`modules/fabric/leaves` is shared with fabric-spines, the services-config DNS records and
-monitoring-config's scrape targets, so they all see the same leaves. API endpoint: host *ID* in
+`modules/fabric/leaves` is shared with fabric-spines, the services-config DNS records,
+monitoring-config's scrape targets and the RADIUS clients of roots/radius, so they all see the same
+leaves. API endpoint: host *ID* in
 `fabric.settings.management_prefix` (`https://10.20.10.17`), key from `vyos_api_key` or
 `VYOS_API_KEY` (linked `vyos.secret.auto.tfvars`), TLS unverified (self-signed).
 
@@ -38,10 +41,8 @@ bridged only, no VRF, no gateway); greatfox's leaf only those with `on_standalon
 ### Interfaces
 
 ```text
-# Generated proxmox leaves only: bind names to the MACs fabric-vms gave the NICs (modules/fabric/macs).
-set interfaces ethernet eth1 hw-id 02:00:00:17:00:01
-# Spine links: MTU, no addresses. BGP "interface" peering learns the spine's link-local from the
-# spine's RAs (every 10-30 s); the leaf sends none.
+# Spine links (eth<spine ID>): MTU, no addresses. BGP "interface" peering learns the spine's link-local
+# from the spine's RAs (every 10-30 s); the leaf sends none. No `hw-id`: VyOS names ethN by slot.
 set interfaces ethernet eth1 description 'p2p-spine-1'
 set interfaces ethernet eth1 mtu '9189'
 # Loopback: VTEP (IPv6) and router-ID (IPv4).
@@ -52,30 +53,34 @@ set interfaces ethernet eth3 description 'link to tenant VLANs'
 set interfaces ethernet eth3 mtu '9119'
 ```
 
-### BGP: underlay and overlay
+### BGP: one eBGP session per spine link
+
+Every leaf has its own AS, `underlay_as_base` + ID (717), in the default instance and in every VRF.
+One unnumbered eBGP session per spine link carries both the underlay (the VTEP loopbacks,
+ipv6-unicast) and EVPN. No iBGP, no route reflectors, no loopback sessions.
 
 ```text
-set protocols bgp system-as 700
+set protocols bgp system-as 717                                               # 700 + ID
 set protocols bgp parameters router-id 10.255.240.17
+set protocols bgp parameters bestpath as-path multipath-relax                 # ECMP across spines 701/702
 set protocols bgp address-family ipv6-unicast network fd69:255:240::17/128   # the only underlay route it sends
 set protocols bgp address-family l2vpn-evpn advertise-all-vni
 set protocols bgp address-family l2vpn-evpn flooding head-end-replication     # no multicast
-set protocols bgp neighbor eth1 interface v6only peer-group 'spine_underlay'  # one per spine port
-set protocols bgp neighbor fd69:255:240::1 peer-group 'spine_overlay'         # one per spine loopback
-# Underlay: eBGP, seen by the spine as AS 717 (underlay_as_base 700 + ID); exports only own routes.
-set protocols bgp peer-group spine_underlay remote-as 'external'
-set protocols bgp peer-group spine_underlay local-as 717 no-prepend replace-as
-set protocols bgp peer-group spine_underlay address-family ipv6-unicast route-map export 'local_as_rm'
-set protocols bgp peer-group spine_underlay bfd
-# Overlay: iBGP to the spines (route reflectors) from the loopback.
-set protocols bgp peer-group spine_overlay remote-as 'internal'
-set protocols bgp peer-group spine_overlay update-source 'dum240'
-set protocols bgp peer-group spine_overlay address-family l2vpn-evpn route-map export 'RM-EVPN-SPINE-EXPORT'
-set protocols bgp peer-group spine_overlay bfd
+# Explicit L2VNI route targets <route_target_as>:<VNI>: FRR would derive them from the leaf's own AS.
+set protocols bgp address-family l2vpn-evpn vni 9008 rd '10.255.240.17:9008'
+set protocols bgp address-family l2vpn-evpn vni 9008 route-target export '700:9008'
+set protocols bgp address-family l2vpn-evpn vni 9008 route-target import '700:9008'
+set protocols bgp neighbor eth1 interface v6only peer-group 'spine_underlay_evpn'   # one per spine port
+set protocols bgp peer-group spine_underlay_evpn remote-as 'external'
+set protocols bgp peer-group spine_underlay_evpn capability extended-nexthop
+set protocols bgp peer-group spine_underlay_evpn bfd
+set protocols bgp peer-group spine_underlay_evpn address-family ipv6-unicast route-map export 'local_as_rm'
+set protocols bgp peer-group spine_underlay_evpn address-family l2vpn-evpn route-map export 'RM-EVPN-SPINE-EXPORT'
 ```
 
-`local-as ... replace-as` keeps AS 700 for the overlay while each leaf has its own underlay AS, so
-eBGP's AS-path loop check doesn't drop one leaf's loopback at another.
+The spines pass EVPN routes on with the originating VTEP as next hop
+([fabric-spines](../fabric-spines/README.md)), so VXLAN goes leaf to leaf. The leaf's VRF instances
+run as 717 too (`set vrf name <vrf> protocols bgp system-as '717'`, with `multipath-relax`).
 
 ### VXLAN, bridge and anycast gateway
 
@@ -125,12 +130,12 @@ needs `ipv4_rt_imports`/`ipv4_rt_exports`; with both false it gets no VPN lines 
 
 | Policy | Applied to | What it does |
 | --- | --- | --- |
-| `local_as_rm` (as-path list `local_as_export`, `^$`) | underlay export | only routes the leaf originated (its VTEP); a leaf is never transit |
+| `local_as_rm` (as-path list `local_as_export`, `^$`) | underlay (ipv6-unicast) export to the spines | only routes the leaf originated (its VTEP); a leaf is never transit |
 | `PL-<VRF>-L2VNI-SUBNETS` / `PL6-…` | prefix lists | the VRF's VLAN subnets (lylat-dns: `10.53.0.0/16`, `10.8.0.0/16`) |
 | `RM-<VRF>-CONNECTED-TO-BGP` | redistribute connected | only the VLAN subnets; a VRF without VLANs: everything if external, nothing otherwise |
 | `RM-<VRF>-BGP-TO-LOCAL-VPN` | VPN export | same filter |
 | `RM-<VRF>-BGP-TO-EVPN` | type-5 advertisement | denies `0.0.0.0/0` and `::/0` in every VRF but `lylat-external`, so only the border leaves originate the default |
-| `RM-EVPN-SPINE-EXPORT` | EVPN export to the spines | denies type-5 for each VRF's own VLAN subnets (hosts are reachable by type-2, every leaf has the gateway subnet); permits the rest |
+| `RM-EVPN-SPINE-EXPORT` | EVPN export to the spines | rule 1 denies everything that already passed a spine (as-path list `AS-FROM-SPINES`: `_701_`, `_702_`), or the leaf would hand one spine's routes to the other; then denies type-5 for each VRF's own VLAN subnets (hosts are reachable by type-2, every leaf has the gateway subnet); permits the rest |
 | `block_local_as_rm` | nothing | defined, unused |
 
 ### System, monitoring, logs
@@ -165,8 +170,8 @@ tooling/walk-roots.sh fabric-leaves
 ## Checking the fabric
 
 ```text
-show bgp summary                     # underlay + overlay sessions
-show bgp l2vpn evpn summary          # EVPN sessions to both spines
+show bgp summary                     # one session per spine (eth1, eth2): ipv6-unicast + l2vpn-evpn
+show bgp l2vpn evpn summary          # the same sessions, EVPN prefixes
 show bgp l2vpn evpn route vni 9008   # EVPN routes of one VNI
 show evpn mac vni 9008               # MACs: local, or remote with their VTEP
 show vrf vni                         # L3VNI per VRF

@@ -14,8 +14,8 @@ State and plans are encrypted (`state_passphrase`).
 | `dns-keepalived.tf` | keepalived on the DNS pair ([The DNS VIP](#the-dns-vip)) |
 | `dns-node-exporter.tf`, `dns-bind-exporter.tf` | node_exporter (:9100) and bind_exporter (:9119) on the DNS VMs |
 | `dhcp.tf` | the DHCP HA pair, [modules/services/dhcp](../../modules/README.md#servicesdhcp) per VM (VyOS API) |
-| `netbox.tf`, `valkey.tf`, `proxy.tf`, `ticketing.tf` | the services (table below) |
-| `*-monitoring.tf` (netbox, nextcloud, radius, gitea, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, one deployment per VM separate from the service deploy |
+| `netbox.tf`, `valkey.tf`, `proxy.tf`, `ticketing.tf`, `nextcloud.tf`, `gitea.tf`, `radius.tf`, `arr.tf`, `openbao.tf` | the services (table below; the newer ones are documented in their file headers) |
+| `*-monitoring.tf` (netbox, nextcloud, radius, gitea, arr, openbao, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, one deployment per VM separate from the service deploy |
 | `alloy.tf` | the Alloy install every Linux service VM gets ([Logs to Loki](#logs-to-loki)) |
 | `telemetry.tf` | each VM's lylat-telemetry address (`scrape_ip`), where every exporter and Alloy listens |
 | `templates/` | `named.conf`, seed zones, TSIG key, Quadlet units, keepalived/nginx/Valkey configs, the few helper scripts the deploys call |
@@ -43,8 +43,8 @@ shared with monitoring-config. A bump redeploys every VM running that container:
   (`10.20.53.1/.2`, `10.20.11.x`), TCP 53 to the primary's service address `10.8.53.1` (record
   updates over TCP), TCP 443 to `10.20.67.1/.2` (VyOS API).
 - **Between the DNS VMs:** TCP/UDP 53 (notify, zone transfers).
-- Linked secrets: `vyos`, `app-db` (Postgres passwords of NetBox/dark-triage), `netbox` (CephFS key),
-  `state`; see [Secrets](../../inventory/README.md#secrets).
+- Linked secrets: `vyos`, `app-db` (the apps' Postgres passwords), `netbox`, `gitea`, `nextcloud`,
+  `arr` (CephFS keys), `state`; see [Secrets](../../inventory/README.md#secrets).
 
 ## Inputs
 

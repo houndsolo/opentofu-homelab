@@ -3,7 +3,7 @@ variable "vms" {
   type = map(object({
     image              = optional(string)
     owner              = string           # fabric-vms, services-vms or workloads.
-    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey, proxy, nextcloud, radius or gitea.
+    role               = optional(string) # services-vms only: dns, dhcp, monitoring, grafana, logging, metrics, postgres, ticketing, netbox, valkey, proxy, nextcloud, radius, gitea, arr or bao.
     node               = optional(string)
     vm_id              = optional(number)
     management_address = optional(string) # IPv4 CIDR, required (validation below); no DHCP for now

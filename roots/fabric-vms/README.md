@@ -21,11 +21,10 @@ blocks in `main.tf` (a provider alias can't be chosen per instance).
 The data NICs use `vm_config.underlay_mtu` (default `1` = the bridge's MTU: 9189 on the spine
 links, 9119 on the trunk).
 
-**Why fixed MACs:** VyOS binds interface names to MACs (`hw-id`). The shared
-[MAC calculator](../../modules/fabric/macs/README.md) derives them from node ID and NIC position
-(`02:00:00:<id>:00:<n>`); this root puts them on the Proxmox NICs, fabric-leaves binds the same
-MACs (`set interfaces ethernet eth1 hw-id ...`), so a recreated NIC never comes back as another
-`ethN`.
+**Fixed MACs:** the [MAC calculator](../../modules/fabric/macs/README.md) derives them from node ID
+and NIC position (`02:00:00:<id>:00:<n>`) and this root puts them on the Proxmox NICs, so a
+recreated NIC keeps its address. VyOS names `ethN` by slot (net1 = `eth1` = spine 1), not by MAC:
+the leaf config has no `hw-id` lines.
 
 ## Before you run it
 

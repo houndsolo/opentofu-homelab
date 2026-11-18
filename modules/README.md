@@ -11,10 +11,11 @@ Shared logic called by the roots. No state of their own; run `tofu` from a
 | [proxmox/vm](#proxmoxvm) | fabric-vms, services-vms, workloads | One VM (+ HA resource) | proxmox |
 | [fabric/leaf](#fabricleaf) | fabric-leaves | One VyOS command list per leaf | vyoscmd |
 | [fabric/spines](#fabricspines) | fabric-spines | Loopback, leaf ports, BGP (underlay + EVPN), BFD, NTP, logging on one RouterOS spine | routeros |
-| [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, services-config, monitoring-config | Nothing: the shared leaf list | none |
-| [fabric/macs](fabric/macs/README.md) | fabric-vms, fabric-leaves | Nothing: leaf VM MAC calculator | none |
+| [fabric/leaves](#fabricleaves) | fabric-spines, fabric-leaves, radius, services-config, monitoring-config | Nothing: the shared leaf list | none |
+| [fabric/macs](fabric/macs/README.md) | fabric-vms | Nothing: leaf VM MAC calculator | none |
 | [services/dhcp](#servicesdhcp) | services-config | One VyOS command list per DHCP VM | vyoscmd |
 | [services/dhcp/macs](services/dhcp/macs/README.md) | services-vms, services-config | Nothing: DHCP VM NIC/MAC calculator | none |
+| [services/quadlet-deploy](services/quadlet-deploy/README.md) | services-config, services/monitoring | Nothing: renders the `deploy.sh` that installs files and Quadlet units on a VM | none |
 | [services/monitoring](services/monitoring/README.md) | monitoring-config | Nothing: renders one `deploy.sh` per monitoring, Grafana, logging, Mimir and Patroni VM | none |
 
 ## Patterns
@@ -47,8 +48,7 @@ Per-node result: [roots/proxmox-network](../roots/proxmox-network/README.md).
 One VM from a cloud image.
 
 - **Inputs:** `name`, `vm` (a `vms` entry or a generated fabric VM), `vm_config`, `vm_images`,
-  `ssh_pubkeys` (key registry), `configure_data_ips` (default `true`), `vendor_data_file_id`
-  (optional; unused today).
+  `ssh_pubkeys` (key registry), `configure_data_ips` (default `true`).
 - **Creates:** `proxmox_virtual_environment_vm`, plus `proxmox_haresource` when `vm.ha` is set
   (`ha.tf`).
 - **Outputs:** `vm_id`, `node_name`, `name`, `management_address` (null when cloud-init is off),
@@ -72,27 +72,30 @@ One VM from a cloud image.
 
 One leaf's full VyOS configuration.
 
-- **Inputs:** `name`, `leaf` (`role`, `id`, `access_interface`, `standalone`), `fabric`, `vnis`,
-  `l2vnis`, `fabric_macs`, `router_advert_routes` (default `["fd69::/16"]`).
+- **Inputs:** `name`, `leaf` (a `fabric/leaves` entry: `role`, `id`, `management_ip`,
+  `access_interface`, `standalone`), `fabric`, `vnis`,
+  `l2vnis`, `radius`, `router_advert_routes` (default `["fd69::/16"]`).
 - **Creates:** one `vyoscmd_commands` named `<name>-system` at `https://<management IP>`,
-  `save = true` (survives a reboot). Precondition: `l2vnis` don't reuse a VNI/VLAN from `vnis`.
+  `save = true` (survives a reboot), plus `<name>-radius` when the leaf has a RADIUS secret.
+  Precondition: `l2vnis` don't reuse a VNI/VLAN from `vnis`.
 
 | File | Builds |
 | --- | --- |
 | `addressing.tf` | Router-ID, VTEP IPv6 and VTEP MAC from the leaf ID |
 | `vnis.tf` | Which VRFs/VLANs this leaf gets, by role |
-| `interface.tf` | `hw-id` bindings, spine links, loopback, access port |
-| `bgp.tf` | Global BGP (`log-neighbor-changes`), EVPN, neighbors, peer groups `spine_underlay`/`spine_overlay` |
+| `interface.tf` | Spine links, loopback, access port |
+| `bgp.tf` | Global BGP (system-as `underlay_as_base + ID`), explicit L2VNI route targets, one eBGP neighbor per spine link in peer group `spine_underlay_evpn` (ipv6-unicast + l2vpn-evpn) |
 | `vxlan.tf` | `vxlan0`, `br0`, VLAN-to-VNI mappings, anycast gateways (IPv4; IPv6 + RAs where set), standalone HA L2VNIs |
 | `vrf.tf` | VRF tables/VNIs, per-VRF BGP (IPv4 and IPv6), route-targets |
-| `policy.tf` | Prefix lists and route-maps (default-route deny, no type-5 for own L2VNI subnets to the spines) |
+| `policy.tf` | Prefix lists and route-maps (default-route deny; to the spines: nothing that already passed a spine, no type-5 for own L2VNI subnets) |
 | `system.tf` | Hostname `LEAF-<ID>`, domain, multipath, NTP |
 | `monitoring.tf` | node-/frr-exporter when `fabric.settings.leaf_prometheus_exporters` is set |
 | `logging.tf` | Remote syslog when `fabric.settings.leaf_syslog` is set |
 | `external.tf` | `external_l3` leaves: VLAN sub-interface + unnumbered BGP to the external router for VRFs with `ext_l3_peer` |
-| `main.tf` | The one resource |
+| `radius.tf` | RADIUS login (`fabric.settings.leaf_radius` + the leaf's secret from roots/radius), in its own resource so only it is hidden in plans |
+| `main.tf` | The `<name>-system` resource |
 
-A role with no VRFs gets only the `hw-id` bindings, system settings, exporters and syslog.
+A role with no VRFs and no standalone L2VNIs gets only the system settings, exporters and syslog.
 
 **NTP**: one `set service ntp server` per `ntp_servers` entry. With a non-empty list it also
 deletes VyOS's default servers not in the list and sets the client VRF from `leaf_ntp_vrf`. An
@@ -103,7 +106,7 @@ spines' RAs. Generated commands: [roots/fabric-leaves](../roots/fabric-leaves/RE
 
 One RouterOS spine: one eBGP session per leaf carrying the underlay (ipv6) and EVPN.
 
-- **Inputs:** `spine` (`management_ip`, `id`, `uplink_interface`, optional `as`), `fabric`,
+- **Inputs:** `spine` (its `fabric.spines` entry; only `id` is read), `fabric`,
   `leaves` (map of `id`, `spine_uplink`; unique IDs: one connection per leaf), `keepalive_time`
   (`"1m"`) and `hold_time` (`"3m"`) on the template and every connection (keep keepalive <= hold/3),
   `port_mtu` (10000), `port_l2mtu` (10218), `switch_name` (`switch1`).
@@ -125,8 +128,10 @@ AS: `underlay_as_base + ID` (m326-1 701, m326-2 702).
 - **Inputs:** `fabric`, `nodes`.
 - **Output:** `leaves` = `fabric.leaves` (physical, `standalone = false`) merged with one generated
   leaf per `nodes.proxmox` host: `{ role = "proxmox", standalone = <node flag>, id = <node ID>,
-  access_interface = "eth<spines + 1>", spine_uplink = null }`.
-- **Used for:** spine sessions per leaf, leaf config, `leaf-<ID>` DNS records, scrape targets.
+  access_interface = "eth<spines + 1>", spine_uplink = null }`. Every entry also gets
+  `management_ip` (`management_prefix` + ID), the one place that address is derived.
+- **Used for:** spine sessions per leaf, leaf config, `leaf-<ID>` DNS records, scrape targets,
+  RADIUS clients.
 
 ### fabric/macs
 
@@ -164,6 +169,8 @@ DHCP VM NICs and fixed MACs: [README](services/dhcp/macs/README.md).
 | `proxmox/vm/defaults/tests/defaults.tftest.hcl` | no |
 | `proxmox/vm/tests/vm.tftest.hcl` | `proxmox` (mocked) |
 | `services/dhcp/tests/commands.tftest.hcl` | `vyoscmd` (mocked) |
+| `services/quadlet-deploy/tests/render.tftest.hcl` | no |
+| `roots/radius/tests/render.tftest.hcl` | registry `random`, `local` (mocked) |
 | `roots/services-config/tests/dns.tftest.hcl` | `vyoscmd` + registry `dns`, `random` (mocked) |
 | `roots/monitoring-config/tests/{monitoring,metrics,postgres,rgw}.tftest.hcl` | `proxmox` + registry `random` (mocked) |
 | `roots/services-vms/tests/ha.tftest.hcl` | `proxmox` (mocked) |

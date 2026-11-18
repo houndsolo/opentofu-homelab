@@ -1,13 +1,11 @@
 # fabric/macs: leaf VM MAC calculator
 
-Fixed MACs for the data NICs of the leaf VMs (`vtep-<node>`). Creates nothing. Called by two roots
-so both agree:
+Fixed MACs for the data NICs of the leaf VMs (`vtep-<node>`). Creates nothing. Called by
+[fabric-vms](../../../roots/fabric-vms/README.md) for the Proxmox NICs (`network_devices`).
 
-- [fabric-vms](../../../roots/fabric-vms/README.md): Proxmox NICs (`network_devices`).
-- [fabric-leaves](../../../roots/fabric-leaves/README.md): VyOS `hw-id` bindings (`fabric_macs`).
-
-Why: VyOS binds interface names to MACs. With random MACs a recreated NIC could come back as a
-different `ethN` (the spine link as `eth3`); fixed MACs + `hw-id` keep `eth1` = spine 1.
+Why: a recreated NIC keeps its MAC, so a leaf port always shows the same address. The interface
+*name* no longer depends on it: current VyOS (2026-11 rolling) dropped `hw-id` and names `ethN` by
+slot at boot, and the Proxmox NIC order (net1..net3) is fixed.
 
 ## Format
 
@@ -42,7 +40,6 @@ module "proxmox_fabric_macs" {
 #   { bridge = "vmbr4002", mac_address = "02:00:00:17:00:02" },  # eth2
 #   { bridge = "vmbr4000", mac_address = "02:00:00:17:00:03" },  # eth3
 # ]
-# fabric_macs["venom"] = { eth1 = "02:00:00:17:00:01", eth2 = "...:02", eth3 = "...:03" }
 ```
 
 ## Changing NIC order or MACs
@@ -50,10 +47,6 @@ module "proxmox_fabric_macs" {
 The MAC follows the **position**, not the bridge: reordering `underlay_bridges` plugs `eth1`
 (`...:00:01`) into a different bridge. The leaf config expects `eth1`/`eth2` = spine links and
 `eth3` = access trunk.
-
-When NIC MACs change on a running leaf: apply `fabric-vms` first (Proxmox NICs), then
-`fabric-leaves` (`hw-id`). If VyOS still reports a conflict, check
-`show configuration commands | match hw-id` and delete stale bindings.
 
 ## Tests
 

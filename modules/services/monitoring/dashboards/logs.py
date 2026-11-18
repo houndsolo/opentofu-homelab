@@ -332,7 +332,7 @@ def event_sel(sel, name):
     return f"{sel} |~ `{EVENT_RE[name]}`" + (f' | host=~"{WLC_HOSTS}"' if name in WLC_ONLY else "")
 
 
-# RouterOS (spines, CRS317): overlay-leaf-20-1 {l_addr: fd69:255:240::1, r_addr: fd69:255:240::20} Established
+# RouterOS (spines, CRS317): leaf-20-1 {l_addr: <local>, r_addr: <peer>} Established (spine sessions are leaf-<id>-1)
 ROS_BGP_CHANGE = r"\{l_addr: "
 ROS_BGP_PARSE = r"| regexp `(?P<peer_name>\S+) \{l_addr: [^,]+, r_addr: (?P<peer>[^}]+)\} (?P<state>[A-Za-z]+(?: [a-z]+)*)`"
 BGP_STATE_MAP = mapping(Established=("Established", "green"), Idle=("Idle", "red"), Active=("Active", "orange"),

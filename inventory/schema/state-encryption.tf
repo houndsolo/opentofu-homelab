@@ -2,7 +2,7 @@
 # Roots opt in by symlinking this file and the passphrase file:
 #   roots/<root>/state-encryption.tf        -> ../../inventory/schema/state-encryption.tf
 #   roots/<root>/state.secret.auto.tfvars   -> ../../inventory/auto.tfvars.secret/state.secret.auto.tfvars
-# Encrypted now: certs, services-config. Without the passphrase their state cannot be read, so keep
+# Encrypted now: certs, radius, services-config. Without the passphrase their state cannot be read, so keep
 # a copy outside a0-nix. Never rename the "state" key provider or method: encrypted files record
 # those names (a rename needs a fallback block, see the OpenTofu state encryption docs).
 variable "state_passphrase" {

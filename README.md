@@ -6,7 +6,7 @@ DNS records, software versions); independent **roots** read it and build one lay
 
 - **Proxmox VE hosts**: NICs, LACP bond, bridges, VLAN interfaces; datacenter/DNS/time settings.
 - **EVPN/VXLAN fabric**: one VyOS leaf VM (`vtep-<host>`) per Proxmox host, three physical VyOS
-  leaves, and two MikroTik RouterOS spines (BGP underlay, EVPN route reflectors).
+  leaves, and two MikroTik RouterOS spines (eBGP: underlay and EVPN on one session per link).
 - **Service VMs**: DNS (BIND in Podman), DHCP (VyOS, HA pair), monitoring (Prometheus,
   Alertmanager, Grafana, Loki, Mimir), Patroni Postgres, NetBox, Valkey, dark-triage, nginx
   reverse proxy pair. Configured by `services-config` and `monitoring-config`.
@@ -43,7 +43,7 @@ gateway for those VLANs and carries them across the fabric as VXLAN.
 | [modules/](modules/README.md) | Shared logic: VM, host networking, leaf/spine config, DHCP, monitoring |
 | [providers/](providers/README.md) | Git submodules: source of the custom `proxmox`, `vyoscmd` and `routeros` providers |
 | [ansible/](ansible/README.md) | Hand-run Proxmox host chores (bashrc, popup patch, smartd, apt upgrades, rolling reboot); inventory generated from `inventory/auto.tfvars/nodes.auto.tfvars` |
-| [tooling/](tooling/README.md) | Provider build, `walk-roots.sh` runner, `with-secrets`, import helpers, tests |
+| [tooling/](tooling/README.md) | Provider build, `walk-roots.sh` runner, `with-secrets`, the Proxmox network import helper, tests |
 | [examples/](examples/README.md) | Commented example values; nothing loads them |
 | `shell.nix`, `.envrc` | Dev shell (OpenTofu, Python + `python-hcl2`, git, Ansible, `TF_CLI_CONFIG_FILE`) via direnv or `nix-shell`. Go for provider builds is in `tooling/build-shell.nix`. |
 
@@ -54,13 +54,18 @@ monitoring-config), `vancluever/acme` (certs).
 
 ### Underlay and overlay
 
-- **Underlay**: eBGP leaf-to-spine over IPv6 link-local only (BGP unnumbered, FRR
-  `neighbor ethN interface v6only`); no addresses on the links. A leaf advertises only its
-  loopback `/128` (its VTEP).
-- **Underlay AS**: every leaf and spine `underlay_as_base` (700) + its ID (spines 701/702),
-  so venom (17) is AS 717.
-- **Overlay**: iBGP L2VPN EVPN in AS 700 (`overlay_as`) between loopbacks. The spines are route
-  reflectors; leaves peer only with the spines. BFD on every session.
+- **One eBGP session per leaf-spine link** over IPv6 link-local only (BGP unnumbered, FRR
+  `neighbor ethN interface v6only`); no addresses on the links. It carries both address families;
+  BFD on every session. No iBGP, no route reflectors, no loopback sessions.
+- **AS numbers**: every leaf and spine is `underlay_as_base` (700) + its ID: spines 701/702, venom
+  (17) is AS 717, in the default and every VRF BGP instance.
+- **Underlay** (ipv6-unicast): a leaf advertises only its loopback `/128` (its VTEP) and is never
+  transit.
+- **Overlay** (l2vpn-evpn): the spines pass EVPN routes on with the originating VTEP as next hop,
+  so VXLAN goes leaf to leaf. A leaf never sends a spine-learned route back to a spine; it uses both
+  spines' paths (`bestpath as-path multipath-relax`). L2VNI route targets are explicit
+  `<route_target_as>:<VNI>` (`700:9008`), because FRR would otherwise derive them from each leaf's
+  own AS.
 - **Data plane**: VXLAN over IPv6 from the leaf loopback, head-end replication (no underlay
   multicast). One external-mode `vxlan0` per leaf with VLAN-to-VNI mappings.
 
@@ -172,7 +177,7 @@ Roots don't read each other's state; the order is real-world readiness. It's the
 2. [proxmox-network](roots/proxmox-network/README.md): host NICs, bond, bridges, VLANs
 3. [proxmox-settings](roots/proxmox-settings/README.md): datacenter options, DNS, time zone
 4. [fabric-vms](roots/fabric-vms/README.md): one VyOS leaf VM per Proxmox host
-5. [fabric-spines](roots/fabric-spines/README.md): BGP, BFD, EVPN on the spines
+5. [fabric-spines](roots/fabric-spines/README.md): loopback, leaf ports, one eBGP session per leaf (underlay + EVPN) on the spines
 6. [fabric-leaves](roots/fabric-leaves/README.md): EVPN/VXLAN config on every leaf
 7. [services-vms](roots/services-vms/README.md): every service VM
 8. [certs](roots/certs/README.md): Let's Encrypt wildcard for the proxy VMs
@@ -180,10 +185,11 @@ Roots don't read each other's state; the order is real-world readiness. It's the
 10. [monitoring-config](roots/monitoring-config/README.md): Prometheus, Alertmanager, Grafana, Loki, Mimir, Patroni Postgres
 11. [workloads](roots/workloads/README.md): ordinary VMs
 
-`proxmox-virtual-hosts` is empty and skipped. Prerequisites per root: [roots/README.md](roots/README.md).
+[radius](roots/radius/README.md) (RADIUS users, groups, clients) is run by hand, not by the walk.
+Prerequisites per root: [roots/README.md](roots/README.md).
 
 ## Tests
 
 `tofu test` suites (`*.tftest.hcl`) in the modules and in `services-vms`, `services-config`,
-`monitoring-config` and `proxmox-settings`; Python unit tests for the tooling. None touch real
+`monitoring-config`, `radius` and `proxmox-settings`; Python unit tests for the tooling. None touch real
 infrastructure. See [modules/](modules/README.md#tests) and [tooling/](tooling/README.md#tests).

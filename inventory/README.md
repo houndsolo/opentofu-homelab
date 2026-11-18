@@ -33,11 +33,11 @@ replace a link with a copy (that root silently stops seeing changes).
 | File | Variable(s) | Describes | Linked into |
 | --- | --- | --- | --- |
 | `nodes.auto.tfvars` | `nodes` | Proxmox hosts, IDs, how to reach them | every root except certs |
-| `fabric.auto.tfvars` | `fabric` | AS numbers, addressing, physical leaves, spines, NTP/exporters/syslog | fabric-vms, fabric-spines, fabric-leaves, services-config, monitoring-config |
-| `fabric-vms.auto.tfvars` | `fabric_vms` | Leaf VM naming and NICs | fabric-vms, fabric-leaves |
+| `fabric.auto.tfvars` | `fabric` | AS numbers, addressing, physical leaves, spines, NTP/exporters/syslog | fabric-vms, fabric-spines, fabric-leaves, radius, services-config, monitoring-config |
+| `fabric-vms.auto.tfvars` | `fabric_vms` | Leaf VM naming and NICs | fabric-vms |
 | `pve-network.auto.tfvars` | `pve_network` | Host NICs, bond, bridges, VLAN interfaces | proxmox-network, monitoring-config |
 | `vm-config.auto.tfvars` | `vm_config`, `vm_images` | Shared VM defaults, named images | fabric-vms, services-vms, workloads |
-| `vms.auto.tfvars` | `vms` | Every VM: owner, role, placement, NICs, overrides | proxmox-download-files, fabric-vms, services-vms, certs, services-config, monitoring-config, workloads |
+| `vms.auto.tfvars` | `vms` | Every VM: owner, role, placement, NICs, overrides | proxmox-download-files, fabric-vms, services-vms, certs, radius, services-config, monitoring-config, workloads |
 | `vnis.auto.tfvars` | `vnis` | VRFs (L3VNIs), VLANs (L2VNIs), route-targets, DHCP scopes | fabric-leaves, services-vms, services-config |
 | `l2vnis.auto.tfvars` | `l2vnis` | Standalone HA peer L2VNIs `ha_<svc>` (no VRF, gateway or DHCP): VLAN 10aa / VNI 50aa / `10.50.aa.0/24` | fabric-leaves, services-vms, services-config |
 | `dns-records.auto.tfvars` | `dns_hosts`, `dns_records` | Extra records in `lylat.space` (what isn't generated) | services-config |
@@ -81,18 +81,18 @@ nodes = {
 ```hcl
 fabric = {
   settings = {
-    underlay_as_base          = 700                 # leaf/spine underlay AS = this + ID -> venom AS 717, m326-1 701
-    overlay_as                = 700                 # iBGP EVPN AS, leaves and spines
+    underlay_as_base          = 700                 # leaf/spine AS = this + ID -> venom AS 717, m326-1 701
+    route_target_as           = 700                 # L2VNI route targets: 700:<VNI>, the same on every leaf
     loopback_ipv4_prefix      = "10.255.240.0/24"   # router-IDs: .<ID>
     loopback_ipv6_prefix      = "fd69:255:240::/64" # VTEPs: ::<ID>
     loopback_interface        = "dum240"            # VyOS dummy holding both loopbacks
     management_prefix         = "10.20.10.0/24"     # leaf eth0 / API: .<ID> ...
     management_prefix_length  = 16                  # ... with this length -> 10.20.10.17/16
-    l2_vni_base               = 9000                # unused
     ntp_servers               = ["10.20.10.255"]    # spines and leaves (fw-wan, mgmt network)
     leaf_ntp_vrf              = "mgmt"
     leaf_prometheus_exporters = { vrf = "mgmt" }
     leaf_syslog  = { hosts = ["10.20.11.34", "10.20.11.35", "10.20.11.36"], vrf = "mgmt" }
+    leaf_radius  = { vrf = "mgmt" }
     spine_syslog = { host = "10.5.11.101" }
     # vxlan_mtu = 9119   # default; tenant side
     # outer_mtu = 9189   # default; underlay side
@@ -100,7 +100,7 @@ fabric = {
   leaves = {           # physical leaves only; one "proxmox" leaf per Proxmox host is generated
     external_l2_01 = {
       role             = "external_l2" # proxmox, external_l2 or external_l3
-      id               = 42            # unique across leaves AND spines (shared loopback prefix)
+      id               = 42            # unique across leaves AND spines (shared loopback prefix, AS = base + id)
       access_interface = "eth3"        # trunk towards hosts
       spine_uplink     = "ether10"     # spine port, if not ether<ID>
     }
@@ -122,7 +122,8 @@ Ports by default: on a leaf, spine *N* is `ethN`; on a spine, leaf *ID* is `ethe
 
 `management_prefix`/`_length` feed the leaf VMs' `eth0` (fabric-vms), the API address
 (fabric-leaves) and the `leaf-<ID>` DNS records (services-config), so they can't drift.
-Route-targets in `vnis.auto.tfvars` are literal: changing an AS doesn't rewrite them.
+Route-targets in `vnis.auto.tfvars` are literal: changing an AS doesn't rewrite them. Keep their
+administrator part equal to `route_target_as`.
 
 Optional settings (null/absent = don't manage; never removes existing config):
 
@@ -132,6 +133,7 @@ Optional settings (null/absent = don't manage; never removes existing config):
 | `leaf_ntp_vrf` | VRF the leaf NTP client runs in (`mgmt`, to reach fw-wan). Spines ignore it. |
 | `leaf_prometheus_exporters` | VyOS node-exporter (9100) and frr-exporter (9342, with `bgp-l2-vpn` collector and peer-hostname labels) on each leaf's mgmt address in `vrf`. Scraped by monitoring-config (`vyos-node`, `vyos-frr`). |
 | `leaf_syslog` | Leaf syslog (facility `all`, level `info`+) to every host in `hosts` (loki01-03's own mgmt addresses; no VIP on mgmt), from `vrf`. TCP 514, RFC 5424 with timezone, octet-counted framing. Options: `port`, `protocol` (`tcp`/`udp`), `facility`, `level`. The DHCP VMs get the same commands from services-config's `dhcp_syslog`. |
+| `leaf_radius` | RADIUS login on the leaves (`system login radius`), reached from `vrf`. Servers and each leaf's secret come from [roots/radius](../roots/radius/README.md) (`radius-clients.secret.auto.tfvars`, linked into fabric-leaves); a leaf without a secret is left alone. |
 | `spine_syslog` | Spines' built-in `remote` action to the Loki/Alloy VIP (`logs-vip`): UDP 514, BSD syslog (RFC 3164), facility `daemon`, sent from the VLAN 5 address. One logging rule per `topics` entry (default `info`, `warning`, `error`, `critical`). Options: `port`, `facility`, `topics`. |
 
 ### fabric-vms.auto.tfvars: the leaf VMs
@@ -220,6 +222,11 @@ One `vms` map. `owner` decides which root creates the VM; service VMs also take 
 | `services-vms` | `netbox` | services-config | `netbox01`, `netbox02` |
 | `services-vms` | `valkey` | services-config (Valkey + Sentinel) | `valkey01`-`valkey03` |
 | `services-vms` | `proxy` | certs, services-config (nginx) | `proxy01`, `proxy02` |
+| `services-vms` | `nextcloud` | services-config | `nc01`-`nc03` |
+| `services-vms` | `radius` | services-config (FreeRADIUS), [radius](../roots/radius/README.md) (users, groups, clients) | `rad01`, `rad02` |
+| `services-vms` | `gitea` | services-config | `git01`, `git02` |
+| `services-vms` | `arr` | services-config | `arr01` |
+| `services-vms` | `bao` | certs, services-config (OpenBao) | `bao01`-`bao03` |
 | `services-vms` | none | nothing | any other service VM |
 | `workloads` | none | nothing | ordinary VMs |
 | `fabric-vms` | none | fabric-leaves | only **overrides** of generated `vtep-<node>` VMs |
@@ -445,7 +452,7 @@ Everything derived from venom's ID, 17:
 | VTEP / IPv6 loopback | `fd69:255:240::17` | `loopback_ipv6_prefix` |
 | Leaf VXLAN/bridge MAC | `00:13:37:00:00:17` | `modules/fabric/leaf/addressing.tf` |
 | Leaf NIC MACs (eth1-eth3) | `02:00:00:17:00:01`-`:03` | [modules/fabric/macs](../modules/fabric/macs/README.md) |
-| Leaf underlay AS | `717` | `underlay_as_base` + ID |
+| Leaf AS (default and VRF instances) | `717` | `underlay_as_base` + ID |
 | Spine port facing the leaf | `ether17` | `ether<ID>` |
 | Leaf hostname | `LEAF-17` | `modules/fabric/leaf/system.tf` |
 | DNS | `venom.lylat.space` → `10.20.7.17`, `leaf-17.lylat.space` → `10.20.10.17` | services-config |
@@ -473,8 +480,12 @@ machine that runs OpenTofu. Git ignores the directory and any `*.secret.auto.tfv
 | `app-db.secret.auto.tfvars` | `app_db_passwords` (app database passwords) | services-config, monitoring-config |
 | `netbox.secret.auto.tfvars` | `netbox_cephfs_key` (CephFS key for the media mount) | services-config |
 | `gitea.secret.auto.tfvars` | `gitea_cephfs_key` (CephFS key of client.gitea, `/gitea`) | services-config |
+| `nextcloud.secret.auto.tfvars` | `nextcloud_cephfs_key` | services-config |
+| `arr.secret.auto.tfvars` | `arr_cephfs_key` | services-config |
+| `radius.secret.auto.tfvars` | `password_hashes` (crypt hashes of chosen RADIUS passwords) | radius |
+| `radius-clients.secret.auto.tfvars` | `radius_servers`, `radius_client_secrets`; **written by roots/radius**, don't edit | fabric-leaves |
 | `cloudflare.secret.auto.tfvars` | `cloudflare` (API token per zone, DNS-01) | certs |
-| `state.secret.auto.tfvars` | `state_passphrase` (state/plan encryption, >= 32 chars) | certs, services-config |
+| `state.secret.auto.tfvars` | `state_passphrase` (state/plan encryption, >= 32 chars) | certs, radius, services-config |
 | `ssh_keys.secret.auto.tfvars` | `ssh_keys` | nothing (no root reads it) |
 
 ```hcl
@@ -551,14 +562,3 @@ refuses a root that links that same file. `walk-roots.sh` runs plain `tofu` in r
 - Network terms: `ip`, `vlan`, `vni`, `mac`; write `management`, not `mgmt`.
 - `prefix` = CIDR string (`"10.20.10.0/24"`); `prefix_length` = number (`16`).
 - Provider field names as the provider spells them.
-
-## Fields that aren't used yet
-
-Declared in `schema/` (some set in the value files) but read by no code:
-
-| File | Fields |
-| --- | --- |
-| `fabric.settings` | `l2_vni_base` |
-| `vnis` (VRF level) | `import_ipv4_vrfs`, `redistribute_ipv4`, `anycast_mac` |
-| `vnis` (VLAN level) | `advertise_default_gw`, `advertise_svi_ip`, `export_ipv4_unicast` |
-| secrets | `ssh_keys` |

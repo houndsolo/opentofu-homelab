@@ -16,7 +16,7 @@ is real-world readiness (a leaf can't be configured until its VM boots and its A
 | `*.auto.tfvars` → `inventory/auto.tfvars/` | Values |
 | `*.variables.tf` → `inventory/schema/` | Variable declarations |
 | `providers.tf`/`*-provider.tf`, `versions.tf` → `inventory/provider-config/`, `inventory/versions/` | Provider blocks and version pins (services-config and monitoring-config have their own `providers.tf`) |
-| `state-encryption.tf` → `inventory/schema/` | State/plan encryption (certs, services-config) |
+| `state-encryption.tf` → `inventory/schema/` | State/plan encryption (certs, radius, services-config) |
 | `*.secret.auto.tfvars` → `inventory/auto.tfvars.secret/` | Credentials this root needs. Git-ignored. |
 | `.terraform/`, `.terraform.lock.hcl` | From `tofu init`. Git-ignored (local provider builds give per-machine checksums). |
 | `terraform.tfstate` | State. Git-ignored. Back it up. |
@@ -31,13 +31,18 @@ is real-world readiness (a leaf can't be configured until its VM boots and its A
 | 2 | [proxmox-network](proxmox-network/README.md) | NICs, bond, bridges, VLAN interfaces on each cluster node | Console access in case management is cut off | `proxmox` |
 | 3 | [proxmox-settings](proxmox-settings/README.md) | Datacenter options, DNS, time zone on every host | Nothing (existing settings are imported) | `proxmox` |
 | 4 | [fabric-vms](fabric-vms/README.md) | A `vtep-<host>` VyOS VM per Proxmox host | VyOS image + `vyos_api.yml` snippet on `cephfs`; `vmbr4000`-`vmbr4002` on every host | `proxmox` |
-| 5 | [fabric-spines](fabric-spines/README.md) | BGP, BFD, EVPN route reflection on the spines | Spines reachable, REST API on | `routeros` |
-| 6 | [fabric-leaves](fabric-leaves/README.md) | EVPN/VXLAN config on every leaf | Leaf VMs booted, HTTPS API on | `vyos` |
+| 5 | [fabric-spines](fabric-spines/README.md) | Loopback, leaf ports, one eBGP session per leaf (underlay + EVPN), BFD on the spines | Spines reachable, REST API on | `routeros` |
+| 6 | [fabric-leaves](fabric-leaves/README.md) | EVPN/VXLAN config on every leaf | Leaf VMs booted, HTTPS API on | `vyos`, `radius-clients` |
 | 7 | [services-vms](services-vms/README.md) | Every `owner = "services-vms"` VM | Images and host bridges | `proxmox` |
 | 8 | [certs](certs/README.md) | Let's Encrypt wildcard (Cloudflare DNS-01), copied to the proxy VMs over SSH | Proxy VMs exist | `cloudflare`, `state` |
-| 9 | [services-config](services-config/README.md) | BIND (SSH), DNS records (RFC 2136), DHCP (VyOS API), NetBox, Valkey, dark-triage, nginx (SSH) | Service VMs have Podman + passwordless sudo; fabric routes VLAN 8; certificate on the proxy VMs | `vyos`, `app-db`, `netbox`, `state` |
+| 9 | [services-config](services-config/README.md) | BIND (SSH), DNS records (RFC 2136), DHCP (VyOS API), NetBox, Valkey, dark-triage, nginx (SSH) | Service VMs have Podman + passwordless sudo; fabric routes VLAN 8; certificate on the proxy VMs | `vyos`, `app-db`, `netbox`, `gitea`, `nextcloud`, `arr`, `state` |
 | 10 | [monitoring-config](monitoring-config/README.md) | Prometheus, Alertmanager, exporters, Telegraf, Grafana, Loki, Mimir, Patroni Postgres (SSH); PVE metric servers (API) | Monitoring VMs have Podman + passwordless sudo; zone segments, lylat-telemetry (VLAN 1501) and the `ha_*` L2VNIs on the leaves | `proxmox`, `monitoring`, `logging`, `metrics`, `postgres`, `app-db` |
 | 11 | [workloads](workloads/README.md) | Every `owner = "workloads"` VM | Images and host bridges | `proxmox` |
+
+[radius](radius/README.md) (RADIUS users, groups and clients on the rad01/02 pair; linked secrets
+`radius`, `state`) is not part of the walk: run it by hand once services-config has deployed
+FreeRADIUS. It writes `radius-clients.secret.auto.tfvars`, which fabric-leaves reads for the leaves'
+RADIUS login.
 
 Secret file names are `<name>.secret.auto.tfvars`. The SSH roots (Proxmox roots, certs,
 services-config, monitoring-config) also read `ssh_private_key_path` (default `~/.ssh/id_rsa`).
@@ -79,14 +84,10 @@ commands with `tooling/with-secrets` ([Secrets](../inventory/README.md#secrets))
 ## State
 
 - `terraform.tfstate` (+ `.backup`) lives in each root folder, git-ignored.
-- It holds secrets in plain text (e.g. generated passwords in monitoring-config). certs and
+- It holds secrets in plain text (e.g. generated passwords in monitoring-config). certs, radius and
   services-config state and plans are encrypted with the passphrase in
   `state.secret.auto.tfvars`: keep a copy of the passphrase, or that state is unreadable.
 - Lost state: OpenTofu doesn't delete anything, but the next apply tries to create it again.
   Recover with `tofu import`.
 - One state per real object. To move one between roots: `tofu state rm` in the old root (forgets,
   doesn't delete), then `tofu import` in the new one.
-
-## Unfinished roots
-
-`proxmox-virtual-hosts`: an empty `main.tf`. walk-roots.sh excludes it.

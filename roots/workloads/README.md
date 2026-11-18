@@ -2,7 +2,8 @@
 
 Creates every VM in [`vms.auto.tfvars`](../../inventory/auto.tfvars/vms.auto.tfvars) with
 `owner = "workloads"`, using the shared [VM module](../../modules/README.md#proxmoxvm). Nothing
-configures them afterwards and they get no generated NICs. Today there are none.
+configures them afterwards and they get no generated NICs. Today: `ebgptest11` and `ebgptest15`, the test hosts
+used to verify the eBGP fabric (temporary).
 
 ## Adding a workload VM
 

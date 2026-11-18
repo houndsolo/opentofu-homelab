@@ -102,7 +102,7 @@ adds `[b]ootstrap DNS`):
 - Roots with a linked `*.secret.auto.tfvars` run plain `tofu`; others go through `with-secrets`
   if `inventory/auto.tfvars/passwords.secret.auto.tfvars` exists.
 - Only runs `tofu`: doesn't create images, APIs or credentials.
-- `proxmox-virtual-hosts` isn't in its list; naming it exits 2.
+- A root that isn't in its list exits 2.
 
 ## with-secrets
 
@@ -129,10 +129,10 @@ shared secrets; run tofu without with-secrets`). Never prints values, even on a 
 variables exist only for the child. See also
 [inventory/README.md](../inventory/README.md#the-alternative-one-file-and-the-wrapper).
 
-## Import helpers
+## Import helper
 
-Not executable; run through the interpreter. Both have hard-coded assumptions (the spine script's
-object names, the import script's node/interface lists): read them first.
+Not executable; run through the interpreter. It has hard-coded node and interface lists: read it
+first.
 
 | Script | Run | Details |
 | --- | --- | --- |
@@ -149,3 +149,4 @@ python3 -m unittest discover -s tooling/tests
 | `test_walk_roots.py` | Python (fake `tofu`) | apply needs `yes` and uses the saved plan; declining never applies; failure stops the walk; bootstrap then full apply; dependency order; skipped/unknown roots run nothing; linked root runs plain `tofu`, unlinked uses the wrapper |
 | `test_with_secrets.py` | real OpenTofu (`TOFU_TEST_BINARY=...`; skipped if none) + `python-hcl2` | types/escaping preserved; no leak on parse error; linked root refused; no undeclared-variable warnings |
 | `test_schemas.py` | Python | `inventory/schema/vm.tf`, `vms.tf` and `vm-config.tf` list the same VM settings |
+| `test_ansible_inventory.py` | `python-hcl2` | `ansible/inventory/tfvars.py`: groups, addresses and order from a fixture and from the real `nodes.auto.tfvars` |
