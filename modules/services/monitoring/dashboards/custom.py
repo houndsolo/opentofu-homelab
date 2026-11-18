@@ -641,9 +641,9 @@ def frr():
         q(f"{lbl} (frr_bgp_peer_prefixes_advertised_count_total{{{h}}})", table=True),
         q(f"{lbl} (rate(frr_bgp_peer_message_received_total{{{h}}}[5m]))", table=True),
         q(f"{lbl} (rate(frr_bgp_peer_message_sent_total{{{h}}}[5m]))", table=True),
-    ], desc="One row per session. Underlay sessions use interface peers (eth1/eth2, BGP unnumbered); "
-            "EVPN sessions go to the spines' loopbacks. peer_hostname is only filled in where FRR "
-            "learns it from the peer (external sessions).",
+    ], desc="One row per session and address family. A leaf has one eBGP session per spine link "
+            "(interface peers eth1/eth2, BGP unnumbered) that carries both ipv6/unicast (the VTEP "
+            "loopbacks) and l2vpn/evpn. peer_hostname is only filled in where FRR learns it from the peer.",
         transformations=[MERGE, organize(exclude=["Time"], rename={
             "host": "Router", "vrf": "VRF", "afi": "AFI", "safi": "SAFI", "peer": "Peer",
             "peer_hostname": "Peer hostname", "peer_as": "Peer AS", "local_as": "Local AS",
@@ -683,7 +683,7 @@ def frr():
     b.add(table("BFD peers", [
         q(f"max without (instance, job, role) (frr_bfd_peer_state{{{h}}})", table=True),
         q(f"max without (instance, job, role) (frr_bfd_peer_uptime{{{h}}})", table=True),
-    ], desc="Link-local peers are the underlay links to the spines; fd69:255:240::1/::2 are the spine loopbacks (EVPN).",
+    ], desc="Link-local peers are the leaf-spine links: one BFD session per spine, shared by the underlay and EVPN.",
         transformations=[MERGE, organize(exclude=["Time"], rename={
             "host": "Router", "local": "Local", "peer": "Peer", "Value #A": "State", "Value #B": "Uptime"},
             order=["Router", "Local", "Peer", "State", "Uptime"])],

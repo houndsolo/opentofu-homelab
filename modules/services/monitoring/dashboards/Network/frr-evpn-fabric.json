@@ -694,7 +694,7 @@
     {
       "type": "table",
       "title": "BGP peers",
-      "description": "One row per session. Underlay sessions use interface peers (eth1/eth2, BGP unnumbered); EVPN sessions go to the spines' loopbacks. peer_hostname is only filled in where FRR learns it from the peer (external sessions).",
+      "description": "One row per session and address family. A leaf has one eBGP session per spine link (interface peers eth1/eth2, BGP unnumbered) that carries both ipv6/unicast (the VTEP loopbacks) and l2vpn/evpn. peer_hostname is only filled in where FRR learns it from the peer.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1477,7 +1477,7 @@
     {
       "type": "table",
       "title": "BFD peers",
-      "description": "Link-local peers are the underlay links to the spines; fd69:255:240::1/::2 are the spine loopbacks (EVPN).",
+      "description": "Link-local peers are the leaf-spine links: one BFD session per spine, shared by the underlay and EVPN.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
