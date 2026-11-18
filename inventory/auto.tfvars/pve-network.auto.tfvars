@@ -165,21 +165,6 @@ pve_network = {
         "eth4002"
       ]
     }
-    4010 = {
-      mtu         = 9119
-      description = "TEST vxlan fabric access"
-      vlan_aware  = true
-    }
-    4011 = {
-      mtu         = 9189
-      description = "TEST vxlan leaf to spine 1"
-      vlan_aware  = true
-    }
-    4012 = {
-      mtu         = 9189
-      description = "TEST vxlan leaf to spine 2"
-      vlan_aware  = true
-    }
   }
 }
 

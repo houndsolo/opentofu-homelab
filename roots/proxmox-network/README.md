@@ -19,7 +19,6 @@ node ID. greatfox (`standalone = true`) is not managed here. Code:
 | `vmbr100` | `eth1` (VLAN-aware) | `10.5.1.17/16` | 9119 | vxlan l2 out |
 | `vmbr4000` | no port (VLAN-aware) | | 9119 | fabric access: VMs ↔ the host's leaf VM (`eth3`, trunk), tagged per VLAN |
 | `vmbr4001` / `vmbr4002` | `eth4001` / `eth4002` (VLAN-aware) | | 9189 | leaf ↔ spine 1 / 2 |
-| `vmbr4010`–`4012` | no ports | | 9119 / 9189 | TEST copies of 4000–4002 |
 | `vmbr4000.2` | VLAN 2 on `vmbr4000` | `10.2.0.17/16`, **gateway `10.2.0.1`** | 1500 | vxlan-webui: the host on VLAN 2 (VRF `lylat-edge`) |
 
 The NICs `eth0`, `eth1`, `eth7`, `eth10`, `eth22`, `eth27`, `eth4001`, `eth4002` get MTU and a
