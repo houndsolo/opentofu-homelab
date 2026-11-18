@@ -1,7 +1,7 @@
 fabric = {
   settings = {
     underlay_as_base         = 700 # leaf/spine AS = this + id (leaf-17 717, m326-1 701)
-    overlay_as               = 700 # L2VNI route targets are 700:<vni>
+    route_target_as          = 700 # L2VNI route targets are 700:<vni>
     loopback_ipv4_prefix     = "10.255.240.0/24"
     loopback_ipv6_prefix     = "fd69:255:240::/64"
     loopback_interface       = "dum240"

@@ -3,7 +3,7 @@ variable "fabric" {
   type = object({
     settings = object({
       underlay_as_base         = number # AS of every leaf and spine = base + its id (leaf-17 717, m326-1 701).
-      overlay_as               = number # Administrator part of the L2VNI route targets (<this>:<vni>), the same on every leaf.
+      route_target_as          = number # Administrator part of the L2VNI route targets (<this>:<vni>), the same on every leaf.
       loopback_ipv4_prefix     = string
       loopback_ipv6_prefix     = string
       loopback_interface       = string

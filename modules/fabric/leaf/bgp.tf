@@ -27,14 +27,14 @@ locals {
     "set protocols bgp parameters bestpath as-path multipath-relax",
     "set protocols bgp parameters fast-convergence",
   ]
-  # Route targets are explicit <overlay_as>:<vni> on every L2VNI: FRR would otherwise derive them from
+  # Route targets are explicit <route_target_as>:<vni> on every L2VNI: FRR would otherwise derive them from
   # the leaf's own AS, and no two leaves would import each other's routes. (L3VNI RTs are explicit in
   # vnis.auto.tfvars.)
   bgp_evpn_commands = flatten([
     for vni_id, l2vni in merge(local.l2vnis, local.role_l2only_vnis) : [
       "set protocols bgp address-family l2vpn-evpn vni ${vni_id} rd '${local.router_id}:${vni_id}'",
-      "set protocols bgp address-family l2vpn-evpn vni ${vni_id} route-target export '${var.fabric.settings.overlay_as}:${vni_id}'",
-      "set protocols bgp address-family l2vpn-evpn vni ${vni_id} route-target import '${var.fabric.settings.overlay_as}:${vni_id}'",
+      "set protocols bgp address-family l2vpn-evpn vni ${vni_id} route-target export '${var.fabric.settings.route_target_as}:${vni_id}'",
+      "set protocols bgp address-family l2vpn-evpn vni ${vni_id} route-target import '${var.fabric.settings.route_target_as}:${vni_id}'",
     ]
   ])
 
