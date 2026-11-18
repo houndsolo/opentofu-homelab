@@ -19,7 +19,7 @@ locals {
   # still names main.tf node_exporter_collectors, a local that no longer exists; it renders onto every
   # service VM, so it is corrected with the next exporter redeploy, not now.)
   node_exporter_parts = {
-    for name, vm in local.alloy_vms : name => {
+    for name, vm in local.monitored_service_vms : name => {
       units  = ["node-exporter"]
       images = [local.container_images.node_exporter]
       dirs   = []

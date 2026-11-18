@@ -1,4 +1,4 @@
-# Grafana Alloy on every service VM this root configures (local.alloy_vms): the journal (every
+# Grafana Alloy on every service VM this root configures (local.monitored_service_vms): the journal (every
 # Quadlet container included) to Loki with the same labels as monitoring-config's VMs
 # (source="journal", host, unit, container, app, level). It replaced the rsyslog forwarder
 # (source="syslog", retired on every VM by 2026-11-14). Alloy's HTTP listener (/metrics,
@@ -22,19 +22,21 @@ variable "alloy" {
 # Every Alloy VM pushes from its telemetry NIC; without one it has no route to the VIP (lylat-telemetry is isolated).
 check "alloy_telemetry_nic" {
   assert {
-    condition     = var.alloy == null || alltrue([for name in keys(local.alloy_vms) : local.telemetry_ip[name] != null])
-    error_message = "Every Alloy VM needs a NIC on VLAN ${var.telemetry_vlan_id} (lylat-telemetry): ${join(", ", [for name in keys(local.alloy_vms) : name if local.telemetry_ip[name] == null])}."
+    condition     = var.alloy == null || alltrue([for name in keys(local.monitored_service_vms) : local.telemetry_ip[name] != null])
+    error_message = "Every Alloy VM needs a NIC on VLAN ${var.telemetry_vlan_id} (lylat-telemetry): ${join(", ", [for name in keys(local.monitored_service_vms) : name if local.telemetry_ip[name] == null])}."
   }
 }
 
 locals {
-  alloy_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms, local.gitea_vms, local.arr_vms, local.openbao_vms)
+  # Every service VM this root configures: the Alloy parts (below) and the node_exporter parts
+  # (dns-node-exporter.tf, also when var.alloy is null) are built for each of them.
+  monitored_service_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms, local.gitea_vms, local.arr_vms, local.openbao_vms)
 
   # VM name => Alloy's part of a deployment (modules/services/quadlet-deploy inputs); empty when var.alloy is
   # null. The config is validated in a throwaway container; a config change reloads Alloy (ExecReload, SIGHUP),
   # a unit change restarts it. The image has no curl/wget, so readiness is checked from the host (verify).
   alloy_parts = {
-    for name, vm in(var.alloy == null ? {} : local.alloy_vms) : name => {
+    for name, vm in(var.alloy == null ? {} : local.monitored_service_vms) : name => {
       units  = ["alloy"]
       images = [local.container_images.alloy]
       dirs   = [{ path = "/var/lib/alloy", mode = "0750" }]
