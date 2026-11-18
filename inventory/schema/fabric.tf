@@ -65,4 +65,10 @@ variable "fabric" {
     )
     error_message = "fabric.settings.leaf_syslog.protocol must be tcp or udp, and hosts must not be empty."
   }
+  # Every leaf's underlay and EVPN sessions go to the spines; the leaf module renders the spine peer group and
+  # the AS-FROM-SPINES filter unconditionally.
+  validation {
+    condition     = length(var.fabric.spines) > 0
+    error_message = "fabric.spines must list at least one spine."
+  }
 }

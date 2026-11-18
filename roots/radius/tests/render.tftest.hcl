@@ -61,3 +61,11 @@ run "clear_text_password_rejected" {
   }
   expect_failures = [var.password_hashes]
 }
+
+run "fabric_without_spines_rejected" {
+  command = plan
+  variables {
+    fabric = merge(var.fabric, { spines = {} })
+  }
+  expect_failures = [var.fabric]
+}
