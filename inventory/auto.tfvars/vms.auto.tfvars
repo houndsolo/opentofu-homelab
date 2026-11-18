@@ -1578,4 +1578,55 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+
+  ebgptest11 = {
+    # EXPERIMENT (branch ebgp-evpn): throwaway test host behind leaf-11 (VLAN 1201, lylat-app), no HA.
+    owner              = "workloads"
+    node               = "fichina"
+    vm_id              = 9011
+    image              = "debian13"
+    management_address = "10.20.11.211/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.99.11/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::99:11/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "ebgp-test"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  ebgptest15 = {
+    # EXPERIMENT (branch ebgp-evpn): throwaway test host behind leaf-15 (VLAN 1201, lylat-app), no HA.
+    owner              = "workloads"
+    node               = "fortuna"
+    vm_id              = 9015
+    image              = "debian13"
+    management_address = "10.20.11.215/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.99.15/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::99:15/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "ebgp-test"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
 }
