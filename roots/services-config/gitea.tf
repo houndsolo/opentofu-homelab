@@ -100,7 +100,7 @@ locals {
 
   # network_devices[i] is eth<i+1>: Gitea is published on the lylat-app NIC (the one with the gateway).
   gitea_listen = !local.gitea_enabled ? {} : {
-    for name, vm in local.gitea_vms : name => one([for nic in vm.network_devices : split("/", nic.ipv4_address)[0] if nic.ipv4_address != null && nic.ipv4_gateway != null])
+    for name in keys(local.gitea_vms) : name => one(local.vm_gateway_addresses[name])
   }
 
   gitea_jwt = { for k, b in random_bytes.gitea_jwt : k => replace(replace(trimsuffix(trimsuffix(b.base64, "="), "="), "+", "-"), "/", "_") }

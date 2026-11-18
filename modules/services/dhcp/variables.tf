@@ -20,14 +20,12 @@ variable "ha_prefix" {
 }
 
 variable "ha" {
-  description = "Pair identity derived from numeric VM-ID order: the role, both HA address slots, the peer's real host name and both management addresses."
+  description = "Pair identity derived from numeric VM-ID order: the role, both HA address slots and the peer's real host name."
   type = object({
-    role                = string
-    address_slot        = number
-    peer_slot           = number
-    peer_name           = string
-    local_management_ip = string
-    peer_management_ip  = string
+    role         = string
+    address_slot = number
+    peer_slot    = number
+    peer_name    = string
   })
   default = null
 }

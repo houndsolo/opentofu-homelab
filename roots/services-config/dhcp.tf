@@ -21,12 +21,10 @@ locals {
 
   dhcp_ha = length(local.dhcp_names) == 2 ? {
     for index, name in local.dhcp_names : name => {
-      role                = index == 0 ? "primary" : "secondary"
-      address_slot        = index + 1
-      peer_slot           = 2 - index # good meme
-      peer_name           = local.dhcp_names[1 - index]
-      local_management_ip = split("/", local.dhcp_vms[name].management_address)[0]
-      peer_management_ip  = split("/", local.dhcp_vms[local.dhcp_names[1 - index]].management_address)[0]
+      role         = index == 0 ? "primary" : "secondary"
+      address_slot = index + 1
+      peer_slot    = 2 - index # good meme
+      peer_name    = local.dhcp_names[1 - index]
     }
   } : {}
 
@@ -41,15 +39,15 @@ module "dhcp" {
   source   = "../../modules/services/dhcp"
   for_each = local.dhcp_ha
 
-  ha_prefix            = var.l2vnis["ha_dhcp"].prefix
-  vnis                 = var.vnis
+  ha_prefix = var.l2vnis["ha_dhcp"].prefix
+  vnis      = var.vnis
   # Only the DNS VIP (DT-051): keepalived moves it to the healthy DNS node, and vyoscmd sorts multi-value
   # nodes as text, so a list with the node addresses would put .1/.2 ahead of the VIP. Without a VIP, fall
   # back to the node addresses.
   default_name_servers = local.dns_vip != null ? [local.dns_vip] : values(local.dns_addresses)
   interface_macs       = module.dhcp_macs.interface_macs[each.key]
   name                 = each.key
-  management_ip        = each.value.local_management_ip
+  management_ip        = split("/", local.dhcp_vms[each.key].management_address)[0]
   prometheus_exporters = var.dhcp_prometheus_exporters
   syslog               = var.dhcp_syslog
   ha                   = each.value

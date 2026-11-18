@@ -130,7 +130,7 @@ locals {
   proxy_role_servers = var.proxy == null ? {} : {
     for name, h in var.proxy.hosts : name => [
       for vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == h.role]) :
-      "${split("/", one([for nic in var.vms[vm_name].network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null]))[0]}:${h.port}"
+      "${one(local.vm_gateway_addresses[vm_name])}:${h.port}"
     ] if h.role != null
   }
 
@@ -141,7 +141,7 @@ locals {
       port = t.port
       servers = [
         for vm_name in sort([for n, vm in var.vms : n if vm.owner == "services-vms" && vm.role == t.role]) :
-        "${split("/", one([for nic in var.vms[vm_name].network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null]))[0]}:${t.target_port}"
+        "${one(local.vm_gateway_addresses[vm_name])}:${t.target_port}"
       ]
       backend = "${t.role} VMs :${t.target_port}"
     }

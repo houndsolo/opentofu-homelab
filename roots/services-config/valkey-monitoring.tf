@@ -13,7 +13,7 @@ variable "valkey_monitoring" {
 }
 
 locals {
-  valkey_monitoring_ports = { node = 9100, valkey = 9121, sentinel = 9355 }
+  valkey_monitoring_ports = { valkey = 9121, sentinel = 9355 }
 
   # The two redis_exporter Quadlets. Their image has no shell, so the deploy checks them from the host
   # (redis_up 1). A changed password file restarts the Valkey exporter.

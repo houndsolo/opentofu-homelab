@@ -167,6 +167,6 @@ resource "terraform_data" "radius" {
 output "radius_servers" {
   description = "FreeRADIUS servers: the address RADIUS clients send to (lylat-app NIC), auth 1812/udp, accounting 1813/udp."
   value = !local.radius_enabled ? {} : {
-    for name, vm in local.radius_vms : name => one([for nic in vm.network_devices : split("/", nic.ipv4_address)[0] if nic.ipv4_address != null && nic.ipv4_gateway != null])
+    for name in keys(local.radius_vms) : name => one(local.vm_gateway_addresses[name])
   }
 }

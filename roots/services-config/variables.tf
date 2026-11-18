@@ -1,5 +1,5 @@
 variable "ssh_private_key_path" {
-  description = "Local private key authorized for config.ssh_username on every VM this root deploys over SSH (DNS, NetBox, Valkey, proxy, ticketing)."
+  description = "Local private key authorized for config.ssh_username on every VM this root deploys over SSH (every service VM except the DHCP pair)."
   type        = string
   default     = "~/.ssh/id_rsa"
 }

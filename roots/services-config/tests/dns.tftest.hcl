@@ -170,7 +170,6 @@ run "dhcp_pair_identity" {
       local.dhcp_ha.dhcp01.role == "primary" &&
       local.dhcp_ha.dhcp01.address_slot == 1 &&
       local.dhcp_ha.dhcp01.peer_name == "dhcp02" &&
-      local.dhcp_ha.dhcp01.peer_management_ip == "10.20.67.2" &&
       local.dhcp_ha.dhcp02.role == "secondary" &&
       local.dhcp_ha.dhcp02.address_slot == 2 &&
       local.dhcp_ha.dhcp02.peer_name == "dhcp01"
@@ -282,7 +281,7 @@ run "alloy_journal_to_loki" {
       strcontains(nonsensitive(module.dns_alloy["dns01"].script), "validate /etc/alloy/config.alloy\n") &&
       strcontains(nonsensitive(module.dns_alloy["dns01"].script), "put '/etc/alloy/config.alloy' '0644' '0:0' reload alloy\n")
     )
-    error_message = "Alloy on every DNS/NetBox/proxy/Valkey/ticketing VM: the telemetry VIP; listener on the telemetry address :12345."
+    error_message = "Alloy on every service VM of this root: the telemetry VIP; listener on the telemetry address :12345."
   }
   assert {
     condition = (
@@ -415,5 +414,32 @@ run "bind9_deploy" {
       strcontains(nonsensitive(module.bind9["dns02"].script), "install -d -m '0750' -o '53' -g '53' '/var/lib/bind9-container/secondary'")
     )
     error_message = "BIND: key 0640 0:53, seed zones once on the primary only, zone dirs owned by bind (53)."
+  }
+}
+
+# A VM with two gateway NICs: its generated <vm> record falls back to the management address. (Service files
+# take one() of vm_gateway_addresses instead, so a service VM like that fails the plan.)
+run "two_gateway_nics_record_falls_back_to_mgmt" {
+  command = plan
+  variables {
+    vms = merge(var.vms, { twogw01 = merge(var.vms.rad01, {
+      owner              = "workloads"
+      role               = null
+      ha                 = null
+      vm_id              = 9901
+      management_address = "10.20.99.1/16"
+      network_devices = [
+        { bridge = "vmbr4000", vlan_id = 1201, ipv4_address = "10.52.99.201/16", ipv4_gateway = "10.52.0.1" },
+        { bridge = "vmbr4000", vlan_id = 1501, ipv4_address = "10.55.99.201/16", ipv4_gateway = "10.55.0.1" },
+      ]
+    }) })
+  }
+  assert {
+    condition = (
+      length(local.vm_gateway_addresses.twogw01) == 2 &&
+      local.vm_service_address.twogw01 == null &&
+      dns_a_record_set.records["twogw01|A"].addresses == toset(["10.20.99.1"])
+    )
+    error_message = "A VM with two gateway NICs gets its management address as <vm> record."
   }
 }

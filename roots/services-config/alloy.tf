@@ -1,4 +1,4 @@
-# Grafana Alloy on the service VMs (DNS, NetBox, Nextcloud, proxy, Valkey, ticketing): the journal (every
+# Grafana Alloy on every service VM this root configures (local.alloy_vms): the journal (every
 # Quadlet container included) to Loki with the same labels as monitoring-config's VMs
 # (source="journal", host, unit, container, app, level). It replaced the rsyslog forwarder
 # (source="syslog", retired on every VM by 2026-11-14). Alloy's HTTP listener (/metrics,
@@ -6,7 +6,7 @@
 # (targets.alloy there; keep the port in step). The DNS VMs get it from terraform_data.dns_alloy
 # below, the others from their <role>-monitoring.tf deployment, so changing it never restarts a service.
 variable "alloy" {
-  description = "Grafana Alloy (journal -> Loki) on the DNS, NetBox, proxy, Valkey and ticketing VMs, pushing to loki_url (Loki's telemetry VIP) from the VM's lylat-telemetry NIC. null = don't install it (and leave rsyslog alone)."
+  description = "Grafana Alloy (journal -> Loki) on every service VM this root configures, pushing to loki_url (Loki's telemetry VIP) from the VM's lylat-telemetry NIC. null = don't install it."
   type = object({
     port     = optional(number, 12345)                      # keep in step with modules/services/monitoring logging.tf
     loki_url = optional(string, "http://10.55.18.101:3100") # Loki's telemetry VIP (monitoring-config logging_settings.vips.telemetry)

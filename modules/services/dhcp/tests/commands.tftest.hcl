@@ -3,12 +3,10 @@ mock_provider "vyoscmd" {}
 variables {
   ha_prefix = "10.6.67.0/24"
   ha = {
-    role                = "primary"
-    address_slot        = 1
-    peer_slot           = 2
-    peer_name           = "dhcp02"
-    local_management_ip = "10.20.67.1"
-    peer_management_ip  = "10.20.67.2"
+    role         = "primary"
+    address_slot = 1
+    peer_slot    = 2
+    peer_name    = "dhcp02"
   }
   name          = "dhcp01"
   management_ip = "10.20.67.1"

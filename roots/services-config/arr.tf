@@ -17,7 +17,7 @@
 # reached at 10.8.7.7 over arr01's own VLAN 8 NIC (the tunnel only answers 10.8/16 and 10.27/16). Its login is entered in
 # Sonarr/Radarr by hand (see the vault note Instructions/arr-stack/arr-stack.md).
 #
-# First deploy: templates/arr-setup.sh wires what can be wired without the owner's secrets (logins, root folders,
+# First deploy: templates/arr-setup.sh.tftpl wires what can be wired without the owner's secrets (logins, root folders,
 # Prowlarr -> Sonarr/Radarr, Bazarr -> Sonarr/Radarr, Jellyfin wizard + libraries), each step once.
 variable "arr" {
   description = "arr stack on the role = \"arr\" VM: admin user, timezone, public names. null = don't deploy."
@@ -62,7 +62,7 @@ locals {
   # network_devices[i] is eth<i+1>: the UIs are published on the NIC with the gateway (VLAN 2, the same
   # VLAN as the proxies' own main NIC, so nginx reaches them without a router; proxy.tf uses that NIC too).
   arr_listen = !local.arr_enabled ? {} : {
-    for name, vm in local.arr_vms : name => one([for nic in vm.network_devices : split("/", nic.ipv4_address)[0] if nic.ipv4_address != null && nic.ipv4_gateway != null])
+    for name in keys(local.arr_vms) : name => one(local.vm_gateway_addresses[name])
   }
 
   arr_ports = { prowlarr = 9696, sonarr = 8989, radarr = 7878, bazarr = 6767, jellyfin = 8096, seerr = 5055 }

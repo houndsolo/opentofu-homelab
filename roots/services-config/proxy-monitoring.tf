@@ -13,7 +13,7 @@ variable "proxy_monitoring" {
 }
 
 locals {
-  proxy_monitoring_ports = { node = 9100, nginx = 9113 }
+  proxy_monitoring_ports = { nginx = 9113 }
 
   # nginx-prometheus-exporter: its image has no shell, so the deploy checks it from the host (nginx_up 1).
   nginx_exporter_parts = {

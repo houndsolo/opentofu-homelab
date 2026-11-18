@@ -37,11 +37,19 @@ locals {
     }
   ]...)
 
+  # A VM's service address is the address of its data NIC with a gateway. vm_gateway_addresses lists those
+  # addresses (prefix stripped) per service/workload VM. Every service file takes one() of its VM's list, so
+  # a VM with two gateway NICs fails the plan there; the generated records below tolerate it (null: the
+  # management address instead).
+  vm_gateway_addresses = {
+    for name, vm in var.vms : name => [
+      for nic in(vm.network_devices == null ? [] : vm.network_devices) : split("/", nic.ipv4_address)[0] if nic.ipv4_address != null && nic.ipv4_gateway != null
+    ] if vm.owner != "fabric-vms"
+  }
+
   # Service and workload VMs (the fabric VMs are the leaves above).
   vm_service_address = {
-    for name, vm in var.vms : name => try(split("/", one([
-      for nic in vm.network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null
-    ]))[0], null)
+    for name, vm in var.vms : name => try(one(local.vm_gateway_addresses[name]), null)
     if vm.owner != "fabric-vms"
   }
   vm_dns_hosts = merge([

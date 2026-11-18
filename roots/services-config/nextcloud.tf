@@ -102,7 +102,7 @@ locals {
 
   # network_devices[i] is eth<i+1>: nginx is published on the lylat-app NIC (the one with the gateway).
   nextcloud_listen = !local.nextcloud_enabled ? {} : {
-    for name, vm in local.nextcloud_vms : name => one([for nic in vm.network_devices : split("/", nic.ipv4_address)[0] if nic.ipv4_address != null && nic.ipv4_gateway != null])
+    for name in keys(local.nextcloud_vms) : name => one(local.vm_gateway_addresses[name])
   }
 
   # One config file for every node, on the shared config dir: Nextcloud merges *.config.php over the

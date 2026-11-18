@@ -11,11 +11,7 @@ locals {
   }
   # BIND listens on the one data NIC with an address and a gateway (the HA L2VNI NIC
   # has no gateway); the vms validation checks it.
-  dns_addresses = {
-    for name, vm in local.dns_vms : name => split("/", one([
-      for nic in vm.network_devices : nic.ipv4_address if nic.ipv4_address != null && nic.ipv4_gateway != null
-    ]))[0]
-  }
+  dns_addresses = { for name in keys(local.dns_vms) : name => one(local.vm_gateway_addresses[name]) }
   zone_data = templatefile("${path.module}/templates/lylat.space.zone.tftpl", {
     addresses = local.dns_addresses
     primary   = var.dns_primary

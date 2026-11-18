@@ -15,7 +15,7 @@
 # Memory: maxmemory with noeviction (locks and task queues must never be evicted), so a full Valkey refuses
 # writes for every app at once. Keep maxmemory well under the VMs' RAM (2 GB) and watch used/max.
 variable "valkey" {
-  description = "Valkey + Sentinel for NetBox on the role = \"valkey\" VMs. null = don't deploy."
+  description = "Valkey + Sentinel (shared by NetBox, Nextcloud and Gitea) on the role = \"valkey\" VMs. null = don't deploy."
   type = object({
     master_name         = optional(string, "netbox") # Sentinel's name for the replicated set (NetBox's REDIS_SENTINEL_SERVICE)
     quorum              = optional(number, 2)        # Sentinels that must agree the primary is down
