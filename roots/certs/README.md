@@ -1,7 +1,7 @@
 # certs
 
 One Let's Encrypt wildcard certificate, `*.lylat.space` (EC256), validated with the Cloudflare
-DNS-01 challenge and copied to every proxy VM (`owner = "services-vms"`, `role = "proxy"` in
+DNS-01 challenge and copied to every proxy and OpenBao VM (`owner = "services-vms"`, `role = "proxy"` or `"bao"` in
 [`vms.auto.tfvars`](../../inventory/auto.tfvars/vms.auto.tfvars): proxy01/02). nginx uses it for
 every proxied name (grafana, netbox, dark-triage, pve, ...).
 

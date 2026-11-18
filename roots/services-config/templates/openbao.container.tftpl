@@ -1,0 +1,39 @@
+# Managed by OpenTofu (services-config, openbao.tf). Local edits are overwritten.
+# OpenBao ${name}: host network (API :8200, Raft/forwarding :8201 on the node's addresses), data in
+# /var/lib/openbao (this VM's disk), config/seal key/TLS read-only from /etc/openbao. The image's entrypoint
+# drops to its openbao user (uid 100, gid 1000), which owns those directories.
+[Unit]
+Description=OpenBao (${name})
+Wants=network-online.target
+After=network-online.target openbao-tls.service
+Requires=openbao-tls.service
+
+[Container]
+Image=${image}
+ContainerName=openbao
+Network=host
+Exec=server
+# The config dir is mounted read-only and already owned by uid 100.
+Environment=SKIP_CHOWN=true
+EnvironmentFile=/etc/openbao/openbao.env
+Volume=/var/lib/openbao:/openbao/data
+Volume=/var/lib/openbao-snapshots:/openbao/snapshots
+Volume=/etc/openbao/config:/openbao/config:ro
+Volume=/etc/openbao/seal:/openbao/seal:ro
+Volume=/etc/openbao/tls:/openbao/tls:ro
+Volume=/etc/openbao/bin:/openbao/bin:ro
+# The API answers (sealed or not; the deploy checks unsealed + cluster afterwards). No quotes in health
+# checks: Quadlet strips them.
+HealthCmd=wget -q -O /dev/null --no-check-certificate https://127.0.0.1:8200/v1/sys/seal-status
+HealthInterval=30s
+HealthTimeout=30s
+HealthStartPeriod=2m
+Notify=healthy
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -626,6 +626,107 @@ vms = {
       ssh_pubkeys  = ["desktop"]
     }
   }
+  bao01 = {
+    # OpenBao (secrets store) node, 3-node integrated-Raft cluster bao01-03 behind the proxy pair
+    # (https://bao.lylat.space). Data on this VM's own disk (no Patroni/Valkey/CephFS dependency), static-key
+    # auto-unseal. Quadlet deployed by services-config (openbao.tf); bao01 self-initializes the cluster.
+    owner              = "services-vms"
+    role               = "bao"
+    ha                 = { group = "bao" } # Proxmox HA; never on a node with another bao VM (Raft quorum)
+    node               = "fichina"
+    vm_id              = 1160
+    image              = "debian13"
+    management_address = "10.20.11.60/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.21.60/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::21:60/64"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.21.60/16"
+        ipv6_address = "fd69:5501::21:60/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "openbao"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  bao02 = {
+    # OpenBao node, joins bao01's Raft cluster. See bao01.
+    owner              = "services-vms"
+    role               = "bao"
+    ha                 = { group = "bao" } # Proxmox HA; never on a node with another bao VM (Raft quorum)
+    node               = "titania"
+    vm_id              = 1161
+    image              = "debian13"
+    management_address = "10.20.11.61/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.21.61/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::21:61/64"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.21.61/16"
+        ipv6_address = "fd69:5501::21:61/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "openbao"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
+  bao03 = {
+    # OpenBao node, joins bao01's Raft cluster. See bao01.
+    owner              = "services-vms"
+    role               = "bao"
+    ha                 = { group = "bao" } # Proxmox HA; never on a node with another bao VM (Raft quorum)
+    node               = "venom"
+    vm_id              = 1162
+    image              = "debian13"
+    management_address = "10.20.11.62/16"
+    network_devices = [
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1201
+        ipv4_address = "10.52.21.62/16"
+        ipv4_gateway = "10.52.0.1"
+        ipv6_address = "fd69:5201::21:62/64"
+      },
+      {
+        bridge       = "vmbr4000"
+        vlan_id      = 1501
+        ipv4_address = "10.55.21.62/16"
+        ipv6_address = "fd69:5501::21:62/64"
+      },
+    ]
+    config = {
+      tags         = ["opentofu", "debian", "openbao"]
+      cpu_cores    = 1
+      memory_mb    = 1024
+      disk_size_gb = 10
+      ssh_username = "mechanic"
+      ssh_pubkeys  = ["desktop"]
+    }
+  }
   arr01 = {
     # Media automation ("arr stack"), single VM: Prowlarr, Sonarr, Radarr, Bazarr, Jellyfin and Seerr in one
     # Podman pod (services-config arr.tf). Media and downloads on CephFS /media (mounted at /data; the torrent

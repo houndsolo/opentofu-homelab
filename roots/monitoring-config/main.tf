@@ -17,11 +17,12 @@ locals {
   radius_vms     = { for name, vm in local.service_vms : name => vm if vm.role == "radius" }
   gitea_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "gitea" }
   arr_vms        = { for name, vm in local.service_vms : name => vm if vm.role == "arr" }
+  openbao_vms    = { for name, vm in local.service_vms : name => vm if vm.role == "bao" }
   proxy_vms      = { for name, vm in local.service_vms : name => vm if vm.role == "proxy" }
   ticketing_vms  = { for name, vm in local.service_vms : name => vm if vm.role == "ticketing" }
   # Grafana Alloy from services-config (alloy.tf) on these VMs: HTTP on the telemetry address (alloy job);
   # they push to Loki's telemetry VIP (logging-guard allows 10.55.0.0/16 on 3100).
-  alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms, local.gitea_vms, local.arr_vms)
+  alloy_service_vms = merge(local.dns_vms, local.netbox_vms, local.nextcloud_vms, local.radius_vms, local.proxy_vms, local.valkey_vms, local.ticketing_vms, local.gitea_vms, local.arr_vms, local.openbao_vms)
   deploy_vms        = merge(local.monitoring_vms, local.grafana_vms, local.logging_vms)
 
   nics = { for name, vm in local.service_vms : name => vm.network_devices == null ? [] : vm.network_devices }
@@ -131,6 +132,7 @@ locals {
       [for name in keys(local.radius_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "radius" } }],
       [for name in keys(local.gitea_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "gitea" } }],
       [for name in keys(local.arr_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "arr" } }],
+      [for name in keys(local.openbao_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "bao" } }],
       [for name in keys(local.proxy_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "proxy" } }],
       [for name in keys(local.ticketing_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.mgmt[name]), labels = { role = "ticketing" } }],
       [for name in keys(local.logging_vms) : { host = name, address = coalesce(local.telemetry_address[name], local.backend_address[name], "0.0.0.0"), labels = { role = "logging" } }],

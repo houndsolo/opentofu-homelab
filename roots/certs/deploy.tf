@@ -1,12 +1,12 @@
-# Copy the certificate to every proxy VM over SSH (management address) and reload nginx if it
-# runs. Re-runs when the certificate changes (renewal) or the VM is rebuilt. The files go through
+# Copy the certificate to every proxy and OpenBao VM over SSH (management address) and reload nginx if it
+# runs (OpenBao's openbao-tls.path picks up the new files itself). Re-runs when the certificate changes (renewal) or the VM is rebuilt. The files go through
 # a private temp dir and are installed as root: fullchain.pem 0644, privkey.pem 0600.
 locals {
   certificate_fullchain = "${acme_certificate.svc.certificate_pem}${acme_certificate.svc.issuer_pem}"
 }
 
 resource "terraform_data" "deploy" {
-  for_each = local.proxy_vms
+  for_each = local.cert_vms
 
   triggers_replace = [
     acme_certificate.svc.certificate_serial,

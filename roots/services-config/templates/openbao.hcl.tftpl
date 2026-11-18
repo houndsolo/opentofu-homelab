@@ -1,0 +1,143 @@
+# Managed by OpenTofu (services-config, openbao.tf). Local edits are overwritten.
+# OpenBao node ${name}: integrated Raft (this VM's disk), static-key auto-unseal, TLS with the *.${domain}
+# wildcard (roots/certs -> /etc/ssl/svc -> openbao-tls.service copies it to /openbao/tls).
+ui            = true
+log_level     = "info"
+api_addr      = "https://${name}.${domain}:8200"
+cluster_addr  = "https://${name}.${domain}:8201"
+
+listener "tcp" {
+  address         = "0.0.0.0:8200"
+  cluster_address = "0.0.0.0:8201"
+  tls_cert_file   = "/openbao/tls/fullchain.pem"
+  tls_key_file    = "/openbao/tls/privkey.pem"
+  # The proxy pair forwards https://bao.${domain}; the audit log shows the real client.
+  x_forwarded_for_authorized_addrs = "${join(",", proxies)}"
+  telemetry {
+    unauthenticated_metrics_access = true
+  }
+}
+
+storage "raft" {
+  path    = "/openbao/data"
+  node_id = "${name}"
+%{ for peer in peers ~}
+  retry_join {
+    leader_api_addr = "https://${peer}.${domain}:8200"
+  }
+%{ endfor ~}
+}
+
+seal "static" {
+  current_key_id = "${key_id}"
+  current_key    = "file:///openbao/seal/unseal.key"
+}
+
+telemetry {
+  prometheus_retention_time = "24h"
+  disable_hostname          = true
+}
+
+# Audit log to stdout = the journal (Alloy ships it to Loki). Same block on every node (declarative devices
+# are enabled by the active node; API-created audit devices are refused by OpenBao 2.x).
+audit "file" "stdout" {
+  description = "audit log to the journal"
+  options {
+    file_path = "stdout"
+  }
+}
+%{ if initialize ~}
+
+# Self-initialization (only on ${name}, the first node): runs once, when the cluster has no data yet. The
+# root token it uses is revoked afterwards; recovery keys are created later by the owner (rotate-keys).
+initialize "secrets" {
+  request "kv" {
+    operation = "update"
+    path      = "sys/mounts/kv"
+    data = {
+      type        = "kv"
+      options     = { version = "2" }
+      description = "lylat secrets"
+    }
+  }
+}
+
+initialize "auth" {
+  request "userpass" {
+    operation = "update"
+    path      = "sys/auth/userpass"
+    data      = { type = "userpass" }
+  }
+  request "approle" {
+    operation = "update"
+    path      = "sys/auth/approle"
+    data      = { type = "approle" }
+  }
+  request "admin-policy" {
+    operation = "update"
+    path      = "sys/policies/acl/admin"
+    data = {
+      policy = <<POLICY
+path "*" {
+  capabilities = ["create", "read", "update", "patch", "delete", "list", "sudo"]
+}
+POLICY
+    }
+  }
+  request "owner" {
+    operation = "update"
+    path      = "auth/userpass/users/${owner}"
+    data = {
+      password = {
+        eval_type       = "string"
+        eval_source     = "env"
+        env_var         = "BAO_INITIAL_PASSWORD"
+        require_present = true
+      }
+      token_policies = ["admin"]
+    }
+  }
+}
+
+# Nightly raft snapshots (openbao-snapshot.timer on every node; only the active node saves one): an AppRole
+# whose token may only read sys/storage/raft/snapshot. role_id "snapshot", secret_id from tofu.
+initialize "snapshots" {
+  request "policy" {
+    operation = "update"
+    path      = "sys/policies/acl/snapshot"
+    data = {
+      policy = <<POLICY
+path "sys/storage/raft/snapshot" {
+  capabilities = ["read"]
+}
+POLICY
+    }
+  }
+  request "role" {
+    operation = "update"
+    path      = "auth/approle/role/snapshot"
+    data = {
+      token_policies = ["snapshot"]
+      token_ttl      = "10m"
+      token_max_ttl  = "10m"
+    }
+  }
+  request "role-id" {
+    operation = "update"
+    path      = "auth/approle/role/snapshot/role-id"
+    data      = { role_id = "snapshot" }
+  }
+  request "secret-id" {
+    operation = "update"
+    path      = "auth/approle/role/snapshot/custom-secret-id"
+    data = {
+      secret_id = {
+        eval_type       = "string"
+        eval_source     = "env"
+        env_var         = "BAO_SNAPSHOT_SECRET_ID"
+        require_present = true
+      }
+    }
+  }
+}
+%{ endif ~}

@@ -50,6 +50,7 @@ containers = {
   bazarr         = { image = "lscr.io/linuxserver/bazarr", version = "v1.6.2-ls372" }          # arr.tf
   jellyfin       = { image = "docker.io/jellyfin/jellyfin", version = "12.4.20261026-211555" } # arr.tf
   seerr          = { image = "docker.io/seerr/seerr", version = "v3.5.2" }                     # arr.tf (Jellyseerr's successor)
+  openbao        = { image = "quay.io/openbao/openbao", version = "2.7.2" }                    # openbao.tf (bao01-03)
 }
 
 # Debian packages: name = version, the upstream version ("18.6" = any Debian revision of 18.6) or a full Debian version

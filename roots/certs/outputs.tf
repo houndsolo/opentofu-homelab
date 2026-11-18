@@ -6,6 +6,6 @@ output "certificate" {
     serial       = acme_certificate.svc.certificate_serial
     not_after    = acme_certificate.svc.certificate_not_after
     renew_window = try("${acme_certificate.svc.renewal_info_window_start} .. ${acme_certificate.svc.renewal_info_window_end}", null)
-    deployed_to  = sort(keys(local.proxy_vms))
+    deployed_to  = sort(keys(local.cert_vms))
   }
 }

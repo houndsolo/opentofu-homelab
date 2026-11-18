@@ -34,6 +34,9 @@ variable "proxy" {
       # "hash $remote_addr consistent" = sticky per client IP (per-node sessions; ip_hash would only hash
       # the first three octets, so a whole /24 would land on one node).
       balance = optional(string, "")
+      # Upstream speaks HTTPS with a certificate valid for this name (role hosts only): nginx verifies it against
+      # the system CAs (the *.lylat.space wildcard on OpenBao). null = plain HTTP.
+      tls_name = optional(string)
       })), {
       grafana       = { vip = "grafana-vip", port = 3000, websockets = true }
       netbox        = { vip = "netbox-vip", port = 80, max_body = "100m" }
@@ -52,6 +55,8 @@ variable "proxy" {
       bazarr   = { role = "arr", port = 6767, websockets = true }
       jellyfin = { role = "arr", port = 8096, websockets = true, stream = true, max_body = "100m" }
       seerr    = { role = "arr", port = 5055, websockets = true }
+      # OpenBao (openbao.tf): bao01-03, TLS end to end (verified), any node answers (standbys forward).
+      bao = { role = "bao", port = 8200, tls_name = "bao.lylat.space" }
     })
     # Plain TCP forwards (nginx stream), name => listen port on every proxy (clients use proxy-vip) and every
     # VM of a role on target_port. Clients must name the port; 22 stays the proxies' own sshd.
@@ -171,11 +176,12 @@ locals {
       servers    = []
       balance    = ""
       tls        = false
+      tls_name   = null
     } if h.vip != null },
     { for name, h in var.proxy.hosts : name => {
       names      = [for n in concat([name], h.aliases) : "${n}.${var.proxy.domain}"]
-      upstream   = "http://${replace(name, "-", "_")}"
-      backend    = "${h.role} VMs ${join(", ", local.proxy_role_servers[name])}"
+      upstream   = "${h.tls_name != null ? "https" : "http"}://${replace(name, "-", "_")}"
+      backend    = "${h.role} VMs ${join(", ", local.proxy_role_servers[name])}${h.tls_name != null ? " (https)" : ""}"
       vip        = null
       websockets = h.websockets
       max_body   = h.max_body
@@ -183,6 +189,7 @@ locals {
       servers    = local.proxy_role_servers[name]
       balance    = h.balance
       tls        = false
+      tls_name   = h.tls_name
     } if h.role != null && length(try(local.proxy_role_servers[name], [])) > 0 },
     { for name, u in local.proxy_pve_upstreams : name => {
       names      = ["${name}.${var.proxy.domain}"]
@@ -195,6 +202,7 @@ locals {
       servers    = u.servers
       balance    = u.balance
       tls        = true
+      tls_name   = null
     } },
   )
 

@@ -18,8 +18,9 @@ locals {
     production = "https://acme-v02.api.letsencrypt.org/directory"
   }
 
-  # Proxy VMs from the shared inventory (services-vms, role "proxy"): each gets the certificate.
-  proxy_vms = { for name, vm in var.vms : name => vm if vm.owner == "services-vms" && vm.role == "proxy" }
+  # VMs from the shared inventory that get the certificate: the proxies (nginx) and the OpenBao nodes
+  # (their API/cluster listener, services-config openbao.tf; a path unit there copies it for the container).
+  cert_vms = { for name, vm in var.vms : name => vm if vm.owner == "services-vms" && contains(["proxy", "bao"], vm.role) }
 }
 
 provider "acme" {
