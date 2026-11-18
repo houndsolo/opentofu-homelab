@@ -5,12 +5,9 @@ locals {
   ) : []
   policy_base_commands = [
     # local_as_rm (underlay export toward the spines): only routes this leaf originated (empty AS path), so a
-    # leaf is never underlay transit. block_local_as_rm is its unused inverse.
+    # leaf is never underlay transit.
     "set policy as-path-list local_as_export rule 10 action 'permit'",
     "set policy as-path-list local_as_export rule 10 regex '^$'",
-    "set policy route-map block_local_as_rm rule 10 action 'deny'",
-    "set policy route-map block_local_as_rm rule 10 match as-path 'local_as_export'",
-    "set policy route-map block_local_as_rm rule 100 action 'permit'",
     "set policy route-map local_as_rm rule 10 action 'permit'",
     "set policy route-map local_as_rm rule 10 match as-path 'local_as_export'",
     "set policy route-map local_as_rm rule 100 action 'deny'",

@@ -136,7 +136,6 @@ needs `ipv4_rt_imports`/`ipv4_rt_exports`; with both false it gets no VPN lines 
 | `RM-<VRF>-BGP-TO-LOCAL-VPN` | VPN export | same filter |
 | `RM-<VRF>-BGP-TO-EVPN` | type-5 advertisement | denies `0.0.0.0/0` and `::/0` in every VRF but `lylat-external`, so only the border leaves originate the default |
 | `RM-EVPN-SPINE-EXPORT` | EVPN export to the spines | rule 1 denies everything that already passed a spine (as-path list `AS-FROM-SPINES`: `_701_`, `_702_`), or the leaf would hand one spine's routes to the other; then denies type-5 for each VRF's own VLAN subnets (hosts are reachable by type-2, every leaf has the gateway subnet); permits the rest |
-| `block_local_as_rm` | nothing | defined, unused |
 
 ### System, monitoring, logs
 
