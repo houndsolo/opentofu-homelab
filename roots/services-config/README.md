@@ -14,7 +14,7 @@ State and plans are encrypted (`state_passphrase`).
 | `dns-keepalived.tf` | keepalived on the DNS pair ([The DNS VIP](#the-dns-vip)) |
 | `dns-node-exporter.tf`, `dns-bind-exporter.tf` | node_exporter (:9100) and bind_exporter (:9119) on the DNS VMs |
 | `dhcp.tf` | the DHCP HA pair, [modules/services/dhcp](../../modules/README.md#servicesdhcp) per VM (VyOS API) |
-| `netbox.tf`, `valkey.tf`, `proxy.tf`, `ticketing.tf`, `nextcloud.tf`, `forgejo.tf`, `radius.tf`, `arr.tf`, `openbao.tf` | the services (table below; the newer ones are documented in their file headers) |
+| `netbox.tf`, `valkey.tf`, `proxy.tf`, `ticketing.tf`, `nextcloud.tf`, `forgejo.tf`, `radius.tf`, `arr.tf` (git-ignored: local to the main checkout, not in the repo), `openbao.tf` | the services (table below; the newer ones are documented in their file headers) |
 | `*-monitoring.tf` (netbox, nextcloud, radius, forgejo, arr, openbao, valkey, proxy, ticketing) | node_exporter, the role's exporters and Alloy, one deployment per VM separate from the service deploy |
 | `alloy.tf` | the Alloy install every Linux service VM gets ([Logs to Loki](#logs-to-loki)) |
 | `telemetry.tf` | each VM's lylat-telemetry address (`scrape_ip`), where every exporter and Alloy listens |

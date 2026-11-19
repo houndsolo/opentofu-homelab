@@ -52,7 +52,7 @@ variable "proxy" {
       # Forgejo (forgejo.tf): git01 active, git02 hot standby (Forgejo isn't active/active-ready). Pushes and
       # LFS uploads over HTTPS stream through without a size limit.
       git = { role = "forgejo", port = 3000, max_body = "0", stream = true, active_passive = true }
-      # arr stack (arr.tf): one VM, one host per app. Sonarr/Radarr/Prowlarr/Bazarr/Seerr use websockets for
+      # arr stack (arr.tf): one VM, one host per app. Sonarr/Radarr/Whisparr/Prowlarr/Bazarr/Seerr use websockets for
       # live UI updates; Jellyfin streams video (no buffering, long timeouts).
       sonarr   = { role = "arr", port = 8989, websockets = true }
       radarr   = { role = "arr", port = 7878, websockets = true }
@@ -60,6 +60,7 @@ variable "proxy" {
       bazarr   = { role = "arr", port = 6767, websockets = true }
       jellyfin = { role = "arr", port = 8096, websockets = true, stream = true, max_body = "100m" }
       seerr    = { role = "arr", port = 5055, websockets = true }
+      whisparr = { role = "arr", port = 6969, websockets = true }
       # OpenBao (openbao.tf): bao01-03, TLS end to end (verified), any node answers (standbys forward).
       bao = { role = "bao", port = 8200, tls_name = "bao.lylat.space" }
     })

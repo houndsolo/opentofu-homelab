@@ -15,3 +15,10 @@ tooling/tests/__pycache__/
 crash.log
 tmp/
 KNOWN-ISSUES.md
+
+# arr stack (arr01): kept out of the public repo/GitHub mirror, exists only in the main checkout.
+# Small mentions stay public (VM entry, proxy hosts, DNS, image pins). Worktrees: link them (plan-worktree.sh).
+roots/services-config/arr.tf
+roots/services-config/arr-monitoring.tf
+roots/services-config/templates/arr.pod.tftpl
+roots/services-config/templates/arr-*.tftpl
